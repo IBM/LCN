@@ -1,0 +1,16 @@
+# Format is the following:
+# LCN
+# list of sentences, one per line
+# label: lower_prob <= P(phi) <= upper_prob for Type 1 ; tau=True/False
+# label: lower_prob <= P(phi|psi) <= upper_prob for Type 2
+# IMPORTANT: pay attention to spaces between 
+# also, the empty lines and the ones starting with # are skipped
+# Variables: A, B, C, D, E
+
+s1: 0.1 <= P(B) <= 0.2
+s2: 0.05 <= P(E) <= 0.1
+s3: 0.6 <= P(A | (B or E)) <= 0.9
+s4: 0.5 <= P(!(C xor D) | A) <= 0.7 ; True
+s5: 0.05 <= P(A) <= 0.1
+
+

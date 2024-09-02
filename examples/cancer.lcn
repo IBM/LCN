@@ -1,0 +1,17 @@
+# Format is the following:
+# LCN
+# list of sentences, one per line
+# label: lower_prob <= P(phi) <= upper_prob for Type 1
+# label: lower_prob <= P(phi|psi) <= upper_prob for Type 2
+# IMPORTANT: pay attention to spaces between 
+# also, the empty lines and the ones starting with # are skipped
+
+s1: 0.1 <= P(A) <= 0.3
+s2: 0.7 <= P(B|A) <= 0.9
+s3: 0.4 <= P(C|A) <= 0.7
+s4: 0.7 <= P(D|(B and C)) <= 0.9
+s5: 0.7 <= P(E|D) <= 0.9
+s6: 0.06 <= P(E|!D) <= 0.09
+s7: 0.05 <= P(D) <= 0.2
+s8: 0.2 <= P(B) <= 0.4
+

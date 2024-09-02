@@ -1,0 +1,25 @@
+# Format is the following:
+# LCN
+# list of sentences, one per line
+# label: lower_prob <= P(phi) <= upper_prob for Type 1
+# label: lower_prob <= P(phi|psi) <= upper_prob for Type 2
+# IMPORTANT: pay attention to spaces between 
+# also, the empty lines and the ones starting with # are skipped
+# Friends: F1, F2, F3
+# Smokers: S1, S2, s3
+# Cancers: C1, C2, C3
+
+s1: 0.5 <= P(F1 | (F2 and F3)) <= 1.0
+s2: 0.5 <= P(F2 | (F1 and F3)) <= 1.0
+s3: 0.5 <= P(F3 | (F1 and F2)) <= 1.0
+s4: 0.0 <= P((S1 or S2) | F1) <= 0.2 ; True
+s5: 0.0 <= P((S1 or S3) | F3) <= 0.2 ; True
+s6: 0.0 <= P((S2 or S3) | F2) <= 0.2 ; True
+s7: 0.03 <= P(C1 | S1) <= 0.04
+s8: 0.03 <= P(C2 | S2) <= 0.04
+s9: 0.03 <= P(C3 | S3) <= 0.04
+s10: 0.0 <= P(C1 | !S1) <= 0.01
+s11: 0.0 <= P(C2 | !S2) <= 0.01
+s12: 0.0 <= P(C3 | !S3) <= 0.01
+
+

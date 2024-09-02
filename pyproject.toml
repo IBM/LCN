@@ -1,0 +1,39 @@
+[build-system]
+requires = [
+    "setuptools>=60",
+    "setuptools-scm>=8.0"]
+
+[project]
+name = "lcn"
+dynamic = ["version"]
+description = "Logical Credal Networks"
+license = {text = "Apache-2.0"}
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers=[
+    "License :: OSI Approved :: Apache Software License"
+]
+dependencies = [
+    # TODO: loosen dependencies
+    "numpy>=1.22.4",
+    "pandas>=1.5.0",
+    "scikit-learn>=1.1",
+    "scipy>=1.8.1",
+    "tqdm>=4.65.0",
+    "matplotlib",
+    "networkx",
+    "ipykernel",
+    "ipywidgets",
+    "pyomo",
+    "gravis"
+]
+
+[tool.setuptools.packages.find]
+exclude = ["tests", "tests.*"]
+namespaces = false
+
+[tool.setuptools_scm]
+version_file = "lcn/version.py"
+
+[project.urls]
+Source = "https://github.ibm.com/IBM-Research-AI/LCN"
