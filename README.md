@@ -68,6 +68,60 @@ The folder `examples` contains additional LCN examples specified in the `.lcn`
 file format described above.
 
 ## LCN Exact Inference
+Given an LCN file and a query formula $\phi$, *marginal inference* means computing exact posterior lower and upper bounds on $P(\phi)$. An exact marginal inference algorithm is implemented by the `ExactInference` class (located in `lcn.inference.marginal` module) and can be used to compute the probability bounds on the query formula. We give next a small example:
+
+```
+import lcn.inference.marginal.ExactInference
+
+# Specify the LCN program
+file_name = "examples/asia.lcn"
+
+# Create the LCN instance from the .lcn file
+l = LCN()
+l.from_lcn(file_name)
+
+# Specify the query formula as a string
+query = "(B and !C)"
+
+# Run exact marginal inference
+algo = ExactInferece(l)
+algo.run(query, debug=True)
+```
+The output of the exact algorithm is shown below:
+
+```
+Parsed LCN format with 5 sentences.
+Build the LCN's primal graph.
+Build the LCN's structure graph.
+Build the LCN's independence assumptions (LMC).
+LCN
+s2: 0.05 <= P(B) <= 0.1
+s3: 0.3 <= P(S) <= 0.4
+s4: 0.1 <= P((B or C) | S) <= 0.2
+s5: 0.6 <= P(D | B and C) <= 0.7
+s6: 0.7 <= P(!(X xor D) | C) <= 0.8
+
+Local Markov Condition yields 2 independencies.
+independence: (D ⟂ S | C, B, X)
+independence: (X ⟂ B, S | D, C)
+Solver status: ok
+[Ipopt] objective=1.0, optimal=True
+CONSISTENT
+[Local Markov Condition: 2 independencies]
+(D ⟂ S | C, B, X)
+(X ⟂ B, S | D, C)
+adding constraints for independence: (D ⟂ S | C, B, X)
+adding constraints for independence: (X ⟂ B, S | D, C)
+Solver status: ok
+[Ipopt] objective=-7.927970481842095e-08, optimal=True
+adding constraints for independence: (D ⟂ S | C, B, X)
+adding constraints for independence: (X ⟂ B, S | D, C)
+Solver status: ok
+[Ipopt] objective=0.10000007033870394, optimal=True
+[ExactInference] Result for (B and !C) is: [ 7.927970481842095e-08, 0.10000007033870394 ]
+[ExactInference] Feasibility: lb=True, ub=True, all=True
+[ExactInference] Time elapsed: 0.21419095993041992 sec
+```
 
 ## LCN Approximate Inference
 
