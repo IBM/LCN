@@ -1,3 +1,7 @@
+![Static Badge](https://img.shields.io/badge/build-passing-brightgreen?style=flat)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+
 # Logical Credal Networks
 Logical Credal Networks (LCNs) is an expressive probabilistic logic that 
 generalizes prior formalisms that combine logic and probability. Given imprecise information represented by probability bounds and conditional probability bounds 
@@ -26,30 +30,33 @@ over propositions `A, B` and `C`.
 ```
 
 ### LCN Syntax
-The LCN package supports the following basic syntax for LCN programs. A 
-*proposition* can be specified by any string as long as it starts with a letter
+The LCN package supports the following basic syntax for LCN programs. An LCN program can be easily specified in a `.lcn` file. 
+
+* An LCN *proposition* can be specified by any string as long as it starts with a letter
 and does not contain spaces. For example `A`, `x1` or `Abc12` are valid LCN
 propositions. 
 
-A *formula* can be specified by a set of propositions connected by logical connectors.
-The following connectors can be used: `and`, `or`, `xor`, `nand`, and `not`. The
+* An LCN *formula* can be specified by a set of propositions connected by logical connectors. The following connectors can be used: `and`, `or`, `xor`, `nand`, and `not`. The
 connectors can be specified by the following char symbols: `&`, `|`, `^`, `/` and `!`, 
 respectively. In addition, it is possible to use paranthesis `()` for a more
 readable formula. Furthermore, for increased readability we recommend using the 
 long form logical connectors instead of their short form counterparts (i.e., use `and` instead of `&`).
 
-The LCN sentences can be simply specified as follows:
+The two types of LCN sentences can be specified as follows:
 
 ```
 label: lb <= P(formula) <= ub
 label: lb <= P(formula | formula) <= ub
 ```
 
-where `label` is any string that starts with a letter and does not contain spaces.
+where `label` is any string that starts with a letter and does not contain spaces. Note that each LCN sentence must have a unique label.
 
 The LCN below encodes the following simple example: *Bronchitis* (`B`) is more likely than *Smoking* (`S`); *Smoking* may cause *Cancer* (`C`) or *Bronchitis*; *Dyspnea* (`D`) or shortness of breadth is a common symptom for *Cancer* and *Bronchitis*; in case of *Cancer* we have either a positive *X-Ray* result (`X`) and *Dyspnea*, or a negative *X-Ray* and no *Dyspnea*. 
 
 ```
+# This line is a comment
+# ... and so is this line :)
+
 s1: 0.05 <= P(B) <= 0.1
 s2: 0.3 <= P(S) <= 0.4
 s3: 0.1 <= P((B or C) | S) <= 0.2
@@ -109,12 +116,12 @@ export PATH="/dir/to/install/bin:$PATH"
 
 ### Installing ipopt on MacOS
 
-To install `ipopt` on MacOS just run `brew install ipopt`
+Install `ipopt` on MacOS is straightforward by just running `brew install ipopt`
 
 
 ## References
 
-If you found LCN useful, please cite the following papers:
+If you found the LCN package useful, please cite the following papers:
 
 ```
 @inproceedings{ lcn2022neurips,
