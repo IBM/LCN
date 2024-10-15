@@ -522,7 +522,7 @@ class ExactMAPInference:
 if __name__ == "__main__":
 
     # Load the LCN
-    file_name = "/home/radu/git/fm-factual/examples/lcn/factual2.lcn"
+    file_name = "examples/asia.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
     print(l)
@@ -534,13 +534,13 @@ if __name__ == "__main__":
     else:
         print("INCONSISTENT")
 
-    evidence = {}
-    query = ['A1']
+    evidence = {'D': 1, 'X': 0, 'S': 1}
+    query = ['B', 'C']
 
     # Run exact MAP inference
     algo = ExactMAPInference(
         lcn=l, 
-        method="maximax", 
+        method="maximin", 
         eps=0., 
         max_discrepancy=3, 
         num_iterations=5, 

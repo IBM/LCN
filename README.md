@@ -68,10 +68,10 @@ The folder `examples` contains additional LCN examples specified in the `.lcn`
 file format described above.
 
 ## LCN Exact Inference
-Given an LCN file and a query formula $\phi$, *marginal inference* means computing exact posterior lower and upper bounds on $P(\phi)$. An exact marginal inference algorithm is implemented by the `ExactInference` class (located in `lcn.inference.marginal` module) and can be used to compute the probability bounds on the query formula. We give next a small example:
+Given an LCN file and a query formula $\phi$, *marginal inference* means computing exact posterior lower and upper bounds on $P(\phi)$. An exact marginal inference algorithm is implemented by the `ExactInference` class (located in `lcn.inference.exact.marginal` module) and can be used to compute the probability bounds on the query formula. We give next a small example:
 
 ```
-import lcn.inference.marginal.ExactInference
+import lcn.inference.exact.marginal.ExactInference
 
 # Specify the LCN program
 file_name = "examples/asia.lcn"
@@ -124,8 +124,77 @@ Solver status: ok
 ```
 
 ## LCN Approximate Inference
+For approximate marginal inferece, we can use the ARIEL message-passing scheme implemented in the `ApproximateInference` class available in the `lcn.inference.approximate.marginal` module. The algorithm computes approximate lower and upper probability bounds on the posterior probability of the LCN's propositions. As before, we can use the following example:
+
+```
+import lcn.inference.approximate.marginal.ApproximateInference
+
+# Specify the LCN program
+file_name = "examples/asia.lcn"
+
+# Create the LCN instance from the .lcn file
+l = LCN()
+l.from_lcn(file_name)
+
+# Run exact marginal inference
+algo = ApproximateInferece(l)
+algo.run(n_iters=10, threshold=0.000001, debug=False)
+```
+
+The output of the approximate inference algorithm is shown below:
+
+```
+Parsed LCN format with 5 sentences.
+Build the LCN's primal graph.
+Build the LCN's structure graph.
+Build the LCN's independence assumptions (LMC).
+LCN
+s2: 0.05 <= P(B) <= 0.1
+s3: 0.3 <= P(S) <= 0.4
+s4: 0.1 <= P((B or C) | S) <= 0.2
+s5: 0.6 <= P(D | B and C) <= 0.7
+s6: 0.7 <= P(!(X xor D) | C) <= 0.8
+
+Local Markov Condition yields 2 independencies.
+independence: (D ⟂ S | B, X, C)
+independence: (X ⟂ S, B | D, C)
+Solver status: ok
+[Ipopt] objective=1.0, optimal=True
+CONSISTENT
+[ApproximateInference] Running marginal inference...
+Iteration 0 ...
+### Variable to factor messages ###
+### Factor to variable messages ###
+After iteration 0 average change in messages is 0.1156250431563193
+Elapsed time per iteration: 0.3842339515686035 sec
+Iteration 1 ...
+### Variable to factor messages ###
+### Factor to variable messages ###
+After iteration 1 average change in messages is 0.06238024828227323
+Elapsed time per iteration: 0.36359095573425293 sec
+Iteration 2 ...
+### Variable to factor messages ###
+### Factor to variable messages ###
+After iteration 2 average change in messages is 0.003005215647402235
+Elapsed time per iteration: 0.37595176696777344 sec
+Iteration 3 ...
+### Variable to factor messages ###
+### Factor to variable messages ###
+After iteration 3 average change in messages is 5.561350752403057e-11
+Elapsed time per iteration: 0.3729119300842285 sec
+Converged after 3 iterations with delta=5.561350752403057e-11
+[ApproximateInference] Marginals:
+B: [0.04999999249186405, 0.10000000738802459]
+S: [0.29999999253112253, 0.400000007458209]
+C: [7.203050475106924e-08, 0.9541665925512998]
+D: [0.0015000852157267832, 0.9992499145950501]
+X: [6.919372188563531e-08, 0.9999999356848208]
+[ApproximateInference] Time elapsed: 1.4968690872192383 sec
+```
 
 ## MAP and Marginal MAP Inference for LCNs
+In addition to marginal inference, the LCN package implements exact and approximate algorithms for computing complete or partial most probable explanations of evidence (i.e., observed truth values of a set of propositions) in a given LCN. The algorithms are based on depth-first search, limited discrepancy search or simulated annealing. We also provide an extension called AMAP of the ARIEL scheme for computing MAP and Marginal MAP explanations.
+
 
 ## Installation Instructions
 For development and running experiments, we need to create a Python 3.10 
