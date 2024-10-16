@@ -27,7 +27,7 @@ from collections import deque
 from lcn.model import LCN, SentenceType, Formula, Sentence
 from lcn.inference.factor_graph import FactorGraph, FactorNode, VariableNode, FactorGraphEdge
 from lcn.inference.utils import check_consistency
-from lcn.inference.approximate.marginal import ApproximateInference
+from lcn.inference.approx_marginal import ApproximateInference
 from lcn.inference.utils import make_init_config, select_neighbor, find_neighbors
 
 infinity = float('inf')
@@ -1144,7 +1144,7 @@ class ApproximateMAPInference:
 if __name__ == "__main__":
 
     # Load the LCN
-    file_name = "/home/radu/git/fm-factual/examples/lcn/factual.lcn"
+    file_name = "examples/asia.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
     print(l)
@@ -1156,8 +1156,9 @@ if __name__ == "__main__":
     else:
         print("INCONSISTENT")
 
-    evidence = {} #{'S': 0, 'X': 1}
-    query = ['A1', 'A2']
+    evidence = {'D': 1, 'X': 0, 'S': 1}
+    query = ['B', 'C']
+
     # Run approximate marginal inference
     algo = ApproximateMAPInference(
         lcn=l, 

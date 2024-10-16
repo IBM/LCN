@@ -332,7 +332,7 @@ class ExactInferece:
 if __name__ == "__main__":
 
     # Load the LCN
-    file_name = "/home/radu/git/fm-factual/examples/lcn/asia2.lcn"
+    file_name = "examples/asia.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
     print(l)
@@ -345,9 +345,9 @@ if __name__ == "__main__":
         print("INCONSISTENT")
 
     # Run exact marginal inference
-    query = "X and !S and B and !C and !D"
+    query = "(B and !C)"
     algo = ExactInferece(lcn=l)
-    algo.run(query_formula=query, debug=True)
+    algo.run(query_formula=query, debug=False)
 
 
 

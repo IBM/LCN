@@ -568,7 +568,7 @@ class ApproximateInference:
 if __name__ == "__main__":
 
     # Load the LCN
-    file_name = "/home/radu/git/fm-factual/examples/lcn/alarm.lcn"
+    file_name = "examples/asia.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
     print(l)
