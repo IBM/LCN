@@ -25,7 +25,7 @@ from collections import deque
 
 # Local
 from lcn.model import LCN
-from lcn.inference.exact.marginal import ExactInferece
+from lcn.inference.exact_marginal import ExactInferece
 from lcn.inference.utils import make_conjunction, check_consistency
 from lcn.inference.utils import make_init_config, select_neighbor, find_neighbors
 

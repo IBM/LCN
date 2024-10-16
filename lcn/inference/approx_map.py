@@ -27,7 +27,7 @@ from collections import deque
 from lcn.model import LCN, SentenceType, Formula, Sentence
 from lcn.inference.factor_graph import FactorGraph, FactorNode, VariableNode, FactorGraphEdge
 from lcn.inference.utils import check_consistency
-from lcn.inference.approximate.marginal import ApproximateInference
+from lcn.inference.approx_marginal import ApproximateInference
 from lcn.inference.utils import make_init_config, select_neighbor, find_neighbors
 
 infinity = float('inf')
