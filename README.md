@@ -113,10 +113,10 @@ The folder `examples` contains additional LCN examples specified in the `.lcn`
 file format described above.
 
 ## Exact Marginal Inference for LCNs
-Given an LCN file and a query formula $\phi$, *marginal inference* means computing exact posterior lower and upper bounds on $P(\phi)$. An exact marginal inference algorithm is implemented by the `ExactInference` class (located in `lcn.inference.exact.marginal` module) and can be used to compute the probability bounds on the query formula. We give next a small example:
+Given an LCN file and a query formula $\phi$, *marginal inference* means computing exact posterior lower and upper bounds on $P(\phi)$. An exact marginal inference algorithm is implemented by the `ExactInference` class (located in `lcn.inference.exact_marginal` module) and can be used to compute the probability bounds on the query formula. We give next a small example:
 
 ```
-import lcn.inference.exact.marginal.ExactInference
+import lcn.inference.exact_marginal.ExactInference
 
 # Specify the LCN program
 file_name = "examples/asia.lcn"
@@ -169,10 +169,10 @@ Solver status: ok
 ```
 
 ## Approximate Marginal Inference for LCNs
-For approximate marginal inferece, we can use the ARIEL message-passing scheme implemented in the `ApproximateInference` class available in the `lcn.inference.approximate.marginal` module. The algorithm computes approximate lower and upper probability bounds on the posterior probability of the LCN's propositions. As before, we can use the following example:
+For approximate marginal inferece, we can use the ARIEL message-passing scheme implemented in the `ApproximateInference` class available in the `lcn.inference.approx_marginal` module. The algorithm computes approximate lower and upper probability bounds on the posterior probability of the LCN's propositions. As before, we can use the following example:
 
 ```
-import lcn.inference.approximate.marginal.ApproximateInference
+import lcn.inference.approx_marginal.ApproximateInference
 
 # Specify the LCN program
 file_name = "examples/asia.lcn"
@@ -244,7 +244,7 @@ In addition to marginal inference, the LCN package implements exact and approxim
 For exact MAP/MMAP inference, we can use the following example:
 
 ```
-import lcn.inference.exact.map.ExactMAPInference
+import lcn.inference.exact_map.ExactMAPInference
 
 # Specify the LCN program
 file_name = "examples/asia.lcn"
@@ -313,7 +313,7 @@ CONSISTENT
 For approximate MAP/MMAP inference, we can use the following example:
 
 ```
-import lcn.inference.approximate.map.ApproximateMAPInference
+import lcn.inference.approx_map.ApproximateMAPInference
 
 # Specify the LCN program
 file_name = "examples/asia.lcn"
