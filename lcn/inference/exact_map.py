@@ -25,7 +25,7 @@ from collections import deque
 
 # Local
 from lcn.model import LCN
-from lcn.inference.exact_marginal import ExactInferece
+from lcn.inference.exact_marginal import ExactMarginalInference
 from lcn.inference.utils import make_conjunction, check_consistency
 from lcn.inference.utils import make_init_config, select_neighbor, find_neighbors
 
@@ -171,7 +171,7 @@ class ExactMAPInference:
         print(f"[DFS] MAP method: {self.method}")
 
         # Create the evaluator
-        evaluator = ExactInferece(self.lcn)
+        evaluator = ExactMarginalInference(self.lcn)
 
         # Initialize the search space
         stack = deque()
@@ -280,7 +280,7 @@ class ExactMAPInference:
         print(f"[LDS] MAP method: {self.method}")
 
         # Create the evaluator
-        evaluator = ExactInferece(self.lcn)
+        evaluator = ExactMarginalInference(self.lcn)
 
         # Initialize the search space
         stack = deque()
@@ -412,7 +412,7 @@ class ExactMAPInference:
         print(f"[SA] MAP config evaluation: exact")
 
         # Create the evaluator
-        evaluator = ExactInferece(self.lcn)
+        evaluator = ExactMarginalInference(self.lcn)
 
         # Initialize the cache and start the timer
         cache = {}

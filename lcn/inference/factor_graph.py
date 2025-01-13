@@ -94,7 +94,26 @@ class FactorNode:
             s: dict
     ) -> bool:
         """
-        Check if the current factor node includes the input scope.
+        Check if the scope of the current factor node matches the input scope.
+
+        Args:
+            s: dict
+                A dictionary containing the atoms of the input scope.
+
+        Returns:
+            True if the factor node's scope matches the input scope, else False.
+        """
+        if len(self.scope) == len(s) and all(elem in self.scope for elem in s.keys()):
+            return True
+        else:
+            return False 
+
+    def is_scope_included(
+            self, 
+            s: dict
+    ) -> bool:
+        """
+        Check if the scope of the current factor node includes the input scope.
 
         Args:
             s: dict
@@ -103,10 +122,11 @@ class FactorNode:
         Returns:
             True if the factor node's scope contains the input scope, else False.
         """
-        if len(self.scope) == len(s) and all(elem in self.scope for elem in s.keys()):
+        if all(elem in self.scope for elem in s.keys()):
             return True
         else:
             return False 
+        
 
     def __str__(self):
         output = f"FactorNode: {self.label}\n"
@@ -152,7 +172,8 @@ class FactorGraph:
 
     def __init__(
             self, 
-            lcn: LCN
+            lcn: LCN,
+            max_factors: bool = False
     ):
         """
         Create the factor graph of the input LCN model.
@@ -160,12 +181,20 @@ class FactorGraph:
         Args:
             lcn: LCN
                 The input LCN model.
+            max_factors: bool
+                The flag indicating that maximal factors are constructed. By
+                default, the flag is False. If True, then non-maximal factor 
+                nodes are merged into maximal ones.
         """
 
         self.lcn = lcn
+        self.max_factors = max_factors
+
         self.variable_nodes = {} # dict {str: VariableNode}
         self.factor_nodes = {} # dict {str: FactorNode}
+        
         self.edges = []
+        
         self.variable_node_neighbors = {} # dict {str: List[FactorNode]}
         self.factor_node_neighbors = {} # dict {str: VariableNode}
 
@@ -207,12 +236,15 @@ class FactorGraph:
         list into subgroups such that all sentences in a subgroup span the
         same set of atoms/variables.
 
+        If the max_factors flag is True then only maximal factor nodes are
+        constructed from the list of sentences.
+
         Args:
             sentences: List[Sentence]
                 The input list of sentences.
         """
 
-        # Sort sentences in decreasing order of their scope sizes
+        # Sort sentences in decreasing order of their scope sizes (largest first)
         temp = sorted(sentences, key=lambda x: len(x.atoms), reverse=True)
         
         # Group sentences in corresponding factors so that all sentences in a
@@ -223,13 +255,20 @@ class FactorGraph:
         self.factor_nodes[f.label] = f
         while len(temp) > 0:
             s = temp.pop(0)
-            found = False
+            found = False # check if candidate factor node exists
             for _, nf in self.factor_nodes.items():
-                if nf.is_scope_equal(s.atoms):
-                    nf.add_sentence(s)
-                    found = True
-                    break
-            if not found:
+                if not self.max_factors:
+                    if nf.is_scope_equal(s.atoms):
+                        nf.add_sentence(s)
+                        found = True
+                        break
+                else:
+                    if nf.is_scope_included(s.atoms):
+                        nf.add_sentence(s)
+                        found = True
+                        break
+
+            if not found: # create new factor node
                 f = FactorNode(label=f"f{index}")
                 index += 1
                 f.add_sentence(s)

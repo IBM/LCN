@@ -1,0 +1,65 @@
+# Format is the following:
+# LCN
+# list of sentences, one per line
+# label: lower_prob <= P(phi) <= upper_prob for Type 1
+# label: lower_prob <= P(phi|psi) <= upper_prob for Type 2
+# IMPORTANT: pay attention to spaces between 
+# also, the empty lines and the ones starting with # are skipped
+# Instrumental: X1
+# Treatment: X2
+# Recovery: X3
+# Exogenous variable: U1, U2, U3, U4
+
+# Mechanisms
+
+s0: 0 <= P(X2 | X1) <= 1
+
+s1: 1 <= P(!X2 | !U1 and !U2 and !X1) <= 1
+s2: 1 <= P(!X2 | !U1 and !U2 and X1) <= 1
+s3: 1 <= P(!X2 | !U1 and U2 and !X1) <= 1
+s4: 1 <= P(X2 | !U1 and U2 and X1) <= 1
+s5: 1 <= P(X2 | U1 and !U2 and !X1) <= 1
+s6: 1 <= P(!X2 | U1 and !U2 and X1) <= 1
+s7: 1 <= P(X2 | U1 and U2 and !X1) <= 1
+s8: 1 <= P(X2 | U1 and U2 and X1) <= 1
+
+s9: 1 <= P(!X3 | !U3 and !U4 and !X2) <= 1
+s10: 1 <= P(!X3 | !U3 and !U4 and X2) <= 1
+s11: 1 <= P(!X3 | !U3 and U4 and !X2) <= 1
+s12: 1 <= P(X3 | !U3 and U4 and X2) <= 1
+s13: 1 <= P(X3 | U3 and !U4 and !X2) <= 1
+s14: 1 <= P(!X3 | U3 and !U4 and X2) <= 1
+s15: 1 <= P(X3 | U3 and U4 and !X2) <= 1
+s16: 1 <= P(X3 | U3 and U4 and X2) <= 1
+
+# Dependence between U_i
+
+s99: 0 <= P(U4 | U3 or U2 or U1) <= 1
+s98: 0 <= P(U3 | U2 or U1) <= 1
+s97: 0 <= P(U2 | U1) <= 1
+
+# Empirical distributions:
+
+s17: 0.32 <= P(!X3 and !X2 | !X1) <= 0.32
+s18: 0.32 <= P(!X3 and X2 | !X1) <= 0.32
+s19: 0.04 <= P(X3 and !X2 | !X1) <= 0.04
+s20: 0.32 <= P(X3 and X2 | !X1) <= 0.32
+s21: 0.02 <= P(!X3 and !X2 | X1) <= 0.02
+s22: 0.17 <= P(!X3 and X2 | X1) <= 0.17
+s23: 0.67 <= P(X3 and !X2 | X1) <= 0.67
+s24: 0.14 <= P(X3 and X2 | X1) <= 0.14
+
+s25: 0.1 <= P(X1) <= 0.1
+
+# Twin network
+
+s26: 1 <= P(!X2L) <= 1
+
+s27: 1 <= P(!X3L | !U3 and !U4 and !X2L) <= 1
+s28: 1 <= P(!X3L | !U3 and !U4 and X2L) <= 1
+s29: 1 <= P(!X3L | !U3 and U4 and !X2L) <= 1
+s30: 1 <= P(X3L | !U3 and U4 and X2L) <= 1
+s31: 1 <= P(X3L | U3 and !U4 and !X2L) <= 1
+s32: 1 <= P(!X3L | U3 and !U4 and X2L) <= 1
+s33: 1 <= P(X3L | U3 and U4 and !X2L) <= 1
+s34: 1 <= P(X3L | U3 and U4 and X2L) <= 1

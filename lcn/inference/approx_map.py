@@ -27,7 +27,7 @@ from collections import deque
 from lcn.model import LCN, SentenceType, Formula, Sentence
 from lcn.inference.factor_graph import FactorGraph, FactorNode, VariableNode, FactorGraphEdge
 from lcn.inference.utils import check_consistency
-from lcn.inference.approx_marginal import ApproximateInference
+from lcn.inference.approx_marginal import ApproximateMarginalInference
 from lcn.inference.utils import make_init_config, select_neighbor, find_neighbors
 
 infinity = float('inf')
@@ -169,7 +169,7 @@ def eval_approx_map_assignment(
     l, q = build_augmented_lcn(lcn, assignment, debug)
 
     # Create the evaluator
-    ariel = ApproximateInference(lcn=l)
+    ariel = ApproximateMarginalInference(lcn=l)
     ariel.run(n_iters=n_iters, threshold=threshold, verbosity=0)
     m = ariel.marginals[q]
     elapsed = time.time() - t_start

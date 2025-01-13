@@ -70,8 +70,8 @@ def solve_factor_subproblem(
 
     # Create the model and variables
     model = ConcreteModel()
-    model.ITEMS = Set(initialize=index.keys())
-    model.AUX = Set(initialize=multipliers.keys())
+    model.ITEMS = Set(initialize=sorted(index.keys()))
+    model.AUX = Set(initialize=sorted(multipliers.keys()))
     model.p = Var(model.ITEMS, within=NonNegativeReals)
     model.v = Var(model.AUX, within=NonNegativeReals)
     model.constr = ConstraintList()
@@ -138,12 +138,18 @@ def solve_factor_subproblem(
         temp = Formula(label=n.name, formula=n.name)
         A[j] = 1 if temp.evaluate(table=config) == True else 0
 
-    penalty = 1000.0
+    # penalty = 1000.0
+    # if sense == 'min':
+    #     obj = sum(A[i]*model.p[i] for i in model.ITEMS) + penalty * (sum(model.v[j] for j in model.AUX))
+    #     model.objective = Objective(expr=obj, sense=minimize)
+    # else:
+    #     obj = sum(A[i]*model.p[i] for i in model.ITEMS) - penalty * (sum(model.v[j] for j in model.AUX))
+    #     model.objective = Objective(expr=obj, sense=maximize)
     if sense == 'min':
-        obj = sum(A[i]*model.p[i] for i in model.ITEMS) + penalty * (sum(model.v[j] for j in model.AUX))
+        obj = sum(A[i]*model.p[i] for i in model.ITEMS)
         model.objective = Objective(expr=obj, sense=minimize)
     else:
-        obj = sum(A[i]*model.p[i] for i in model.ITEMS) - penalty * (sum(model.v[j] for j in model.AUX))
+        obj = sum(A[i]*model.p[i] for i in model.ITEMS)
         model.objective = Objective(expr=obj, sense=maximize)
 
     try:
@@ -374,7 +380,7 @@ class Marginal:
             self.lower_bound = max(self.lower_bound, msg.lower_bound)
             self.upper_bound = min(self.upper_bound, msg.upper_bound)
     
-class ApproximateInference:
+class ApproximateMarginalInference:
     """
     Approximate Inference for LCNs. Implements the belief propagation style
     algorithm described in [Marinescu et al. Approximate Inference in LCNs. IJCAI-2023].
@@ -382,7 +388,7 @@ class ApproximateInference:
 
     def __init__(
             self, 
-            lcn: LCN
+            lcn: LCN,
     ):
         """
         Constructor for the approximate inference solver.
@@ -403,7 +409,8 @@ class ApproximateInference:
             self, 
             n_iters: int = 10, 
             threshold: float = 0.000001, 
-            debug: bool = False, 
+            debug: bool = False,
+            max_factors: bool = False, 
             evidence: dict = {},
             verbosity: int = 1
     ):
@@ -417,6 +424,9 @@ class ApproximateInference:
                 The threshold used to decide the convergence of the algorithm.
             debug: bool
                 The flag indicating debugging mode (default is False).
+            max_factors: bool
+                The flag indicating maximal factors (default is False). If True,
+                only maximal factor nodes are constructed (by merging the subsummed ones).
             evidence: dict
                 The optional evidence given as input.
             verbosity: int
@@ -425,18 +435,24 @@ class ApproximateInference:
 
         self.evidence = evidence
         self.threshold = threshold
+        self.max_factors = max_factors
+
+        # Start the timer
         t_start = time.time()
 
         # Create the factor graph
         assert(self.fg is None)
-        self.fg = FactorGraph(lcn=self.lcn)
+        self.fg = FactorGraph(lcn=self.lcn, max_factors=self.max_factors)
         if debug:
             print("Factor graph")
             print(self.fg)
-        self.fg.add_evidence(evidence)
-        if debug:
-            print("Factor graph with evidence")
-            print(self.fg)
+
+        # If evidence is given, add it to the factor graph nodes
+        if len(evidence) > 0:
+            self.fg.add_evidence(evidence)
+            if debug:
+                print("Factor graph with evidence")
+                print(self.fg)
 
         # Initialize the messages
         for e in self.fg.edges:
@@ -560,7 +576,7 @@ class ApproximateInference:
         
         if verbosity > 0:
             print(f"[ApproximateInference] Marginals:")
-            for nid, _ in self.fg.variable_nodes.items():
+            for nid in sorted(self.fg.variable_nodes.keys()):
                 marg = self.marginals[nid]
                 print(f"{nid}: [{marg.lower_bound}, {marg.upper_bound}]")
             print(f"[ApproximateInference] Time elapsed: {t_end - t_start} sec")
@@ -581,7 +597,7 @@ if __name__ == "__main__":
         print("INCONSISTENT")
 
     # Run approximate marginal inference
-    algo = ApproximateInference(lcn=l)
+    algo = ApproximateMarginalInference(lcn=l)
     algo.run(n_iters=10, threshold=0.000001, debug=False)
 
 

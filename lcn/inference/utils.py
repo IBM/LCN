@@ -80,7 +80,7 @@ def check_consistency(lcn: LCN) -> bool:
 
     # Create the model and variables
     model = ConcreteModel()
-    model.ITEMS = Set(initialize=index.keys())
+    model.ITEMS = Set(initialize=sorted(index.keys()))
     model.p = Var(model.ITEMS, within=NonNegativeReals)
     model.constr = ConstraintList()
 

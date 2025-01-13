@@ -68,6 +68,7 @@ def solve_exact_model(
             Acceptable tolerance value used by the ipopt solver (default 0.00001).
         hessian_approximation: str
             The Hessian approximation used by the ipopt solver (default 'limited-memory').
+            The allowed values are: exact and limited-memory.
 
     Returns:
         A tuple representing the objective value and a flag indicating its optimality.
@@ -81,7 +82,7 @@ def solve_exact_model(
 
     # Create the model and variables
     model = ConcreteModel()
-    model.ITEMS = Set(initialize=index.keys())
+    model.ITEMS = Set(initialize=sorted(index.keys()))
     model.p = Var(model.ITEMS, within=NonNegativeReals)
     model.constr = ConstraintList()
 
@@ -239,7 +240,7 @@ def solve_exact_model(
         print(f"[Ipopt] objective={objective_value}, optimal={objective_optimal}")
     return objective_value, objective_optimal
     
-class ExactInferece:
+class ExactMarginalInference:
     """
     The exact marginal inference algorithm for LCNs
     see [Marinescu et al. Logical Credal Networks. NeurIPS 2022]
@@ -346,7 +347,7 @@ if __name__ == "__main__":
 
     # Run exact marginal inference
     query = "(B and !C)"
-    algo = ExactInferece(lcn=l)
+    algo = ExactMarginalInference(lcn=l)
     algo.run(query_formula=query, debug=False)
 
 
