@@ -8,7 +8,7 @@ from lcn.inference.approx_marginal import ApproximateMarginalInference
 if __name__ == "__main__":
 
     # Load the LCN
-    file_name = "examples/pearl_twin_network2.lcn"
+    file_name = "examples/pearl_twin_network3.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
     print(l)

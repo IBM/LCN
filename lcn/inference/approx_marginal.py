@@ -127,7 +127,7 @@ def solve_factor_subproblem(
             A2[j] = 1 if v2.evaluate(table=config) == True else 0
             A12[j] = 1 if v12.evaluate(table=config) == True else 0
         val1 = sum(A1[i]*model.p[i] for i in model.ITEMS)
-        val2 = sum(A1[i]*model.p[i] for i in model.ITEMS)
+        val2 = sum(A2[i]*model.p[i] for i in model.ITEMS)
         val12 = sum(A12[i]*model.p[i] for i in model.ITEMS)
         model.constr.add(val12 == val1 * val2)
 
