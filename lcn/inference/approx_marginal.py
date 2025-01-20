@@ -28,13 +28,18 @@ from lcn.inference.utils import check_consistency, make_conjunction
 
 infinity = float('inf')
 
+ARIEL_ACCEPTABLE_TOL = 0.000001
+ARIEL_HESSIAN_APPROX = "limited-memory"
+
 def solve_factor_subproblem(
         n: VariableNode, 
         f: FactorNode, 
         neighbors: List[str], 
         incoming: Dict, 
         sense: str = "min", 
-        debug=False
+        debug=False,
+        acceptable_tol: float = None,
+        hessian_approximation: str = None
 ) -> Tuple:
     """
     Create and solve the non-linear program corresponding to the message
@@ -53,6 +58,11 @@ def solve_factor_subproblem(
             The objective sense, either `min` or `max`.
         debug: bool
             A flag indicating debugging mode (True or False).
+        acceptable_tol: float
+            Acceptable tolerance value used by the ipopt solver (default 0.00001).
+        hessian_approximation: str
+            The Hessian approximation used by the ipopt solver (default 'limited-memory').
+            The allowed values are: exact and limited-memory.
 
     Returns:
         A Tuple containig the objective value and a boolean flag idicating
@@ -138,23 +148,28 @@ def solve_factor_subproblem(
         temp = Formula(label=n.name, formula=n.name)
         A[j] = 1 if temp.evaluate(table=config) == True else 0
 
-    # penalty = 1000.0
-    # if sense == 'min':
-    #     obj = sum(A[i]*model.p[i] for i in model.ITEMS) + penalty * (sum(model.v[j] for j in model.AUX))
-    #     model.objective = Objective(expr=obj, sense=minimize)
-    # else:
-    #     obj = sum(A[i]*model.p[i] for i in model.ITEMS) - penalty * (sum(model.v[j] for j in model.AUX))
-    #     model.objective = Objective(expr=obj, sense=maximize)
+    penalty = 1000.0
     if sense == 'min':
-        obj = sum(A[i]*model.p[i] for i in model.ITEMS)
+        obj = sum(A[i]*model.p[i] for i in model.ITEMS) + penalty * (sum(model.v[j] for j in model.AUX))
         model.objective = Objective(expr=obj, sense=minimize)
     else:
-        obj = sum(A[i]*model.p[i] for i in model.ITEMS)
+        obj = sum(A[i]*model.p[i] for i in model.ITEMS) - penalty * (sum(model.v[j] for j in model.AUX))
         model.objective = Objective(expr=obj, sense=maximize)
+    # if sense == 'min':
+    #     obj = sum(A[i]*model.p[i] for i in model.ITEMS)
+    #     model.objective = Objective(expr=obj, sense=minimize)
+    # else:
+    #     obj = sum(A[i]*model.p[i] for i in model.ITEMS)
+    #     model.objective = Objective(expr=obj, sense=maximize)
 
     try:
         # Solve the non-linear model
         opt = SolverFactory('ipopt')
+        if acceptable_tol is not None:
+            opt.options['acceptable_tol'] = acceptable_tol
+        if hessian_approximation is not None:
+            opt.options['hessian_approximation'] = hessian_approximation
+
         tee_flag = True if debug else False
         results = opt.solve(model, load_solutions=True, tee=tee_flag)
         if (results.solver.status == SolverStatus.ok) and \
@@ -195,8 +210,8 @@ class Message:
             type: str
                 The message type: variable_to_factor or factor_to_variable
         """
-        self.lower_bound = 0.0
-        self.upper_bound = 1.0
+        self.lower_bound = 0.0 # default lower bound
+        self.upper_bound = 1.0 # default upper bound
         self.edge = edge
         self.type = type
 
@@ -282,10 +297,24 @@ class Message:
                 neighbors.append(nf)
 
         # Compute the min/max of the incoming messages
+        lb = 0.0
+        ub = 1.0
         for nf in neighbors:
             msg = factor_messages[nf.label]
-            self.lower_bound = max(self.lower_bound, msg.lower_bound)
-            self.upper_bound = min(self.upper_bound, msg.upper_bound)
+            lbc = max(lb, msg.lower_bound)
+            ubc = min(ub, msg.upper_bound)
+            if lbc < ubc: # consistent lower and upper bounds
+                lb = lbc
+                ub = ubc
+            else:
+                print(f"Incoming lower bound greater than upper bound: lb={lbc}, ub={ubc}")
+                break # stop updating the bounds
+
+        # Update the lower and upper bounds
+        self.lower_bound = max(self.lower_bound, lb)
+        self.upper_bound = min(self.upper_bound, ub)
+            # self.lower_bound = max(self.lower_bound, msg.lower_bound)
+            # self.upper_bound = min(self.upper_bound, msg.upper_bound)
     # --
 
     def update_factor_to_variable(
@@ -315,27 +344,40 @@ class Message:
                 neighbors.append(m.name)
 
         # Solve the non-linear programs corresponding to (f->n)
+        # Compute the lower bound
         lower_bound, feasible_lower_bound = solve_factor_subproblem(
             self.edge.variable_node, 
             self.edge.factor_node, 
             neighbors, 
             variable_messages, 
             'min', 
-            debug
+            debug,
+            acceptable_tol=ARIEL_ACCEPTABLE_TOL,
+            hessian_approximation=ARIEL_HESSIAN_APPROX
         )
+
+        # Compute the upper bound
         upper_bound, feasible_upper_bound = solve_factor_subproblem(
             self.edge.variable_node, 
             self.edge.factor_node, 
             neighbors, 
             variable_messages, 
             'max', 
-            debug
+            debug,
+            acceptable_tol=ARIEL_ACCEPTABLE_TOL,
+            hessian_approximation=ARIEL_HESSIAN_APPROX
         )
         
         # assert (feasible_lower_bound is True and feasible_upper_bound is True)
+        # self.lower_bound = max(lower_bound, 0.0) if feasible_lower_bound else self.lower_bound
+        # self.upper_bound = min(upper_bound, 1.0) if feasible_upper_bound else self.upper_bound
 
-        self.lower_bound = max(lower_bound, 0.0) if feasible_lower_bound else self.lower_bound
-        self.upper_bound = min(upper_bound, 1.0) if feasible_upper_bound else self.upper_bound
+        # Do not change the lower/upper bounds if not feasible (use defaults)
+        if feasible_lower_bound:
+            self.lower_bound = max(lower_bound, 0.0)
+        if feasible_upper_bound:
+            self.upper_bound = min(upper_bound, 1.0)
+
 # --        
 
 class Marginal:

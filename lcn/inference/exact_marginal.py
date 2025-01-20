@@ -27,6 +27,9 @@ from lcn.inference.utils import make_conjunction, check_consistency
 
 infinity = float('inf')
 
+ACCEPTABLE_TOL = 0.000001
+APPROX_HESSIAN = "limited-memory"
+
 def solve_exact_model(
         lcn: LCN, 
         query_formula: str, 
@@ -296,6 +299,7 @@ class ExactMarginalInference:
             for indep in self.lcn.independencies.get_assertions():
                 print(indep)
 
+        # Compute the lower bound
         lower_bound, feasible_lb = solve_exact_model(
             lcn=self.lcn, 
             query_formula=query_formula, 
@@ -304,9 +308,11 @@ class ExactMarginalInference:
             sense='min', 
             debug=debug,
             verbosity=verbosity,
-            acceptable_tol=0.000001,
-            hessian_approximation="limited-memory"
+            acceptable_tol=ACCEPTABLE_TOL,
+            hessian_approximation=APPROX_HESSIAN
         )
+
+        # Compute the upper bound
         upper_bound, feasible_ub = solve_exact_model(
             lcn=self.lcn, 
             query_formula=query_formula, 
@@ -315,13 +321,13 @@ class ExactMarginalInference:
             sense='max', 
             debug=debug,
             verbosity=verbosity,
-            acceptable_tol=0.000001,
-            hessian_approximation="limited-memory"
+            acceptable_tol=ACCEPTABLE_TOL,
+            hessian_approximation=APPROX_HESSIAN
         )
 
         t_end = time.time()
-        self.lower_bound = .0 if not feasible_lb else max(abs(lower_bound), 0.0)
-        self.upper_bound = .0 if not feasible_ub else min(abs(upper_bound), 1.0)
+        self.lower_bound = 0.0 if not feasible_lb else max(abs(lower_bound), 0.0)
+        self.upper_bound = 1.0 if not feasible_ub else min(abs(upper_bound), 1.0)
         self.feasible = feasible_lb and feasible_ub
 
         if verbosity > 0:
