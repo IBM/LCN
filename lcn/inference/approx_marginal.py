@@ -308,7 +308,7 @@ class Message:
                 ub = ubc
             else:
                 print(f"Incoming lower bound greater than upper bound: lb={lbc}, ub={ubc}")
-                break # stop updating the bounds
+                continue # don't update with these bounds (from message)
 
         # Update the lower and upper bounds
         self.lower_bound = max(self.lower_bound, lb)
