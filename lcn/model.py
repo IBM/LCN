@@ -275,6 +275,15 @@ class Sentence:
         else:
             return False
 
+    def to_str_phi(self) -> str:
+        """
+        Output `phi` as a string.
+        
+        """
+        return self.phi
+    
+    def to_str_psi(self) -> str:
+        return self.psi
 
     def __str__(self):
         if self.psi is None:
