@@ -16,12 +16,14 @@
 # The LCN model
 
 import networkx as nx
-from typing import List
+from typing import Any, Dict, List
 from enum import Enum
+from itertools import combinations
 
 # Local
 from lcn.parser import parse_formula, evaluate_formula, validate_formula
 from lcn.independencies import Independencies, IndependenceAssertion
+from lcn.mixed_graph import MixedGraph
 
 class SentenceType(Enum):
     Type1 = 1
@@ -316,6 +318,10 @@ class LCN:
         self.atoms = {}
         self.sentences = {}
         self.independencies = None
+
+        self.primal_graph = None
+        self.structure_graph = None
+        self.simplified_structure_graph = None
     
     def add_atom(
             self, 
@@ -504,7 +510,7 @@ class LCN:
         self.primal_graph = G
         return self.primal_graph
     
-    def build_structure_graph(self):
+    def build_structure_graph(self) -> MixedGraph:
         """
         Construct the structure of the LCN. Specifically, the structure is a
         mixed graph defined over the atoms only and containing both directed as
@@ -522,42 +528,126 @@ class LCN:
         undirected edges from step 1. 
         """
 
-        G = nx.DiGraph()
+        G = MixedGraph()
 
-        # Create the variable/atom nodes
+        # Create the nodes: a node for each atom/variable
         for vid in sorted(self.atoms.keys()):
-            G.add_node(
-                node_for_adding=vid,
-                color="blue", 
-                type="atom", 
-                shape="ellipse",
-                label=vid
-            )
+            G.add_node(vid, color="blue", type="atom", shape="ellipse", label=vid)
 
-        # Loop over the Type 1 sentences
+
+        # Loop over the sentences
         for _, sentence in self.sentences.items():
-            for _, u in sentence.phi_formula.atoms.items():
-                for _, v in sentence.phi_formula.atoms.items():
-                    if u != v:
-                        G.add_edge(
-                            u,
-                            v,
-                            type="undirected",
-                            color="blue"
-                        )
-            if sentence.type == SentenceType.Type2: # Type 1 sentence
+            print(f"Processing sentence: {sentence}")
+            nodes = [v for _, v in sentence.phi_formula.atoms.items()]
+            pairs = list(combinations(nodes, 2))
+            for u, v in pairs:
+                G.add_undirected_edge(u, v, color="blue")
+
+            if sentence.type == SentenceType.Type2: # Type 2 sentence
                 for _, u in sentence.psi_formula.atoms.items():
                     for _, v in sentence.phi_formula.atoms.items():
-                        G.add_edge(
-                            u,
-                            v,
-                            type="directed",
-                            color="red"
-                        )
+                        G.add_directed_edge(u, v, color="red")
         
+        # Replace directed edges (u->v) and (u<-v) with and undirected edge (u-v)
+        to_replace = []
+        all_nodes = G.get_nodes()
+        for u, v in list(combinations(all_nodes, 2)):
+            if G.has_directed_edge(u, v) and G.has_directed_edge(v, u):
+                to_replace.append((u, v))
+        print(f"Replacing the following bidirected edges with undirected edges: {to_replace}")
+        for u, v in to_replace:
+            G.remove_directed_edge(u, v)
+            G.remove_directed_edge(v, u)
+            G.add_undirected_edge(u, v, color="blue")
+
         self.structure_graph = G
         return self.structure_graph
     
+    def simplify_structure_graph(self) -> MixedGraph:
+        """
+        Simplify the structure graph by identifying the undirected cliques and
+        replacing them with a single meta-node. Keep the directed edges from other
+        nodes to the nodes in the clique and from the nodes in the clique to the
+        other nodes. The resulting graph must have only directed edges.
+        """
+        sg = self.structure_graph.copy()
+        cliques = sg.get_undirected_cliques()
+
+        print(f"Simplifying the structure by replacing the undirected cliques")
+        for clique in cliques:
+            clique_set = set(clique)
+            meta_node = "-".join(sorted(clique)) #tuple(sorted(clique))
+
+            # Collect directed edges involving clique members
+            incoming = []
+            outgoing = []
+            for u, v, d in sg.directed_edges(data=True):
+                if v in clique_set and u not in clique_set:
+                    incoming.append((u, d))
+                if u in clique_set and v not in clique_set:
+                    outgoing.append((v, d))
+
+            # Add meta-node and rewire directed edges
+            sg.add_node(meta_node)
+            for u, d in incoming:
+                sg.add_directed_edge(u, meta_node, **d)
+            for v, d in outgoing:
+                sg.add_directed_edge(meta_node, v, **d)
+
+            # Remove original clique nodes (also removes their edges)
+            sg.remove_nodes_from(clique)
+
+        self.simplified_structure_graph = sg
+        return self.simplified_structure_graph
+
+    def is_chain_graph(self) -> bool:
+        """Check if the simplified structure graph is a DAG.
+
+        Returns
+        -------
+        bool
+            True if the simplified structure graph is a directed acyclic
+            graph, False otherwise.
+        """
+        if self.simplified_structure_graph is None:
+            self.simplify_structure_graph()
+        return nx.is_directed_acyclic_graph(
+            self.simplified_structure_graph._directed
+        )
+
+    def process_chain_graph(self) -> Dict[str, Any]:
+        """
+        Process the simplified structure -- chain graph -- to identify the 
+        parents set of each node and the correspoding sentences that are defined
+        solely on the variable and its parents.
+        """
+        assert self.simplified_structure_graph is not None, "The simplified structure graph must be computed first."
+
+        families = {}
+        for child in self.simplified_structure_graph.get_nodes():
+            parents = list(self.simplified_structure_graph.predecessors(child))
+            scope = [child] if "-" not in child else child.split("-")
+            for p in parents:
+                if "-" in p:
+                    scope += p.split("-")
+                else:
+                    scope.append(p)
+            print(f"Child: {child}, Parents: {parents}, Scope: {scope}")
+
+            sentences = []
+            for sid, s in self.sentences.items():
+                s_scope = set(s.get_atoms().keys())
+                if s_scope.issubset(set(scope)):
+                    print(f"Adding sentence {sid} with scope {s_scope}.")
+                    sentences.append(sid)
+
+            families[child] = {
+                "parents": parents,
+                "sentences": sentences
+            }
+
+        return families
+
     def lcn_parents(
             self, 
             atom: str

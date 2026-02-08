@@ -25,7 +25,8 @@ dependencies = [
     "ipykernel",
     "ipywidgets",
     "pyomo",
-    "gravis"
+    "gravis",
+    "pytest",
 ]
 
 [tool.setuptools.packages.find]

@@ -382,6 +382,50 @@ class TestAlgorithms:
         assert frozenset({"C", "D"}) in comp_sets
         assert frozenset({"E"}) in comp_sets
 
+    def test_get_undirected_cliques_basic(self):
+        """Directed edges are ignored; only undirected edges form cliques."""
+        g = MixedGraph()
+        g.add_directed_edge("A", "B")
+        g.add_undirected_edge("C", "D")
+        g.add_node("E")
+        cliques = g.get_undirected_cliques()
+        clique_sets = [frozenset(c) for c in cliques]
+        # C-D form a clique of size 2; singletons are excluded
+        assert frozenset({"C", "D"}) in clique_sets
+        assert len(clique_sets) == 1
+
+    def test_get_undirected_cliques_triangle(self):
+        """Three mutually undirected-connected nodes form a single clique."""
+        g = MixedGraph()
+        g.add_undirected_edge("A", "B")
+        g.add_undirected_edge("B", "C")
+        g.add_undirected_edge("A", "C")
+        cliques = g.get_undirected_cliques()
+        clique_sets = [frozenset(c) for c in cliques]
+        assert frozenset({"A", "B", "C"}) in clique_sets
+        assert len(clique_sets) == 1
+
+    def test_get_undirected_cliques_directed_does_not_complete(self):
+        """A directed edge cannot complete a clique."""
+        g = MixedGraph()
+        g.add_undirected_edge("A", "B")
+        g.add_undirected_edge("B", "C")
+        g.add_directed_edge("A", "C")  # directed, not undirected
+        cliques = g.get_undirected_cliques()
+        clique_sets = [frozenset(c) for c in cliques]
+        # Missing undirected A-C means no triangle clique
+        assert frozenset({"A", "B"}) in clique_sets
+        assert frozenset({"B", "C"}) in clique_sets
+        assert len(clique_sets) == 2
+
+    def test_get_undirected_cliques_no_undirected_edges(self):
+        """Only directed edges: no cliques returned."""
+        g = MixedGraph()
+        g.add_directed_edge("A", "B")
+        g.add_directed_edge("B", "C")
+        cliques = g.get_undirected_cliques()
+        assert len(cliques) == 0
+
     def test_is_connected(self):
         g = MixedGraph()
         g.add_directed_edge("A", "B")

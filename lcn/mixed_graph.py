@@ -86,6 +86,9 @@ class MixedGraph:
         """Dict-like view of nodes and their attributes."""
         return self._nodes
 
+    def get_nodes(self) -> list:
+        """Return a list of nodes."""
+        return list(self._nodes.keys())
     # ------------------------------------------------------------------
     # Edge management — directed
     # ------------------------------------------------------------------
@@ -336,6 +339,21 @@ class MixedGraph:
     def connected_components(self):
         """Return connected components treating all edges as undirected."""
         return nx.connected_components(self._as_undirected())
+
+    def get_undirected_cliques(self):
+        """Return the maximal cliques in the undirected subgraph.
+
+        An undirected clique is a subgraph in which every pair of nodes
+        is connected by an undirected edge.  Only undirected edges are
+        considered; directed edges are ignored.
+
+        Returns
+        -------
+        list[list]
+            A list of maximal cliques, where each clique is a list of
+            node ids.
+        """
+        return [list(c) for c in nx.find_cliques(self._undirected) if len(c) > 1]
 
     def is_connected(self):
         G = self._as_undirected()
