@@ -16,9 +16,12 @@
 # The LCN model
 
 import networkx as nx
+import itertools
+
 from typing import Any, Dict, List
 from enum import Enum
 from itertools import combinations
+from pyomo.environ import *
 
 # Local
 from lcn.parser import parse_formula, evaluate_formula, validate_formula
@@ -322,6 +325,7 @@ class LCN:
         self.primal_graph = None
         self.structure_graph = None
         self.simplified_structure_graph = None
+        self.families = None
     
     def add_atom(
             self, 
@@ -615,7 +619,7 @@ class LCN:
             self.simplified_structure_graph._directed
         )
 
-    def process_chain_graph(self) -> Dict[str, Any]:
+    def process_chain_graph(self) -> List[Dict[str, Any]]:
         """
         Process the simplified structure -- chain graph -- to identify the 
         parents set of each node and the correspoding sentences that are defined
@@ -623,7 +627,7 @@ class LCN:
         """
         assert self.simplified_structure_graph is not None, "The simplified structure graph must be computed first."
 
-        families = {}
+        families = []
         for child in self.simplified_structure_graph.get_nodes():
             parents = list(self.simplified_structure_graph.predecessors(child))
             scope = [child] if "-" not in child else child.split("-")
@@ -641,11 +645,13 @@ class LCN:
                     print(f"Adding sentence {sid} with scope {s_scope}.")
                     sentences.append(sid)
 
-            families[child] = {
+            families.append({
+                "child": child,
                 "parents": parents,
                 "sentences": sentences
-            }
+            })
 
+        self.families = families
         return families
 
     def lcn_parents(
