@@ -16,9 +16,16 @@
 # Exact and Approximate marginal inference algorithms for LCNs
 
 import itertools
-import time
-from pyomo.environ import *
-from typing import Tuple
+from pyomo.environ import (
+    ConcreteModel, 
+    Set, NonNegativeReals, 
+    Var, ConstraintList, 
+    Objective, minimize, maximize,
+    SolverFactory,
+    SolverStatus,
+    value,
+    TerminationCondition
+)
 
 # Local
 from lcn.model import LCN, SentenceType, Formula
@@ -37,8 +44,8 @@ class Factorization:
         self.lcn = lcn
         self.factors = []
 
-    def solve_submodel(self, scope, interpretation, child, parents, sentences, sense):
-        items = list(itertools.product([0, 1], repeat=len(vars)))
+    def solve_submodel(self, scope, literals, child, parents, sentences, sense):
+        items = list(itertools.product([0, 1], repeat=len(scope)))
         index = {k:v for k, v in enumerate(items)}            
         N = len(items)
     
@@ -57,7 +64,7 @@ class Factorization:
                 lobo = s.get_lower_bound()
                 upbo = s.get_upper_bound()
                 for j in range(N): # loop over all interpretations
-                    config = dict(zip(vars, index[j]))
+                    config = dict(zip(scope, index[j]))
                     A[j] = 1 if s.phi_formula.evaluate(table=config) == True else 0
                 model.constr.add(sum(A[i]*model.p[i] for i in model.ITEMS) >= lobo)
                 model.constr.add(sum(A[i]*model.p[i] for i in model.ITEMS) <= upbo)
@@ -67,7 +74,7 @@ class Factorization:
                 lobo = s.get_lower_bound()
                 upbo = s.get_upper_bound()
                 for j in range(N):
-                    config = dict(zip(vars, index[j]))
+                    config = dict(zip(scope, index[j]))
                     Aqr[j] = 1 if s.phi_and_psi_formula.evaluate(table=config) == True else 0
                     Ar[j] = 1 if s.psi_formula.evaluate(table=config) == True else 0
                 val = sum(Ar[i]*model.p[i] for i in model.ITEMS)
@@ -75,10 +82,10 @@ class Factorization:
                 model.constr.add(sum(Aqr[i]*model.p[i] for i in model.ITEMS) <= upbo*val)
     
         # Create the objective
-        Fq = make_conjunction(variables=vars, literals=interpretation)
+        Fq = make_conjunction(variables=scope, literals=literals)
         A = [0] * N
         for j in range(N):
-            config = dict(zip(vars, index[j]))
+            config = dict(zip(scope, index[j]))
             A[j] = 1 if Fq.evaluate(table=config) == True else 0
 
         # Check if we have a denominator
@@ -89,11 +96,11 @@ class Factorization:
             else:
                 model.objective = Objective(expr=obj, sense=maximize)
         else:
-            Fe = make_conjunction(variables=parents, literals=interpretation)
+            Fe = make_conjunction(variables=parents, literals=literals)
             E = [0] * N
             AE = [0] * N
             for j in range(N):
-                config = dict(zip(vars, index[j]))
+                config = dict(zip(scope, index[j]))
                 E[j] = 1 if Fe.evaluate(table=config) == True else 0
                 if A[j] == 1 and E[j] == 1:
                     AE[j] == 1
@@ -173,8 +180,9 @@ class Factorization:
             factor = {}
             interpretations = list(itertools.product([0, 1], repeat=len(vars)))
             for i, interpretation in enumerate(interpretations):
-                lobo = self.solve_submodel(vars, interpretation, child, parents, sentences, sense="min")
-                upbo = self.solve_submodel(vars, interpretation, child, parents, sentences, sense="max")
+                literals = dict(zip(vars, interpretation))
+                lobo = self.solve_submodel(vars, literals, child, parents, sentences, sense="min")
+                upbo = self.solve_submodel(vars, literals, child, parents, sentences, sense="max")
                 factor[i] = {
                     "interpretation": interpretation,
                     "scope": vars,

@@ -42,7 +42,7 @@ def find_neighbors(config: List) -> List[List]:
         neighbors.append(neighbor)
     return neighbors
 
-def make_conjunction(variables: List, literals: Dict) -> Formula:
+def make_conjunction(variables: List[str], literals: Dict[str, int]) -> Formula:
     """
     Returns the conjunction of the input literals
     """

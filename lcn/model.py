@@ -16,12 +16,9 @@
 # The LCN model
 
 import networkx as nx
-import itertools
-
 from typing import Any, Dict, List
 from enum import Enum
 from itertools import combinations
-from pyomo.environ import *
 
 # Local
 from lcn.parser import parse_formula, evaluate_formula, validate_formula
@@ -627,7 +624,7 @@ class LCN:
         """
         assert self.simplified_structure_graph is not None, "The simplified structure graph must be computed first."
 
-        families = []
+        self.families = []
         for child in self.simplified_structure_graph.get_nodes():
             parents = list(self.simplified_structure_graph.predecessors(child))
             scope = [child] if "-" not in child else child.split("-")
@@ -645,14 +642,13 @@ class LCN:
                     print(f"Adding sentence {sid} with scope {s_scope}.")
                     sentences.append(sid)
 
-            families.append({
+            self.families.append({
                 "child": child,
                 "parents": parents,
                 "sentences": sentences
             })
 
-        self.families = families
-        return families
+        return self.families
 
     def lcn_parents(
             self, 
@@ -1063,7 +1059,7 @@ class LCN:
 if __name__ == "__main__":
 
     # Load an LCN from a file
-    file_name = "/home/radu/git/fm-factual/examples/asia.lcn"
+    file_name = "/Users/radu/git/IBM/LCN/examples/alarm.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
 
