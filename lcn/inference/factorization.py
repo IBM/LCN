@@ -196,3 +196,39 @@ class Factorization:
 
         return self.factors
 
+if __name__ == "__main__":
+
+    # Load the LCN
+    file_name = "examples/alarm.lcn"
+    l = LCN()
+    l.from_lcn(file_name=file_name)
+    print(l)
+
+    # Check consistency
+    ok = check_consistency(l)
+    if ok:
+        print("CONSISTENT")
+    else:
+        print("INCONSISTENT")
+
+    # Factorize
+    l.build_primal_graph(formula_labels=True)
+    l.build_structure_graph()
+
+    # check if the LCN is a chain graph 
+    ok = l.is_chain_graph()
+    print(f"Is the LCN a chain graph? {ok}")
+
+    # get the families of each node in the chain graph
+    families = l.process_chain_graph()
+    print("Families of each node:")
+    for family in families:
+        node = family["child"]
+        print(f"{node}: {family}")
+
+    fact = Factorization(l)
+    factors = fact.build()
+
+    for f in factors:
+        print(f)
+
