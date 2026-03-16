@@ -345,10 +345,10 @@ if __name__ == "__main__":
         print("INCONSISTENT")
 
     # Run exact marginal inference
-    query = "(C and !D)"
-    evidence = {"B": 1, "E": 1}
+    query = "(!A)"
+    evidence = {"B": 0, "E": 1}
     algo = ExactInferece(lcn=l)
-    algo.run(query_formula=query, debug=False)
+    algo.run(query_formula=query, evidence=evidence, debug=False)
 
 
 
