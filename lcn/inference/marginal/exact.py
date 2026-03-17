@@ -13,10 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Exact and Approximate marginal inference algorithms for LCNs
+# Exact marginal inference for LCNs (optimized version)
 
 import itertools
 import time
+import numpy as np
 from pyomo.environ import *
 from typing import Tuple
 
@@ -25,14 +26,26 @@ from lcn.model import LCN, SentenceType, Formula
 from lcn.independencies import Independencies
 from lcn.inference.utils import make_conjunction, check_consistency
 
-infinity = float('inf')
+_ACCEPTABLE_TOL = 1e-9
+_HESSIAN_APPROX = "limited-memory"
+
+def _eval_indicator(formula: Formula, interpretations: list) -> np.ndarray:
+    """Evaluate formula on all interpretations, return binary numpy vector."""
+    return np.array([1.0 if formula.evaluate(table=interp) else 0.0
+                     for interp in interpretations])
+
+
+def _dot(vec: np.ndarray, model, items):
+    """Build Pyomo linear expression: vec @ model.p"""
+    return sum(float(vec[i]) * model.p[i] for i in items)
+
 
 def solve_exact_model(
-        lcn: LCN, 
-        query_formula: str, 
+        lcn: LCN,
+        query_formula: str,
         independencies: Independencies,
         evidence: dict = {},
-        sense: str = 'min', 
+        sense: str = 'min',
         debug: bool = False,
         verbosity: int = 1,
         max_iter: int = 10000,
@@ -41,7 +54,7 @@ def solve_exact_model(
         hessian_approximation: str = None
 ) -> Tuple:
     """
-    Compute exact lower/upper bounds on the probabability of the query formula
+    Compute exact lower/upper bounds on the probability of the query formula
     by solving the corresponding non-linear constraint program (for the input
     LCN and independencies given by the Local Markov Condition).
 
@@ -72,137 +85,96 @@ def solve_exact_model(
     Returns:
         A tuple representing the objective value and a flag indicating its optimality.
     """
-    
-    # Create the interpretations
-    vars = [k for k, _ in lcn.atoms.items()]
-    items = list(itertools.product([0, 1], repeat=len(vars)))
-    index = {k:v for k, v in enumerate(items)}
-    N = len(items)
 
-    # Create the model and variables
+    # Step 1: Precompute interpretation table and indicator vectors
+    vars_list = [k for k, _ in lcn.atoms.items()]
+    items_tuples = list(itertools.product([0, 1], repeat=len(vars_list)))
+    interpretations = [dict(zip(vars_list, t)) for t in items_tuples]
+    N = len(interpretations)
+
+    # Create the Pyomo model and variables
     model = ConcreteModel()
-    model.ITEMS = Set(initialize=index.keys())
+    model.ITEMS = Set(initialize=range(N))
     model.p = Var(model.ITEMS, within=NonNegativeReals)
     model.constr = ConstraintList()
 
-    # Create the constraint ensuring a probability distribution over interpretations
+    # Probability distribution constraint
     model.constr.add(sum(model.p[i] for i in model.ITEMS) == 1.0)
 
-    # Create the constraints for the sentences
+    # Step 2: Build sentence constraints using precomputed indicators
     for sid, s in lcn.sentences.items():
-        if s.type == SentenceType.Type1: # Type 1 sentence P(phi)
-            A = [0] * N
-            lobo = s.get_lower_bound()
-            upbo = s.get_upper_bound()
-            for j in range(N):
-                config = dict(zip(vars, index[j]))
-                A[j] = 1 if s.phi_formula.evaluate(table=config) == True else 0
-            model.constr.add(sum(A[i]*model.p[i] for i in model.ITEMS) >= lobo)
-            model.constr.add(sum(A[i]*model.p[i] for i in model.ITEMS) <= upbo)
-        else: # Type 2 sentence: P(phi|psi)
-            Aqr = [0] * N
-            Ar = [0] * N
-            lobo = s.get_lower_bound()
-            upbo = s.get_upper_bound()
-            for j in range(N):
-                config = dict(zip(vars, index[j]))
-                Aqr[j] = 1 if s.phi_and_psi_formula.evaluate(table=config) == True else 0
-                Ar[j] = 1 if s.psi_formula.evaluate(table=config) == True else 0
-            val = sum(Ar[i]*model.p[i] for i in model.ITEMS)
-            model.constr.add(sum(Aqr[i]*model.p[i] for i in model.ITEMS) >= lobo*val)
-            model.constr.add(sum(Aqr[i]*model.p[i] for i in model.ITEMS) <= upbo*val)
+        lobo = s.get_lower_bound()
+        upbo = s.get_upper_bound()
+        if s.type == SentenceType.Type1:  # P(q)
+            A = _eval_indicator(s.phi_formula, interpretations)
+            expr = _dot(A, model, model.ITEMS)
+            model.constr.add(expr >= lobo)
+            model.constr.add(expr <= upbo)
+        else:  # P(q|r)
+            Aqr = _eval_indicator(s.phi_and_psi_formula, interpretations)
+            Ar = _eval_indicator(s.psi_formula, interpretations)
+            expr_qr = _dot(Aqr, model, model.ITEMS)
+            expr_r = _dot(Ar, model, model.ITEMS)
+            model.constr.add(expr_qr >= lobo * expr_r)
+            model.constr.add(expr_qr <= upbo * expr_r)
 
-    # Constraints corresponding to the independence assumptions
-    # Atom x is conditionaly independent of non-parents non-descendants (T) 
-    # given its parents (S) in the primal graph of the LCN
-    # Namely, we consider independence assertions [X, Y=T, Z=S]
-    # i.e., P(x|S,T) = P(x|S)
-    #   P(x,S,T)P(S) = P(x,S)P(S,T)
-    # Here, independencies are coming from LCN's Local Markov Condition
+    # Step 3: Build independence constraints using precomputed indicators
     for indep in independencies.get_assertions():
         X, T, S = list(indep.event1), list(indep.event2), list(indep.event3)
         if verbosity > 0:
             print(f"adding constraints for independence: {indep}")
-        configs_S = [()] if len(S) == 0 else list(itertools.product([0, 1], repeat=len(S)))     
+        configs_S = [()] if len(S) == 0 else list(itertools.product([0, 1], repeat=len(S)))
         if len(S) > 0:
-            for t in T:
-                # add constraints P(x|t,S) = P(x|S)
-                x = X[0]
-                literals = {x:1, t:1}
-                # print(f"adding constraint: {x} _||_ {t} | {S}")
-                for s in configs_S:
-                    literals.update(dict(zip(S, list(s))))
-                    Aa = [0] * N
-                    Ab = [0] * N
-                    Ac = [0] * N
-                    Ad = [0] * N
-                    Fa = make_conjunction(variables=X+S+[t], literals=literals)
-                    Fb = make_conjunction(variables=S, literals=literals)
-                    Fc = make_conjunction(variables=X+S, literals=literals)
-                    Fd = make_conjunction(variables=S+[t], literals=literals)
-                    for j in range(N):
-                        interpretation = dict(zip(vars, index[j]))
-                        Aa[j] = 1 if Fa.evaluate(table=interpretation) else 0
-                        Ab[j] = 1 if Fb.evaluate(table=interpretation) else 0
-                        Ac[j] = 1 if Fc.evaluate(table=interpretation) else 0
-                        Ad[j] = 1 if Fd.evaluate(table=interpretation) else 0
-                    val1 = sum(Aa[i]*model.p[i] for i in model.ITEMS) * sum(Ab[i]*model.p[i] for i in model.ITEMS)
-                    val2 = sum(Ac[i]*model.p[i] for i in model.ITEMS) * sum(Ad[i]*model.p[i] for i in model.ITEMS)
-                    model.constr.add(val1 - val2 == 0.0)    
-        else:
-            # no parents so basically P(x,t) = P(x)P(t)
             for t in T:
                 x = X[0]
                 literals = {x: 1, t: 1}
-                # print(f"adding constraint: {x} _||_ {t}")
-                Aa = [0] * N
-                Ab = [0] * N
-                Ac = [0] * N
-                Fa = make_conjunction(variables=X+[t], literals=literals)
+                for s in configs_S:
+                    literals.update(dict(zip(S, list(s))))
+                    Fa = make_conjunction(variables=X + S + [t], literals=literals)
+                    Fb = make_conjunction(variables=S, literals=literals)
+                    Fc = make_conjunction(variables=X + S, literals=literals)
+                    Fd = make_conjunction(variables=S + [t], literals=literals)
+                    Aa = _eval_indicator(Fa, interpretations)
+                    Ab = _eval_indicator(Fb, interpretations)
+                    Ac = _eval_indicator(Fc, interpretations)
+                    Ad = _eval_indicator(Fd, interpretations)
+                    val1 = _dot(Aa, model, model.ITEMS) * _dot(Ab, model, model.ITEMS)
+                    val2 = _dot(Ac, model, model.ITEMS) * _dot(Ad, model, model.ITEMS)
+                    model.constr.add(val1 - val2 == 0.0)
+        else:
+            for t in T:
+                x = X[0]
+                literals = {x: 1, t: 1}
+                Fa = make_conjunction(variables=X + [t], literals=literals)
                 Fb = make_conjunction(variables=X, literals=literals)
                 Fc = make_conjunction(variables=[t], literals=literals)
-                for j in range(N):
-                    interpretation = dict(zip(vars, index[j]))
-                    Aa[j] = 1 if Fa.evaluate(table=interpretation) else 0
-                    Ab[j] = 1 if Fb.evaluate(table=interpretation) else 0
-                    Ac[j] = 1 if Fc.evaluate(table=interpretation) else 0
-                val1 = sum(Aa[i]*model.p[i] for i in model.ITEMS)
-                val2 = sum(Ab[i]*model.p[i] for i in model.ITEMS) * sum(Ac[i]*model.p[i] for i in model.ITEMS)
-                model.constr.add(val1 - val2 == 0.0)    
+                Aa = _eval_indicator(Fa, interpretations)
+                Ab = _eval_indicator(Fb, interpretations)
+                Ac = _eval_indicator(Fc, interpretations)
+                val1 = _dot(Aa, model, model.ITEMS)
+                val2 = _dot(Ab, model, model.ITEMS) * _dot(Ac, model, model.ITEMS)
+                model.constr.add(val1 - val2 == 0.0)
 
-    # Create the objective
+    # Step 4: Build objective (with evidence bug fix)
     obj_formula = Formula(label="obj", formula=query_formula)
-    A = [0] * N
-    for j in range(N):
-        config = dict(zip(vars, index[j]))
-        A[j] = 1 if obj_formula.evaluate(table=config) == True else 0
+    A_query = _eval_indicator(obj_formula, interpretations)
 
-    # Check if we have evidence
     if len(evidence) == 0:
-        obj = sum(A[i]*model.p[i] for i in model.ITEMS)
-        if sense == 'min':
-            model.objective = Objective(expr=obj, sense=minimize)
-        else:
-            model.objective = Objective(expr=obj, sense=maximize)
+        obj = _dot(A_query, model, model.ITEMS)
     else:
         ev = [k for k, _ in evidence.items()]
         Fe = make_conjunction(variables=ev, literals=evidence)
-        E = [0] * N
-        AE = [0] * N
-        for j in range(N):
-            interpretation = dict(zip(vars, index[j]))
-            E[j] = 1 if Fe.evaluate(table=interpretation) == True else 0
-            if A[j] == 1 and E[j] == 1:
-                AE[j] = 1
-        obj1 = sum(AE[i]*model.p[i] for i in model.ITEMS)
-        obj2 = sum(E[i]*model.p[i] for i in model.ITEMS)
-        if sense == 'min':
-            model.objective = Objective(expr=obj1/obj2, sense=minimize)
-        else:
-            model.objective = Objective(expr=obj1/obj2, sense=maximize)
+        E = _eval_indicator(Fe, interpretations)
+        AE = A_query * E  # element-wise numpy multiply (fixes == vs = bug)
+        obj = _dot(AE, model, model.ITEMS) / _dot(E, model, model.ITEMS)
 
+    if sense == 'min':
+        model.objective = Objective(expr=obj, sense=minimize)
+    else:
+        model.objective = Objective(expr=obj, sense=maximize)
+
+    # Solve the non-linear model
     try:
-        # Solve the non-linear model exactly
         opt = SolverFactory('ipopt')
         opt.options['max_iter'] = max_iter
         opt.options['max_cpu_time'] = max_cpu_time
@@ -238,15 +210,16 @@ def solve_exact_model(
     if verbosity > 0:
         print(f"[Ipopt] objective={objective_value}, optimal={objective_optimal}")
     return objective_value, objective_optimal
-    
-class ExactInferece:
+
+
+class ExactInference:
     """
-    The exact marginal inference algorithm for LCNs
-    see [Marinescu et al. Logical Credal Networks. NeurIPS 2022]
+    The exact marginal inference algorithm for LCNs.
+    See [Marinescu et al. Logical Credal Networks. NeurIPS 2022]
     """
 
     def __init__(
-            self, 
+            self,
             lcn: LCN
     ):
         """
@@ -262,9 +235,9 @@ class ExactInferece:
         self.feasible = None
 
     def run(
-            self, 
-            query_formula: str, 
-            evidence: dict = {}, 
+            self,
+            query_formula: str,
+            evidence: dict = {},
             debug: bool = False,
             verbosity: int = 1
     ):
@@ -296,26 +269,24 @@ class ExactInferece:
                 print(indep)
 
         lower_bound, feasible_lb = solve_exact_model(
-            lcn=self.lcn, 
-            query_formula=query_formula, 
+            lcn=self.lcn,
+            query_formula=query_formula,
             evidence=evidence,
-            independencies=self.lcn.independencies, 
-            sense='min', 
+            independencies=self.lcn.independencies,
+            sense='min',
             debug=debug,
             verbosity=verbosity,
-            acceptable_tol=0.000001,
-            hessian_approximation="limited-memory"
+            acceptable_tol=_ACCEPTABLE_TOL,
         )
         upper_bound, feasible_ub = solve_exact_model(
-            lcn=self.lcn, 
-            query_formula=query_formula, 
-            independencies=self.lcn.independencies, 
+            lcn=self.lcn,
+            query_formula=query_formula,
+            independencies=self.lcn.independencies,
             evidence=evidence,
-            sense='max', 
+            sense='max',
             debug=debug,
             verbosity=verbosity,
-            acceptable_tol=0.000001,
-            hessian_approximation="limited-memory"
+            acceptable_tol=_ACCEPTABLE_TOL,
         )
 
         t_end = time.time()
@@ -324,7 +295,7 @@ class ExactInferece:
         self.feasible = feasible_lb and feasible_ub
 
         if verbosity > 0:
-            print(f"[ExactInference] Result for {query_formula} is: [ {self.lower_bound:.4f}, {self.upper_bound:.4f} ]")        
+            print(f"[ExactInference] Result for {query_formula} is: [ {self.lower_bound:.4f}, {self.upper_bound:.4f} ]")
             print(f"[ExactInference] Feasibility: lb={feasible_lb}, ub={feasible_ub}, all={self.feasible}")
             print(f"[ExactInference] Time elapsed: {t_end - t_start} sec")
 
@@ -345,11 +316,7 @@ if __name__ == "__main__":
         print("INCONSISTENT")
 
     # Run exact marginal inference
-    query = "(!B)"
-    evidence = {}
-    algo = ExactInferece(lcn=l)
+    query = "(!A)"
+    evidence = {"B": 0, "E": 0}
+    algo = ExactInference(lcn=l)
     algo.run(query_formula=query, evidence=evidence, debug=False)
-
-
-
-
