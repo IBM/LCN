@@ -1,0 +1,248 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
+\newtheorem{example}{Example}
+
+\title{Mean-Field Variational Inference\\for Credal Networks}
+\author{IBM Research}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We describe a mean-field variational inference algorithm for credal networks that
+computes bounds on marginal probabilities by exploring combinations of extreme points
+from the local credal sets. For each selected combination of extreme points, the
+credal network reduces to a standard Bayesian network on which classical mean-field
+coordinate ascent is applied. By tracking the minimum and maximum of the variational
+distribution across all explored combinations, the algorithm produces probability
+intervals for the query variable. This approach complements the interval belief
+propagation method by providing an alternative view of the credal inference problem
+through the lens of variational optimization.
+\end{abstract}
+
+\section{Preliminaries}
+
+\subsection{Mean-Field Variational Inference}
+
+Given a probability distribution $P(\mathbf{X})$ that factorizes according to a
+Bayesian network, the \textbf{mean-field} approximation seeks a factored distribution
+$q(\mathbf{X}) = \prod_{i=1}^n q_i(X_i)$ that minimizes the KL divergence:
+\begin{equation}\label{eq:kl}
+  \mathrm{KL}(q \| P) = \sum_{\mathbf{x}} q(\mathbf{x}) \log \frac{q(\mathbf{x})}{P(\mathbf{x})}.
+\end{equation}
+
+The optimal update for each factor $q_i(X_i)$ is:
+\begin{equation}\label{eq:mf-update}
+  \log q_i^*(X_i) = \mathbb{E}_{q_{\setminus i}}\bigl[\log P(\mathbf{X})\bigr] + \mathrm{const},
+\end{equation}
+where $q_{\setminus i}$ denotes the product of all factors except $q_i$.
+
+For a Bayesian network $P(\mathbf{X}) = \prod_i P(X_i \mid \mathrm{Pa}(X_i))$,
+Equation~\eqref{eq:mf-update} decomposes into contributions from the local CPTs
+involving $X_i$ (either as child or parent):
+\begin{equation}\label{eq:mf-bn}
+  \log q_i^*(X_i = x) = \sum_{f : X_i \in \mathrm{scope}(f)}
+  \mathbb{E}_{q_{\setminus i}}\bigl[\log P_f \bigr],
+\end{equation}
+where $P_f$ denotes the CPT of factor $f$ evaluated at the relevant configuration.
+
+\subsection{Extension to Credal Networks}
+
+In a credal network, each local CPT $P(X_i \mid \mathrm{Pa}(X_i))$ is not a single
+distribution but a member of a credal set $K(X_i \mid \mathrm{Pa}(X_i))$.
+The strong extension (Equation~\eqref{eq:strong-ext} below) is the convex hull of
+all joint distributions formed by selecting one extreme point per local credal set:
+\begin{equation}\label{eq:strong-ext}
+  \mathrm{co}\,K(\mathbf{X}) = \mathrm{CH}\Bigl\{
+    \prod_{i} P(X_i \mid \pi_i) : P(X_i \mid \pi_i) \in \mathrm{ext}\,K(X_i \mid \pi_i)
+  \Bigr\}.
+\end{equation}
+
+Our approach exploits this structure: for each combination of extreme points (one per
+local credal set per parent configuration), we obtain a standard Bayesian network.
+Running mean-field variational inference on this BN produces a specific $q(\mathbf{X})$.
+By tracking the range of $q(Z)$ across all explored combinations, we obtain bounds
+on $P(Z \mid \mathbf{Y} = \mathbf{y})$.
+
+\section{Algorithm}
+
+\begin{algorithm}[H]
+\caption{Mean-Field Variational Inference for Credal Networks}
+\label{alg:vi}
+\begin{algorithmic}[1]
+\Require Factor graph with extreme points, query $Z$, evidence $\mathbf{Y} = \mathbf{y}$,
+         max iterations $T$, threshold $\tau$, max vertex combinations $M$
+\Ensure Bounds $[\underline{P}(Z{=}z),\; \overline{P}(Z{=}z)]$ for each $z$
+\Statex
+\State $\underline{P}(z) \gets 1,\; \overline{P}(z) \gets 0$ for each $z$
+\State Enumerate (or sample) vertex combinations $\mathcal{C}$
+\Comment{Up to $M$ combinations}
+\Statex
+\For{each vertex combination $\mathbf{vc} \in \mathcal{C}$}
+  \Comment{\textsc{Fix extreme points $\to$ precise BN}}
+  \State Initialize $q_i(X_i) \gets \mathrm{Uniform}(D_i)$ for all non-evidence $X_i$
+  \State Set $q_j(Y_j) \gets \delta_{y_j}$ for each evidence variable $Y_j$
+  \Statex
+  \For{$t = 1, \dots, T$}
+    \Comment{\textsc{Coordinate Ascent}}
+    \State $\delta \gets 0$
+    \For{each non-evidence variable $X_i$}
+      \State $\log \tilde{q}_i(x) \gets 0$ for each state $x$
+      \For{each factor $f$ with $X_i \in \mathrm{scope}(f)$}
+        \State Compute contribution to $\log \tilde{q}_i$ using
+               $\mathbf{vc}$ and current $q_{\setminus i}$
+        \Comment{See Section~\ref{sec:update}}
+      \EndFor
+      \State $q_i^{\mathrm{new}} \gets \mathrm{normalize}(\exp(\log \tilde{q}_i))$
+      \State $\delta \gets \max(\delta, \|\,q_i^{\mathrm{new}} - q_i\,\|_\infty)$
+      \State $q_i \gets q_i^{\mathrm{new}}$
+    \EndFor
+    \If{$\delta < \tau$} \textbf{break} \EndIf
+  \EndFor
+  \Statex
+  \For{each state $z$}
+    \Comment{\textsc{Track bounds}}
+    \State $\underline{P}(z) \gets \min(\underline{P}(z),\; q_Z(z))$
+    \State $\overline{P}(z) \gets \max(\overline{P}(z),\; q_Z(z))$
+  \EndFor
+\EndFor
+\State \Return $[\underline{P}(z),\; \overline{P}(z)]$ for each $z$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Coordinate Ascent Update}\label{sec:update}
+
+For a given vertex combination $\mathbf{vc}$, let $P_{\mathbf{vc}}(X_i \mid \pi)$
+denote the selected extreme point for node $X_i$ and parent config $\pi$.
+The contribution of factor $f$ (associated with node $X_j$) to $\log \tilde{q}_i$ is:
+
+\paragraph{Case 1: $X_i = X_j$ (factor's CPT is for $X_i$ itself).}
+\begin{equation}\label{eq:case1}
+  \log \tilde{q}_i(x) \mathrel{+}= \sum_{\pi}
+  \Bigl(\prod_{w \in \mathrm{Pa}(X_i)} q_w(\pi_w)\Bigr)
+  \cdot \log P_{\mathbf{vc}}(X_i{=}x \mid \pi).
+\end{equation}
+
+\paragraph{Case 2: $X_i \in \mathrm{Pa}(X_j)$ ($X_i$ is a parent in this factor).}
+\begin{equation}\label{eq:case2}
+  \log \tilde{q}_i(x) \mathrel{+}= \sum_{\pi : \pi_i = x}
+  \Bigl(\prod_{w \in \mathrm{Pa}(X_j) \setminus \{X_i\}} q_w(\pi_w)\Bigr)
+  \cdot \sum_{x_j} q_j(x_j) \log P_{\mathbf{vc}}(X_j{=}x_j \mid \pi).
+\end{equation}
+
+In both cases, the contribution is the expected log-CPT under the current
+variational distribution over the other variables.
+
+\section{Vertex Combination Sampling}
+
+The total number of vertex combinations is the product of the number of
+extreme points across all local credal sets and parent configurations. For
+the alarm network, this is $2 \times 2 \times 2^4 \times 4 \times 11 = 2816$.
+For larger networks, the number can be enormous.
+
+To handle this, the algorithm samples up to $M$ combinations uniformly at
+random (default $M = 500$). This provides a stochastic exploration of the
+credal set space. Increasing $M$ produces tighter bounds at the cost of
+computation time.
+
+\paragraph{Exhaustive vs.\ sampling.}
+When the total number of combinations is $\leq M$, all combinations are
+explored exhaustively. Otherwise, $M$ combinations are sampled with a
+fixed random seed for reproducibility.
+
+\section{Running Example}
+
+\begin{example}[Alarm Network]
+Using the alarm network with variables $B$, $E$, $A$, and $CD$.
+
+\paragraph{Query: $P(A{=}1 \mid B{=}0, E{=}0)$.}
+
+\textbf{Vertex combination 1:} Select $P(B) = [0.8, 0.2]$, $P(E) = [0.9, 0.1]$,
+$P(A \mid B{=}0, E{=}0) = [0.956, 0.044]$, and some vertex for $P(CD \mid A)$.
+
+After coordinate ascent:
+\begin{itemize}
+  \item $q(A)$: initialized to $[0.5, 0.5]$.
+  \item Update $q(A)$ using the expected log-CPT under $q(B) = \delta_0$,
+        $q(E) = \delta_0$ (evidence):
+        $\log \tilde{q}(A{=}1) \propto \log P(A{=}1 \mid B{=}0, E{=}0) = \log 0.044$.
+  \item After normalization: $q(A) \approx [0.956, 0.044]$.
+\end{itemize}
+
+\textbf{Vertex combination 2:} Select $P(A \mid B{=}0, E{=}0) = [1.0, 0.0]$.
+After coordinate ascent: $q(A) \approx [1.0, 0.0]$ ($A{=}1$ gets probability near 0).
+
+\textbf{Tracking bounds:}
+\begin{align*}
+  \underline{P}(A{=}1) &= \min(0.044, 0.0, \dots) \approx 0.0, \\
+  \overline{P}(A{=}1) &= \max(0.044, 0.0, \dots) \approx 0.044.
+\end{align*}
+
+Over 500 sampled vertex combinations, the tracked bounds were:
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Method} & $\underline{P}(A{=}1 \mid B{=}0, E{=}0)$
+                 & $\overline{P}(A{=}1 \mid B{=}0, E{=}0)$ \\
+\midrule
+Exact VE & 0.0000 & 0.0444 \\
+Variational (500 combos) & 0.0356 & 1.0000 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The variational bounds are wider than the exact VE bounds. This reflects
+the fact that mean-field variational inference introduces additional
+approximation through the factored $q$ assumption, and the sampling
+of vertex combinations may not cover the full extremal range. The bounds
+improve with more combinations and on larger networks where VE is
+intractable.
+\end{example}
+
+\section{Comparison with Other Methods}
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Property} & \textbf{Exact VE} & \textbf{$\varepsilon$-VE} & \textbf{Interval BP} & \textbf{Variational} \\
+\midrule
+Exact & Yes & No & No & No \\
+Bound type & Tight & Outer & Outer & Inner/Outer \\
+Multi-valued & Yes & Yes & Yes & Yes \\
+Scalability & Low & Medium & High & Medium \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Complexity}
+
+For each vertex combination, one round of mean-field coordinate ascent takes
+$O(n \cdot k \cdot S_{\max} \cdot k^{S_{\max}})$ time, where $n$ is the number of
+variables, $k$ is the maximum domain size, and $S_{\max}$ is the maximum factor
+scope size. With $T$ iterations and $M$ sampled combinations, the total complexity
+is $O(M \cdot T \cdot n \cdot k^{S_{\max}+1})$.
+
+\section{References}
+
+\begin{enumerate}
+\item M.I.\ Jordan, Z.\ Ghahramani, T.S.\ Jaakkola, L.K.\ Saul. An introduction to
+      variational methods for graphical models. \emph{Machine Learning}, 37:183--233, 1999.
+\item J.S.\ Ide, F.G.\ Cozman. Approximate algorithms for credal networks with binary
+      variables. \emph{IJAR}, 48(1):275--296, 2008.
+\item A.\ Antonucci, C.P.\ de Campos, D.\ Huber, M.\ Zaffalon. Approximate credal
+      network updating by linear programming. \emph{IJAR}, 58:25--38, 2015.
+\item D.D.\ Mau\'a, F.G.\ Cozman. Thirty years of credal networks. \emph{IJAR},
+      126:133--157, 2020.
+\end{enumerate}
+
+\end{document}

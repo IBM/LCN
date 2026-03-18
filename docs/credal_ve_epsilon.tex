@@ -1,0 +1,210 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{example}{Example}
+
+\title{Epsilon-Approximate Credal Variable Elimination:\\
+A Fully Polynomial-Time Approximation Scheme}
+\author{IBM Research}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+The exact Credal Variable Elimination (CVE) algorithm may produce intermediate
+potentials whose cardinality grows exponentially. By relaxing the pruning criterion
+to allow \emph{epsilon-dominated} functions to be removed, we obtain an approximate
+algorithm whose error is bounded by a user-specified tolerance $\varepsilon > 0$.
+This epsilon-approximate CVE constitutes a fully polynomial-time approximation scheme
+(FPTAS) for marginal inference in credal networks of bounded treewidth and bounded
+variable cardinality.
+\end{abstract}
+
+\section{Motivation}
+
+In exact CVE (see companion document \texttt{credal\_ve.tex}), the pruning step removes
+only strictly dominated functions: $f$ is pruned if there exists $g$ such that
+$g(\mathbf{y}) \geq f(\mathbf{y})$ for all $\mathbf{y}$, with strict inequality
+somewhere. While this preserves exact bounds, the number of surviving functions can
+grow exponentially across elimination steps.
+
+The key insight of Mau\'a et al.\ (2012) is to relax the dominance criterion: remove
+functions that are \emph{almost} dominated, controlled by a tolerance parameter
+$\varepsilon$. This trades bound tightness for computational efficiency.
+
+\section{Epsilon-Dominance}
+
+\begin{definition}[$\varepsilon$-Dominance]
+Let $\varepsilon \geq 0$. A function $f$ is \textbf{$\varepsilon$-dominated} by
+function $g$ if:
+\begin{equation}\label{eq:eps-dom}
+  g(\mathbf{y}) \geq f(\mathbf{y}) - \varepsilon \quad \forall\, \mathbf{y}.
+\end{equation}
+\end{definition}
+
+When $\varepsilon = 0$, this reduces to standard dominance. For $\varepsilon > 0$,
+more functions are classified as dominated and thus pruned, reducing the potential's
+cardinality.
+
+\begin{definition}[$\varepsilon$-Pruning]
+The $\varepsilon$-pruning of a potential $\phi$ is:
+\[
+  \mathrm{prune}_\varepsilon(\phi) = \{f \in \phi : \nexists\, g \in \phi \setminus \{f\}
+  \text{ s.t.\ } g(\mathbf{y}) \geq f(\mathbf{y}) - \varepsilon\; \forall\, \mathbf{y}\}.
+\]
+\end{definition}
+
+\section{Algorithm}
+
+The algorithm is identical to exact CVE (Algorithm~\ref{alg:cve-eps}) except that
+the pruning step at line~\ref{line:prune} uses $\varepsilon$-pruning instead of
+exact pruning.
+
+\begin{algorithm}[H]
+\caption{Epsilon-Approximate Credal Variable Elimination}
+\label{alg:cve-eps}
+\begin{algorithmic}[1]
+\Require Extreme points $\mathrm{ext}\,K(X_i \mid \mathrm{Pa}(X_i))$ for each node,
+         query $Z$, evidence $\mathbf{Y} = \mathbf{y}$, tolerance $\varepsilon > 0$
+\Ensure Approximate bounds $[\underline{P}_\varepsilon,\; \overline{P}_\varepsilon]$
+\Statex
+\State Initialize potentials $\Gamma$ from extreme points and evidence indicators
+       \Comment{Same as exact CVE}
+\State Compute elimination ordering $\mathbf{o}$ excluding $Z$
+\For{each $X_i$ in ordering $\mathbf{o}$}
+  \State $\Gamma_{X_i} \gets \{\phi \in \Gamma : X_i \in \mathrm{scope}(\phi)\}$
+  \State $\Gamma \gets \Gamma \setminus \Gamma_{X_i}$
+  \State $\psi \gets \prod \{\phi \in \Gamma_{X_i}\}$
+  \State $\psi' \gets \sum_{X_i} \psi$
+  \State $\psi'' \gets \mathrm{prune}_\varepsilon(\psi')$
+  \label{line:prune}
+  \Comment{$\varepsilon$-pruning instead of exact pruning}
+  \State $\Gamma \gets \Gamma \cup \{\psi''\}$
+\EndFor
+\State Extract bounds from remaining potentials
+\Comment{Same as exact CVE}
+\State \Return $[\underline{P}_\varepsilon,\; \overline{P}_\varepsilon]$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Epsilon-Pruning Procedure}
+
+\begin{algorithm}[H]
+\caption{$\varepsilon$-Prune}
+\label{alg:eps-prune}
+\begin{algorithmic}[1]
+\Require Potential $\phi = \{f_1, \dots, f_m\}$, tolerance $\varepsilon$
+\Ensure Pruned potential $\phi'$
+\State $\mathrm{dominated}[i] \gets \mathsf{false}$ for $i = 1, \dots, m$
+\For{$i = 1, \dots, m$}
+  \If{$\mathrm{dominated}[i]$} \textbf{continue} \EndIf
+  \For{$j = 1, \dots, m$, $j \neq i$}
+    \If{$\mathrm{dominated}[j]$} \textbf{continue} \EndIf
+    \If{$f_j(\mathbf{y}) \geq f_i(\mathbf{y}) - \varepsilon$ for all $\mathbf{y}$}
+      \State $\mathrm{dominated}[i] \gets \mathsf{true}$
+      \State \textbf{break}
+    \EndIf
+  \EndFor
+\EndFor
+\State \Return $\phi' = \{f_i : \neg\,\mathrm{dominated}[i]\}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Theoretical Properties}
+
+\begin{theorem}[FPTAS, Mau\'a et al.\ 2012]
+For credal networks of bounded treewidth $w^*$ and bounded variable cardinality $k$,
+the $\varepsilon$-approximate CVE runs in time polynomial in the input size and in
+$1/\varepsilon$, and produces bounds within $\varepsilon$ of the exact bounds:
+\[
+  \underline{P}(z \mid \mathbf{y}) \leq \underline{P}_\varepsilon(z \mid \mathbf{y})
+  \leq \underline{P}(z \mid \mathbf{y}) + O(\varepsilon),
+\]
+and similarly for the upper bound.
+\end{theorem}
+
+\paragraph{Bound direction.}
+Since $\varepsilon$-pruning only removes functions (never adds them), the approximate
+algorithm produces bounds that are at least as wide as the exact bounds:
+\[
+  \underline{P}_\varepsilon \leq \underline{P}, \qquad
+  \overline{P}_\varepsilon \geq \overline{P}.
+\]
+Thus the $\varepsilon$-approximate bounds are always valid \emph{outer} approximations.
+
+\section{Running Example}
+
+\begin{example}[Alarm Network]
+We use the same alarm network as in \texttt{credal\_ve.tex} with variables $B$, $E$,
+$A$, and $CD$.
+
+\paragraph{Query: $P(B{=}1)$, elimination order: $E, A, CD$.}
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+$\varepsilon$ & $\underline{P}(B{=}1)$ & $\overline{P}(B{=}1)$ & Time (s) \\
+\midrule
+$0$ (exact) & 0.1000 & 0.2000 & 3.69 \\
+$0.001$ & 0.1000 & 0.2000 & 3.14 \\
+$0.01$ & 0.1000 & 0.2000 & 1.53 \\
+$0.1$ & 0.1000 & 0.2000 & 0.009 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+For this query, even aggressive pruning ($\varepsilon = 0.1$) produces the same bounds
+because $B$ is a root node with only two vertices. The speedup comes from pruning
+functions in the intermediate potentials during elimination of $E$, $A$, and $CD$.
+
+\paragraph{Query: $P(A{=}1 \mid B{=}0, E{=}0)$.}
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+$\varepsilon$ & $\underline{P}(A{=}1 \mid \cdot)$ & $\overline{P}(A{=}1 \mid \cdot)$ & Time (s) \\
+\midrule
+$0$ (exact) & 0.0000 & 0.0444 & 0.012 \\
+$0.01$ & 0.0000 & 0.0444 & 0.002 \\
+$0.1$ & 0.0000 & 0.0000 & 0.001 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+With $\varepsilon = 0.1$, the interval collapses to $[0, 0]$ because the true upper
+bound ($0.044$) is smaller than $\varepsilon$, so the function achieving the maximum
+gets $\varepsilon$-dominated. This illustrates the tradeoff: large $\varepsilon$
+gives speed but may lose precision when probabilities are small relative to $\varepsilon$.
+\end{example}
+
+\section{Practical Guidance}
+
+\begin{itemize}
+  \item Start with $\varepsilon = 0$ (exact) for small networks.
+  \item For larger networks, use $\varepsilon = 10^{-3}$ to $10^{-2}$ as a good
+        balance between speed and accuracy.
+  \item Avoid $\varepsilon$ larger than the smallest probability of interest.
+  \item The algorithm is most effective when the network treewidth is moderate (the
+        intermediate potentials are the bottleneck, and pruning directly controls
+        their size).
+\end{itemize}
+
+\section{References}
+
+\begin{enumerate}
+\item D.D.\ Mau\'a, C.P.\ de Campos, M.\ Zaffalon. Solving limited memory influence
+      diagrams. \emph{JAIR}, 44:97--140, 2012.
+\item D.D.\ Mau\'a, F.G.\ Cozman. Thirty years of credal networks: Specification,
+      algorithms and complexity. \emph{IJAR}, 126:133--157, 2020.
+\item R.\ Marinescu et al. Credal Marginal MAP. \emph{NeurIPS}, 2023.
+\end{enumerate}
+
+\end{document}

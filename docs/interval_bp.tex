@@ -1,0 +1,269 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{example}{Example}
+
+\title{Interval Belief Propagation\\for Credal Networks with Multi-Valued Variables}
+\author{IBM Research}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Interval Belief Propagation (IBP) is an iterative message-passing algorithm for
+approximate marginal inference in credal networks. Unlike the 2U and L2U algorithms
+which are restricted to binary variables, IBP operates natively on multi-valued
+variables by propagating interval-vector messages. At each iteration, variable nodes
+tighten their interval bounds by intersecting incoming messages, while factor nodes
+compute new bounds by optimizing over the extreme points of local credal sets and the
+corner points of incoming interval messages. The algorithm is inspired by the ApproxLP
+framework of Antonucci et al.\ (2015) and the modified belief propagation for Logical
+Credal Networks (Qian et al., 2021).
+\end{abstract}
+
+\section{Preliminaries}
+
+\subsection{Factor Graph}
+
+Given a credal network $\langle G, \mathcal{K} \rangle$, we construct a
+\textbf{factor graph}: a bipartite graph with variable nodes and factor nodes.
+Each variable $X_i$ in the credal network corresponds to a variable node with
+cardinality $|D_i|$. Each conditional credal set $K(X_i \mid \mathrm{Pa}(X_i))$
+defines a factor node $f_i$ whose scope is $\{X_i\} \cup \mathrm{Pa}(X_i)$.
+The factor stores the extreme points of $K(X_i \mid \pi)$ for all parent
+configurations $\pi$.
+
+\subsection{Interval Messages}
+
+\begin{definition}[Interval Message]
+For a variable $X$ with $k$ states, an \textbf{interval message} is a pair of
+vectors $(\mathbf{l}, \mathbf{u}) \in \mathbb{R}^k \times \mathbb{R}^k$ where
+$0 \leq l_x \leq u_x \leq 1$ for each state $x \in D_X$. The interval
+$[l_x, u_x]$ bounds the probability $P(X = x)$ from the message sender's
+perspective.
+\end{definition}
+
+Messages are of two types:
+\begin{itemize}
+  \item $\mu_{v \to f} = (\mathbf{l}_{v \to f}, \mathbf{u}_{v \to f})$:
+        message from variable $v$ to factor $f$.
+  \item $\mu_{f \to v} = (\mathbf{l}_{f \to v}, \mathbf{u}_{f \to v})$:
+        message from factor $f$ to variable $v$.
+\end{itemize}
+
+All messages are initialized to the vacuous interval $([0, \dots, 0], [1, \dots, 1])$.
+
+\section{Algorithm}
+
+\begin{algorithm}[H]
+\caption{Interval Belief Propagation (IBP)}
+\label{alg:ibp}
+\begin{algorithmic}[1]
+\Require Factor graph with extreme points, query $Z$, evidence $\mathbf{Y} = \mathbf{y}$,
+         max iterations $T$, threshold $\tau$
+\Ensure Bounds $[\underline{P}(Z{=}z),\; \overline{P}(Z{=}z)]$ for each $z$
+\Statex
+\State Initialize $\mu_{v \to f} \gets (\mathbf{0}, \mathbf{1})$ and
+       $\mu_{f \to v} \gets (\mathbf{0}, \mathbf{1})$ for all edges
+\For{each evidence variable $Y_j = y_j$}
+  \State Set $\mu_{Y_j \to f} \gets (\delta_{y_j}, \delta_{y_j})$ for all factors
+         $f \in \mathcal{N}(Y_j)$
+\EndFor
+\Statex
+\For{$t = 1, \dots, T$}
+  \State $\delta \gets 0$
+  \Statex
+  \Comment{\textsc{Variable-to-Factor Updates}}
+  \For{each variable $v$ (not evidence), each factor $f \in \mathcal{N}(v)$}
+    \For{each state $x$}
+      \State $l_{v \to f}(x) \gets \max_{f' \in \mathcal{N}(v) \setminus \{f\}}
+             l_{f' \to v}(x)$
+      \State $u_{v \to f}(x) \gets \min_{f' \in \mathcal{N}(v) \setminus \{f\}}
+             u_{f' \to v}(x)$
+    \EndFor
+    \State $\mathbf{u}_{v \to f} \gets \max(\mathbf{l}_{v \to f}, \mathbf{u}_{v \to f})$
+    \Comment{Ensure $l \leq u$}
+    \State Update $\delta$
+  \EndFor
+  \Statex
+  \Comment{\textsc{Factor-to-Variable Updates}}
+  \For{each factor $f_i$ (node $X_i$, parents $\mathrm{Pa}(X_i)$), each $v \in \mathrm{scope}(f_i)$}
+    \State $\mathbf{l}_{\mathrm{new}} \gets \mathbf{1}, \quad \mathbf{u}_{\mathrm{new}} \gets \mathbf{0}$
+    \For{each vertex combination $\mathbf{vc}$ of $\mathrm{ext}\,K(X_i \mid \cdot)$}
+      \For{each corner-point combination $\mathbf{cc}$ of incoming intervals from
+           $\mathrm{scope}(f_i) \setminus \{v\}$}
+        \State Compute unnormalized marginal $\mathbf{m}(v)$ using $\mathbf{vc}$ and $\mathbf{cc}$
+        \Comment{See Section~\ref{sec:ftov}}
+        \State $\mathbf{p} \gets \mathbf{m} / \sum_{x} m(x)$
+        \State $\mathbf{l}_{\mathrm{new}} \gets \min(\mathbf{l}_{\mathrm{new}}, \mathbf{p})$
+        \State $\mathbf{u}_{\mathrm{new}} \gets \max(\mathbf{u}_{\mathrm{new}}, \mathbf{p})$
+      \EndFor
+    \EndFor
+    \State $\mu_{f \to v} \gets (\mathbf{l}_{\mathrm{new}}, \mathbf{u}_{\mathrm{new}})$
+    \State Update $\delta$
+  \EndFor
+  \If{$\delta < \tau$} \textbf{break} \EndIf
+\EndFor
+\Statex
+\Comment{\textsc{Extract Marginal Bounds}}
+\For{each state $z$}
+  \State $\underline{P}(z) \gets \max_{f \in \mathcal{N}(Z)} l_{f \to Z}(z)$
+  \State $\overline{P}(z) \gets \min_{f \in \mathcal{N}(Z)} u_{f \to Z}(z)$
+\EndFor
+\State \Return $[\underline{P}(z), \overline{P}(z)]$ for each $z$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Factor-to-Variable Message Computation}\label{sec:ftov}
+
+The factor-to-variable message from factor $f_i$ (associated with node $X_i$,
+parents $\mathrm{Pa}(X_i)$) to target variable $v \in \mathrm{scope}(f_i)$
+is computed as follows.
+
+Let $\mathcal{O} = \mathrm{scope}(f_i) \setminus \{v\}$ be the other variables.
+For each ``other'' variable $w \in \mathcal{O}$, let
+$(\mathbf{l}_{w}, \mathbf{u}_{w}) = \mu_{w \to f_i}$ be the incoming message.
+
+\paragraph{Vertex enumeration.}
+The factor stores extreme point vertices $V(\pi) = \mathrm{ext}\,K(X_i \mid \pi)$
+for each parent configuration $\pi$. A vertex combination selects one vertex per
+parent configuration.
+
+\paragraph{Corner-point enumeration.}
+For each variable $w \in \mathcal{O}$, the incoming interval $[l_w(x), u_w(x)]$
+is evaluated at its two extreme values: $l_w(x)$ or $u_w(x)$. With $|\mathcal{O}|$
+variables, there are $2^{|\mathcal{O}|}$ corner-point combinations.
+
+\paragraph{Marginal computation.}
+For a given vertex combination $\mathbf{vc}$ and corner-point assignment
+$\mathbf{cc}$, the unnormalized marginal over $v$ is:
+
+\emph{Case 1: $v = X_i$ (target is the child node).}
+\[
+  m(v{=}x) = \sum_{\pi} P_{\mathbf{vc}}(X_i{=}x \mid \pi)
+  \cdot \prod_{w \in \mathrm{Pa}(X_i) \cap \mathcal{O}} q_w(\pi_w),
+\]
+where $q_w$ is the lower or upper bound vector selected by $\mathbf{cc}$ for
+variable $w$, and $\pi_w$ is the value of $w$ in configuration $\pi$.
+
+\emph{Case 2: $v \in \mathrm{Pa}(X_i)$ (target is a parent).}
+\[
+  m(v{=}x) = \sum_{\pi : \pi_v = x}
+  \Bigl(\sum_{x_i} P_{\mathbf{vc}}(X_i{=}x_i \mid \pi) \cdot q_{X_i}(x_i)\Bigr)
+  \cdot \prod_{w \in \mathrm{Pa} \setminus \{v\}} q_w(\pi_w),
+\]
+where $q_{X_i}$ is the incoming child message bound if $X_i \in \mathcal{O}$.
+
+The marginal is then normalized: $p(x) = m(x) / \sum_{x'} m(x')$.
+
+\section{Convergence Properties}
+
+\begin{itemize}
+  \item Messages are updated by taking min/max over all vertex and corner-point
+        combinations, so the algorithm explores the full range of the credal set.
+  \item On polytree-shaped networks with binary variables, IBP reduces to the
+        2U algorithm and converges to exact bounds.
+  \item On loopy graphs, convergence to a fixed point is empirically observed
+        but not formally guaranteed. The fixed point may not correspond to the
+        exact bounds (similar to loopy belief propagation for Bayesian networks).
+\end{itemize}
+
+\section{Running Example}
+
+\begin{example}[Alarm Network]
+Using the same alarm network with variables $B$ (2 states), $E$ (2 states),
+$A$ (2 states), and $CD$ (4 states).
+
+\paragraph{Factor graph.}
+Four factors: $f_A$ (scope $\{A, B, E\}$), $f_B$ (scope $\{B\}$),
+$f_E$ (scope $\{E\}$), $f_{CD}$ (scope $\{CD, A\}$).
+
+\paragraph{Query: $P(B{=}1)$, no evidence.}
+Variable $B$ connects to factors $f_B$ and $f_A$.
+
+\textbf{Iteration 0:}
+All messages are vacuous $([0,0], [1,1])$.
+
+$f_B \to B$: Factor $f_B$ has scope $\{B\}$ with vertices $[0.8, 0.2]$ and $[0.9, 0.1]$.
+No other variables in scope, so: $l_{f_B \to B} = [0.8, 0.1]$, $u_{f_B \to B} = [0.9, 0.2]$.
+These are the correct marginal bounds for $B$ from its local credal set.
+
+$f_A \to B$: Factor $f_A$ has scope $\{A, B, E\}$. With vacuous messages from $A$ and $E$,
+the message to $B$ is computed by enumerating vertex and corner-point combinations.
+Since $A$ and $E$ messages are vacuous $[0,1]$, the resulting bounds for $B$ are wide.
+
+\textbf{Final marginal for $B$:}
+$\underline{P}(B{=}1) = \max(l_{f_B \to B}(1), l_{f_A \to B}(1))$,
+$\overline{P}(B{=}1) = \min(u_{f_B \to B}(1), u_{f_A \to B}(1))$.
+The bounds from $f_B$ provide the tightest constraints: $[0.1, 0.2]$.
+The bounds from $f_A$ are wider and do not further constrain the result.
+
+\paragraph{Comparison with exact VE.}
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Method} & $\underline{P}(B{=}1)$ & $\overline{P}(B{=}1)$ \\
+\midrule
+Exact VE & 0.1000 & 0.2000 \\
+Interval BP & 0.1000 & 0.2000 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+For root nodes, IBP recovers the exact bounds because the local factor alone
+determines the marginal. For non-root nodes with evidence, the bounds may differ
+due to the approximation inherent in loopy message passing.
+\end{example}
+
+\section{Multi-Valued Variable Support}
+
+A key advantage of IBP over L2U and GL2U is native support for multi-valued
+variables:
+
+\begin{itemize}
+  \item \textbf{L2U}: Restricted to binary variables. Messages are scalar intervals.
+  \item \textbf{GL2U}: Handles multi-valued variables by binarization (replacing a
+        $k$-valued variable with $\lceil \log_2 k \rceil$ binary variables in a chain).
+        This introduces auxiliary structure and can be lossy.
+  \item \textbf{IBP}: Messages are interval vectors $(\mathbf{l}, \mathbf{u}) \in
+        \mathbb{R}^k \times \mathbb{R}^k$. No binarization needed. Each state is
+        bounded independently.
+\end{itemize}
+
+For example, the compound variable $CD$ in the alarm network has 4 states. IBP
+directly propagates 4-dimensional interval vectors for $CD$, while GL2U would
+require binarizing $CD$ into two binary variables.
+
+\section{Complexity}
+
+Each iteration of IBP takes $O(N_f \cdot V_{\max} \cdot 2^{S_{\max}} \cdot k^{S_{\max}})$
+time, where $N_f$ is the number of factors, $V_{\max}$ is the maximum number of vertex
+combinations per factor, $S_{\max}$ is the maximum scope size, and $k$ is the maximum
+domain size. The number of iterations until convergence depends on the network structure
+and is typically 10--100 for practical networks.
+
+\section{References}
+
+\begin{enumerate}
+\item A.\ Antonucci, C.P.\ de Campos, D.\ Huber, M.\ Zaffalon. Approximate credal
+      network updating by linear programming with applications to decision making.
+      \emph{IJAR}, 58:25--38, 2015.
+\item J.S.\ Ide, F.G.\ Cozman. IPE and L2U: Approximate algorithms for credal
+      networks. \emph{STAIRS}, 2004.
+\item A.\ Antonucci, Y.\ Sun, C.P.\ de Campos, M.\ Zaffalon. Generalized loopy 2U:
+      A new algorithm for approximate inference in credal networks. \emph{IJAR},
+      51(5):474--484, 2010.
+\item H.\ Qian, R.\ Marinescu et al. Logical Credal Networks. \emph{AAAI}, 2021.
+\item D.D.\ Mau\'a, F.G.\ Cozman. Thirty years of credal networks. \emph{IJAR},
+      126:133--157, 2020.
+\end{enumerate}
+
+\end{document}

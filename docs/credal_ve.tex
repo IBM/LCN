@@ -1,0 +1,242 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{example}{Example}
+
+\title{Credal Variable Elimination:\\Exact Marginal Inference for Credal Networks}
+\author{IBM Research}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Credal Variable Elimination (CVE) is an exact algorithm for computing lower and upper
+bounds on marginal probabilities in credal networks. It extends the classical variable
+elimination algorithm for Bayesian networks to operate on \emph{potentials}---finite
+sets of real-valued functions representing the extreme points of local credal sets.
+By combining, marginalizing, and pruning these potentials along an elimination ordering,
+CVE produces tight probability intervals for any query variable given evidence.
+\end{abstract}
+
+\section{Preliminaries}
+
+\subsection{Credal Networks}
+
+A \textbf{credal network} is a pair $\langle G, \mathcal{K} \rangle$ where $G$ is a
+directed acyclic graph (DAG) over variables $\mathbf{X} = \{X_1, \dots, X_n\}$ with
+finite domains $\mathcal{D} = \{D_1, \dots, D_n\}$, and $\mathcal{K}$ is a collection
+of conditional credal sets $K(X_i \mid \mathrm{Pa}(X_i) = \pi)$, one for each variable
+$X_i$ and each configuration $\pi$ of its parents $\mathrm{Pa}(X_i)$ in $G$.
+
+Each credal set $K(X_i \mid \pi)$ is a closed convex set of probability distributions
+over $X_i$, specified by its \emph{extreme points} (vertices):
+\[
+  \mathrm{ext}\, K(X_i \mid \pi) = \{P_1(X_i \mid \pi), \dots, P_{v}(X_i \mid \pi)\}.
+\]
+
+\subsection{Strong Extension}
+
+The \textbf{strong extension} of a separately specified credal network is the convex
+hull of all joint distributions formed by combining one extreme point per local credal
+set:
+\begin{equation}\label{eq:strong-ext}
+  \mathrm{co}\,K(\mathbf{X}) = \mathrm{CH}\Bigl\{
+    P(\mathbf{x}) = \prod_{i=1}^{n} P(x_i \mid \pi_i) :
+    P(X_i \mid \pi_i) \in \mathrm{ext}\,K(X_i \mid \pi_i)
+  \Bigr\}.
+\end{equation}
+
+\begin{theorem}[Mau\'a \& Cozman, 2020]
+Any combination of extreme points from the local credal sets is an extreme point of the
+strong extension. Thus the strong extension can be built directly from the local extreme
+points.
+\end{theorem}
+
+\subsection{Marginal Inference}
+
+Given a query variable $Z$ and evidence $\mathbf{Y} = \mathbf{y}$, the goal is to compute:
+\begin{equation}\label{eq:marginal}
+  \underline{P}(Z = z \mid \mathbf{Y} = \mathbf{y}) = \min_{P \in \mathrm{ext}\,K(\mathbf{X})}
+  \frac{\sum_{\mathbf{x}'} \prod_i P(x_i \mid \pi_i)}
+       {\sum_{z'} \sum_{\mathbf{x}'} \prod_i P(x_i \mid \pi_i)},
+\end{equation}
+where the sums in numerator and denominator are over the marginalized variables
+$\mathbf{X}' = \mathbf{X} \setminus (\{Z\} \cup \mathbf{Y})$, and similarly for the
+upper probability $\overline{P}$ with $\max$.
+
+\section{Potentials}
+
+\begin{definition}[Potential]
+A \textbf{potential} $\phi(\mathbf{Y})$ over variables $\mathbf{Y}$ is a finite set
+of non-negative real-valued functions $\{f_1, f_2, \dots, f_m\}$ on the joint domain
+of $\mathbf{Y}$. Each function $f_k$ maps configurations of $\mathbf{Y}$ to
+$\mathbb{R}_{\geq 0}$.
+\end{definition}
+
+Three operations on potentials are central to the algorithm:
+
+\paragraph{Product.}
+The product of $\phi(\mathbf{Y})$ and $\psi(\mathbf{Z})$ is:
+\[
+  \phi \cdot \psi = \{f \cdot g : f \in \phi, \; g \in \psi\},
+\]
+where $(f \cdot g)(\mathbf{y}, \mathbf{z}) = f(\mathbf{y}) \cdot g(\mathbf{z})$
+over the joint domain $\mathbf{Y} \cup \mathbf{Z}$ (with broadcasting for
+non-shared variables).
+
+\paragraph{Sum-Marginal.}
+The sum-marginal of $\phi(\mathbf{Y})$ with respect to $X \subseteq \mathbf{Y}$ is:
+\[
+  \sum_{X} \phi(\mathbf{Y}) = \Bigl\{ \sum_{x} f(\mathbf{y}) : f \in \phi \Bigr\},
+\]
+producing functions over $\mathbf{Y} \setminus \{X\}$.
+
+\paragraph{Pruning.}
+The pruning operation removes dominated functions:
+\[
+  \mathrm{prune}(\phi) = \{f \in \phi : \nexists\, g \in \phi \setminus \{f\}
+  \text{ s.t.\ } g(\mathbf{y}) \geq f(\mathbf{y})\; \forall\, \mathbf{y}\}.
+\]
+This reduces the cardinality of potentials without affecting the min/max bounds.
+
+\section{Algorithm}
+
+\begin{algorithm}[H]
+\caption{Credal Variable Elimination (CVE)}
+\label{alg:cve}
+\begin{algorithmic}[1]
+\Require Extreme points $\mathrm{ext}\,K(X_i \mid \mathrm{Pa}(X_i))$ for each node $X_i$,
+         query variable $Z$, evidence $\mathbf{Y} = \mathbf{y}$
+\Ensure Lower and upper bounds $[\underline{P}(Z{=}z \mid \mathbf{y}),\;
+        \overline{P}(Z{=}z \mid \mathbf{y})]$ for each state $z$
+\Statex
+\State $\Gamma \gets \emptyset$
+\Comment{Set of potentials}
+\For{each variable $X_i \in \mathbf{X}$}
+  \State $\phi_{X_i} \gets \{p : p \in \mathrm{ext}\,K(X_i \mid \mathrm{Pa}(X_i))\}$
+  \State $\Gamma \gets \Gamma \cup \{\phi_{X_i}\}$
+\EndFor
+\For{each evidence variable $Y_j \in \mathbf{Y}$}
+  \State $\phi'_{Y_j} \gets \{\delta_{y_j}\}$
+  \Comment{Indicator function}
+  \State $\Gamma \gets \Gamma \cup \{\phi'_{Y_j}\}$
+\EndFor
+\Statex
+\State Compute elimination ordering $\mathbf{o} = (X_{\sigma(1)}, \dots, X_{\sigma(n-1)})$
+       excluding $Z$
+\For{each $X_i$ in ordering $\mathbf{o}$}
+  \State $\Gamma_{X_i} \gets \{\phi \in \Gamma : X_i \in \mathrm{scope}(\phi)\}$
+  \State $\Gamma \gets \Gamma \setminus \Gamma_{X_i}$
+  \State $\psi \gets \prod \{\phi \in \Gamma_{X_i}\}$
+  \Comment{Combine all potentials in bucket}
+  \State $\psi' \gets \sum_{X_i} \psi$
+  \Comment{Marginalize out $X_i$}
+  \State $\psi'' \gets \mathrm{prune}(\psi')$
+  \Comment{Remove dominated functions}
+  \State $\Gamma \gets \Gamma \cup \{\psi''\}$
+\EndFor
+\Statex
+\State $\phi_{\mathrm{final}} \gets \prod \{\phi \in \Gamma\}$
+\Comment{Remaining potentials over $Z$}
+\State $\underline{P}(z) \gets 1,\; \overline{P}(z) \gets 0$ for each state $z$
+\For{each $f \in \phi_{\mathrm{final}}$}
+  \State $\mathbf{p} \gets f / \sum_{z'} f(z')$
+  \Comment{Normalize}
+  \For{each state $z$}
+    \State $\underline{P}(z) \gets \min(\underline{P}(z),\; \mathbf{p}(z))$
+    \State $\overline{P}(z) \gets \max(\overline{P}(z),\; \mathbf{p}(z))$
+  \EndFor
+\EndFor
+\State \Return $[\underline{P}(z),\; \overline{P}(z)]$ for each $z$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Elimination Ordering}
+
+Two heuristics are supported:
+
+\begin{itemize}
+  \item \textbf{Topological order}: Variables are eliminated in topological order of the
+        DAG (non-evidence, non-query variables first, then evidence variables).
+  \item \textbf{Min-fill}: At each step, eliminate the variable that introduces the
+        fewest new edges (fill-in) in the interaction graph. This heuristic minimizes
+        the width of the resulting tree decomposition.
+\end{itemize}
+
+\section{Running Example}
+
+\begin{example}[Alarm Network]
+Consider the LCN with variables $B$ (Burglary), $E$ (Earthquake), $A$ (Alarm),
+and compound variable $CD$ (representing $C$ and $D$). The DAG structure is:
+\[
+  B \to A, \quad E \to A, \quad A \to CD.
+\]
+The local credal sets (extreme points from LRS vertex enumeration) are:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Node} & \textbf{Parent Config} & \textbf{Vertices} \\
+\midrule
+$B$ & --- & $[0.8, 0.2]$, $[0.9, 0.1]$ \\
+$E$ & --- & $[0.9, 0.1]$, $[0.95, 0.05]$ \\
+$A$ & $B{=}0, E{=}0$ & $[0.956, 0.044]$, $[1.0, 0.0]$ \\
+$A$ & $B{=}1, E{=}0$ & $[0.0, 1.0]$, $[1.0, 0.0]$ \\
+$A$ & $B{=}0, E{=}1$ & $[0.0, 1.0]$, $[1.0, 0.0]$ \\
+$A$ & $B{=}1, E{=}1$ & $[0.0, 1.0]$, $[1.0, 0.0]$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Query: $P(B{=}1)$ (no evidence).}
+Elimination order (topological): $E, A, CD$.
+
+\textbf{Step 1: Eliminate $E$.}
+Potentials involving $E$: $\phi_E$ (scope $\{E\}$, 2 functions) and $\phi_A$
+(scope $\{A, B, E\}$, $2^3 = 8$ functions for the separately specified A).
+Combine: $\psi = \phi_E \cdot \phi_A$ produces $2 \times 8 = 16$ functions
+over $\{A, B, E\}$. Marginalize $E$: sum over $E$'s domain, producing 16
+functions over $\{A, B\}$. Prune: remove dominated functions.
+
+\textbf{Step 2: Eliminate $A$.}
+Combine with $CD$ factor, marginalize $A$, prune.
+
+\textbf{Step 3: Eliminate $CD$.}
+Marginalize $CD$, leaving functions over $\{B\}$ only.
+
+\textbf{Result.} Each surviving function $f(B)$ is normalized:
+$p(B{=}1) = f(1) / (f(0) + f(1))$. The minimum across all functions gives
+$\underline{P}(B{=}1) = 0.10$ and the maximum gives
+$\overline{P}(B{=}1) = 0.20$.
+\end{example}
+
+\section{Complexity}
+
+\begin{theorem}
+The time and space complexity of CVE is $O(n \cdot C \cdot k^{w^*})$, where $n$ is
+the number of variables, $k$ bounds the domain sizes, $w^*$ is the induced width of the
+elimination ordering, and $C$ bounds the cardinality of the intermediate potentials.
+\end{theorem}
+
+In the worst case, $C$ is exponential in the number of extreme points. However, pruning
+keeps $C$ manageable in practice for networks of moderate treewidth.
+
+\section{References}
+
+\begin{enumerate}
+\item D.D.\ Mau\'a, F.G.\ Cozman. Thirty years of credal networks: Specification,
+      algorithms and complexity. \emph{International Journal of Approximate Reasoning},
+      126:133--157, 2020.
+\item R.\ Marinescu, R.\ Dechter, A.\ Ihler. Credal Marginal MAP. \emph{NeurIPS}, 2023.
+\item F.G.\ Cozman. Credal networks. \emph{Artificial Intelligence}, 120(2):199--233, 2000.
+\end{enumerate}
+
+\end{document}
