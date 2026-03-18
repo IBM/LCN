@@ -13,838 +13,456 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Generate random LCNs
+# Random LCN generator with support for multiple graph topologies
 
-import os
-import itertools
-import argparse
 import numpy as np
 import networkx as nx
+from typing import List
+
 from lcn.model import LCN, Sentence, Atom
 from lcn.inference.utils import check_consistency
-from lcn.utils import set_seed
 
-def make_formula(variables: list, interpretation: list, connector: str):
-    lits = []
-    for i, var in enumerate(variables):
-        if interpretation[i] == 0:
-            lits.append(f"!x{var}")
-        else:
-            lits.append(f"x{var}")
-    formula = f" {connector} ".join(lits)
-    return formula
 
-def make_lcn_random1(
-        num_nodes: int, 
-        num_extras: int, 
-        epsilon: float,
-        debug: bool = False,
-        check_consistency: bool = True
-) -> LCN:
+# Binary connectors supported by the LCN parser
+_CONNECTORS = ["and", "or", "xor"]
+
+
+class Generator:
     """
-    Generate a random LCN with Random structure having the following sentences:
-        P(y|x) such that we get a random graph (with cycles)
-        P(x) where x is selected randomly (num_extras)
-        
-        Args:
-            num_nodes: int
-                The number of variables in the LCN.
-            num_extras: int
-                The number of extra P(x) sentences to be added.
-            epsilon: float
-                The maximum gap between the lower and upper bounds per sentence.
-        
-        Returns: LCN
-            An LCN instance.
+    Generates random LCN instances with different graph topologies.
+    Supports random, DAG, polytree, and chain graph structures.
+    Logical formulas are built using standard connectors (and, or, xor, not)
+    and can involve multiple variables per sentence.
     """
-    
-    n = num_nodes
-    ordering = [i for i in range(n)]
-    position = [i for i in range(n)]
 
-    # Randomly, switch pairs of variables
-    for i in range(n):
-        j = np.random.randint(n)
-        k = ordering[j]
-        ordering[j] = ordering[i]
-        ordering[i] = k
-        position[ordering[j]] = j
-        position[ordering[i]] = i
-    
-    # Create the graph structure
-    scopes = [[ordering[0]]]
-    for i in range(1, n):
-        x = ordering[i - 1]
-        y = ordering[i]
-        scopes.append([x, y])
+    def __init__(self, seed: int = 42):
+        self.rng = np.random.RandomState(seed)
 
-    count = 1
-    while count <= num_extras:
-        x = np.random.randint(n)
-        y = np.random.randint(n)
-        if x != y and [x, y] not in scopes:
-            scopes.append([x, y])
-            count += 1
-    
-    assert (len(scopes) == num_nodes + num_extras)
-    if debug:
-        print(f"Generated scopes:")
-        for s in scopes:
-            print(f"  {s}")
-
-    # Create the LCN instance
-    lcn = LCN()
-    atoms = [Atom(f"x{i}") for i in range(n)]
-    lcn.add_atoms(atoms)
-    connectors = ["and", "or"]
-    for sid, scope in enumerate(scopes):
-        if len(scope) == 1:
-            child = scope[0]
-            phi = f"x{child}"
-            psi = None
-        else:
-            child = scope[-1]
-            parents = scope[:-1]
-            phi = f"x{child}"
-            configs = list(itertools.product([0, 1], repeat=len(parents)))
-            conn = connectors[np.random.randint(len(connectors))]
-            config = configs[np.random.randint(len(configs))]
-            psi = make_formula(parents, config, conn)
-
-        val = np.random.uniform()
-        lobo = max(0., val - epsilon)
-        upbo = min(1., val + epsilon)
-        s = Sentence(
-            label=f"s{sid}",
-            phi=phi,
-            psi=psi,
-            lower=lobo,
-            upper=upbo
-        )
-        lcn.add_sentence(s)
-
-    if check_consistency:
-        # print(f"Build the LCN's primal graph.")
-        lcn.build_primal_graph()
-        # print(f"Build the LCN's structure graph.")
-        lcn.build_structure_graph()
-        # print(f"Build the LCN's independence assumptions (LMC).")
-        lcn.local_markov_condition()
-
-    if debug:
-        print(f"Generated LCN:")
-        print(lcn)
-
-    return lcn        
-# --
-
-def make_lcn_random2(
-        num_nodes: int, 
-        num_extras: int, 
-        epsilon: float,
-        debug: float = False,
-        check_consistency: bool = True,
-) -> LCN:
-    """
-    Generate a random LCN with Random structure having the following sentences:
-        P(x|y,z) or P(x|y) such that we get a random graph (with cycles)
-        P(x) where x is selected randomly (num_extras)
-        
-        In case of P(x|y,z), the formula containing y,z will be randomly sampled
-        from an "AND" or an "OR", and similarly the literals y,z will be sampled
-        randomly.
+    def generate(
+        self,
+        num_vars: int,
+        graph_type: str,
+        num_instances: int = 1,
+        max_vars_per_sentence: int = 3,
+        num_extras: int = 0,
+        epsilon: float = 0.3,
+        max_retries: int = 100,
+        verbosity: int = 1,
+    ) -> List[LCN]:
+        """
+        Generate random consistent LCN instances.
 
         Args:
-            num_nodes: int
-                The number of variables in the LCN.
-            num_extras: int
-                The number of extra P(x) sentences to be added.
-            epsilon: float
-                The maximum gap between the lower and upper bounds per sentence.
-        
-        Returns: LCN
-            An LCN instance.
-    """
+            num_vars: Number of variables in each LCN.
+            graph_type: Graph topology — "random", "dag", "polytree", or "chain".
+            num_instances: Number of consistent instances to generate.
+            max_vars_per_sentence: Maximum number of variables in a formula.
+            num_extras: Number of extra marginal sentences P(x) to add.
+            epsilon: Half-width of the probability interval around a random value.
+            max_retries: Maximum generation attempts per instance before giving up.
+            verbosity: Verbosity level (0 = silent).
 
-    assert (num_nodes > 2)
+        Returns:
+            A list of consistent LCN instances.
+        """
+        assert graph_type in ("random", "dag", "polytree", "chain"), \
+            f"Unknown graph_type '{graph_type}'. " \
+            f"Use 'random', 'dag', 'polytree', or 'chain'."
+        assert num_vars >= 3, "Need at least 3 variables."
 
-    # Init the number of nodes, roots and parents
-    n = num_nodes
-    p = 2
-    r = p
-    c = n - r
+        instances = []
+        total_attempts = 0
+        while len(instances) < num_instances:
+            total_attempts += 1
+            if total_attempts > num_instances * max_retries:
+                if verbosity > 0:
+                    print(f"[Generator] Gave up after {total_attempts} attempts. "
+                          f"Generated {len(instances)}/{num_instances} instances.")
+                break
 
-    # Init the variable ordering
-    ordering = [i for i in range(n)]
-    position = [i for i in range(n)]
+            scopes, components = self._make_graph(num_vars, graph_type)
+            lcn = self._build_lcn(scopes, components, num_vars, epsilon,
+                                  max_vars_per_sentence, num_extras)
+            if self._check_and_build(lcn):
+                instances.append(lcn)
+                if verbosity > 0:
+                    print(f"[Generator] {graph_type} instance "
+                          f"{len(instances)}/{num_instances} "
+                          f"({len(lcn.sentences)} sentences, "
+                          f"attempt {total_attempts})")
+            elif verbosity > 1:
+                print(f"[Generator] Attempt {total_attempts}: inconsistent, retrying.")
 
-    # Randomly, switch pairs of variables
-    for i in range(n):
-        j = np.random.randint(n)
-        k = ordering[j]
-        ordering[j] = ordering[i]
-        ordering[i] = k
-        position[ordering[j]] = j
-        position[ordering[i]] = i
-    
-    # Generate the scopes
-    candidates = []
-    scopes = [None] * n
-    cpts = [False] * n
-    count = 0
-    while count < c:
-        child = ordering[np.random.randint(n - p)]
-        if cpts[child] is True:
-            continue
-        cpts[child] = True
-        num_higher_vars = n - position[child] - 1
-        num_parents = np.random.randint(p) + 1 # 2
+        return instances
 
-        candidates.append(child)
-        parents = set()
-        i = 0
-        while i < num_parents:
-            parent = ordering[np.random.randint(n)]
-            if child == parent:
-                continue
-            if parent not in parents:
-                parents.add(parent)
-                i += 1
+    # ------------------------------------------------------------------
+    # Graph topology generators
+    # ------------------------------------------------------------------
 
-        scope = [parent for parent in parents]
-        scope.append(child)
-        scopes[child] = scope
-        count += 1
-    
-    # Add the roots
-    for i in range(n):
-        if cpts[i] is False:
-            scopes[i] = [i]
-    
-    # Create extra knowledge: l <= P(x) <= u
-    extras = set()
-    num_extras = min(num_extras, len(candidates))
-    count = 1
-    while count <= num_extras:
-        k = np.random.randint(len(candidates))
-        x = candidates[k]
-        if x not in extras:
-            extras.add(x)
-            scopes.append([x])
-            count += 1
+    def _make_graph(self, num_vars: int, graph_type: str):
+        """
+        Generate scopes for the given topology.
 
-    if debug:
-        print(f"Generated scopes:")
-        for s in scopes:
-            print(f"  {s}")
+        Returns:
+            (scopes, components) where:
+            - scopes: list of [parents..., child] for Type 2 sentences
+              and [var] for Type 1 singleton sentences
+            - components: list of [var1, var2, ...] for Type 1 multi-variable
+              sentences (undirected cliques in chain graphs). Empty for
+              non-chain-graph topologies.
+        """
+        if graph_type == "random":
+            return self._graph_random(num_vars), []
+        elif graph_type == "dag":
+            return self._graph_dag(num_vars), []
+        elif graph_type == "polytree":
+            return self._graph_polytree(num_vars), []
+        elif graph_type == "chain":
+            return self._graph_chain(num_vars)
 
-    # Create the LCN instance
-    lcn = LCN()
-    atoms = [Atom(f"x{i}") for i in range(n)]
-    lcn.add_atoms(atoms)
-    connectors = ["and", "or"]
-    for sid, scope in enumerate(scopes):
-        if len(scope) == 1:
-            child = scope[0]
-            phi = f"x{child}"
-            psi = None
-        else:
-            child = scope[-1]
-            parents = scope[:-1]
-            phi = f"x{child}"
-            configs = list(itertools.product([0, 1], repeat=len(parents)))
-            conn = connectors[np.random.randint(len(connectors))]
-            config = configs[np.random.randint(len(configs))]
-            psi = make_formula(parents, config, conn)
+    def _random_ordering(self, n: int) -> List[int]:
+        """Return a random permutation of 0..n-1."""
+        ordering = list(range(n))
+        for i in range(n):
+            j = self.rng.randint(n)
+            ordering[i], ordering[j] = ordering[j], ordering[i]
+        return ordering
 
-        val = np.random.uniform()
-        lobo = max(0., val - epsilon)
-        upbo = min(1., val + epsilon)
-        s = Sentence(
-            label=f"s{sid}",
-            phi=phi,
-            psi=psi,
-            lower=lobo,
-            upper=upbo
-        )
-        lcn.add_sentence(s)
+    def _graph_random(self, n: int) -> List[List[int]]:
+        """Random graph (may have cycles). Chain + random extra edges."""
+        ordering = self._random_ordering(n)
+        scopes = [[ordering[0]]]  # root
+        for i in range(1, n):
+            scopes.append([ordering[i - 1], ordering[i]])
+        # Add a few random edges
+        extras = self.rng.randint(1, max(2, n // 2))
+        for _ in range(extras):
+            x = ordering[self.rng.randint(n)]
+            y = ordering[self.rng.randint(n)]
+            if x != y and [x, y] not in scopes:
+                scopes.append([x, y])
+        return scopes
 
-    if check_consistency:
-        # print(f"Build the LCN's primal graph.")
-        lcn.build_primal_graph()
-        # print(f"Build the LCN's structure graph.")
-        lcn.build_structure_graph()
-        # print(f"Build the LCN's independence assumptions (LMC).")
-        lcn.local_markov_condition()
+    def _graph_dag(self, n: int) -> List[List[int]]:
+        """Random DAG. Each non-root picks 1-2 parents from higher-ordered vars."""
+        ordering = self._random_ordering(n)
+        position = [0] * n
+        for i, v in enumerate(ordering):
+            position[v] = i
 
-    if debug:
-        print(f"Generated LCN:")
-        print(lcn)
+        scopes = []
+        num_roots = max(1, self.rng.randint(1, 3))
+        for i in range(n):
+            v = ordering[i]
+            if i < num_roots:
+                scopes.append([v])
+            else:
+                num_parents = self.rng.randint(1, min(3, i + 1))
+                parent_indices = self.rng.choice(i, size=num_parents, replace=False)
+                parents = [ordering[pi] for pi in parent_indices]
+                scopes.append(parents + [v])
+        return scopes
 
-    return lcn        
+    def _graph_polytree(self, n: int) -> List[List[int]]:
+        """Random polytree (tree-shaped DAG, each node has at most 1 parent in the
+        undirected sense, but may have multiple parents via directed edges)."""
+        ordering = self._random_ordering(n)
+        G = nx.DiGraph()
+        G.add_nodes_from(range(n))
+        # Start with a chain
+        for i in range(1, n):
+            G.add_edge(ordering[i - 1], ordering[i])
+        # Randomly swap some edges to create a polytree
+        for _ in range(n):
+            i = self.rng.randint(n)
+            j = self.rng.randint(n)
+            if i < j:
+                u, v = ordering[i], ordering[j]
+                if not G.has_edge(u, v):
+                    UG = nx.to_undirected(G)
+                    paths = list(nx.all_simple_paths(UG, u, v))
+                    if len(paths) == 1:
+                        k = paths[0][-2]
+                        G.remove_edge(k, v)
+                        G.add_edge(u, v)
 
-# --
+        scopes = []
+        for child in range(n):
+            parents = list(G.predecessors(child))
+            scopes.append(parents + [child])
+        return scopes
 
-def make_lcn_dag(
-        num_nodes: int, 
-        num_extras: int, 
-        epsilon: float, 
-        debug: bool = False,
-        check_consistency: bool = True
-) -> LCN:
-    """
-    Generate a random LCN with DAG structure having the following sentences:
-        P(x|y,z) or P(x|y) such that we get a DAG
-        P(x) where x is selected randomly (num_extras)
-        
-        In case of P(x|y,z), the formula containing y,z will be randomly sampled
-        from an "AND" or an "OR", and similarly the literals y,z will be sampled
-        randomly.
+    def _graph_chain(self, n: int) -> List[List[int]]:
+        """
+        Chain graph: a DAG of chain components.
 
-        Args:
-            num_nodes: int
-                The number of variables in the LCN.
-            num_extras: int
-                The number of extra P(x) sentences to be added.
-            epsilon: float
-                The maximum gap between the lower and upper bounds per sentence.
-        
-        Returns: LCN
-            An LCN instance.
-    """
+        A chain graph is a mixed graph with both directed and undirected
+        edges, containing no semi-directed cycles (Lauritzen & Wermuth 1989).
+        The chain components are the connected components of the undirected
+        subgraph. These components form a DAG when connected by directed edges.
 
-    assert (num_nodes > 2)
+        Each component is either:
+        - A single variable (singleton)
+        - A group of 2-3 variables fully connected by undirected edges (clique)
 
-    # Initialize the number of nodes, roots and parents
-    n = num_nodes
-    p = 2
-    r = p
-    c = n - r
+        The LCN sentences reflect this structure:
+        - Variables within a component: Type 1 sentences P(phi) where phi
+          involves multiple atoms (creating undirected edges in the structure graph)
+        - Directed edges between components: Type 2 sentences P(phi|psi)
 
-    # Initialize the variable ordering
-    ordering = [i for i in range(n)]
-    position = [i for i in range(n)]
+        Returns scopes as a list of:
+        - [v1, v2, ...] for undirected clique sentences (Type 1, multi-var phi)
+        - [parent_vars..., child_var] for directed sentences (Type 2)
+        - [v] for singleton marginals (Type 1)
+        """
+        ordering = self._random_ordering(n)
 
-    # Randomly, switch pairs of variables
-    for i in range(n):
-        j = np.random.randint(n)
-        k = ordering[j]
-        ordering[j] = ordering[i]
-        ordering[i] = k
-        position[ordering[j]] = j
-        position[ordering[i]] = i
-    
-    # Generate the scopes of the sentences
-    candidates = []
-    scopes = [None] * n
-    cpts = [False] * n
-    count = 0
-    while count < c:
-        child = ordering[np.random.randint(n - p)]
-        if cpts[child] is True:
-            continue
-        cpts[child] = True
-        num_higher_vars = n - position[child] - 1
-        num_parents = 2 #np.random.randint(p) + 1 # select 1 or 2 parents
-        if num_parents > num_higher_vars:
-            num_parents = num_higher_vars
+        # Step 1: Partition variables into chain components
+        # Randomly assign variables to components of size 1-3
+        components = []
+        idx = 0
+        while idx < n:
+            remaining = n - idx
+            if remaining == 1:
+                size = 1
+            elif remaining == 2:
+                size = self.rng.choice([1, 2])
+            else:
+                size = self.rng.choice([1, 2, 3], p=[0.4, 0.4, 0.2])
+            comp = [ordering[idx + j] for j in range(size)]
+            components.append(comp)
+            idx += size
 
-        candidates.append(child)
-        parents = set()
-        i = 0
-        while i < num_parents:
-            parent = ordering[position[child] + 1 + np.random.randint(num_higher_vars)]
-            if child == parent:
-                continue
-            if parent not in parents:
-                parents.add(parent)
-                i += 1
+        # Step 2: Create a DAG over the components (topological order = list order)
+        num_comp = len(components)
+        comp_dag = []  # list of (parent_comp_idx, child_comp_idx)
+        for i in range(1, num_comp):
+            # Each non-root component gets 1 parent from earlier components
+            parent_idx = self.rng.randint(0, i)
+            comp_dag.append((parent_idx, i))
 
-        scope = [parent for parent in parents]
-        scope.append(child)
-        scopes[child] = scope
-        count += 1
-    
-    # Add the roots
-    for i in range(n):
-        if cpts[i] is False:
-            scopes[i] = [i]
-    
-    # Create extra knowledge: l <= P(x) <= u
-    extras = set()
-    num_extras = min(num_extras, len(candidates))
-    count = 1
-    while count <= num_extras:
-        k = np.random.randint(len(candidates))
-        x = candidates[k]
-        if x not in extras:
-            extras.add(x)
-            scopes.append([x])
-            count += 1
+        # Step 3: Build scopes (Type 2 directed + Type 1 singletons) and
+        # components (Type 1 multi-variable undirected cliques)
+        scopes = []
+        multi_var_components = []
 
-    if debug:
-        print(f"Generated scopes:")
-        for s in scopes:
-            print(f"  {s}")
+        for comp in components:
+            if len(comp) == 1:
+                # Singleton: add marginal P(x)
+                scopes.append(comp)
+            else:
+                # Multi-variable component: will generate Type 1 sentence(s)
+                # with phi involving all component variables
+                multi_var_components.append(comp)
 
-    # Create the LCN instance
-    lcn = LCN()
-    atoms = [Atom(f"x{i}") for i in range(n)]
-    lcn.add_atoms(atoms)
-    connectors = ["and", "or"]
-    for sid, scope in enumerate(scopes):
-        if len(scope) == 1:
-            child = scope[0]
-            phi = f"x{child}"
-            psi = None
-        else:
-            child = scope[-1]
-            parents = scope[:-1]
-            phi = f"x{child}"
-            configs = list(itertools.product([0, 1], repeat=len(parents)))
-            conn = connectors[np.random.randint(len(connectors))]
-            config = configs[np.random.randint(len(configs))]
-            psi = make_formula(parents, config, conn)
+        # For each directed edge between components: add Type 2 sentence
+        for parent_idx, child_idx in comp_dag:
+            parent_comp = components[parent_idx]
+            child_comp = components[child_idx]
+            # Pick one variable from the child component as the phi target
+            child_var = child_comp[self.rng.randint(len(child_comp))]
+            # Use all parent component variables as the psi condition
+            scope = parent_comp + [child_var]
+            scopes.append(scope)
 
-        val = np.random.uniform()
-        lobo = max(0., val - epsilon)
-        upbo = min(1., val + epsilon)
-        s = Sentence(
-            label=f"s{sid}",
-            phi=phi,
-            psi=psi,
-            lower=lobo,
-            upper=upbo
-        )
-        lcn.add_sentence(s)
+        return scopes, multi_var_components
 
-    if check_consistency:
-        # print(f"Build the LCN's primal graph.")
-        lcn.build_primal_graph()
-        # print(f"Build the LCN's structure graph.")
-        lcn.build_structure_graph()
-        # print(f"Build the LCN's independence assumptions (LMC).")
-        lcn.local_markov_condition()
+    # ------------------------------------------------------------------
+    # Formula generation
+    # ------------------------------------------------------------------
 
-    if debug:
-        print(f"Generated LCN:")
-        print(lcn)
-
-    return lcn        
-
-# --
-
-def make_lcn_polytree(
-        num_nodes: int, 
-        num_extras: int, 
-        epsilon: float,
-        debug: bool = False,
-        check_consistency: bool = True
-) -> LCN:
-    """
-    Generate a random LCN with Polytree structure having the following sentences:
-        P(x|y,z) or P(x|y) such that we get a Polytree
-        P(x) where x is selected randomly (num_extras)
-        
-        In case of P(x|y,z), the formula containing y,z will be randomly sampled
-        from an "AND" or an "OR", and similarly the literals y,z will be sampled
-        randomly.
+    def _make_random_formula(self, variables: List[int],
+                             max_vars: int) -> str:
+        """
+        Generate a random propositional logic formula over a subset of the
+        given variable indices. Uses connectors: and, or, xor, not (!).
 
         Args:
-            num_nodes: int
-                The number of variables in the LCN.
-            num_extras: int
-                The number of extra P(x) sentences to be added.
-            epsilon: float
-                The maximum gap between the lower and upper bounds per sentence.
-        
-        Returns: LCN
-            An LCN instance.
-    """
+            variables: List of variable indices to choose from.
+            max_vars: Maximum number of variables to use in the formula.
 
-    n = num_nodes
+        Returns:
+            A formula string like "(x2 or !x3)" or "x1 and (x0 xor !x4)".
+        """
+        k = min(max_vars, len(variables))
+        if k <= 0:
+            k = 1
+        k = self.rng.randint(1, k + 1)  # pick 1..k variables
+        chosen = list(self.rng.choice(variables, size=k, replace=False))
+        return self._build_formula(chosen)
 
-    ordering = [i for i in range(n)]
-    position = [i for i in range(n)]
+    def _build_formula(self, var_ids: List[int]) -> str:
+        """Recursively build a formula from a list of variable ids."""
+        if len(var_ids) == 1:
+            return self._make_literal(var_ids[0])
+        if len(var_ids) == 2:
+            conn = _CONNECTORS[self.rng.randint(len(_CONNECTORS))]
+            left = self._make_literal(var_ids[0])
+            right = self._make_literal(var_ids[1])
+            return f"({left} {conn} {right})"
+        # Split into two groups and recurse
+        split = self.rng.randint(1, len(var_ids))
+        self.rng.shuffle(var_ids)
+        left_vars = var_ids[:split]
+        right_vars = var_ids[split:]
+        # Avoid empty sides
+        if len(left_vars) == 0:
+            left_vars = [var_ids[0]]
+            right_vars = var_ids[1:]
+        if len(right_vars) == 0:
+            right_vars = [var_ids[-1]]
+            left_vars = var_ids[:-1]
+        conn = _CONNECTORS[self.rng.randint(len(_CONNECTORS))]
+        left = self._build_formula(list(left_vars))
+        right = self._build_formula(list(right_vars))
+        return f"({left} {conn} {right})"
 
-    # Randomly, switch pairs of variables
-    for i in range(n):
-        j = np.random.randint(n)
-        k = ordering[j]
-        ordering[j] = ordering[i]
-        ordering[i] = k
-        position[ordering[j]] = j
+    def _make_literal(self, var_id: int) -> str:
+        """Return an atom or its negation with 50/50 probability."""
+        name = f"x{var_id}"
+        if self.rng.uniform() < 0.3:
+            return f"!{name}"
+        return name
 
-    # Create a ordered chain P(xi|xi-1)
-    G = nx.DiGraph()
-    G.add_nodes_from(range(n))
-    for i in range(1, n):
-        G.add_edge(ordering[i-1], ordering[i])
+    # ------------------------------------------------------------------
+    # Sentence and LCN construction
+    # ------------------------------------------------------------------
 
-    iter = 1
-    while iter < n:
-        i = np.random.randint(n)
-        j = np.random.randint(n)
-        if i < j:
-            u = ordering[i]
-            v = ordering[j]
-            edge = (u, v)# if np.random.uniform() <= 0.5 else (v, u)
-            if G.has_edge(edge[0], edge[1]) is False:
-                UG = nx.to_undirected(G)
-                paths = list(nx.all_simple_paths(UG, u, v))
-                assert(len(paths) == 1)
-                k = paths[0][-2]
-                G.remove_edge(k, v)
-                G.add_edge(edge[0], edge[1])
-                iter += 1
-    
-    scopes = []
-    candidates = []
-    for child in range(n):
-        parents = list(G.predecessors(child))
-        scope = parents + [child]
-        if len(scope) > 1:
-            candidates.append(child)
-        scopes.append(scope)
+    def _make_bounds(self, epsilon: float):
+        """Generate random lower and upper probability bounds."""
+        val = self.rng.uniform()
+        lo = max(0.0, val - epsilon)
+        hi = min(1.0, val + epsilon)
+        return round(lo, 6), round(hi, 6)
 
-    # Create extra knowledge: l <= P(x) <= u
-    extras = set()
-    num_extras = min(num_extras, len(candidates))
-    count = 1
-    while count <= num_extras:
-        k = np.random.randint(len(candidates))
-        x = candidates[k]
-        if x not in extras:
-            extras.add(x)
-            scopes.append([x])
-            count += 1
+    def _build_lcn(self, scopes: List[List[int]],
+                   components: List[List[int]],
+                   num_vars: int, epsilon: float, max_vars: int,
+                   num_extras: int) -> LCN:
+        """
+        Build an LCN instance from scopes and chain components.
 
-    if debug:
-        print(f"Generated scopes:")
-        for s in scopes:
-            print(f"  {s}")
-
-    # Create the LCN instance
-    lcn = LCN()
-    atoms = [Atom(f"x{i}") for i in range(n)]
-    lcn.add_atoms(atoms)
-    connectors = ["and", "or"]
-    for sid, scope in enumerate(scopes):
-        if len(scope) == 1:
-            child = scope[0]
-            phi = f"x{child}"
-            psi = None
-        else:
-            child = scope[-1]
-            parents = scope[:-1]
-            phi = f"x{child}"
-            configs = list(itertools.product([0, 1], repeat=len(parents)))
-            conn = connectors[np.random.randint(len(connectors))]
-            config = configs[np.random.randint(len(configs))]
-            psi = make_formula(parents, config, conn)
-
-        val = np.random.uniform()
-        lobo = max(0., val - epsilon)
-        upbo = min(1., val + epsilon)
-        s = Sentence(
-            label=f"s{sid}",
-            phi=phi,
-            psi=psi,
-            lower=lobo,
-            upper=upbo
-        )
-        lcn.add_sentence(s)
-
-    if check_consistency:
-        # print(f"Build the LCN's primal graph.")
-        lcn.build_primal_graph()
-        # print(f"Build the LCN's structure graph.")
-        lcn.build_structure_graph()
-        # print(f"Build the LCN's independence assumptions (LMC).")
-        lcn.local_markov_condition()
-
-    if debug:
-        print(f"Generated LCN:")
-        print(lcn)
-
-    return lcn        
-
-# --
-
-def make_lcn_factuality(
-        num_atoms: int, 
-        num_contexts_per_atom: int, 
-        epsilon: float,
-        debug: bool = False,
-        check_consistency: bool = False
-) -> LCN:
-    """
-    Generate a random LCN encoding the factuality usecase. There are two types
-    of sentences:
-        P(Y|X)  - for 'entailment': X entails Y
-        P(!Y|X) - for 'contradiction': X contradicts Y
-        
         Args:
-            num_atoms: int
-                The number of atoms in the response.
-            num_contexts_per_atom: int
-                The number contexts per atom.
-            epsilon: float
-                The maximum gap between the lower and upper bounds per sentence.
-        
-        Returns: LCN
-            An LCN instance.
-    """
+            scopes: list of [parents..., child] for Type 2 and [var] for Type 1.
+            components: list of multi-variable lists for Type 1 undirected
+                        clique sentences (chain graph components). Empty for
+                        non-chain-graph topologies.
+            num_vars: total number of variables.
+            epsilon: half-width of probability intervals.
+            max_vars: max variables per formula.
+            num_extras: extra marginal sentences to add.
+        """
+        lcn = LCN()
+        atoms = [Atom(f"x{i}") for i in range(num_vars)]
+        lcn.add_atoms(atoms)
 
-    # Set the number of atoms (response) and contexts
-    n = num_atoms
-    m = num_atoms * num_contexts_per_atom
+        sid = 0
 
-    # Create the atoms and contexts
-    fact_atoms = [f"A{i+1}" for i in range(n)]
-    fact_contexts = [f"C{j+1}" for j in range(m)]
+        # Type 1 multi-variable sentences for chain graph components
+        for comp in components:
+            phi = self._make_random_formula(comp, max_vars=len(comp))
+            lo, hi = self._make_bounds(epsilon)
+            sentence = Sentence(
+                label=f"s{sid}",
+                phi=phi,
+                psi=None,
+                lower=lo,
+                upper=hi,
+            )
+            lcn.add_sentence(sentence)
+            sid += 1
 
-    # Assign contexts for each atom
-    atom2contexts = {}
-    for i, a in enumerate(fact_atoms):
-        ctxts = [fact_contexts[i*num_contexts_per_atom + j] for j in range(num_contexts_per_atom)]
-        atom2contexts[a] = ctxts
+        # Scopes: Type 1 singletons and Type 2 directed sentences
+        for scope in scopes:
+            if len(scope) == 1:
+                # Type 1: P(phi)
+                child = scope[0]
+                phi = self._make_random_formula([child], max_vars)
+                psi = None
+            else:
+                # Type 2: P(phi | psi)
+                child = scope[-1]
+                parents = scope[:-1]
+                phi = self._make_random_formula([child], max_vars)
+                psi = self._make_random_formula(parents, max_vars)
 
-    # print(atom2contexts)
+            lo, hi = self._make_bounds(epsilon)
+            sentence = Sentence(
+                label=f"s{sid}",
+                phi=phi,
+                psi=psi,
+                lower=lo,
+                upper=hi,
+            )
+            lcn.add_sentence(sentence)
+            sid += 1
 
-    relations = {}
+        # Add extra marginal sentences P(x_i)
+        all_vars = list(range(num_vars))
+        extras_added = 0
+        attempts = 0
+        while extras_added < num_extras and attempts < num_extras * 10:
+            attempts += 1
+            var = all_vars[self.rng.randint(num_vars)]
+            phi = self._make_random_formula([var], max_vars)
+            lo, hi = self._make_bounds(epsilon)
+            sentence = Sentence(
+                label=f"s{sid}",
+                phi=phi,
+                psi=None,
+                lower=lo,
+                upper=hi,
+            )
+            lcn.add_sentence(sentence)
+            sid += 1
+            extras_added += 1
 
-    # Simulate entailment and contradiction for atom2contexts relations
-    num_rels = 0
-    for a in fact_atoms:
-        atom_contexts = atom2contexts[a]
-        # print(f"processing atom: {a} with contexts: {atom_contexts}")
-        for c in atom_contexts:
-            p = np.random.uniform()
-            num_rels += 1
-            r = f"R{num_rels}"
-            t = "entail" if p < .5 else "contradict"
-            relations[r] = {
-                "type": t,
-                "probability": np.random.uniform(),
-                "source": c,
-                "target": a
-            }
+        return lcn
 
-    # Simulate entailment and contradiction for context2context relationships
-    max_pairs = m * (m - 1) / 2
-    num_pairs = 0
-    count = int(.1 * max_pairs)
-    visited = set()
-    while num_pairs < count:
-        num_rels += 1
-        xi = np.random.randint(m)
-        xj = np.random.randint(m)
-        ci = fact_contexts[xi]
-        cj = fact_contexts[xj]
-        r_str = f"{ci}_{cj}"
-        if xi != xj and r_str not in visited:
-            visited.add(r_str)
-            r = f"R{num_rels}"
-            p = np.random.uniform()
-            t = "entail" if p < .5 else "contradict"
-            relations[r] = {
-                "type": t,
-                "probability": np.random.uniform(),
-                "source": ci,
-                "target": cj
-            }
-            num_pairs += 1
+    def _check_and_build(self, lcn: LCN) -> bool:
+        """Build the LCN structure and check consistency. Returns True if consistent."""
+        try:
+            lcn.build_primal_graph()
+            lcn.build_structure_graph()
+            lcn.local_markov_condition()
+            return check_consistency(lcn)
+        except Exception:
+            return False
 
-    # print(f"Generated relations: {len(relations)}")
-    # print(relations)
+    @staticmethod
+    def save(lcn: LCN, file_name: str):
+        """
+        Save an LCN instance to a file using the .lcn format.
 
-    # Create the LCN instance
-    lcn = LCN()
-    atoms = [Atom(a) for a in fact_atoms]
-    atoms.extend([Atom(c) for c in fact_contexts])
-    lcn.add_atoms(atoms)
-    for rid, rel in relations.items():
-        if rel["type"] == "entail":
-            phi = rel["target"]
-            psi = rel["source"]
-        elif rel["type"] == "contradict":
-            phi = "!" + rel["target"]
-            psi = rel["source"]
-
-        val = rel["probability"]
-        lobo = max(0., val - epsilon)
-        upbo = min(1., val + epsilon)
-        s = Sentence(
-            label=rid,
-            phi=phi,
-            psi=psi,
-            lower=lobo,
-            upper=upbo
-        )
-        lcn.add_sentence(s)
-
-    if check_consistency:
-        # print(f"Build the LCN's primal graph.")
-        lcn.build_primal_graph()
-        # print(f"Build the LCN's structure graph.")
-        lcn.build_structure_graph()
-        # print(f"Build the LCN's independence assumptions (LMC).")
-        lcn.local_markov_condition()
-
-    if debug:
-        print(f"Generated LCN:")
-        print(lcn)
-
-    return lcn        
-
-# --
+        Args:
+            lcn: LCN
+                The LCN instance to save.
+            file_name: str
+                Path to the output file.
+        """
+        lcn.save_lcn(file_name)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="LCN generator.")
-    parser.add_argument(
-        "-t",
-        "--topology",
-        help="LCN topology [dag, polytree, random1, random2, factuality].",
-        type=str
-    )
 
-    parser.add_argument(
-        "-s",
-        "--samples",
-        help="Number of problem instances to generate.",
-        type=int,
-        default=10
-    )
+    gen = Generator(seed=42)
 
-    parser.add_argument(
-        "-n",
-        "--num_vars",
-        help="Number of variables.",
-        type=int,
-        default=5
-    )
-
-    parser.add_argument(
-        "--num_atoms",
-        help="Number of atoms (factuality only).",
-        type=int,
-        default=5
-    )
-
-    parser.add_argument(
-        "--num_contexts_per_atom",
-        help="Number of contexts per atom (factuality only).",
-        type=int,
-        default=2
-    )
-
-    parser.add_argument(
-        "-x",
-        "--num_extras",
-        help="Number of extra singleton sentences",
-        type=int,
-        default=2
-    )
-
-    parser.add_argument(
-        "-e",
-        "--epsilon",
-        help="Epsilon value for sentence bounds",
-        type=float,
-        default=0.3
-    )
-
-    parser.add_argument(
-        "-o",
-        "--output_dir",
-        help="Output directory.",
-        type=str,
-        default=""
-    )
-
-    parser.add_argument(
-        "--check_consistency",
-        help="Flag indicating whether to check consistency or not",
-        action="store_true"
-    )
-
-
-    args = parser.parse_args()
-    assert (args.topology in ["dag", "polytree", "random1", "random2", "factuality"])
-
-    set_seed(42)
-
-    # Generate LCNs
-    count = 1
-    print(f"Generating {args.topology} LCNs: {args.samples} instances.")
-    while count <= args.samples:
-        num_vars = args.num_vars if args.topology != "factuality" else args.num_atoms
-        filename = f"lcn_{args.topology}_n{num_vars}_{count}.lcn"
-        filename = os.path.join(args.output_dir, filename)
-        if args.topology == "random1":
-            l = make_lcn_random1(
-                num_nodes=args.num_vars,
-                num_extras=args.num_extras,
-                epsilon=args.epsilon,
-                check_consistency=args.check_consistency
-            )
-        elif args.topology == "random2":
-            l = make_lcn_random2(
-                num_nodes=args.num_vars,
-                num_extras=args.num_extras,
-                epsilon=args.epsilon,
-                check_consistency=args.check_consistency
-            )
-        elif args.topology == "dag":
-            l = make_lcn_dag(
-                num_nodes=args.num_vars,
-                num_extras=args.num_extras,
-                epsilon=args.epsilon,
-                check_consistency=args.check_consistency
-            )
-        elif args.topology == "polytree":
-            l = make_lcn_polytree(
-                num_nodes=args.num_vars,
-                num_extras=args.num_extras,
-                epsilon=args.epsilon,
-                check_consistency=args.check_consistency
-            )
-        elif args.topology == "factuality":
-            l = make_lcn_factuality(
-                num_atoms=args.num_atoms,
-                num_contexts_per_atom=args.num_contexts_per_atom,
-                epsilon=args.epsilon,
-                check_consistency=args.check_consistency
-            )
-
-        if args.check_consistency:
-            ok = check_consistency(l)
-            if ok:
-                print("CONSISTENT")
-                l.save_lcn(filename)
-                count += 1
-        else:
-            print(f"Saving {args.topology} instance {count}")
-            l.save_lcn(filename)
-            count += 1
-
-    print("Done.")
-
-    # l = make_lcn_dag(num_nodes=5, num_extras=2, epsilon=0.4, debug=True)
-    # l = make_lcn_polytree(num_nodes=5, num_extras=2, epsilon=0.4, debug=True)
-    # l = make_lcn_random2(num_nodes=5, num_extras=2, epsilon=0.4, debug=True)
-    # l = make_lcn_random1(num_nodes=5, num_extras=2, epsilon=0.4, debug=True)
-    
-    # l.from_lcn(file_name=file_name)
-    # print(l)
-
-    # Check consistency
-    # ok = check_consistency(l)
-    # if ok:
-    #     print("CONSISTENT")
-    # else:
-    #     print("INCONSISTENT")
-
-
+    for graph_type in ["random", "dag", "polytree", "chain"]:
+        print(f"\n{'='*60}")
+        print(f"Generating {graph_type} LCNs (5 variables, 2 instances)")
+        print(f"{'='*60}")
+        instances = gen.generate(
+            num_vars=10,
+            graph_type=graph_type,
+            num_instances=2,
+            max_vars_per_sentence=4,
+            num_extras=2,
+            epsilon=0.3,
+            verbosity=1,
+        )
+        for i, lcn in enumerate(instances):
+            print(f"\n--- {graph_type} instance {i+1} ---")
+            print(lcn)
+            fname = f"/tmp/lcn_{graph_type}_{i+1}.lcn"
+            gen.save(lcn, fname)
+            print(f"Saved to {fname}")
