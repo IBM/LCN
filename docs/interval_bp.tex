@@ -5,6 +5,8 @@
 \usepackage{algpseudocode}
 \usepackage{booktabs}
 \usepackage{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{positioning,shapes.geometric,shapes.misc}
 
 \newtheorem{definition}{Definition}
 \newtheorem{theorem}{Theorem}
@@ -95,13 +97,11 @@ All messages are initialized to the vacuous interval $([0, \dots, 0], [1, \dots,
   \EndFor
   \Statex
   \Comment{\textsc{Factor-to-Variable Updates}}
-  \For{each factor $f_i$ (node $X_i$, parents $\mathrm{Pa}(X_i)$), each $v \in \mathrm{scope}(f_i)$}
+  \For{each factor $f_i$, each target variable $v \in \mathrm{scope}(f_i)$}
     \State $\mathbf{l}_{\mathrm{new}} \gets \mathbf{1}, \quad \mathbf{u}_{\mathrm{new}} \gets \mathbf{0}$
-    \For{each vertex combination $\mathbf{vc}$ of $\mathrm{ext}\,K(X_i \mid \cdot)$}
-      \For{each corner-point combination $\mathbf{cc}$ of incoming intervals from
-           $\mathrm{scope}(f_i) \setminus \{v\}$}
+    \For{each vertex combination $\mathbf{vc}$}
+      \For{each corner-point combination $\mathbf{cc}$}
         \State Compute unnormalized marginal $\mathbf{m}(v)$ using $\mathbf{vc}$ and $\mathbf{cc}$
-        \Comment{See Section~\ref{sec:ftov}}
         \State $\mathbf{p} \gets \mathbf{m} / \sum_{x} m(x)$
         \State $\mathbf{l}_{\mathrm{new}} \gets \min(\mathbf{l}_{\mathrm{new}}, \mathbf{p})$
         \State $\mathbf{u}_{\mathrm{new}} \gets \max(\mathbf{u}_{\mathrm{new}}, \mathbf{p})$
@@ -122,106 +122,401 @@ All messages are initialized to the vacuous interval $([0, \dots, 0], [1, \dots,
 \end{algorithmic}
 \end{algorithm}
 
-\subsection{Factor-to-Variable Message Computation}\label{sec:ftov}
+\section{Factor-to-Variable Message Computation}\label{sec:ftov}
 
 The factor-to-variable message from factor $f_i$ (associated with node $X_i$,
 parents $\mathrm{Pa}(X_i)$) to target variable $v \in \mathrm{scope}(f_i)$
-is computed as follows.
+is computed by scanning over all \emph{vertex combinations} and
+\emph{corner-point combinations}, as defined below.
 
 Let $\mathcal{O} = \mathrm{scope}(f_i) \setminus \{v\}$ be the other variables.
-For each ``other'' variable $w \in \mathcal{O}$, let
-$(\mathbf{l}_{w}, \mathbf{u}_{w}) = \mu_{w \to f_i}$ be the incoming message.
+For each $w \in \mathcal{O}$, let $(\mathbf{l}_{w}, \mathbf{u}_{w}) = \mu_{w \to f_i}$ be the incoming message.
 
-\paragraph{Vertex enumeration.}
-The factor stores extreme point vertices $V(\pi) = \mathrm{ext}\,K(X_i \mid \pi)$
-for each parent configuration $\pi$. A vertex combination selects one vertex per
-parent configuration.
+\subsection{Vertex Combinations (vc)}\label{sec:vc}
 
-\paragraph{Corner-point enumeration.}
-For each variable $w \in \mathcal{O}$, the incoming interval $[l_w(x), u_w(x)]$
-is evaluated at its two extreme values: $l_w(x)$ or $u_w(x)$. With $|\mathcal{O}|$
-variables, there are $2^{|\mathcal{O}|}$ corner-point combinations.
-
-\paragraph{Marginal computation.}
-For a given vertex combination $\mathbf{vc}$ and corner-point assignment
-$\mathbf{cc}$, the unnormalized marginal over $v$ is:
-
-\emph{Case 1: $v = X_i$ (target is the child node).}
+Factor $f_i$ stores a conditional credal set $K(X_i \mid \pi)$ for each parent
+configuration $\pi \in \Omega_{\mathrm{Pa}(X_i)}$. Each credal set has a finite
+number of extreme points (vertices):
 \[
+  \mathrm{ext}\,K(X_i \mid \pi) = \{P_1(X_i \mid \pi),\; P_2(X_i \mid \pi),\; \dots,\; P_{n_\pi}(X_i \mid \pi)\}.
+\]
+
+\begin{definition}[Vertex Combination]
+A \textbf{vertex combination} $\mathbf{vc} = (j_1, j_2, \dots, j_m)$ selects one vertex per parent
+configuration: vertex $j_k$ from configuration $\pi_k$. It specifies a complete conditional
+distribution $P_{\mathbf{vc}}(X_i \mid \pi_k)$ for every parent configuration.
+
+The total number of vertex combinations is $\prod_{k=1}^{m} n_{\pi_k}$.
+\end{definition}
+
+\textbf{Example.} If factor $f_A$ has parents $\{B, E\}$ with 4 parent configurations
+$(B{=}0,E{=}0)$, $(B{=}1,E{=}0)$, $(B{=}0,E{=}1)$, $(B{=}1,E{=}1)$, and each has
+2 vertices, then there are $2^4 = 16$ vertex combinations. The combination $\mathbf{vc} = (1,1,1,1)$
+selects vertex 1 from every parent configuration, while $\mathbf{vc} = (2,1,2,1)$ selects vertex 2
+from $(B{=}0,E{=}0)$ and $(B{=}0,E{=}1)$, and vertex 1 from the other two.
+
+\subsection{Corner-Point Combinations (cc)}\label{sec:cc}
+
+For each ``other'' variable $w \in \mathcal{O}$, the incoming interval message provides
+a lower bound vector $\mathbf{l}_w$ and an upper bound vector $\mathbf{u}_w$. To
+compute the factor-to-variable message, we must evaluate the marginal at the extreme
+points of these intervals.
+
+\begin{definition}[Corner-Point Combination]
+A \textbf{corner-point combination} $\mathbf{cc} = (c_1, c_2, \dots, c_{|\mathcal{O}|})$ where each $c_j \in \{0, 1\}$
+selects either the \emph{lower} ($c_j = 0$) or \emph{upper} ($c_j = 1$) bound vector
+for each other variable $w_j$:
+\[
+  \mathbf{q}_{w_j} = \begin{cases}
+    \mathbf{l}_{w_j} & \text{if } c_j = 0 \\
+    \mathbf{u}_{w_j} & \text{if } c_j = 1
+  \end{cases}
+\]
+The total number of corner-point combinations is $2^{|\mathcal{O}|}$.
+\end{definition}
+
+\textbf{Example.} When computing $f_A \to B$ (target is $B$), the other variables are
+$\mathcal{O} = \{A, E\}$. If the incoming messages are $\mu_{A \to f_A} = ([0.7, 0.0], [1.0, 0.3])$
+and $\mu_{E \to f_A} = ([0.9, 0.05], [0.95, 0.1])$, then there are $2^2 = 4$ corner-point
+combinations selecting $\mathbf{q}_A \in \{[0.7, 0.0], [1.0, 0.3]\}$ and
+$\mathbf{q}_E \in \{[0.9, 0.05], [0.95, 0.1]\}$.
+
+\subsection{Marginal Computation}
+
+For a given $(\mathbf{vc}, \mathbf{cc})$ pair, the unnormalized marginal over $v$ is:
+
+\medskip
+\noindent\textbf{Case 1:} $v = X_i$ (target is the child node):
+\begin{equation}\label{eq:case1}
   m(v{=}x) = \sum_{\pi} P_{\mathbf{vc}}(X_i{=}x \mid \pi)
-  \cdot \prod_{w \in \mathrm{Pa}(X_i) \cap \mathcal{O}} q_w(\pi_w),
-\]
-where $q_w$ is the lower or upper bound vector selected by $\mathbf{cc}$ for
-variable $w$, and $\pi_w$ is the value of $w$ in configuration $\pi$.
+  \cdot \prod_{w \in \mathrm{Pa}(X_i) \cap \mathcal{O}} \mathbf{q}_w(\pi_w),
+\end{equation}
+where $\mathbf{q}_w$ is the bound vector for $w$ selected by $\mathbf{cc}$, and
+$\pi_w$ is the value of $w$ in parent configuration $\pi$.
 
-\emph{Case 2: $v \in \mathrm{Pa}(X_i)$ (target is a parent).}
-\[
+\medskip
+\noindent\textbf{Case 2:} $v \in \mathrm{Pa}(X_i)$ (target is a parent):
+\begin{equation}\label{eq:case2}
   m(v{=}x) = \sum_{\pi : \pi_v = x}
-  \Bigl(\sum_{x_i} P_{\mathbf{vc}}(X_i{=}x_i \mid \pi) \cdot q_{X_i}(x_i)\Bigr)
-  \cdot \prod_{w \in \mathrm{Pa} \setminus \{v\}} q_w(\pi_w),
-\]
-where $q_{X_i}$ is the incoming child message bound if $X_i \in \mathcal{O}$.
+  \Bigl(\sum_{x_i} P_{\mathbf{vc}}(X_i{=}x_i \mid \pi) \cdot \mathbf{q}_{X_i}(x_i)\Bigr)
+  \cdot \prod_{w \in \mathrm{Pa} \setminus \{v\}} \mathbf{q}_w(\pi_w),
+\end{equation}
+where $\mathbf{q}_{X_i}$ is the bound vector for $X_i$ if $X_i \in \mathcal{O}$.
 
-The marginal is then normalized: $p(x) = m(x) / \sum_{x'} m(x')$.
+\medskip
+The marginal is normalized: $p(x) = m(x) / \sum_{x'} m(x')$.
 
-\section{Convergence Properties}
+The factor-to-variable message then takes the componentwise minimum and maximum
+over all $(\mathbf{vc}, \mathbf{cc})$ pairs:
+\begin{align*}
+  l_{f \to v}(x) &= \min_{\mathbf{vc},\,\mathbf{cc}} p(x), \\
+  u_{f \to v}(x) &= \max_{\mathbf{vc},\,\mathbf{cc}} p(x).
+\end{align*}
 
-\begin{itemize}
-  \item Messages are updated by taking min/max over all vertex and corner-point
-        combinations, so the algorithm explores the full range of the credal set.
-  \item On polytree-shaped networks with binary variables, IBP reduces to the
-        2U algorithm and converges to exact bounds.
-  \item On loopy graphs, convergence to a fixed point is empirically observed
-        but not formally guaranteed. The fixed point may not correspond to the
-        exact bounds (similar to loopy belief propagation for Bayesian networks).
-\end{itemize}
+%% ================================================================
+\section{Detailed Running Example: Alarm Network}
+%% ================================================================
 
-\section{Running Example}
+We trace the IBP algorithm on the alarm network from file \texttt{alarm.lcn}:
+\begin{verbatim}
+s1: 0.1 <= P(B) <= 0.2
+s2: 0.05 <= P(E) <= 0.1
+s3: 0.6 <= P(A | (B or E)) <= 0.9
+s4: 0.5 <= P(not(C xor D) | A) <= 0.7 ; True
+s5: 0.05 <= P(A) <= 0.1
+\end{verbatim}
 
-\begin{example}[Alarm Network]
-Using the same alarm network with variables $B$ (2 states), $E$ (2 states),
-$A$ (2 states), and $CD$ (4 states).
+After the chain graph factorization and LRS vertex enumeration, the credal network has
+four nodes: $B$ (binary), $E$ (binary), $A$ (binary), and $CD$ (4-valued, representing
+the compound variable for $C$ and $D$). The DAG structure is $B \to A$, $E \to A$,
+$A \to CD$.
 
-\paragraph{Factor graph.}
-Four factors: $f_A$ (scope $\{A, B, E\}$), $f_B$ (scope $\{B\}$),
-$f_E$ (scope $\{E\}$), $f_{CD}$ (scope $\{CD, A\}$).
+\subsection{Factor Graph}
 
-\paragraph{Query: $P(B{=}1)$, no evidence.}
-Variable $B$ connects to factors $f_B$ and $f_A$.
+The factor graph is a bipartite graph with 4 variable nodes and 4 factor nodes:
 
-\textbf{Iteration 0:}
-All messages are vacuous $([0,0], [1,1])$.
-
-$f_B \to B$: Factor $f_B$ has scope $\{B\}$ with vertices $[0.8, 0.2]$ and $[0.9, 0.1]$.
-No other variables in scope, so: $l_{f_B \to B} = [0.8, 0.1]$, $u_{f_B \to B} = [0.9, 0.2]$.
-These are the correct marginal bounds for $B$ from its local credal set.
-
-$f_A \to B$: Factor $f_A$ has scope $\{A, B, E\}$. With vacuous messages from $A$ and $E$,
-the message to $B$ is computed by enumerating vertex and corner-point combinations.
-Since $A$ and $E$ messages are vacuous $[0,1]$, the resulting bounds for $B$ are wide.
-
-\textbf{Final marginal for $B$:}
-$\underline{P}(B{=}1) = \max(l_{f_B \to B}(1), l_{f_A \to B}(1))$,
-$\overline{P}(B{=}1) = \min(u_{f_B \to B}(1), u_{f_A \to B}(1))$.
-The bounds from $f_B$ provide the tightest constraints: $[0.1, 0.2]$.
-The bounds from $f_A$ are wider and do not further constrain the result.
-
-\paragraph{Comparison with exact VE.}
 \begin{center}
-\begin{tabular}{lcc}
+\begin{tikzpicture}[
+  var/.style={circle, draw, minimum size=10mm, font=\small},
+  fac/.style={rectangle, draw, fill=gray!20, minimum size=8mm, font=\small},
+  edge/.style={thick},
+  node distance=18mm
+]
+  % Variable nodes
+  \node[var] (B) {$B$};
+  \node[var, right=25mm of B] (A) {$A$};
+  \node[var, below=15mm of B] (E) {$E$};
+  \node[var, right=25mm of A] (CD) {$CD$};
+
+  % Factor nodes
+  \node[fac, above=10mm of B] (fB) {$f_B$};
+  \node[fac, below=10mm of E] (fE) {$f_E$};
+  \node[fac, below right=5mm and 12mm of B] (fA) {$f_A$};
+  \node[fac, above=10mm of CD] (fCD) {$f_{CD}$};
+
+  % Edges
+  \draw[edge] (B) -- (fB);
+  \draw[edge] (E) -- (fE);
+  \draw[edge] (B) -- (fA);
+  \draw[edge] (E) -- (fA);
+  \draw[edge] (A) -- (fA);
+  \draw[edge] (A) -- (fCD);
+  \draw[edge] (CD) -- (fCD);
+\end{tikzpicture}
+\end{center}
+
+\noindent Each factor's scope and adjacency:
+\begin{center}
+\begin{tabular}{llll}
 \toprule
-\textbf{Method} & $\underline{P}(B{=}1)$ & $\overline{P}(B{=}1)$ \\
+\textbf{Factor} & \textbf{Node} & \textbf{Parents} & \textbf{Scope} \\
 \midrule
-Exact VE & 0.1000 & 0.2000 \\
-Interval BP & 0.1000 & 0.2000 \\
+$f_B$ & $B$ & --- & $\{B\}$ \\
+$f_E$ & $E$ & --- & $\{E\}$ \\
+$f_A$ & $A$ & $B, E$ & $\{A, B, E\}$ \\
+$f_{CD}$ & $CD$ & $A$ & $\{CD, A\}$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-For root nodes, IBP recovers the exact bounds because the local factor alone
-determines the marginal. For non-root nodes with evidence, the bounds may differ
-due to the approximation inherent in loopy message passing.
-\end{example}
+Variable adjacency: $B \leftrightarrow \{f_B, f_A\}$, \;
+$E \leftrightarrow \{f_E, f_A\}$, \;
+$A \leftrightarrow \{f_A, f_{CD}\}$, \;
+$CD \leftrightarrow \{f_{CD}\}$.
+
+\subsection{Credal Factors (Extreme Points)}
+
+\paragraph{Factor $f_B$: $K(B)$, no parents.}
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Vertex} & $P(B{=}0)$ & $P(B{=}1)$ \\
+\midrule
+$v_1$ & 0.80 & 0.20 \\
+$v_2$ & 0.90 & 0.10 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Factor $f_E$: $K(E)$, no parents.}
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Vertex} & $P(E{=}0)$ & $P(E{=}1)$ \\
+\midrule
+$v_1$ & 0.90 & 0.10 \\
+$v_2$ & 0.95 & 0.05 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Factor $f_A$: $K(A \mid B, E)$, parents $\{B, E\}$.}
+Four parent configurations, each with 2 vertices ($2^4 = 16$ vertex combinations):
+\begin{center}
+\begin{tabular}{llcc}
+\toprule
+\textbf{Parent config} & \textbf{Vertex} & $P(A{=}0 \mid \cdot)$ & $P(A{=}1 \mid \cdot)$ \\
+\midrule
+$B{=}0, E{=}0$ & $v_1$ & 0.9556 & 0.0444 \\
+$B{=}0, E{=}0$ & $v_2$ & 1.0000 & 0.0000 \\
+\midrule
+$B{=}1, E{=}0$ & $v_1$ & 0.0000 & 1.0000 \\
+$B{=}1, E{=}0$ & $v_2$ & 1.0000 & 0.0000 \\
+\midrule
+$B{=}0, E{=}1$ & $v_1$ & 0.0000 & 1.0000 \\
+$B{=}0, E{=}1$ & $v_2$ & 1.0000 & 0.0000 \\
+\midrule
+$B{=}1, E{=}1$ & $v_1$ & 0.0000 & 1.0000 \\
+$B{=}1, E{=}1$ & $v_2$ & 1.0000 & 0.0000 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Factor $f_{CD}$: $K(CD \mid A)$, parent $\{A\}$.}
+Two parent configurations: $A{=}0$ (4 vertices) and $A{=}1$ (11 vertices).
+For brevity, we show a subset:
+\begin{center}
+\begin{tabular}{llcccc}
+\toprule
+\textbf{Config} & \textbf{Vtx} & $P(CD{=}0)$ & $P(CD{=}1)$ & $P(CD{=}2)$ & $P(CD{=}3)$ \\
+\midrule
+$A{=}0$ & $v_1$ & 0.00 & 0.00 & 0.00 & 1.00 \\
+$A{=}0$ & $v_2$ & 0.00 & 0.00 & 1.00 & 0.00 \\
+$A{=}0$ & $v_3$ & 0.00 & 1.00 & 0.00 & 0.00 \\
+$A{=}0$ & $v_4$ & 1.00 & 0.00 & 0.00 & 0.00 \\
+\midrule
+$A{=}1$ & $v_1$ & 0.00 & 0.00 & 0.30 & 0.70 \\
+$A{=}1$ & $v_2$ & 0.00 & 0.30 & 0.00 & 0.70 \\
+\multicolumn{2}{l}{$\cdots$ (9 more)} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+There are $4 \times 11 = 44$ vertex combinations for $f_{CD}$.
+
+\subsection{Query: $P(B{=}1)$, No Evidence}
+
+\subsubsection{Iteration 1: Factor-to-Variable Messages}
+
+\paragraph{Message $f_B \to B$.}
+Factor $f_B$ has scope $\{B\}$ with no parents and no other variables ($\mathcal{O} = \emptyset$).
+
+\begin{itemize}
+\item \textbf{Vertex combinations:} 2 (one per vertex of $K(B)$, since there is only one parent configuration---the empty one).
+\item \textbf{Corner-point combinations:} $2^0 = 1$ (no other variables).
+\end{itemize}
+
+Computation for each $\mathbf{vc}$:
+\begin{align*}
+  \mathbf{vc} = (1): \quad & m = v_1 = [0.80,\, 0.20], \quad
+  p = m / 1.0 = [0.80,\, 0.20]. \\
+  \mathbf{vc} = (2): \quad & m = v_2 = [0.90,\, 0.10], \quad
+  p = m / 1.0 = [0.90,\, 0.10].
+\end{align*}
+
+Result:
+\[
+  \mu_{f_B \to B} = \bigl(\,\underbrace{[\,0.80,\; 0.10\,]}_{\mathbf{l} = \min},\;
+  \underbrace{[\,0.90,\; 0.20\,]}_{\mathbf{u} = \max}\,\bigr).
+\]
+
+\paragraph{Message $f_E \to E$.} Analogous computation:
+\[
+  \mu_{f_E \to E} = \bigl(\,[\,0.90,\; 0.05\,],\; [\,0.95,\; 0.10\,]\,\bigr).
+\]
+
+\paragraph{Message $f_A \to A$.}
+Factor $f_A$ has scope $\{A, B, E\}$, target is $A$, so $\mathcal{O} = \{B, E\}$.
+This is Case~1 (target is the child node). Using Equation~\eqref{eq:case1}:
+\[
+  m(A{=}x) = \sum_{\pi \in \{0,1\}^2} P_{\mathbf{vc}}(A{=}x \mid B{=}\pi_B, E{=}\pi_E)
+  \cdot \mathbf{q}_B(\pi_B) \cdot \mathbf{q}_E(\pi_E).
+\]
+
+In iteration~1, the incoming messages are vacuous: $\mu_{B \to f_A} = ([0,0],[1,1])$,
+$\mu_{E \to f_A} = ([0,0],[1,1])$.
+
+\begin{itemize}
+\item \textbf{Vertex combinations:} $2^4 = 16$ (2 vertices per each of 4 parent configs).
+\item \textbf{Corner-point combinations:} $2^2 = 4$ (lower or upper for $B$ and $E$).
+\end{itemize}
+
+When both incoming messages are vacuous, many $(\mathbf{vc}, \mathbf{cc})$ pairs
+produce $m = [0, 0]$ (zero total) because $\mathbf{q}_B = [0,0]$ or
+$\mathbf{q}_E = [0,0]$ zeroes out the product.
+Only $\mathbf{cc} = (1,1)$ (both upper bounds $=[1,1]$) produces nonzero marginals.
+
+\textbf{Detailed example:} $\mathbf{vc} = (1,1,1,1)$ (vertex~1 for all configs),
+$\mathbf{cc} = (1,1)$ ($\mathbf{q}_B = [1,1]$, $\mathbf{q}_E = [1,1]$):
+\begin{align*}
+  m(A{=}0) &= 0.9556 \cdot 1 \cdot 1 + 0.0000 \cdot 1 \cdot 1
+              + 0.0000 \cdot 1 \cdot 1 + 0.0000 \cdot 1 \cdot 1 = 0.9556, \\
+  m(A{=}1) &= 0.0444 \cdot 1 \cdot 1 + 1.0000 \cdot 1 \cdot 1
+              + 1.0000 \cdot 1 \cdot 1 + 1.0000 \cdot 1 \cdot 1 = 3.0444, \\
+  p &= [0.9556, 3.0444] / 4.0 = [0.2389,\, 0.7611].
+\end{align*}
+
+After scanning all 16 vertex combinations (with $\mathbf{cc} = (1,1)$),
+the resulting message is wide because vacuous inputs provide no information.
+
+\paragraph{Message $f_A \to B$.}
+Target is $B$ (a parent), $\mathcal{O} = \{A, E\}$. This is Case~2.
+With vacuous incoming messages, the message to $B$ is similarly wide.
+
+\paragraph{Messages from $f_{CD}$.}
+Factor $f_{CD}$ has scope $\{CD, A\}$ with 44 vertex combinations and $2^1 = 2$
+corner-point combinations per target variable. In the first iteration with
+vacuous incoming messages, these produce wide bounds.
+
+\subsubsection{Iteration 1: Variable-to-Factor Messages}
+
+After the factor-to-variable messages are computed, the variable-to-factor
+messages are updated by \emph{tightening}: each variable sends to a factor
+the intersection of messages from all \emph{other} factors.
+
+\paragraph{Message $B \to f_A$.}
+Variable $B$ has neighbors $\{f_B, f_A\}$. The message to $f_A$ excludes $f_A$ itself:
+\[
+  \mu_{B \to f_A} = \mu_{f_B \to B} = \bigl(\,[0.80,\, 0.10],\; [0.90,\, 0.20]\,\bigr).
+\]
+This is a significant tightening from the vacuous $([0,0],[1,1])$: factor $f_B$
+directly constrains $B$'s marginal, and this information is now passed to $f_A$.
+
+\paragraph{Message $E \to f_A$.}
+Similarly, $E$ has neighbors $\{f_E, f_A\}$:
+\[
+  \mu_{E \to f_A} = \mu_{f_E \to E} = \bigl(\,[0.90,\, 0.05],\; [0.95,\, 0.10]\,\bigr).
+\]
+
+\paragraph{Message $A \to f_{CD}$.}
+Variable $A$ has neighbors $\{f_A, f_{CD}\}$:
+\[
+  \mu_{A \to f_{CD}} = \mu_{f_A \to A}.
+\]
+
+\subsubsection{Iteration 2: Recomputing $f_A \to A$ with Informative Messages}
+
+Now $f_A$ receives informative messages from $B$ and $E$. The computation of
+$f_A \to A$ uses:
+\begin{align*}
+  \mathbf{q}_B &\in \{[0.80,\, 0.10],\; [0.90,\, 0.20]\}, \\
+  \mathbf{q}_E &\in \{[0.90,\, 0.05],\; [0.95,\, 0.10]\}.
+\end{align*}
+
+\textbf{Detailed example:} $\mathbf{vc} = (1,1,1,1)$, $\mathbf{cc}$: $\mathbf{q}_B = [0.80, 0.10]$,
+$\mathbf{q}_E = [0.90, 0.05]$:
+\begin{align*}
+  m(A{=}0) &= 0.9556 \cdot 0.80 \cdot 0.90 + 0.0000 \cdot 0.10 \cdot 0.90 \\
+            &\quad + 0.0000 \cdot 0.80 \cdot 0.05 + 0.0000 \cdot 0.10 \cdot 0.05 = 0.6880, \\
+  m(A{=}1) &= 0.0444 \cdot 0.80 \cdot 0.90 + 1.0000 \cdot 0.10 \cdot 0.90 \\
+            &\quad + 1.0000 \cdot 0.80 \cdot 0.05 + 1.0000 \cdot 0.10 \cdot 0.05 = 0.1670, \\
+  p &= [0.6880,\, 0.1670] / 0.8550 = [\,0.8047,\; 0.1953\,].
+\end{align*}
+
+Another example: $\mathbf{vc} = (1,1,1,1)$, $\mathbf{cc}$: $\mathbf{q}_B = [0.90, 0.20]$,
+$\mathbf{q}_E = [0.95, 0.10]$:
+\begin{align*}
+  m(A{=}0) &= 0.9556 \cdot 0.90 \cdot 0.95 + 0.0 \cdot 0.20 \cdot 0.95 \\
+            &\quad + 0.0 \cdot 0.90 \cdot 0.10 + 0.0 \cdot 0.20 \cdot 0.10 = 0.8170, \\
+  m(A{=}1) &= 0.0444 \cdot 0.90 \cdot 0.95 + 1.0 \cdot 0.20 \cdot 0.95 \\
+            &\quad + 1.0 \cdot 0.90 \cdot 0.10 + 1.0 \cdot 0.20 \cdot 0.10 = 0.3380, \\
+  p &= [0.8170,\, 0.3380] / 1.1550 = [\,0.7074,\; 0.2926\,].
+\end{align*}
+
+As the incoming messages become more informative (tighter intervals), the factor
+explores a more constrained space and the message to $A$ tightens accordingly.
+
+\subsubsection{Final Marginal Extraction}
+
+After convergence, the marginal bounds for $B$ are:
+\[
+  \underline{P}(B{=}x) = \max_{f \in \{f_B, f_A\}} l_{f \to B}(x), \quad
+  \overline{P}(B{=}x) = \min_{f \in \{f_B, f_A\}} u_{f \to B}(x).
+\]
+Factor $f_B$ provides the tightest bounds for $B$ since it directly encodes $K(B)$:
+\[
+  P(B{=}1) \in [0.10,\; 0.20].
+\]
+
+\subsection{Comparison with Exact Variable Elimination}
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Query} & \textbf{Method} & $\underline{P}$ & $\overline{P}$ \\
+\midrule
+$P(B{=}1)$ & Exact VE & 0.1000 & 0.2000 \\
+$P(B{=}1)$ & IBP & 0.1000 & 0.2000 \\
+\midrule
+$P(A{=}1 \mid B{=}0, E{=}0)$ & Exact VE & 0.0000 & 0.0444 \\
+$P(A{=}1 \mid B{=}0, E{=}0)$ & IBP & 0.0000 & 0.0444 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+For root nodes like $B$, IBP recovers the exact bounds because the local factor
+alone determines the marginal. For conditional queries with evidence, the bounds
+may differ on loopy graphs due to the approximation inherent in message passing.
 
 \section{Multi-Valued Variable Support}
 
@@ -241,6 +536,18 @@ variables:
 For example, the compound variable $CD$ in the alarm network has 4 states. IBP
 directly propagates 4-dimensional interval vectors for $CD$, while GL2U would
 require binarizing $CD$ into two binary variables.
+
+\section{Convergence Properties}
+
+\begin{itemize}
+  \item Messages are updated by taking min/max over all vertex and corner-point
+        combinations, so the algorithm explores the full range of the credal set.
+  \item On polytree-shaped networks with binary variables, IBP reduces to the
+        2U algorithm and converges to exact bounds.
+  \item On loopy graphs, convergence to a fixed point is empirically observed
+        but not formally guaranteed. The fixed point may not correspond to the
+        exact bounds (similar to loopy belief propagation for Bayesian networks).
+\end{itemize}
 
 \section{Complexity}
 
