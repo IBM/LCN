@@ -464,17 +464,17 @@ class IntervalBP:
 if __name__ == "__main__":
 
     # Load the LCN
-    file_name = "examples/alarm.lcn"
+    file_name = "examples/lcn_chain_1.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
     print(l)
 
     # Check consistency
-    ok = check_consistency(l)
-    if ok:
-        print("CONSISTENT")
-    else:
-        print("INCONSISTENT")
+    # ok = check_consistency(l)
+    # if ok:
+    #     print("CONSISTENT")
+    # else:
+    #     print("INCONSISTENT")
 
     # Build the CredalVE (needed for extreme points)
     cve = CredalVE(lcn=l)
@@ -483,13 +483,24 @@ if __name__ == "__main__":
     # Create the IBP solver
     ibp = IntervalBP(cve=cve)
 
+    # # Run interval BP
+    # print("\n=== Interval Belief Propagation ===")
+    # ibp.run(query="B", evidence={}, method="interval", verbosity=1)
+    # ibp.run(query="A", evidence={"B": 0, "E": 0}, method="interval", verbosity=1)
+
+    # # Run variational inference
+    # print("\n=== Variational Inference ===")
+    # ibp.run(query="B", evidence={}, method="variational", n_iters=20, verbosity=1)
+    # ibp.run(query="A", evidence={"B": 0, "E": 0}, method="variational",
+    #         n_iters=20, verbosity=1)
+
     # Run interval BP
     print("\n=== Interval Belief Propagation ===")
-    ibp.run(query="B", evidence={}, method="interval", verbosity=1)
-    ibp.run(query="A", evidence={"B": 0, "E": 0}, method="interval", verbosity=1)
+    ibp.run(query="x7", evidence={}, method="interval", verbosity=1)
+    ibp.run(query="x7", evidence={"x0": 0}, method="interval", verbosity=1)
 
     # Run variational inference
     print("\n=== Variational Inference ===")
-    ibp.run(query="B", evidence={}, method="variational", n_iters=20, verbosity=1)
-    ibp.run(query="A", evidence={"B": 0, "E": 0}, method="variational",
+    ibp.run(query="x7", evidence={}, method="variational", n_iters=20, verbosity=1)
+    ibp.run(query="x7", evidence={"x0": 0}, method="variational",
             n_iters=20, verbosity=1)
