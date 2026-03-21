@@ -21,7 +21,7 @@ import time
 from typing import Dict, List, Tuple
 
 import numpy as np
-import pyagrum as gum  # noqa: N813
+import pyAgrum as gum  # noqa: N813
 
 # Local
 from lcn.model import LCN
