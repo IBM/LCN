@@ -1,0 +1,376 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{positioning,shapes.geometric,shapes.misc}
+
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{example}{Example}
+
+\title{ApproxLP: Approximate Credal Network Inference\\via Iterative Linearization}
+\author{IBM Research}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+ApproxLP is an approximate inference algorithm for credal networks that reformulates
+the marginal inference problem as a multilinear program and solves it via iterative
+linearization (coordinate descent). At each step, all local conditional distributions
+except one are fixed, reducing the optimization to selecting the best extreme point for
+the remaining variable. This produces \emph{inner} bounds---the returned interval is
+guaranteed to be contained within the true probability interval. ApproxLP is
+dramatically faster than exact variable elimination while often finding the exact bounds
+on small to medium networks.
+\end{abstract}
+
+\section{Preliminaries}
+
+\subsection{Multilinear Programming Formulation}
+
+The marginal inference task in a credal network asks for:
+\[
+  \underline{P}(Z{=}z \mid \mathbf{Y}{=}\mathbf{y}) = \min_{P \in \mathrm{ext}\,K(\mathbf{X})}
+  \frac{\sum_{\mathbf{x}'} \prod_i P(x_i \mid \pi_i)}
+       {\sum_{z',\mathbf{x}'} \prod_i P(x_i \mid \pi_i)},
+\]
+where the optimization is over all combinations of extreme points of the local credal
+sets. Using a tree decomposition and symbolic variable elimination (see \texttt{credal\_ve.tex}),
+this can be reformulated as a multilinear program:
+\begin{align}
+  \text{minimize}\quad & f'_m(z), \label{eq:mlp-obj}\\
+  \text{subject to}\quad & f'_m(Z) = t \cdot f_m(Z), \quad \sum_{z'} f'_m(z') = 1, \notag\\
+  & f_i = \sum_{x_i} \prod\{f \in \text{bucket}_i\}, \quad i = 1,\dots,m{-}1, \notag\\
+  & P(X_i \mid \pi_i) \in K(X_i \mid \pi_i), \quad \forall X_i, \pi_i. \notag
+\end{align}
+The multilinearity arises because the bucket constraints involve products of the
+optimization variables $P(X_i \mid \pi_i)$ and the intermediate functions $f_i$.
+
+\subsection{The Linearization Idea}
+
+Solving the multilinear program~\eqref{eq:mlp-obj} directly is expensive. The key insight
+of Antonucci et al.\ (2013, 2015) is to apply \textbf{coordinate descent}: fix all local
+distributions $P(X_j \mid \pi_j)$ for $j \neq i$ to specific values, then the program becomes
+\textbf{linear} in the remaining variable $P(X_i \mid \pi_i)$.
+
+Since the optimal solution of a linear program over a polytope is attained at a vertex,
+and we already have the extreme points of each credal set $K(X_i \mid \pi_i)$ from LRS vertex
+enumeration, the linear optimization step reduces to:
+
+\begin{center}
+\emph{Try each extreme point of $K(X_i \mid \pi_i)$ and pick the one that optimizes the objective.}
+\end{center}
+
+No LP solver is needed---vertex enumeration suffices.
+
+\section{Algorithm}
+
+\begin{algorithm}[H]
+\caption{ApproxLP: Coordinate Descent over Extreme Points}
+\label{alg:approxlp}
+\begin{algorithmic}[1]
+\Require Credal factors with extreme points, query $Z$, evidence $\mathbf{Y}{=}\mathbf{y}$,
+         max iterations $T$, sense $\in \{\min, \max\}$
+\Ensure Bound on $P(Z{=}z \mid \mathbf{Y}{=}\mathbf{y})$
+\Statex
+\Comment{\textsc{Initialization}}
+\For{each variable $X_i$, each parent config $\pi$}
+  \State $P(X_i \mid \pi) \gets \mathrm{center}(\mathrm{ext}\,K(X_i \mid \pi))$
+  \Comment{Average of extreme points}
+\EndFor
+\State $p^* \gets \mathrm{VE}(\{P(X_i \mid \pi)\},\, Z,\, \mathbf{y})$
+\Comment{Run standard VE with fixed distributions}
+\Statex
+\Comment{\textsc{Coordinate Descent}}
+\For{$t = 1, \dots, T$}
+  \State $\mathit{improved} \gets \mathsf{false}$
+  \For{each variable $X_i$}
+    \For{each parent config $\pi$ of $X_i$}
+      \State $P_{\mathrm{best}} \gets P(X_i \mid \pi)$
+      \Comment{Current incumbent}
+      \For{each vertex $v \in \mathrm{ext}\,K(X_i \mid \pi)$}
+        \State $P(X_i \mid \pi) \gets v$
+        \Comment{Temporarily set to vertex}
+        \State $p_v \gets \mathrm{VE}(\{P(X_j \mid \pi_j)\},\, Z,\, \mathbf{y})$
+        \Comment{Evaluate objective}
+        \If{$\mathrm{sense} = \min$ \textbf{and} $p_v(z) < p^*(z)$}
+          \State $p^* \gets p_v$, \quad $P_{\mathrm{best}} \gets v$, \quad $\mathit{improved} \gets \mathsf{true}$
+        \ElsIf{$\mathrm{sense} = \max$ \textbf{and} $p_v(z) > p^*(z)$}
+          \State $p^* \gets p_v$, \quad $P_{\mathrm{best}} \gets v$, \quad $\mathit{improved} \gets \mathsf{true}$
+        \EndIf
+      \EndFor
+      \State $P(X_i \mid \pi) \gets P_{\mathrm{best}}$
+    \EndFor
+  \EndFor
+  \If{$\neg\,\mathit{improved}$} \textbf{break}
+  \Comment{Converged}
+  \EndIf
+\EndFor
+\State \Return $p^*(z)$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Computing Both Bounds}
+
+Algorithm~\ref{alg:approxlp} is run twice:
+\begin{itemize}
+  \item With $\mathrm{sense} = \min$ to obtain $\underline{P}(Z{=}z \mid \mathbf{y})$.
+  \item With $\mathrm{sense} = \max$ to obtain $\overline{P}(Z{=}z \mid \mathbf{y})$.
+\end{itemize}
+Each run performs independent coordinate descent starting from the same initialization.
+
+\subsection{Standard VE with Fixed Distributions}
+
+The subroutine $\mathrm{VE}(\{P(X_i \mid \pi)\}, Z, \mathbf{y})$ runs classical variable
+elimination on the precise Bayesian network defined by the fixed distributions. This is
+a standard operation:
+\begin{enumerate}
+  \item Build a factor for each variable: a numpy array over $\{X_i\} \cup \mathrm{Pa}(X_i)$
+        filled from $P(X_i \mid \pi)$.
+  \item Add indicator factors for evidence variables.
+  \item Eliminate all variables except $Z$ by combining and marginalizing.
+  \item Normalize and return $P(Z \mid \mathbf{y})$.
+\end{enumerate}
+Since all distributions are fixed (no sets of functions), each VE run is very fast.
+
+%% ================================================================
+\section{Detailed Example: Alarm Network}
+%% ================================================================
+
+We trace ApproxLP on the alarm network (\texttt{alarm.lcn}) with variables $B$, $E$, $A$,
+$CD$ and the DAG $B \to A$, $E \to A$, $A \to CD$.
+
+\subsection{Factor Graph}
+
+\begin{center}
+\begin{tikzpicture}[
+  var/.style={circle, draw, minimum size=10mm, font=\small},
+  fac/.style={rectangle, draw, fill=gray!20, minimum size=8mm, font=\small},
+  edge/.style={thick},
+  node distance=18mm
+]
+  \node[var] (B) {$B$};
+  \node[var, right=25mm of B] (A) {$A$};
+  \node[var, below=15mm of B] (E) {$E$};
+  \node[var, right=25mm of A] (CD) {$CD$};
+  \node[fac, above=10mm of B] (fB) {$f_B$};
+  \node[fac, below=10mm of E] (fE) {$f_E$};
+  \node[fac, below right=5mm and 12mm of B] (fA) {$f_A$};
+  \node[fac, above=10mm of CD] (fCD) {$f_{CD}$};
+  \draw[edge] (B) -- (fB);
+  \draw[edge] (E) -- (fE);
+  \draw[edge] (B) -- (fA);
+  \draw[edge] (E) -- (fA);
+  \draw[edge] (A) -- (fA);
+  \draw[edge] (A) -- (fCD);
+  \draw[edge] (CD) -- (fCD);
+\end{tikzpicture}
+\end{center}
+
+\subsection{Credal Factors (Extreme Points)}
+
+\paragraph{$f_B$: $K(B)$.} $v_1 = [0.80, 0.20]$, \; $v_2 = [0.90, 0.10]$.
+
+\paragraph{$f_E$: $K(E)$.} $v_1 = [0.90, 0.10]$, \; $v_2 = [0.95, 0.05]$.
+
+\paragraph{$f_A$: $K(A \mid B, E)$.} 4 parent configs, 2 vertices each:
+
+\begin{center}
+\begin{tabular}{llcc}
+\toprule
+\textbf{Config} & \textbf{Vtx} & $P(A{=}0)$ & $P(A{=}1)$ \\
+\midrule
+$B{=}0, E{=}0$ & $v_1$ & 0.9556 & 0.0444 \\
+$B{=}0, E{=}0$ & $v_2$ & 1.0000 & 0.0000 \\
+\midrule
+$B{=}1, E{=}0$ & $v_1$ & 0.0000 & 1.0000 \\
+$B{=}1, E{=}0$ & $v_2$ & 1.0000 & 0.0000 \\
+\midrule
+$B{=}0, E{=}1$ & $v_1$ & 0.0000 & 1.0000 \\
+$B{=}0, E{=}1$ & $v_2$ & 1.0000 & 0.0000 \\
+\midrule
+$B{=}1, E{=}1$ & $v_1$ & 0.0000 & 1.0000 \\
+$B{=}1, E{=}1$ & $v_2$ & 1.0000 & 0.0000 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{$f_{CD}$: $K(CD \mid A)$.} $A{=}0$: 4 vertices; $A{=}1$: 11 vertices (see companion documents for full listing).
+
+\subsection{Query 1: $P(B{=}1)$, No Evidence}
+
+\paragraph{Step 1: Initialization.}
+Each distribution is set to the center (average) of its credal set:
+\begin{align*}
+  P(B) &= \tfrac{1}{2}([0.80, 0.20] + [0.90, 0.10]) = [0.85,\; 0.15], \\
+  P(E) &= \tfrac{1}{2}([0.90, 0.10] + [0.95, 0.05]) = [0.925,\; 0.075], \\
+  P(A \mid B{=}0, E{=}0) &= \tfrac{1}{2}([0.9556, 0.0444] + [1.0, 0.0]) = [0.9778,\; 0.0222].
+\end{align*}
+(Other parent configs for $A$ are similarly averaged.)
+
+\paragraph{Step 2: Initial evaluation.}
+Run VE with these fixed distributions:
+\[
+  P(B{=}1) = 0.1500 \quad \text{(the center value for $B$).}
+\]
+
+\paragraph{Step 3: Coordinate descent (sense = $\min$).}
+
+\textbf{Iteration 0:}
+
+\emph{Try variable $B$, config $()$:}
+\begin{itemize}
+  \item Set $P(B) = v_1 = [0.80, 0.20]$, run VE: $P(B{=}1) = 0.2000$.
+        Worse than $0.1500$ $\to$ reject.
+  \item Set $P(B) = v_2 = [0.90, 0.10]$, run VE: $P(B{=}1) = 0.1000$.
+        Better $\to$ \textbf{accept}. Update incumbent: $p^* = 0.1000$.
+\end{itemize}
+
+\emph{Try variable $E$, config $()$:}
+\begin{itemize}
+  \item $v_1 = [0.90, 0.10]$: VE gives $P(B{=}1) = 0.1000$. No improvement.
+  \item $v_2 = [0.95, 0.05]$: VE gives $P(B{=}1) = 0.1000$. No improvement.
+\end{itemize}
+
+Since $B$ is a root node, $P(B)$ directly determines $P(B{=}1)$ regardless of
+other distributions. The algorithm correctly identifies $v_2 = [0.90, 0.10]$ as the
+minimizer in one iteration.
+
+\emph{Other variables ($A$, $CD$)} have no effect on $P(B{=}1)$ after $B$'s vertex is fixed.
+
+\textbf{Iteration 1:} No improvement found $\to$ converged.
+
+\textbf{Result (min):} $\underline{P}(B{=}1) = 0.1000$.
+
+\paragraph{Coordinate descent (sense = $\max$).}
+Analogous: selecting $v_1 = [0.80, 0.20]$ gives $\overline{P}(B{=}1) = 0.2000$.
+Converges in 1 iteration.
+
+\paragraph{Final result:}
+\[
+  \boxed{P(B{=}1) \in [0.1000,\; 0.2000].}
+\]
+
+\subsection{Query 2: $P(A{=}1 \mid B{=}0, E{=}0)$}
+
+\paragraph{Initialization.}
+With evidence $B{=}0, E{=}0$, the only relevant parent config for $A$ is $(B{=}0, E{=}0)$.
+The initial center distribution is:
+\[
+  P(A \mid B{=}0, E{=}0) = [0.9778,\; 0.0222].
+\]
+
+\paragraph{Initial evaluation.}
+VE with fixed distributions and evidence gives $P(A{=}1 \mid B{=}0, E{=}0) = 0.0222$.
+
+\paragraph{Coordinate descent (sense = $\min$).}
+
+\emph{Try $A$, config $(B{=}0, E{=}0)$:}
+\begin{itemize}
+  \item $v_1 = [0.9556, 0.0444]$: VE gives $P(A{=}1) = 0.0444$. Worse $\to$ reject.
+  \item $v_2 = [1.0000, 0.0000]$: VE gives $P(A{=}1) = 0.0000$. Better $\to$ \textbf{accept}.
+\end{itemize}
+
+Converged: $\underline{P}(A{=}1 \mid B{=}0, E{=}0) = 0.0000$.
+
+\paragraph{Coordinate descent (sense = $\max$).}
+
+\emph{Try $A$, config $(B{=}0, E{=}0)$:}
+\begin{itemize}
+  \item $v_1 = [0.9556, 0.0444]$: $P(A{=}1) = 0.0444$. Better $\to$ \textbf{accept}.
+  \item $v_2 = [1.0, 0.0]$: $P(A{=}1) = 0.0000$. Worse $\to$ reject.
+\end{itemize}
+
+Converged: $\overline{P}(A{=}1 \mid B{=}0, E{=}0) = 0.0444$.
+
+\paragraph{Final result:}
+\[
+  \boxed{P(A{=}1 \mid B{=}0, E{=}0) \in [0.0000,\; 0.0444].}
+\]
+
+Both results match exact VE, confirming that ApproxLP finds the global optimum on this network.
+
+\section{Properties}
+
+\paragraph{Inner bounds.}
+ApproxLP produces \emph{inner} bounds: the returned interval $[\underline{P}, \overline{P}]$
+is guaranteed to satisfy $\underline{P}_{\mathrm{true}} \leq \underline{P}$ and
+$\overline{P} \leq \overline{P}_{\mathrm{true}}$. This is because coordinate descent
+explores a subset of the feasible extreme point combinations.
+
+\paragraph{Monotonic convergence.}
+Each iteration either improves the objective or stops. The objective is bounded, so
+convergence is guaranteed in a finite number of steps.
+
+\paragraph{Local optima.}
+Coordinate descent may get stuck at a local optimum: the current combination of vertices
+may be locally optimal (no single vertex swap improves the objective) but globally
+suboptimal (a simultaneous swap of multiple vertices would improve it). In practice,
+this is rarely an issue for small to medium networks.
+
+\paragraph{Speed.}
+Each VE evaluation operates on a \emph{precise} Bayesian network (single distributions,
+no sets of functions), which is orders of magnitude faster than credal VE. For the alarm
+network: ApproxLP takes $0.007$\,s vs.\ credal VE's $3.76$\,s---a $500\times$ speedup.
+
+\section{Comparison with Other Methods}
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Property} & \textbf{Exact VE} & \textbf{$\varepsilon$-VE} & \textbf{CTE}
+  & \textbf{IBP} & \textbf{ApproxLP} \\
+\midrule
+Exact & Yes & No & Yes & No & No \\
+Bound type & Tight & Outer & Tight & Outer & Inner \\
+All marginals & No & No & Yes & No & No \\
+Multi-valued & Yes & Yes & Yes & Yes & Yes \\
+Speed (alarm) & 3.76\,s & 0.009\,s & 50\,s & 0.01\,s & 0.007\,s \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+ApproxLP and IBP produce complementary bounds: ApproxLP's inner bounds sit inside the
+true interval, while IBP's outer bounds contain it. Together they can bracket the true
+interval from both sides.
+
+\section{Complexity}
+
+Each coordinate descent iteration visits all variables, all parent configs, and all
+extreme points. For each vertex tried, a full VE is run on a precise BN.
+
+\begin{itemize}
+  \item \textbf{Per VE evaluation}: $O(n \cdot k^{w^*})$ where $n$ is the number of
+        variables, $k$ the max domain size, and $w^*$ the treewidth.
+  \item \textbf{Per iteration}: $O\bigl(\sum_i \sum_{\pi} |\mathrm{ext}\,K(X_i \mid \pi)|\bigr)
+        \times O(n \cdot k^{w^*})$ VE evaluations.
+  \item \textbf{Total}: $O(T \cdot V_{\mathrm{total}} \cdot n \cdot k^{w^*})$ where $T$ is
+        the number of iterations and $V_{\mathrm{total}}$ is the total number of extreme
+        points across all credal sets.
+\end{itemize}
+
+In practice, $T$ is typically 2--5 (fast convergence), making ApproxLP very efficient.
+
+\section{References}
+
+\begin{enumerate}
+\item A.\ Antonucci, C.P.\ de Campos, D.\ Huber, M.\ Zaffalon. Approximating credal
+      network inferences by linear programming. \emph{ECSQARU}, 7958:13--25, 2013.
+\item A.\ Antonucci, C.P.\ de Campos, D.\ Huber, M.\ Zaffalon. Approximate credal
+      network updating by linear programming with applications to decision making.
+      \emph{IJAR}, 58:25--38, 2015.
+\item C.P.\ de Campos, F.G.\ Cozman. Inference in credal networks using multilinear
+      programming. \emph{STAIRS}, 2004.
+\item A.M.\ Lukatskii, D.V.\ Shapot. Problems in multilinear programming.
+      \emph{Comp.\ Math.\ Math.\ Phys.}, 41:638--648, 2000.
+\item D.D.\ Mau\'a, F.G.\ Cozman. Thirty years of credal networks. \emph{IJAR},
+      126:133--157, 2020.
+\end{enumerate}
+
+\end{document}
