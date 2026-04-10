@@ -17,15 +17,20 @@
 # Computes ALL marginals in a single run via collect + distribute passes.
 
 import itertools
+import logging
 import time
 from typing import Dict, List, Tuple
 
 import numpy as np
+from pyomo.environ import (
+    ConcreteModel, Var, Objective, ConstraintList,
+    NonNegativeReals, minimize, maximize, SolverFactory, value
+)
 
 # Local
-from lcn.model import LCN
+from lcn.core.model import LCN
 from lcn.inference.marginal.cve import CredalVE, Potential
-from lcn.inference.utils import check_consistency
+from lcn.inference.utils.common import check_consistency
 
 
 class CredalCTE:
@@ -56,7 +61,6 @@ class CredalCTE:
     # ------------------------------------------------------------------
 
     def run(self, evidence: dict = {},
-            elim_heuristic: str = "topological",
             epsilon: float = None,
             verbosity: int = 1) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
         """
@@ -65,15 +69,13 @@ class CredalCTE:
 
         Args:
             evidence: {variable_name: value} for observed variables.
-            elim_heuristic: "topological" or "min-fill".
             epsilon: None for exact pruning, >0 for epsilon-approximate.
             verbosity: 0=silent, 1=summary, 2=detailed.
 
         Returns:
             Dict mapping variable name to (lower_bounds, upper_bounds)
-            numpy arrays.
+            numpy arrays. Includes both compound and singleton marginals.
         """
-        assert elim_heuristic in ("topological", "min-fill")
 
         t_start = time.time()
 
@@ -94,17 +96,13 @@ class CredalCTE:
 
         potentials = self._build_potentials(evidence)
 
-        # Step 2: Compute elimination ordering (all variables)
-        if elim_heuristic == "topological":
-            topo = list(bn.topologicalOrder())
-            elim_order = [bn.variable(nid).name() for nid in topo]
-        else:
-            scopes = [p.scope for p in potentials]
-            elim_order = CredalVE._min_fill_order(scopes, exclude=set())
+        # Step 2: Compute elimination ordering (min-fill heuristic)
+        scopes = [p.scope for p in potentials]
+        elim_order = CredalVE._min_fill_order(scopes, exclude=set())
 
         if verbosity > 0:
             eps_str = f", epsilon={epsilon}" if epsilon else ""
-            print(f"[CredalCTE] Computing all marginals ({elim_heuristic}{eps_str})")
+            print(f"[CredalCTE] Computing all marginals (min-fill{eps_str})")
             print(f"[CredalCTE] Variables: {elim_order}")
             print(f"[CredalCTE] Evidence: {evidence}")
             total_funcs = sum(len(p.functions) for p in potentials)
@@ -125,23 +123,42 @@ class CredalCTE:
             elim_order, parent, children, up_msgs, local_pots, prune_fn,
             verbosity)
 
-        # Step 6: Extract all marginals
+        # Step 6: Extract all marginals (compound variables)
         self.marginals = self._extract_marginals(
             elim_order, cards, up_msgs, down_msgs, local_pots, children,
             prune_fn)
 
+        # Step 7: Extract singleton marginals from compound variables
+        self.singleton_marginals = self._extract_singleton_marginals(
+            self.marginals, evidence)
+
         t_end = time.time()
 
         if verbosity > 0:
-            print(f"[CredalCTE] Results:")
+            print(f"[CredalCTE] Compound variable marginals:")
             for var in elim_order:
                 lo, hi = self.marginals[var]
                 for val in range(len(lo)):
                     print(f"  P({var}={val}): "
                           f"[{lo[val]:.6f}, {hi[val]:.6f}]")
+
+            if self.singleton_marginals:
+                print(f"[CredalCTE] Singleton variable marginals:")
+                for atom in sorted(self.singleton_marginals):
+                    lo, hi = self.singleton_marginals[atom]
+                    print(f"  P({atom}=0): [{1.0 - hi:.6f}, {1.0 - lo:.6f}]")
+                    print(f"  P({atom}=1): [{lo:.6f}, {hi:.6f}]")
+
             print(f"[CredalCTE] Time elapsed: {t_end - t_start:.4f} sec")
 
-        return self.marginals
+        # Return combined dict of all marginals
+        all_marginals = dict(self.marginals)
+        for atom, (lo, hi) in self.singleton_marginals.items():
+            all_marginals[atom] = (
+                np.array([1.0 - hi, lo]),
+                np.array([1.0 - lo, hi])
+            )
+        return all_marginals
 
     # ------------------------------------------------------------------
     # Potential construction (same logic as CredalVE.run)
@@ -467,8 +484,115 @@ class CredalCTE:
 
         return marginals
 
+    # ------------------------------------------------------------------
+    # Singleton marginals from compound variables
+    # ------------------------------------------------------------------
+
+    def _extract_singleton_marginals(
+        self, marginals: Dict[str, Tuple[np.ndarray, np.ndarray]],
+        evidence: dict
+    ) -> Dict[str, Tuple[float, float]]:
+        """
+        For each compound variable (name contains '-'), identify the
+        singleton atoms and compute their marginal bounds by solving
+        LPs over the compound marginal polytope.
+
+        Args:
+            marginals: compound variable marginals from _extract_marginals.
+            evidence: evidence dict (singleton atoms in evidence are skipped).
+
+        Returns:
+            Dict mapping singleton atom name to (lower_bound, upper_bound)
+            for P(atom=1).
+        """
+        singleton_marginals = {}
+        solver = SolverFactory('ipopt')
+
+        # Suppress ipopt output
+        ipopt_log = logging.getLogger('pyomo')
+        ipopt_log.setLevel(logging.ERROR)
+
+        for var_name, (lo, hi) in marginals.items():
+            if '-' not in var_name:
+                continue  # already a singleton
+
+            atoms = var_name.split('-')
+            n_atoms = len(atoms)
+            k = 2 ** n_atoms  # number of compound states
+
+            for atom_idx, atom in enumerate(atoms):
+                if atom in evidence:
+                    continue  # skip observed atoms
+
+                # Identify which compound states have this atom = 1
+                # Using big-endian bit encoding (same as cve.py)
+                ones_states = []
+                for s in range(k):
+                    bit = (s >> (n_atoms - 1 - atom_idx)) & 1
+                    if bit == 1:
+                        ones_states.append(s)
+
+                # Solve min LP: minimize P(atom=1)
+                lower = self._solve_singleton_lp(
+                    lo, hi, k, ones_states, minimize, solver)
+                # Solve max LP: maximize P(atom=1)
+                upper = self._solve_singleton_lp(
+                    lo, hi, k, ones_states, maximize, solver)
+
+                singleton_marginals[atom] = (lower, upper)
+
+        return singleton_marginals
+
+    @staticmethod
+    def _solve_singleton_lp(lo, hi, k, target_states, sense, solver):
+        """
+        Solve a single LP to find the min or max of sum(p[s] for s in
+        target_states) subject to the compound marginal bounds.
+
+        Args:
+            lo: lower bounds on compound variable states.
+            hi: upper bounds on compound variable states.
+            k: number of compound states.
+            target_states: list of state indices where the atom = 1.
+            sense: pyomo minimize or maximize.
+            solver: pyomo SolverFactory instance.
+
+        Returns:
+            Optimal value of the objective.
+        """
+        model = ConcreteModel()
+        model.S = range(k)
+        model.p = Var(model.S, within=NonNegativeReals)
+        model.constr = ConstraintList()
+
+        # Probability distribution constraint
+        model.constr.add(sum(model.p[s] for s in model.S) == 1.0)
+
+        # Bound constraints from compound marginal
+        for s in model.S:
+            model.constr.add(model.p[s] >= float(lo[s]))
+            model.constr.add(model.p[s] <= float(hi[s]))
+
+        # Objective: sum of p[s] for states where atom=1
+        model.obj = Objective(
+            expr=sum(model.p[s] for s in target_states),
+            sense=sense
+        )
+
+        results = solver.solve(model, tee=False)
+        return value(model.obj)
+
 
 if __name__ == "__main__":
+
+    def print_singleton_marginals(results):
+        """Print only singleton variable marginals from the results."""
+        print("  Singleton variable marginals:")
+        for var in sorted(results):
+            if '-' not in var:
+                lo, hi = results[var]
+                for val in range(len(lo)):
+                    print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
     # Load the LCN
     file_name = "examples/alarm.lcn"
@@ -492,12 +616,15 @@ if __name__ == "__main__":
 
     # Exact all-marginals (no evidence)
     print("\n=== All marginals (exact, no evidence) ===")
-    cte.run(evidence={}, verbosity=1)
+    results = cte.run(evidence={}, verbosity=1)
+    print_singleton_marginals(results)
 
     # Exact all-marginals (with evidence)
     print("\n=== All marginals (exact, B=0, E=0) ===")
-    cte.run(evidence={"B": 0, "E": 0}, verbosity=1)
+    results = cte.run(evidence={"B": 0, "E": 0}, verbosity=1)
+    print_singleton_marginals(results)
 
     # Epsilon-approximate all-marginals
     print("\n=== All marginals (epsilon=0.01, no evidence) ===")
-    cte.run(evidence={}, epsilon=0.01, verbosity=1)
+    results = cte.run(evidence={}, epsilon=0.01, verbosity=1)
+    print_singleton_marginals(results)

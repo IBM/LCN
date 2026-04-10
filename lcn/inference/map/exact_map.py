@@ -24,10 +24,10 @@ from typing import Dict, List
 from collections import deque
 
 # Local
-from lcn.model import LCN
-from lcn.inference.exact_marginal import ExactInferece
-from lcn.inference.utils import make_conjunction, check_consistency
-from lcn.inference.utils import make_init_config, select_neighbor, find_neighbors
+from lcn.core.model import LCN
+from lcn.inference.legacy.exact_marginal import ExactInferece
+from lcn.inference.utils.common import make_conjunction, check_consistency
+from lcn.inference.utils.common import make_init_config, select_neighbor, find_neighbors
 
 class IntervalSolution:
     def __init__(self, config: Dict, lower_bound: float, upper_bound: float):

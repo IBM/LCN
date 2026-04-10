@@ -19,15 +19,20 @@
 # "Approximate credal network updating by linear programming."
 
 import itertools
+import logging
 import time
 from typing import Dict, List, Tuple
 
 import numpy as np
+from pyomo.environ import (
+    ConcreteModel, Var, Objective, ConstraintList,
+    NonNegativeReals, minimize, maximize, SolverFactory, value
+)
 
 # Local
-from lcn.model import LCN
+from lcn.core.model import LCN
 from lcn.inference.marginal.cve import CredalVE
-from lcn.inference.utils import check_consistency
+from lcn.inference.utils.common import check_consistency
 
 
 class ApproxLP:
@@ -49,10 +54,8 @@ class ApproxLP:
         assert cve.bn_min is not None
 
         self.cve = cve
-        self.lower_bound = None
-        self.upper_bound = None
-        self.lower_bounds = None
-        self.upper_bounds = None
+        self.marginals = None
+        self.singleton_marginals = None
 
     # ------------------------------------------------------------------
     # Factor graph construction (same as IBP)
@@ -171,14 +174,7 @@ class ApproxLP:
             indicator[ev_val] = 1.0
             ev_factors[ev_var] = ([ev_var], indicator)
 
-        # Variable elimination
-        # Elimination order: all vars except query
-        topo = list(bn.topologicalOrder())
-        topo_names = [bn.variable(nid).name() for nid in topo]
-        elim_order = [v for v in topo_names
-                      if v != query and v not in evidence]
-        elim_order += [v for v in topo_names if v in evidence]
-
+        # Variable elimination (min-fill ordering, excluding query)
         # Collect all factors
         all_factors = {}
         for node, (scope, arr) in node_factors.items():
@@ -188,6 +184,10 @@ class ApproxLP:
 
         # Convert to list of (scope, array) pairs
         factor_list = list(all_factors.values())
+
+        # Compute min-fill elimination order excluding the query variable
+        scopes = [list(scope) for scope, _ in factor_list]
+        elim_order = CredalVE._min_fill_order(scopes, exclude={query})
 
         for var in elim_order:
             # Collect factors mentioning var
@@ -332,71 +332,215 @@ class ApproxLP:
     # Public API
     # ------------------------------------------------------------------
 
-    def run(self, query: str, evidence: dict = {},
-            n_iters: int = 50, verbosity: int = 1):
+    def run(self, evidence: dict = {},
+            n_iters: int = 50,
+            verbosity: int = 1) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
         """
-        Compute lower and upper bounds on P(query | evidence) using
-        ApproxLP (coordinate descent over extreme points).
+        Compute lower and upper bounds on the marginal of EVERY
+        non-evidence variable using ApproxLP (coordinate descent over
+        extreme points).
 
         Produces inner bounds: the returned interval is contained within
         (or equal to) the true interval.
 
         Args:
-            query: Name of the query variable.
             evidence: {variable_name: value} for observed variables.
             n_iters: Maximum coordinate descent iterations.
             verbosity: 0=silent, 1=summary, 2=detailed.
+
+        Returns:
+            Dict mapping variable name to (lower_bounds, upper_bounds)
+            numpy arrays. Includes both compound and singleton marginals.
         """
         t_start = time.time()
 
         cards, factors = self._build_factors()
         bn = self.cve.bn_min
         node_names = [bn.variable(n).name() for n in bn.nodes()]
-        assert query in node_names, \
-            f"Query variable '{query}' not found."
+        evidence_set = set(evidence.keys())
 
         if verbosity > 0:
-            print(f"[ApproxLP] Query: {query}")
+            print(f"[ApproxLP] Computing all marginals")
             print(f"[ApproxLP] Evidence: {evidence}")
+            print(f"[ApproxLP] Variables: {node_names}")
 
-        # Minimize for lower bound
-        lo_obj, lo_probs = self._coordinate_descent(
-            factors, cards, query, evidence, "min", n_iters, verbosity)
+        # Compute marginals for each non-evidence variable
+        self.marginals = {}
+        for query in node_names:
+            if query in evidence_set:
+                # Evidence variable: point distribution
+                k = cards[query]
+                lo = np.zeros(k)
+                hi = np.zeros(k)
+                lo[evidence[query]] = 1.0
+                hi[evidence[query]] = 1.0
+                self.marginals[query] = (lo, hi)
+                continue
 
-        # Maximize for upper bound
-        hi_obj, hi_probs = self._coordinate_descent(
-            factors, cards, query, evidence, "max", n_iters, verbosity)
+            if verbosity > 1:
+                print(f"[ApproxLP] Optimizing variable: {query}")
+
+            # Minimize for lower bound
+            lo_obj, lo_probs = self._coordinate_descent(
+                factors, cards, query, evidence, "min", n_iters, verbosity)
+
+            # Maximize for upper bound
+            hi_obj, hi_probs = self._coordinate_descent(
+                factors, cards, query, evidence, "max", n_iters, verbosity)
+
+            # Assemble per-state bounds from the two runs
+            k = cards[query]
+            lower_bounds = np.ones(k)
+            upper_bounds = np.zeros(k)
+            for probs in [lo_probs, hi_probs]:
+                if probs is not None:
+                    for val in range(k):
+                        lower_bounds[val] = min(lower_bounds[val], probs[val])
+                        upper_bounds[val] = max(upper_bounds[val], probs[val])
+
+            self.marginals[query] = (lower_bounds, upper_bounds)
+
+        # Extract singleton marginals from compound variables
+        self.singleton_marginals = self._extract_singleton_marginals(
+            self.marginals, evidence)
 
         t_end = time.time()
 
-        # Assemble full lower/upper arrays across all query states
-        k = cards[query]
-        lower_bounds = np.ones(k)
-        upper_bounds = np.zeros(k)
-
-        # The min/max coordinate descent optimizes state=1 (or state=0).
-        # To get proper per-state bounds, we track both min and max probs
-        # from the two runs.
-        for probs in [lo_probs, hi_probs]:
-            if probs is not None:
-                for val in range(k):
-                    lower_bounds[val] = min(lower_bounds[val], probs[val])
-                    upper_bounds[val] = max(upper_bounds[val], probs[val])
-
-        self.lower_bound = lower_bounds[1] if k > 1 else lower_bounds[0]
-        self.upper_bound = upper_bounds[1] if k > 1 else upper_bounds[0]
-        self.lower_bounds = lower_bounds
-        self.upper_bounds = upper_bounds
-
         if verbosity > 0:
-            print(f"[ApproxLP] Results for P({query} | {evidence}):")
-            for val in range(k):
-                print(f"  P({query}={val}): "
-                      f"[{lower_bounds[val]:.6f}, {upper_bounds[val]:.6f}]")
+            print(f"[ApproxLP] Compound variable marginals:")
+            for var in node_names:
+                lo, hi = self.marginals[var]
+                for val in range(len(lo)):
+                    print(f"  P({var}={val}): "
+                          f"[{lo[val]:.6f}, {hi[val]:.6f}]")
+
+            if self.singleton_marginals:
+                print(f"[ApproxLP] Singleton variable marginals:")
+                for atom in sorted(self.singleton_marginals):
+                    lo, hi = self.singleton_marginals[atom]
+                    print(f"  P({atom}=0): [{1.0 - hi:.6f}, {1.0 - lo:.6f}]")
+                    print(f"  P({atom}=1): [{lo:.6f}, {hi:.6f}]")
+
             print(f"[ApproxLP] Time elapsed: {t_end - t_start:.4f} sec")
+
+        # Return combined dict of all marginals
+        all_marginals = dict(self.marginals)
+        for atom, (lo, hi) in self.singleton_marginals.items():
+            all_marginals[atom] = (
+                np.array([1.0 - hi, lo]),
+                np.array([1.0 - lo, hi])
+            )
+        return all_marginals
+
+    # ------------------------------------------------------------------
+    # Singleton marginals from compound variables
+    # ------------------------------------------------------------------
+
+    def _extract_singleton_marginals(
+        self, marginals: Dict[str, Tuple[np.ndarray, np.ndarray]],
+        evidence: dict
+    ) -> Dict[str, Tuple[float, float]]:
+        """
+        For each compound variable (name contains '-'), identify the
+        singleton atoms and compute their marginal bounds by solving
+        LPs over the compound marginal polytope.
+
+        Args:
+            marginals: compound variable marginals.
+            evidence: evidence dict (singleton atoms in evidence are skipped).
+
+        Returns:
+            Dict mapping singleton atom name to (lower_bound, upper_bound)
+            for P(atom=1).
+        """
+        singleton_marginals = {}
+        solver = SolverFactory('ipopt')
+
+        # Suppress ipopt output
+        ipopt_log = logging.getLogger('pyomo')
+        ipopt_log.setLevel(logging.ERROR)
+
+        for var_name, (lo, hi) in marginals.items():
+            if '-' not in var_name:
+                continue  # already a singleton
+
+            atoms = var_name.split('-')
+            n_atoms = len(atoms)
+            k = 2 ** n_atoms  # number of compound states
+
+            for atom_idx, atom in enumerate(atoms):
+                if atom in evidence:
+                    continue  # skip observed atoms
+
+                # Identify which compound states have this atom = 1
+                # Using big-endian bit encoding (same as cve.py)
+                ones_states = []
+                for s in range(k):
+                    bit = (s >> (n_atoms - 1 - atom_idx)) & 1
+                    if bit == 1:
+                        ones_states.append(s)
+
+                # Solve min LP: minimize P(atom=1)
+                lower = self._solve_singleton_lp(
+                    lo, hi, k, ones_states, minimize, solver)
+                # Solve max LP: maximize P(atom=1)
+                upper = self._solve_singleton_lp(
+                    lo, hi, k, ones_states, maximize, solver)
+
+                singleton_marginals[atom] = (lower, upper)
+
+        return singleton_marginals
+
+    @staticmethod
+    def _solve_singleton_lp(lo, hi, k, target_states, sense, solver):
+        """
+        Solve a single LP to find the min or max of sum(p[s] for s in
+        target_states) subject to the compound marginal bounds.
+
+        Args:
+            lo: lower bounds on compound variable states.
+            hi: upper bounds on compound variable states.
+            k: number of compound states.
+            target_states: list of state indices where the atom = 1.
+            sense: pyomo minimize or maximize.
+            solver: pyomo SolverFactory instance.
+
+        Returns:
+            Optimal value of the objective.
+        """
+        model = ConcreteModel()
+        model.S = range(k)
+        model.p = Var(model.S, within=NonNegativeReals)
+        model.constr = ConstraintList()
+
+        # Probability distribution constraint
+        model.constr.add(sum(model.p[s] for s in model.S) == 1.0)
+
+        # Bound constraints from compound marginal
+        for s in model.S:
+            model.constr.add(model.p[s] >= float(lo[s]))
+            model.constr.add(model.p[s] <= float(hi[s]))
+
+        # Objective: sum of p[s] for states where atom=1
+        model.obj = Objective(
+            expr=sum(model.p[s] for s in target_states),
+            sense=sense
+        )
+
+        results = solver.solve(model, tee=False)
+        return value(model.obj)
 
 
 if __name__ == "__main__":
+
+    def print_singleton_marginals(results):
+        """Print only singleton variable marginals from the results."""
+        print("  Singleton variable marginals:")
+        for var in sorted(results):
+            if '-' not in var:
+                lo, hi = results[var]
+                for val in range(len(lo)):
+                    print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
     # Load the LCN
     file_name = "examples/alarm.lcn"
@@ -418,13 +562,12 @@ if __name__ == "__main__":
     # Create ApproxLP solver
     alp = ApproxLP(cve=cve)
 
-    # Run queries
-    print("\n=== ApproxLP ===")
-    alp.run(query="B", evidence={}, verbosity=1)
-    alp.run(query="E", evidence={}, verbosity=1)
-    alp.run(query="A", evidence={"B": 0, "E": 0}, verbosity=1)
+    # All marginals (no evidence)
+    print("\n=== ApproxLP (no evidence) ===")
+    results = alp.run(evidence={}, verbosity=1)
+    print_singleton_marginals(results)
 
-    # Compare with exact VE
-    print("\n=== Exact VE (for comparison) ===")
-    cve.run(query="B", evidence={}, verbosity=1)
-    cve.run(query="A", evidence={"B": 0, "E": 0}, verbosity=1)
+    # All marginals (with evidence)
+    print("\n=== ApproxLP (B=0, E=0) ===")
+    results = alp.run(evidence={"B": 0, "E": 0}, verbosity=1)
+    print_singleton_marginals(results)

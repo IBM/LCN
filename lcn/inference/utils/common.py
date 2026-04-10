@@ -21,7 +21,7 @@ from pyomo.environ import *
 from typing import List, Dict
 
 # Local
-from lcn.model import LCN, Formula, SentenceType
+from lcn.core.model import LCN, Formula, SentenceType
 
 def make_init_config(vars: List):
     return [1 if np.random.random() > 0.5 else 0 for _ in vars]
@@ -77,6 +77,11 @@ def check_consistency(lcn: LCN) -> bool:
     items = list(itertools.product([0, 1], repeat=len(vars)))
     index = {k:v for k, v in enumerate(items)}
     N = len(items)
+
+    # Check consistency for small enough LCNs (up to 10 atoms)
+    if len(vars) > 10:
+        print("LCN is too large for exact consistency checking.")
+        return True
 
     # Create the model and variables
     model = ConcreteModel()

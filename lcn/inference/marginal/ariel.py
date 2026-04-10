@@ -13,7 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Approximate marginal inference for LCNs (improved version)
+# ARIEL: Approximate marginal inference for LCNs
+# Based on: Marinescu et al. Approximate Inference in LCNs. IJCAI-2023.
 
 import itertools
 import time
@@ -22,11 +23,96 @@ from pyomo.environ import *
 from typing import Dict, List, Tuple
 
 # Local
-from lcn.model import LCN, SentenceType, Formula, Sentence
-from lcn.independencies import Independencies
-from lcn.inference.factor_graph import FactorGraph, FactorNode, VariableNode, FactorGraphEdge
-from lcn.inference.utils import check_consistency, make_conjunction
+from lcn.core.model import LCN, SentenceType, Formula, Sentence
+from lcn.core.independencies import Independencies
+from lcn.inference.utils.factor_graph import FactorGraph, FactorNode, VariableNode, FactorGraphEdge
+from lcn.inference.utils.common import check_consistency, make_conjunction
 from lcn.inference.marginal.exact import _eval_indicator, _dot
+
+
+def _build_factor_cache(f: FactorNode, independencies: Independencies) -> dict:
+    """
+    Pre-compute and cache all interpretations and indicator vectors for
+    a factor node. Called once per factor during initialization.
+
+    Returns a dict with:
+        - 'vars_list': sorted list of variable names in scope
+        - 'interpretations': list of assignment dicts
+        - 'N': number of interpretations
+        - 'sentence_indicators': dict sid -> (type, indicators)
+        - 'variable_indicators': dict var_name -> indicator array
+        - 'independence_groups': list of (Aa, Ab, Ac, Ad) tuples
+    """
+    vars_list = sorted(f.scope)
+    items_tuples = list(itertools.product([0, 1], repeat=len(vars_list)))
+    interpretations = [dict(zip(vars_list, t)) for t in items_tuples]
+    N = len(interpretations)
+
+    # Cache sentence indicators
+    sentence_indicators = {}
+    for sid, s in f.sentences.items():
+        if s.type == SentenceType.Type1:
+            A = _eval_indicator(s.phi_formula, interpretations)
+            sentence_indicators[sid] = ('type1', s.get_lower_bound(),
+                                        s.get_upper_bound(), A)
+        else:
+            Aqr = _eval_indicator(s.phi_and_psi_formula, interpretations)
+            Ar = _eval_indicator(s.psi_formula, interpretations)
+            sentence_indicators[sid] = ('type2', s.get_lower_bound(),
+                                        s.get_upper_bound(), Aqr, Ar)
+
+    # Cache variable indicators (for each variable in scope)
+    variable_indicators = {}
+    for v in vars_list:
+        variable_indicators[v] = _eval_indicator(
+            Formula(label=v, formula=v), interpretations)
+
+    # Cache independence constraint indicators
+    scope_set = set(f.scope)
+    independence_groups = []
+    for indep in independencies.get_assertions():
+        X, T, S = list(indep.event1), list(indep.event2), list(indep.event3)
+        all_vars = set(X) | set(T) | set(S)
+        if not all_vars.issubset(scope_set):
+            continue
+
+        configs_S = [()] if len(S) == 0 else list(
+            itertools.product([0, 1], repeat=len(S)))
+        if len(S) > 0:
+            for t in T:
+                x = X[0]
+                literals = {x: 1, t: 1}
+                for s in configs_S:
+                    literals.update(dict(zip(S, list(s))))
+                    Fa = make_conjunction(variables=X + S + [t], literals=literals)
+                    Fb = make_conjunction(variables=S, literals=literals)
+                    Fc = make_conjunction(variables=X + S, literals=literals)
+                    Fd = make_conjunction(variables=S + [t], literals=literals)
+                    Aa = _eval_indicator(Fa, interpretations)
+                    Ab = _eval_indicator(Fb, interpretations)
+                    Ac = _eval_indicator(Fc, interpretations)
+                    Ad = _eval_indicator(Fd, interpretations)
+                    independence_groups.append(('conditional', Aa, Ab, Ac, Ad))
+        else:
+            for t in T:
+                x = X[0]
+                literals = {x: 1, t: 1}
+                Fa = make_conjunction(variables=X + [t], literals=literals)
+                Fb = make_conjunction(variables=X, literals=literals)
+                Fc = make_conjunction(variables=[t], literals=literals)
+                Aa = _eval_indicator(Fa, interpretations)
+                Ab = _eval_indicator(Fb, interpretations)
+                Ac = _eval_indicator(Fc, interpretations)
+                independence_groups.append(('marginal', Aa, Ab, Ac))
+
+    return {
+        'vars_list': vars_list,
+        'interpretations': interpretations,
+        'N': N,
+        'sentence_indicators': sentence_indicators,
+        'variable_indicators': variable_indicators,
+        'independence_groups': independence_groups,
+    }
 
 
 def _solve_local_nlp(
@@ -34,7 +120,8 @@ def _solve_local_nlp(
         f: FactorNode,
         neighbors: List[str],
         incoming: Dict,
-        independencies: Independencies,
+        cache: dict,
+        solver,
         sense: str = "min",
         debug: bool = False
 ) -> Tuple:
@@ -51,8 +138,10 @@ def _solve_local_nlp(
             The list of neighboring variable node names, other than `n`.
         incoming: Dict
             The dict of incoming messages to `f`, other than the one for `n`.
-        independencies: Independencies
-            The independence assertions from the LCN's Local Markov Condition.
+        cache: dict
+            Pre-computed interpretations and indicator vectors for this factor.
+        solver: SolverFactory
+            Reusable ipopt solver instance.
         sense: str
             The objective sense, either `min` or `max`.
         debug: bool
@@ -62,14 +151,12 @@ def _solve_local_nlp(
         A Tuple containing the objective value and a boolean flag indicating
         a feasible or an infeasible solution.
     """
-
     assert sense in ["min", "max"]
 
-    # Precompute interpretations over the factor's scope
-    vars_list = sorted(f.scope)
-    items_tuples = list(itertools.product([0, 1], repeat=len(vars_list)))
-    interpretations = [dict(zip(vars_list, t)) for t in items_tuples]
-    N = len(interpretations)
+    N = cache['N']
+    sentence_indicators = cache['sentence_indicators']
+    variable_indicators = cache['variable_indicators']
+    independence_groups = cache['independence_groups']
 
     # Create the Pyomo model and variables
     model = ConcreteModel()
@@ -83,18 +170,15 @@ def _solve_local_nlp(
     # Probability distribution constraint
     model.constr.add(sum(model.p[i] for i in model.ITEMS) == 1.0)
 
-    # Sentence constraints
-    for _, s in f.sentences.items():
-        lobo = s.get_lower_bound()
-        upbo = s.get_upper_bound()
-        if s.type == SentenceType.Type1:  # P(q)
-            A = _eval_indicator(s.phi_formula, interpretations)
+    # Sentence constraints (using cached indicators)
+    for sid, indicators in sentence_indicators.items():
+        if indicators[0] == 'type1':
+            _, lobo, upbo, A = indicators
             expr = _dot(A, model, model.ITEMS)
             model.constr.add(expr >= lobo)
             model.constr.add(expr <= upbo)
-        else:  # P(q|r)
-            Aqr = _eval_indicator(s.phi_and_psi_formula, interpretations)
-            Ar = _eval_indicator(s.psi_formula, interpretations)
+        else:
+            _, lobo, upbo, Aqr, Ar = indicators
             expr_qr = _dot(Aqr, model, model.ITEMS)
             expr_r = _dot(Ar, model, model.ITEMS)
             model.constr.add(expr_qr >= lobo * expr_r)
@@ -102,56 +186,28 @@ def _solve_local_nlp(
 
     # Incoming variable-to-factor message constraints (with Lagrange relaxation)
     for m in neighbors:
-        A = _eval_indicator(Formula(label=m, formula=m), interpretations)
+        A = variable_indicators[m]
         expr = _dot(A, model, model.ITEMS)
         msg = incoming[m]
         slack = sum(model.v[j] for j in model.AUX)
         model.constr.add(expr + slack >= msg.lower_bound)
         model.constr.add(expr - slack <= msg.upper_bound)
 
-    # Independence constraints from the LCN's Local Markov Condition
-    scope_set = set(f.scope)
-    for indep in independencies.get_assertions():
-        X, T, S = list(indep.event1), list(indep.event2), list(indep.event3)
-        # Only add constraints if all involved variables are in this factor's scope
-        all_vars = set(X) | set(T) | set(S)
-        if not all_vars.issubset(scope_set):
-            continue
-
-        configs_S = [()] if len(S) == 0 else list(itertools.product([0, 1], repeat=len(S)))
-        if len(S) > 0:
-            for t in T:
-                x = X[0]
-                literals = {x: 1, t: 1}
-                for s in configs_S:
-                    literals.update(dict(zip(S, list(s))))
-                    Fa = make_conjunction(variables=X + S + [t], literals=literals)
-                    Fb = make_conjunction(variables=S, literals=literals)
-                    Fc = make_conjunction(variables=X + S, literals=literals)
-                    Fd = make_conjunction(variables=S + [t], literals=literals)
-                    Aa = _eval_indicator(Fa, interpretations)
-                    Ab = _eval_indicator(Fb, interpretations)
-                    Ac = _eval_indicator(Fc, interpretations)
-                    Ad = _eval_indicator(Fd, interpretations)
-                    val1 = _dot(Aa, model, model.ITEMS) * _dot(Ab, model, model.ITEMS)
-                    val2 = _dot(Ac, model, model.ITEMS) * _dot(Ad, model, model.ITEMS)
-                    model.constr.add(val1 - val2 == 0.0)
+    # Independence constraints (using cached indicators)
+    for group in independence_groups:
+        if group[0] == 'conditional':
+            _, Aa, Ab, Ac, Ad = group
+            val1 = _dot(Aa, model, model.ITEMS) * _dot(Ab, model, model.ITEMS)
+            val2 = _dot(Ac, model, model.ITEMS) * _dot(Ad, model, model.ITEMS)
+            model.constr.add(val1 - val2 == 0.0)
         else:
-            for t in T:
-                x = X[0]
-                literals = {x: 1, t: 1}
-                Fa = make_conjunction(variables=X + [t], literals=literals)
-                Fb = make_conjunction(variables=X, literals=literals)
-                Fc = make_conjunction(variables=[t], literals=literals)
-                Aa = _eval_indicator(Fa, interpretations)
-                Ab = _eval_indicator(Fb, interpretations)
-                Ac = _eval_indicator(Fc, interpretations)
-                val1 = _dot(Aa, model, model.ITEMS)
-                val2 = _dot(Ab, model, model.ITEMS) * _dot(Ac, model, model.ITEMS)
-                model.constr.add(val1 - val2 == 0.0)
+            _, Aa, Ab, Ac = group
+            val1 = _dot(Aa, model, model.ITEMS)
+            val2 = _dot(Ab, model, model.ITEMS) * _dot(Ac, model, model.ITEMS)
+            model.constr.add(val1 - val2 == 0.0)
 
     # Objective: P(n) with penalty on slack variables
-    A_obj = _eval_indicator(Formula(label=n.name, formula=n.name), interpretations)
+    A_obj = variable_indicators[n.name]
     penalty = 1000.0
     if sense == 'min':
         obj = _dot(A_obj, model, model.ITEMS) + penalty * sum(model.v[j] for j in model.AUX)
@@ -161,9 +217,7 @@ def _solve_local_nlp(
         model.objective = Objective(expr=obj, sense=maximize)
 
     try:
-        opt = SolverFactory('ipopt')
-        tee_flag = True if debug else False
-        results = opt.solve(model, load_solutions=True, tee=tee_flag)
+        results = solver.solve(model, load_solutions=True, tee=debug)
         if (results.solver.status == SolverStatus.ok) and \
             (results.solver.termination_condition == TerminationCondition.optimal):
             objective = sum(float(A_obj[i]) * model.p[i].value for i in model.ITEMS)
@@ -244,11 +298,15 @@ class Message:
             self.lower_bound = max(self.lower_bound, msg.lower_bound)
             self.upper_bound = min(self.upper_bound, msg.upper_bound)
 
+        # Enforce lower_bound <= upper_bound
+        self.upper_bound = max(self.lower_bound, self.upper_bound)
+
     def update_factor_to_variable(
             self,
             fg: FactorGraph,
             variable_messages: Dict,
-            independencies: Independencies,
+            cache: dict,
+            solver,
             debug: bool = False
     ):
         """
@@ -268,7 +326,8 @@ class Message:
             self.edge.factor_node,
             neighbors,
             variable_messages,
-            independencies,
+            cache,
+            solver,
             'min',
             debug
         )
@@ -277,13 +336,17 @@ class Message:
             self.edge.factor_node,
             neighbors,
             variable_messages,
-            independencies,
+            cache,
+            solver,
             'max',
             debug
         )
 
         self.lower_bound = max(lower_bound, 0.0) if feasible_lb else self.lower_bound
         self.upper_bound = min(upper_bound, 1.0) if feasible_ub else self.upper_bound
+
+        # Enforce lower_bound <= upper_bound
+        self.upper_bound = max(self.lower_bound, self.upper_bound)
 
 
 class Marginal:
@@ -305,11 +368,13 @@ class Marginal:
         for msg in incoming_messages:
             self.lower_bound = max(self.lower_bound, msg.lower_bound)
             self.upper_bound = min(self.upper_bound, msg.upper_bound)
+        # Enforce lower_bound <= upper_bound
+        self.upper_bound = max(self.lower_bound, self.upper_bound)
 
 
-class ApproximateInference:
+class ArielInference:
     """
-    Approximate Inference for LCNs. Implements the belief propagation style
+    ARIEL Inference for LCNs. Implements the belief propagation style
     algorithm described in [Marinescu et al. Approximate Inference in LCNs. IJCAI-2023].
     """
 
@@ -332,9 +397,9 @@ class ApproximateInference:
             debug: bool = False,
             evidence: dict = {},
             verbosity: int = 1
-    ):
+    ) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
         """
-        Run the approximate inference algorithm for computing the marginals.
+        Run the ARIEL inference algorithm for computing the marginals.
 
         Args:
             n_iters: int
@@ -347,6 +412,10 @@ class ApproximateInference:
                 The optional evidence given as input.
             verbosity: int
                 The verbosity level (default 1).
+
+        Returns:
+            Dict mapping variable name to (lower_bounds, upper_bounds)
+            numpy arrays.
         """
 
         self.evidence = evidence
@@ -367,6 +436,16 @@ class ApproximateInference:
         if debug:
             print("Factor graph with evidence")
             print(self.fg)
+
+        # Pre-compute caches for each factor node (once)
+        factor_caches = {}
+        for fid, f in self.fg.factor_nodes.items():
+            factor_caches[fid] = _build_factor_cache(f, independencies)
+
+        # Create a shared solver instance
+        solver = SolverFactory('ipopt')
+        if not debug:
+            solver.options['print_level'] = 0
 
         # Initialize the messages
         for e in self.fg.edges:
@@ -404,7 +483,7 @@ class ApproximateInference:
 
         # Iterative message passing
         if verbosity > 0:
-            print(f"[ApproximateInference] Running marginal inference...")
+            print(f"[ArielInference] Running marginal inference...")
         for iter in range(n_iters):
             if verbosity > 0:
                 print(f"Iteration {iter} ...")
@@ -412,7 +491,7 @@ class ApproximateInference:
             delta = 0.0
 
             # Update variable-to-factor messages (v->f)
-            if verbosity > 0:
+            if verbosity > 1:
                 print("### Variable to factor messages ###")
             for msg in self.variable_to_factor_messages:
                 nid = msg.edge.variable_node.name
@@ -428,7 +507,7 @@ class ApproximateInference:
                     print(f"Updated variable_to_factor message: {nid}-->{fid}: [{msg.lower_bound}, {msg.upper_bound}]")
 
             # Update factor-to-variable messages (f->v)
-            if verbosity > 0:
+            if verbosity > 1:
                 print("### Factor to variable messages ###")
             for msg in self.factor_to_variable_messages:
                 nid = msg.edge.variable_node.name
@@ -438,12 +517,10 @@ class ApproximateInference:
 
                 lobo, upbo = msg.lower_bound, msg.upper_bound
                 variable_messages = self.incoming_to_factor[fid]
-                msg.update_factor_to_variable(self.fg, variable_messages, independencies, debug)
+                cache = factor_caches[fid]
+                msg.update_factor_to_variable(
+                    self.fg, variable_messages, cache, solver, debug)
                 delta += (abs(msg.lower_bound - lobo) + abs(msg.upper_bound - upbo))
-
-                # Check for bound inversion in messages
-                if msg.lower_bound > msg.upper_bound and verbosity > 0:
-                    print(f"WARNING: message {fid}-->{nid} has lb={msg.lower_bound:.4f} > ub={msg.upper_bound:.4f}")
 
                 if debug:
                     print(f"Updated factor_to_variable message: {fid}-->{nid}: [{msg.lower_bound:.4f}, {msg.upper_bound:.4f}]")
@@ -451,11 +528,11 @@ class ApproximateInference:
             # Early stopping condition
             delta /= float(2. * len(self.fg.edges))
             if verbosity > 0:
-                print(f"After iteration {iter} average change in messages is {delta}")
-                print(f"Elapsed time per iteration: {time.time() - t_iter_start} sec")
+                print(f"After iteration {iter} average change in messages is {delta:.6f}")
+                print(f"Elapsed time per iteration: {time.time() - t_iter_start:.4f} sec")
             if self.threshold is not None and delta <= self.threshold:
                 if verbosity > 0:
-                    print(f"Converged after {iter} iterations with delta={delta}")
+                    print(f"Converged after {iter} iterations with delta={delta:.6f}")
                 break
 
         # Collect marginals and check for bound inversions
@@ -467,25 +544,47 @@ class ApproximateInference:
             for _, msg in factor_messages.items():
                 marg.lower_bound = max(marg.lower_bound, msg.lower_bound)
                 marg.upper_bound = min(marg.upper_bound, msg.upper_bound)
-            self.marginals[nid] = marg
+            # Enforce lower_bound <= upper_bound
+            marg.upper_bound = max(marg.lower_bound, marg.upper_bound)
 
             if marg.lower_bound > marg.upper_bound:
                 self.feasible = False
-                if verbosity > 0:
-                    print(f"WARNING: variable {nid} has lb={marg.lower_bound:.4f} > ub={marg.upper_bound:.4f} (infeasible)")
+            self.marginals[nid] = marg
 
         t_end = time.time()
 
+        # Build return dict in standard format: atom -> (lo_array, hi_array)
+        results = {}
+        evidence_set = set(evidence.keys())
         if verbosity > 0:
-            print(f"[ApproximateInference] Marginals:")
-            for nid, _ in self.fg.variable_nodes.items():
-                marg = self.marginals[nid]
-                print(f"{nid}: [{marg.lower_bound:.4f}, {marg.upper_bound:.4f}]")
-            print(f"[ApproximateInference] Feasible: {self.feasible}")
-            print(f"[ApproximateInference] Time elapsed: {t_end - t_start} sec")
+            print(f"[ArielInference] Singleton variable marginals:")
+        for nid in sorted(self.marginals):
+            marg = self.marginals[nid]
+            lo_1 = marg.lower_bound
+            hi_1 = marg.upper_bound
+            lo_arr = np.array([1.0 - hi_1, lo_1])
+            hi_arr = np.array([1.0 - lo_1, hi_1])
+            results[nid] = (lo_arr, hi_arr)
+            if verbosity > 0:
+                print(f"  P({nid}=0): [{lo_arr[0]:.6f}, {hi_arr[0]:.6f}]")
+                print(f"  P({nid}=1): [{lo_arr[1]:.6f}, {hi_arr[1]:.6f}]")
+
+        if verbosity > 0:
+            print(f"[ArielInference] Feasible: {self.feasible}")
+            print(f"[ArielInference] Time elapsed: {t_end - t_start:.4f} sec")
+
+        return results
 
 
 if __name__ == "__main__":
+
+    def print_singleton_marginals(results):
+        """Print only singleton variable marginals from the results."""
+        print("  Singleton variable marginals:")
+        for var in sorted(results):
+            lo, hi = results[var]
+            for val in range(len(lo)):
+                print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
     # Load the LCN
     file_name = "examples/alarm.lcn"
@@ -500,6 +599,8 @@ if __name__ == "__main__":
     else:
         print("INCONSISTENT")
 
-    # Run approximate marginal inference
-    algo = ApproximateInference(lcn=l)
-    algo.run(n_iters=10, threshold=0.000001, debug=False)
+    # Run ARIEL marginal inference
+    print("\n=== ArielInference (no evidence) ===")
+    algo = ArielInference(lcn=l)
+    results = algo.run(n_iters=10, threshold=0.000001, debug=False)
+    print_singleton_marginals(results)

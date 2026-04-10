@@ -16,15 +16,20 @@
 # Interval Belief Propagation and Variational Inference for Credal Networks
 
 import itertools
+import logging
 import time
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import numpy as np
+from pyomo.environ import (
+    ConcreteModel, Var, Objective, ConstraintList,
+    NonNegativeReals, minimize, maximize, SolverFactory, value
+)
 
 # Local
-from lcn.model import LCN
+from lcn.core.model import LCN
 from lcn.inference.marginal.cve import CredalVE
-from lcn.inference.utils import check_consistency
+from lcn.inference.utils.common import check_consistency
 
 
 class IntervalBP:
@@ -49,10 +54,8 @@ class IntervalBP:
         assert cve.bn_min is not None
 
         self.cve = cve
-        self.lower_bound = None
-        self.upper_bound = None
-        self.lower_bounds = None
-        self.upper_bounds = None
+        self.marginals = None
+        self.singleton_marginals = None
 
     def _build_factors(self):
         """
@@ -98,15 +101,15 @@ class IntervalBP:
             })
         return cards, factors
 
-    def run(self, query: str, evidence: dict = {},
+    def run(self, evidence: dict = {},
             n_iters: int = 100, threshold: float = 1e-6,
-            method: str = "interval", verbosity: int = 1):
+            method: str = "interval",
+            verbosity: int = 1) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
         """
-        Run belief propagation for credal networks.
+        Run belief propagation for credal networks. Computes marginal
+        bounds for ALL non-evidence variables.
 
         Args:
-            query: str
-                Name of the query variable.
             evidence: dict
                 {variable_name: value} for observed variables.
             n_iters: int
@@ -118,12 +121,16 @@ class IntervalBP:
                 "variational" for mean-field variational (inner approx).
             verbosity: int
                 Verbosity level (0 is silent).
+
+        Returns:
+            Dict mapping variable name to (lower_bounds, upper_bounds)
+            numpy arrays. Includes both compound and singleton marginals.
         """
         assert method in ("interval", "variational"), \
             f"Unknown method '{method}'. Use 'interval' or 'variational'."
 
         if method == "variational":
-            return self._run_variational(query, evidence, n_iters,
+            return self._run_variational(evidence, n_iters,
                                          threshold, verbosity)
 
         t_start = time.time()
@@ -131,8 +138,6 @@ class IntervalBP:
         cards, factors = self._build_factors()
         bn = self.cve.bn_min
         node_names = [bn.variable(n).name() for n in bn.nodes()]
-        assert query in node_names, \
-            f"Query variable '{query}' not found."
 
         # Build adjacency: var -> list of factor indices
         var_to_factors = {name: [] for name in node_names}
@@ -159,7 +164,7 @@ class IntervalBP:
                 msg_v2f[(ev_var, fi)] = (lo.copy(), hi.copy())
 
         if verbosity > 0:
-            print(f"[IBP] Query: {query}, method: {method}")
+            print(f"[IBP] Computing all marginals, method: {method}")
             print(f"[IBP] Evidence: {evidence}")
             print(f"[IBP] Nodes: {len(node_names)}, "
                   f"Factors: {len(factors)}")
@@ -291,47 +296,64 @@ class IntervalBP:
                 print(f"[IBP] Reached max iterations ({n_iters}), "
                       f"delta={max_delta:.2e}")
 
-        # Extract marginal bounds for query
-        q_lo = np.zeros(cards[query])
-        q_hi = np.ones(cards[query])
-        for fi in var_to_factors[query]:
-            fi_lo, fi_hi = msg_f2v[(fi, query)]
-            q_lo = np.maximum(q_lo, fi_lo)
-            q_hi = np.minimum(q_hi, fi_hi)
-        q_hi = np.maximum(q_lo, q_hi)
+        # Extract marginal bounds for all variables
+        self.marginals = {}
+        for var in node_names:
+            lo = np.zeros(cards[var])
+            hi = np.ones(cards[var])
+            for fi in var_to_factors[var]:
+                fi_lo, fi_hi = msg_f2v[(fi, var)]
+                lo = np.maximum(lo, fi_lo)
+                hi = np.minimum(hi, fi_hi)
+            hi = np.maximum(lo, hi)
+            self.marginals[var] = (lo, hi)
+
+        # Extract singleton marginals from compound variables
+        self.singleton_marginals = self._extract_singleton_marginals(
+            self.marginals, evidence)
 
         t_end = time.time()
 
-        lower_bounds = q_lo
-        upper_bounds = q_hi
-        self.lower_bound = lower_bounds[1] if cards[query] > 1 else lower_bounds[0]
-        self.upper_bound = upper_bounds[1] if cards[query] > 1 else upper_bounds[0]
-        self.lower_bounds = lower_bounds
-        self.upper_bounds = upper_bounds
-
         if verbosity > 0:
-            print(f"[IBP] Results for P({query} | {evidence}):")
-            for val in range(cards[query]):
-                print(f"  P({query}={val}): "
-                      f"[{lower_bounds[val]:.6f}, {upper_bounds[val]:.6f}]")
+            print(f"[IBP] Compound variable marginals:")
+            for var in node_names:
+                lo, hi = self.marginals[var]
+                for val in range(len(lo)):
+                    print(f"  P({var}={val}): "
+                          f"[{lo[val]:.6f}, {hi[val]:.6f}]")
+
+            if self.singleton_marginals:
+                print(f"[IBP] Singleton variable marginals:")
+                for atom in sorted(self.singleton_marginals):
+                    lo, hi = self.singleton_marginals[atom]
+                    print(f"  P({atom}=0): [{1.0 - hi:.6f}, {1.0 - lo:.6f}]")
+                    print(f"  P({atom}=1): [{lo:.6f}, {hi:.6f}]")
+
             print(f"[IBP] Time elapsed: {t_end - t_start:.4f} sec")
 
-    def _run_variational(self, query: str, evidence: dict,
+        # Return combined dict of all marginals
+        all_marginals = dict(self.marginals)
+        for atom, (lo, hi) in self.singleton_marginals.items():
+            all_marginals[atom] = (
+                np.array([1.0 - hi, lo]),
+                np.array([1.0 - lo, hi])
+            )
+        return all_marginals
+
+    def _run_variational(self, evidence: dict,
                          n_iters: int, threshold: float,
                          verbosity: int):
         """
         Mean-field variational inference for credal networks. For each
         combination of extreme points (one per local credal set), runs
         standard mean-field coordinate ascent. Tracks bounds across all
-        explored vertex combinations.
+        explored vertex combinations for ALL variables.
         """
         t_start = time.time()
 
         cards, factors = self._build_factors()
         bn = self.cve.bn_min
         node_names = [bn.variable(n).name() for n in bn.nodes()]
-        assert query in node_names, \
-            f"Query variable '{query}' not found."
 
         evidence_set = set(evidence.keys())
 
@@ -342,11 +364,12 @@ class IntervalBP:
                 var_to_factors[v].append(fi)
 
         if verbosity > 0:
-            print(f"[IBP-VI] Query: {query}, method: variational")
+            print(f"[IBP-VI] Computing all marginals, method: variational")
             print(f"[IBP-VI] Evidence: {evidence}")
 
-        lower_bounds = np.ones(cards[query])
-        upper_bounds = np.zeros(cards[query])
+        # Track bounds for ALL variables
+        all_lower = {var: np.ones(cards[var]) for var in node_names}
+        all_upper = {var: np.zeros(cards[var]) for var in node_names}
 
         # For each factor, enumerate vertex combos per parent config
         factor_combos = []
@@ -442,39 +465,163 @@ class IntervalBP:
                 if max_delta < threshold:
                     break
 
-            lower_bounds = np.minimum(lower_bounds, q[query])
-            upper_bounds = np.maximum(upper_bounds, q[query])
+            # Update bounds for ALL variables
+            for var in node_names:
+                all_lower[var] = np.minimum(all_lower[var], q[var])
+                all_upper[var] = np.maximum(all_upper[var], q[var])
+
+        # Store marginals
+        self.marginals = {var: (all_lower[var], all_upper[var])
+                          for var in node_names}
+
+        # Extract singleton marginals from compound variables
+        self.singleton_marginals = self._extract_singleton_marginals(
+            self.marginals, evidence)
 
         t_end = time.time()
 
-        self.lower_bound = lower_bounds[1] if cards[query] > 1 else lower_bounds[0]
-        self.upper_bound = upper_bounds[1] if cards[query] > 1 else upper_bounds[0]
-        self.lower_bounds = lower_bounds
-        self.upper_bounds = upper_bounds
-
         if verbosity > 0:
             print(f"[IBP-VI] Explored {len(selected_combos)} vertex combinations")
-            print(f"[IBP-VI] Results for P({query} | {evidence}):")
-            for val in range(cards[query]):
-                print(f"  P({query}={val}): "
-                      f"[{lower_bounds[val]:.6f}, {upper_bounds[val]:.6f}]")
+            print(f"[IBP-VI] Compound variable marginals:")
+            for var in node_names:
+                lo, hi = self.marginals[var]
+                for val in range(len(lo)):
+                    print(f"  P({var}={val}): "
+                          f"[{lo[val]:.6f}, {hi[val]:.6f}]")
+
+            if self.singleton_marginals:
+                print(f"[IBP-VI] Singleton variable marginals:")
+                for atom in sorted(self.singleton_marginals):
+                    lo, hi = self.singleton_marginals[atom]
+                    print(f"  P({atom}=0): [{1.0 - hi:.6f}, {1.0 - lo:.6f}]")
+                    print(f"  P({atom}=1): [{lo:.6f}, {hi:.6f}]")
+
             print(f"[IBP-VI] Time elapsed: {t_end - t_start:.4f} sec")
+
+        # Return combined dict of all marginals
+        all_marginals = dict(self.marginals)
+        for atom, (lo, hi) in self.singleton_marginals.items():
+            all_marginals[atom] = (
+                np.array([1.0 - hi, lo]),
+                np.array([1.0 - lo, hi])
+            )
+        return all_marginals
+
+    # ------------------------------------------------------------------
+    # Singleton marginals from compound variables
+    # ------------------------------------------------------------------
+
+    def _extract_singleton_marginals(
+        self, marginals: Dict[str, Tuple[np.ndarray, np.ndarray]],
+        evidence: dict
+    ) -> Dict[str, Tuple[float, float]]:
+        """
+        For each compound variable (name contains '-'), identify the
+        singleton atoms and compute their marginal bounds by solving
+        LPs over the compound marginal polytope.
+
+        Args:
+            marginals: compound variable marginals.
+            evidence: evidence dict (singleton atoms in evidence are skipped).
+
+        Returns:
+            Dict mapping singleton atom name to (lower_bound, upper_bound)
+            for P(atom=1).
+        """
+        singleton_marginals = {}
+        solver = SolverFactory('ipopt')
+
+        # Suppress ipopt output
+        ipopt_log = logging.getLogger('pyomo')
+        ipopt_log.setLevel(logging.ERROR)
+
+        for var_name, (lo, hi) in marginals.items():
+            if '-' not in var_name:
+                continue  # already a singleton
+
+            atoms = var_name.split('-')
+            n_atoms = len(atoms)
+            k = 2 ** n_atoms  # number of compound states
+
+            for atom_idx, atom in enumerate(atoms):
+                if atom in evidence:
+                    continue  # skip observed atoms
+
+                # Identify which compound states have this atom = 1
+                # Using big-endian bit encoding (same as cve.py)
+                ones_states = []
+                for s in range(k):
+                    bit = (s >> (n_atoms - 1 - atom_idx)) & 1
+                    if bit == 1:
+                        ones_states.append(s)
+
+                # Solve min LP: minimize P(atom=1)
+                lower = self._solve_singleton_lp(
+                    lo, hi, k, ones_states, minimize, solver)
+                # Solve max LP: maximize P(atom=1)
+                upper = self._solve_singleton_lp(
+                    lo, hi, k, ones_states, maximize, solver)
+
+                singleton_marginals[atom] = (lower, upper)
+
+        return singleton_marginals
+
+    @staticmethod
+    def _solve_singleton_lp(lo, hi, k, target_states, sense, solver):
+        """
+        Solve a single LP to find the min or max of sum(p[s] for s in
+        target_states) subject to the compound marginal bounds.
+
+        Args:
+            lo: lower bounds on compound variable states.
+            hi: upper bounds on compound variable states.
+            k: number of compound states.
+            target_states: list of state indices where the atom = 1.
+            sense: pyomo minimize or maximize.
+            solver: pyomo SolverFactory instance.
+
+        Returns:
+            Optimal value of the objective.
+        """
+        model = ConcreteModel()
+        model.S = range(k)
+        model.p = Var(model.S, within=NonNegativeReals)
+        model.constr = ConstraintList()
+
+        # Probability distribution constraint
+        model.constr.add(sum(model.p[s] for s in model.S) == 1.0)
+
+        # Bound constraints from compound marginal
+        for s in model.S:
+            model.constr.add(model.p[s] >= float(lo[s]))
+            model.constr.add(model.p[s] <= float(hi[s]))
+
+        # Objective: sum of p[s] for states where atom=1
+        model.obj = Objective(
+            expr=sum(model.p[s] for s in target_states),
+            sense=sense
+        )
+
+        results = solver.solve(model, tee=False)
+        return value(model.obj)
 
 
 if __name__ == "__main__":
+
+    def print_singleton_marginals(results):
+        """Print only singleton variable marginals from the results."""
+        print("  Singleton variable marginals:")
+        for var in sorted(results):
+            if '-' not in var:
+                lo, hi = results[var]
+                for val in range(len(lo)):
+                    print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
     # Load the LCN
     file_name = "examples/lcn_chain_1.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
     print(l)
-
-    # Check consistency
-    # ok = check_consistency(l)
-    # if ok:
-    #     print("CONSISTENT")
-    # else:
-    #     print("INCONSISTENT")
 
     # Build the CredalVE (needed for extreme points)
     cve = CredalVE(lcn=l)
@@ -483,24 +630,23 @@ if __name__ == "__main__":
     # Create the IBP solver
     ibp = IntervalBP(cve=cve)
 
-    # # Run interval BP
-    # print("\n=== Interval Belief Propagation ===")
-    # ibp.run(query="B", evidence={}, method="interval", verbosity=1)
-    # ibp.run(query="A", evidence={"B": 0, "E": 0}, method="interval", verbosity=1)
+    # Run interval BP (all marginals, no evidence)
+    print("\n=== Interval Belief Propagation (no evidence) ===")
+    results = ibp.run(evidence={}, method="interval", verbosity=1)
+    print_singleton_marginals(results)
 
-    # # Run variational inference
-    # print("\n=== Variational Inference ===")
-    # ibp.run(query="B", evidence={}, method="variational", n_iters=20, verbosity=1)
-    # ibp.run(query="A", evidence={"B": 0, "E": 0}, method="variational",
-    #         n_iters=20, verbosity=1)
+    # Run interval BP (all marginals, with evidence)
+    print("\n=== Interval Belief Propagation (x0=0) ===")
+    results = ibp.run(evidence={"x0": 0}, method="interval", verbosity=1)
+    print_singleton_marginals(results)
 
-    # Run interval BP
-    print("\n=== Interval Belief Propagation ===")
-    ibp.run(query="x7", evidence={}, method="interval", verbosity=1)
-    ibp.run(query="x7", evidence={"x0": 0}, method="interval", verbosity=1)
+    # Run variational inference (all marginals, no evidence)
+    print("\n=== Variational Inference (no evidence) ===")
+    results = ibp.run(evidence={}, method="variational", n_iters=20, verbosity=1)
+    print_singleton_marginals(results)
 
-    # Run variational inference
-    print("\n=== Variational Inference ===")
-    ibp.run(query="x7", evidence={}, method="variational", n_iters=20, verbosity=1)
-    ibp.run(query="x7", evidence={"x0": 0}, method="variational",
-            n_iters=20, verbosity=1)
+    # Run variational inference (all marginals, with evidence)
+    print("\n=== Variational Inference (x0=0) ===")
+    results = ibp.run(evidence={"x0": 0}, method="variational",
+                      n_iters=20, verbosity=1)
+    print_singleton_marginals(results)

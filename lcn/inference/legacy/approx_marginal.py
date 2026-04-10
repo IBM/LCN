@@ -21,10 +21,10 @@ from pyomo.environ import *
 from typing import Dict, List, Tuple
 
 # Local
-from lcn.model import LCN, SentenceType, Formula
-from lcn.inference.factor_graph import FactorGraph, FactorNode, VariableNode, FactorGraphEdge
-from lcn.independencies import Independencies
-from lcn.inference.utils import check_consistency, make_conjunction
+from lcn.core.model import LCN, SentenceType, Formula
+from lcn.inference.utils.factor_graph import FactorGraph, FactorNode, VariableNode, FactorGraphEdge
+from lcn.core.independencies import Independencies
+from lcn.inference.utils.common import check_consistency, make_conjunction
 
 infinity = float('inf')
 

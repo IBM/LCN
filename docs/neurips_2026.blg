@@ -1,0 +1,50 @@
+This is BibTeX, Version 0.99d (TeX Live 2022)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: neurips_2026.aux
+The style file: unsrt.bst
+Database file #1: ref.bib
+Warning--empty booktitle in bach2017hinge
+Warning--can't use both volume and number fields in bach2017hinge
+Warning--can't use both volume and number fields in antonucci2013approximate
+You've used 20 entries,
+            1791 wiz_defined-function locations,
+            565 strings with 6887 characters,
+and the built_in function-call counts, 4966 in all, are:
+= -- 418
+> -- 244
+< -- 4
++ -- 89
+- -- 69
+* -- 367
+:= -- 782
+add.period$ -- 60
+call.type$ -- 20
+change.case$ -- 19
+chr.to.int$ -- 0
+cite$ -- 23
+duplicate$ -- 217
+empty$ -- 498
+format.name$ -- 69
+if$ -- 1090
+int.to.chr$ -- 0
+int.to.str$ -- 20
+missing$ -- 21
+newline$ -- 103
+num.names$ -- 20
+pop$ -- 63
+preamble$ -- 1
+purify$ -- 0
+quote$ -- 0
+skip$ -- 88
+stack$ -- 0
+substring$ -- 340
+swap$ -- 46
+text.length$ -- 4
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 0
+warning$ -- 3
+while$ -- 49
+width$ -- 22
+write$ -- 217
+(There were 3 warnings)

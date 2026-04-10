@@ -17,7 +17,7 @@ import os
 import pytest
 import networkx as nx
 
-from lcn.mixed_graph import MixedGraph
+from lcn.core.mixed_graph import MixedGraph
 
 
 # ======================================================================
@@ -574,7 +574,7 @@ class TestIntegration:
 
     @pytest.fixture
     def asia_structure_graph(self):
-        from lcn.model import LCN
+        from lcn.core.model import LCN
         lcn_model = LCN()
         examples_dir = os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "examples"

@@ -20,8 +20,8 @@ import itertools
 import argparse
 import numpy as np
 import networkx as nx
-from lcn.model import LCN, Sentence, Atom
-from lcn.inference.utils import check_consistency
+from lcn.core.model import LCN, Sentence, Atom
+from lcn.inference.utils.common import check_consistency
 from lcn.utils import set_seed
 
 def make_formula(variables: list, interpretation: list, connector: str):

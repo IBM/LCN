@@ -21,9 +21,9 @@ from enum import Enum
 from itertools import combinations
 
 # Local
-from lcn.parser import parse_formula, evaluate_formula, validate_formula
-from lcn.independencies import Independencies, IndependenceAssertion
-from lcn.mixed_graph import MixedGraph
+from lcn.core.parser import parse_formula, evaluate_formula, validate_formula
+from lcn.core.independencies import Independencies, IndependenceAssertion
+from lcn.core.mixed_graph import MixedGraph
 
 class SentenceType(Enum):
     Type1 = 1

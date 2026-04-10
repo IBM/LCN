@@ -24,9 +24,9 @@ import numpy as np
 import pyagrum as gum  # noqa: N813
 
 # Local
-from lcn.model import LCN
-from lcn.inference.factorization import Factorization
-from lcn.inference.utils import check_consistency
+from lcn.core.model import LCN
+from lcn.inference.marginal.factorization import Factorization
+from lcn.inference.utils.common import check_consistency
 
 
 class Potential:

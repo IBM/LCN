@@ -20,7 +20,7 @@ import networkx as nx
 from typing import List, Dict
 
 # Local
-from lcn.model import Atom, Sentence, LCN
+from lcn.core.model import Atom, Sentence, LCN
 
 
 class VariableNode:

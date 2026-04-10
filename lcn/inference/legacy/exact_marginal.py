@@ -21,9 +21,9 @@ from pyomo.environ import *
 from typing import Tuple
 
 # Local
-from lcn.model import LCN, SentenceType, Formula
-from lcn.independencies import Independencies
-from lcn.inference.utils import make_conjunction, check_consistency
+from lcn.core.model import LCN, SentenceType, Formula
+from lcn.core.independencies import Independencies
+from lcn.inference.utils.common import make_conjunction, check_consistency
 
 infinity = float('inf')
 
@@ -345,8 +345,8 @@ if __name__ == "__main__":
         print("INCONSISTENT")
 
     # Run exact marginal inference
-    query = "(!B)"
-    evidence = {}
+    query = "(C)"
+    evidence = {"B": 0, "E": 0}
     algo = ExactInferece(lcn=l)
     algo.run(query_formula=query, evidence=evidence, debug=False)
 

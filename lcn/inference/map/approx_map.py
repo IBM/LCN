@@ -24,11 +24,11 @@ from typing import Dict, List, Tuple
 from collections import deque
 
 # Local
-from lcn.model import LCN, SentenceType, Formula, Sentence
-from lcn.inference.factor_graph import FactorGraph, FactorNode, VariableNode, FactorGraphEdge
-from lcn.inference.utils import check_consistency
-from lcn.inference.approx_marginal import ApproximateInference
-from lcn.inference.utils import make_init_config, select_neighbor, find_neighbors
+from lcn.core.model import LCN, SentenceType, Formula, Sentence
+from lcn.inference.utils.factor_graph import FactorGraph, FactorNode, VariableNode, FactorGraphEdge
+from lcn.inference.utils.common import check_consistency
+from lcn.inference.legacy.approx_marginal import ApproximateInference
+from lcn.inference.utils.common import make_init_config, select_neighbor, find_neighbors
 
 infinity = float('inf')
 
