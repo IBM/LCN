@@ -132,7 +132,8 @@ Parallel usage (launch in separate terminals/processes):
                     continue
 
                 result = run_single(
-                    instance, algo, evidence=evidence, verbosity=0)
+                    instance, algo, evidence=evidence,
+                    verbosity=args.verbosity)
 
                 # Enrich with instance metadata
                 result["instance"] = instance

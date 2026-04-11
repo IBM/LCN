@@ -97,7 +97,7 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             # Build factorization (CredalVE) — timed separately
             t_build_start = time.time()
             cve = CredalVE(lcn=l)
-            cve.build(verbosity=max(0, verbosity - 1))
+            cve.build(verbosity=verbosity)
             t_build_end = time.time()
             result["build_time"] = round(t_build_end - t_build_start, 4)
 
