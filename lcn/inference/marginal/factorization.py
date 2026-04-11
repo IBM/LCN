@@ -36,8 +36,8 @@ from lcn.inference.marginal.exact import _eval_indicator, _dot
 infinity = float('inf')
 max_iter = 1000
 acceptable_tol = 1e-9
-max_cpu_time = 100
-debug = True
+max_cpu_time = 3600
+debug = False
 verbosity = 1
 
 
