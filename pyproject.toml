@@ -5,7 +5,7 @@ requires = [
 
 [project]
 name = "lcn"
-dynamic = ["version"]
+version = "0.4.1"
 description = "Logical Credal Networks"
 license = {text = "Apache-2.0"}
 readme = "README.md"
