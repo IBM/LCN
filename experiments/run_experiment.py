@@ -146,9 +146,16 @@ Parallel usage (launch in separate terminals/processes):
 
                 if args.verbosity > 0:
                     status = result["status"]
-                    t = result["time_seconds"]
-                    print(f"[{algo}] [{idx}/{total}] {basename} | "
-                          f"{t:.2f}s {status}")
+                    bt = result["build_time"]
+                    rt = result["run_time"]
+                    tt = result["total_time"]
+                    if bt > 0:
+                        print(f"[{algo}] [{idx}/{total}] {basename} | "
+                              f"build={bt:.2f}s run={rt:.2f}s "
+                              f"total={tt:.2f}s {status}")
+                    else:
+                        print(f"[{algo}] [{idx}/{total}] {basename} | "
+                              f"{tt:.2f}s {status}")
 
         finally:
             outf.close()

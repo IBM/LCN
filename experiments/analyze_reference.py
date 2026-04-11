@@ -57,7 +57,8 @@ def analyze(records, reference="ariel", exact_threshold=15, output_file=None):
 
     # Collect per (graph_type, num_vars, algorithm) stats
     stats = defaultdict(lambda: {
-        "lb_errors": [], "ub_errors": [], "width_ratios": [], "times": []
+        "lb_errors": [], "ub_errors": [], "width_ratios": [],
+        "build_times": [], "run_times": [], "total_times": []
     })
 
     ref_stats = defaultdict(list)
@@ -75,7 +76,7 @@ def analyze(records, reference="ariel", exact_threshold=15, output_file=None):
 
         ref_marg = ref_rec["marginals"]
         ref_stats[(ref_rec["graph_type"], num_vars)].append(
-            ref_rec["time_seconds"])
+            ref_rec.get("total_time", ref_rec.get("time_seconds", 0.0)))
 
         for algo_name, rec in algos.items():
             if algo_name == reference or algo_name == "exact":
@@ -84,7 +85,10 @@ def analyze(records, reference="ariel", exact_threshold=15, output_file=None):
             approx_marg = rec["marginals"]
             key = (rec["graph_type"], num_vars, algo_name)
             s = stats[key]
-            s["times"].append(rec["time_seconds"])
+            s["build_times"].append(rec.get("build_time", 0.0))
+            s["run_times"].append(rec.get("run_time", 0.0))
+            s["total_times"].append(rec.get("total_time",
+                                            rec.get("time_seconds", 0.0)))
 
             for var in ref_marg:
                 if var not in approx_marg:
@@ -114,11 +118,12 @@ def analyze(records, reference="ariel", exact_threshold=15, output_file=None):
     # Print summary table
     print(f"Reference: {reference} (instances with num_vars > {exact_threshold})")
     print()
-    header = (f"{'graph_type':<12} {'n':>4} {'algorithm':<10} "
+    header = (f"{'type':<12} {'n':>4} {'algo':<10} "
               f"{'mean_lb':>9} {'std_lb':>9} {'max_lb':>9} "
               f"{'mean_ub':>9} {'std_ub':>9} {'max_ub':>9} "
               f"{'mean_wr':>9} {'std_wr':>9} "
-              f"{'mean_t':>8} {'std_t':>8} {'ref_t':>8}")
+              f"{'build_t':>8} {'run_t':>8} {'total_t':>8} "
+              f"{'std_tt':>8} {'ref_t':>8}")
     print(header)
     print("-" * len(header))
 
@@ -137,8 +142,10 @@ def analyze(records, reference="ariel", exact_threshold=15, output_file=None):
                    if s["width_ratios"] else float("nan"))
         std_wr = (_std(s["width_ratios"])
                   if len(s["width_ratios"]) >= 2 else 0.0)
-        mean_t = sum(s["times"]) / len(s["times"])
-        std_t = _std(s["times"])
+        mean_bt = sum(s["build_times"]) / len(s["build_times"])
+        mean_rt = sum(s["run_times"]) / len(s["run_times"])
+        mean_tt = sum(s["total_times"]) / len(s["total_times"])
+        std_tt = _std(s["total_times"])
 
         rt_list = ref_stats.get((graph_type, num_vars), [])
         ref_t = sum(rt_list) / len(rt_list) if rt_list else float("nan")
@@ -147,7 +154,8 @@ def analyze(records, reference="ariel", exact_threshold=15, output_file=None):
               f"{mean_lb:>9.6f} {std_lb:>9.6f} {max_lb:>9.6f} "
               f"{mean_ub:>9.6f} {std_ub:>9.6f} {max_ub:>9.6f} "
               f"{mean_wr:>9.4f} {std_wr:>9.4f} "
-              f"{mean_t:>8.3f} {std_t:>8.3f} {ref_t:>8.3f}")
+              f"{mean_bt:>8.3f} {mean_rt:>8.3f} {mean_tt:>8.3f} "
+              f"{std_tt:>8.3f} {ref_t:>8.3f}")
 
         rows.append({
             "graph_type": graph_type,
@@ -162,8 +170,10 @@ def analyze(records, reference="ariel", exact_threshold=15, output_file=None):
             "max_ub_error": round(max_ub, 8),
             "mean_width_ratio": round(mean_wr, 6),
             "std_width_ratio": round(std_wr, 6),
-            "mean_time": round(mean_t, 4),
-            "std_time": round(std_t, 4),
+            "mean_build_time": round(mean_bt, 4),
+            "mean_run_time": round(mean_rt, 4),
+            "mean_total_time": round(mean_tt, 4),
+            "std_total_time": round(std_tt, 4),
             "ref_time": round(ref_t, 4),
         })
 

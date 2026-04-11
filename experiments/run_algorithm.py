@@ -64,7 +64,9 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
 
     result = {
         "algorithm": algorithm,
-        "time_seconds": 0.0,
+        "build_time": 0.0,
+        "run_time": 0.0,
+        "total_time": 0.0,
         "status": "ok",
         "marginals": {},
         "error": None,
@@ -77,6 +79,8 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             algo = ExactInference(lcn=l)
             raw = algo.run(evidence=evidence, verbosity=verbosity)
             marginals = _filter_singletons(raw)
+            t_end = time.time()
+            result["run_time"] = round(t_end - t_start, 4)
 
         elif algorithm == "ariel":
             n_iters = kwargs.get("n_iters", 10)
@@ -86,12 +90,19 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 n_iters=n_iters, threshold=threshold,
                 evidence=evidence, verbosity=verbosity)
             marginals = _filter_singletons(raw)
+            t_end = time.time()
+            result["run_time"] = round(t_end - t_start, 4)
 
         elif algorithm in ("ibp", "ccte", "approxlp"):
-            # These need CredalVE built first
+            # Build factorization (CredalVE) — timed separately
+            t_build_start = time.time()
             cve = CredalVE(lcn=l)
             cve.build(verbosity=max(0, verbosity - 1))
+            t_build_end = time.time()
+            result["build_time"] = round(t_build_end - t_build_start, 4)
 
+            # Run the algorithm — timed separately
+            t_run_start = time.time()
             if algorithm == "ibp":
                 n_iters = kwargs.get("n_iters", 100)
                 threshold = kwargs.get("threshold", 1e-6)
@@ -112,20 +123,22 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 raw = algo.run(
                     evidence=evidence, n_iters=n_iters,
                     verbosity=verbosity)
+            t_run_end = time.time()
+            result["run_time"] = round(t_run_end - t_run_start, 4)
 
             marginals = _filter_singletons(raw)
 
         else:
             raise ValueError(f"Unknown algorithm: {algorithm}")
 
-        t_end = time.time()
-        result["time_seconds"] = round(t_end - t_start, 4)
+        result["total_time"] = round(
+            result["build_time"] + result["run_time"], 4)
         result["marginals"] = _marginals_to_dict(marginals)
 
     except Exception as e:
         result["status"] = "error"
         result["error"] = str(e)
-        result["time_seconds"] = round(time.time() - t_start, 4)
+        result["total_time"] = round(time.time() - t_start, 4)
 
     return result
 
