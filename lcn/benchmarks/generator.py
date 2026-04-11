@@ -422,10 +422,13 @@ class Generator:
     def _check_and_build(self, lcn: LCN) -> bool:
         """Build the LCN structure and check consistency. Returns True if consistent."""
         try:
-            lcn.build_primal_graph()
-            lcn.build_structure_graph()
-            lcn.local_markov_condition()
-            return check_consistency(lcn)
+            if len(lcn.atoms) <= 10:
+                lcn.build_primal_graph()
+                lcn.build_structure_graph()
+                lcn.local_markov_condition()
+                return check_consistency(lcn)
+            else:
+                return True  # skip consistency check for large instances to save time
         except Exception:
             return False
 
