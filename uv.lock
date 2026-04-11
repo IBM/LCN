@@ -775,6 +775,7 @@ dependencies = [
     { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pandas", version = "3.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pyagrum" },
     { name = "pyomo" },
     { name = "pytest" },
     { name = "scikit-learn", version = "1.7.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -793,6 +794,7 @@ requires-dist = [
     { name = "networkx" },
     { name = "numpy", specifier = ">=1.22.4" },
     { name = "pandas", specifier = ">=1.5.0" },
+    { name = "pyagrum", specifier = ">=2.3.2" },
     { name = "pyomo" },
     { name = "pytest" },
     { name = "scikit-learn", specifier = ">=1.1" },
@@ -1423,12 +1425,44 @@ wheels = [
 ]
 
 [[package]]
+name = "pyagrum"
+version = "2.3.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "matplotlib" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pydot" },
+    { name = "scikit-learn", version = "1.7.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "scikit-learn", version = "1.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6d/53/5bfb2aa457a9837f201e0bf7ac218e6ec00462ee7a968b02059179d524ee/pyagrum-2.3.2-cp310-abi3-macosx_10_15_x86_64.whl", hash = "sha256:4ff6f445c4a4ca4b044ef68d4eaa43e9cf8a96e9715c706404cbad880c5761b4", size = 4906756, upload-time = "2026-01-26T12:31:08.756Z" },
+    { url = "https://files.pythonhosted.org/packages/13/94/7c39c6eb7cf046d11bc626bbc6ef32f63ceb9fb44d7237b8e46c16d3cc76/pyagrum-2.3.2-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:eb28aa11cb690a91ba1260774f9fc9432dc3afdf0502c62a05e7958dcc35ad9f", size = 4240363, upload-time = "2026-01-26T12:31:12.765Z" },
+    { url = "https://files.pythonhosted.org/packages/0d/bc/f78ce8f7efd0c2b770c96f901ffb009832c651b118c7349031cdf937fd56/pyagrum-2.3.2-cp310-abi3-manylinux2014_aarch64.whl", hash = "sha256:365735722f84c05a0d2b344ac560e2faa4e50ce157449c7af5633adf3775b112", size = 6006619, upload-time = "2026-01-26T12:31:15.841Z" },
+    { url = "https://files.pythonhosted.org/packages/20/a6/b6fcf4368c3f7d8a856ebc66a9bb3362e20c3edda7c7498b020cd4e64e78/pyagrum-2.3.2-cp310-abi3-manylinux2014_x86_64.whl", hash = "sha256:83ea5aab643fbf4da0f03df4c897d9fb0e741f4cae686d34a71920a0e403f923", size = 6582015, upload-time = "2026-01-26T12:31:19.071Z" },
+    { url = "https://files.pythonhosted.org/packages/17/bb/23d4fe01eb86fcdd90475d888617d1d2c42de5138208c620a279ca197556/pyagrum-2.3.2-cp310-abi3-win_amd64.whl", hash = "sha256:e635f27f5b3fac7d0f32f5f4c7608e994b3be9a65ff3d5f87f38696323753e16", size = 3091427, upload-time = "2026-01-26T12:31:20.913Z" },
+]
+
+[[package]]
 name = "pycparser"
 version = "3.0"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/1b/7d/92392ff7815c21062bea51aa7b87d45576f649f16458d78b7cf94b9ab2e6/pycparser-3.0.tar.gz", hash = "sha256:600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29", size = 103492, upload-time = "2026-01-21T14:26:51.89Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0c/c3/44f3fbbfa403ea2a7c779186dc20772604442dde72947e7d01069cbe98e3/pycparser-3.0-py3-none-any.whl", hash = "sha256:b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992", size = 48172, upload-time = "2026-01-21T14:26:50.693Z" },
+]
+
+[[package]]
+name = "pydot"
+version = "4.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyparsing" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/50/35/b17cb89ff865484c6a20ef46bf9d95a5f07328292578de0b295f4a6beec2/pydot-4.0.1.tar.gz", hash = "sha256:c2148f681c4a33e08bf0e26a9e5f8e4099a82e0e2a068098f32ce86577364ad5", size = 162594, upload-time = "2025-06-17T20:09:56.454Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7e/32/a7125fb28c4261a627f999d5fb4afff25b523800faed2c30979949d6facd/pydot-4.0.1-py3-none-any.whl", hash = "sha256:869c0efadd2708c0be1f916eb669f3d664ca684bc57ffb7ecc08e70d5e93fee6", size = 37087, upload-time = "2025-06-17T20:09:55.25Z" },
 ]
 
 [[package]]

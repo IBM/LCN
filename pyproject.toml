@@ -27,6 +27,7 @@ dependencies = [
     "pyomo",
     "gravis",
     "pytest",
+    "pyagrum>=2.3.2"
 ]
 
 [tool.setuptools.packages.find]
