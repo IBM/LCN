@@ -43,7 +43,7 @@ from lcn.inference.marginal.ibp import IntervalBP
 from lcn.inference.marginal.ccte import CredalCTE
 from lcn.inference.marginal.approxlp import ApproxLP
 
-ALGORITHMS = ["exact", "ariel", "ibp", "ccte", "approxlp"]
+ALGORITHMS = ["exact", "ariel", "ibp", "ccte", "ccte_e", "approxlp"]
 
 
 def _filter_singletons(results):
@@ -91,6 +91,7 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
         "status": "ok",
         "marginals": {},
         "error": None,
+        "epsilon": kwargs.get("epsilon", None),
     }
 
     try:
@@ -134,6 +135,13 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                     verbosity=verbosity)
             elif algorithm == "ccte":
                 epsilon = kwargs.get("epsilon", None)
+                algo = CredalCTE(cve=cve)
+                raw = algo.run(
+                    evidence=evidence, epsilon=epsilon,
+                    verbosity=verbosity)
+            elif algorithm == "ccte_e":
+                epsilon = kwargs.get("epsilon", None)
+                assert epsilon is not None, "epsilon must be provided for ccte_e"
                 algo = CredalCTE(cve=cve)
                 raw = algo.run(
                     evidence=evidence, epsilon=epsilon,
