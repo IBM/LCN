@@ -29,10 +29,12 @@ def _std(vals):
 
 
 def _load_results(results_dir):
-    """Load all results from per-algorithm JSONL files in a directory."""
+    """Load all results from JSONL files under the results directory.
+    Globs recursively: results/{benchmark}/{algorithm}.jsonl
+    """
     records = []
-    pattern = os.path.join(results_dir, "results_*.jsonl")
-    for path in sorted(glob.glob(pattern)):
+    pattern = os.path.join(results_dir, "**", "*.jsonl")
+    for path in sorted(glob.glob(pattern, recursive=True)):
         with open(path, "r") as f:
             for line in f:
                 line = line.strip()
@@ -58,7 +60,8 @@ def analyze(records, reference="ariel", exact_threshold=15, output_file=None):
     # Collect per (graph_type, num_vars, algorithm) stats
     stats = defaultdict(lambda: {
         "lb_errors": [], "ub_errors": [], "width_ratios": [],
-        "build_times": [], "run_times": [], "total_times": []
+        "build_times": [], "run_times": [], "total_times": [],
+        "induced_widths": []
     })
 
     ref_stats = defaultdict(list)
@@ -89,6 +92,9 @@ def analyze(records, reference="ariel", exact_threshold=15, output_file=None):
             s["run_times"].append(rec.get("run_time", 0.0))
             s["total_times"].append(rec.get("total_time",
                                             rec.get("time_seconds", 0.0)))
+            iw = rec.get("induced_width")
+            if iw is not None:
+                s["induced_widths"].append(iw)
 
             for var in ref_marg:
                 if var not in approx_marg:
@@ -123,7 +129,7 @@ def analyze(records, reference="ariel", exact_threshold=15, output_file=None):
               f"{'mean_ub':>9} {'std_ub':>9} {'max_ub':>9} "
               f"{'mean_wr':>9} {'std_wr':>9} "
               f"{'build_t':>8} {'run_t':>8} {'total_t':>8} "
-              f"{'std_tt':>8} {'ref_t':>8}")
+              f"{'std_tt':>8} {'ref_t':>8} {'avg_iw':>7}")
     print(header)
     print("-" * len(header))
 
@@ -149,13 +155,16 @@ def analyze(records, reference="ariel", exact_threshold=15, output_file=None):
 
         rt_list = ref_stats.get((graph_type, num_vars), [])
         ref_t = sum(rt_list) / len(rt_list) if rt_list else float("nan")
+        avg_iw = (sum(s["induced_widths"]) / len(s["induced_widths"])
+                  if s["induced_widths"] else float("nan"))
 
+        iw_str = f"{avg_iw:>7.1f}" if s["induced_widths"] else f"{'n/a':>7}"
         print(f"{graph_type:<12} {num_vars:>4} {algo:<10} "
               f"{mean_lb:>9.6f} {std_lb:>9.6f} {max_lb:>9.6f} "
               f"{mean_ub:>9.6f} {std_ub:>9.6f} {max_ub:>9.6f} "
               f"{mean_wr:>9.4f} {std_wr:>9.4f} "
               f"{mean_bt:>8.3f} {mean_rt:>8.3f} {mean_tt:>8.3f} "
-              f"{std_tt:>8.3f} {ref_t:>8.3f}")
+              f"{std_tt:>8.3f} {ref_t:>8.3f} {iw_str}")
 
         rows.append({
             "graph_type": graph_type,
@@ -175,6 +184,7 @@ def analyze(records, reference="ariel", exact_threshold=15, output_file=None):
             "mean_total_time": round(mean_tt, 4),
             "std_total_time": round(std_tt, 4),
             "ref_time": round(ref_t, 4),
+            "avg_induced_width": round(avg_iw, 2) if s["induced_widths"] else None,
         })
 
     # Save CSV

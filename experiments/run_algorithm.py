@@ -46,6 +46,75 @@ from lcn.inference.marginal.approxlp import ApproxLP
 ALGORITHMS = ["exact", "ariel", "ibp", "ccte", "ccte_e", "approxlp"]
 
 
+_CVE_ALGORITHMS = {"ibp", "ccte", "ccte_e", "approxlp"}
+
+
+def _compute_induced_width(cve):
+    """Compute the induced width (treewidth upper bound) from a built CredalVE.
+
+    Replays the min-fill elimination on the interaction graph built from
+    the potential scopes.  The induced width is the maximum number of
+    neighbours a variable has at the moment it is eliminated.
+    """
+    bn = cve.bn_min
+    cards = {}
+    for nid in bn.nodes():
+        cards[bn.variable(nid).name()] = bn.variable(nid).domainSize()
+
+    # Collect scopes from the extreme-point potentials
+    scopes = []
+    for node_name in cve.extreme_points:
+        nid = bn.idFromName(node_name)
+        parent_ids = sorted(bn.parents(nid))
+        parent_names = [bn.variable(pid).name() for pid in parent_ids]
+        scopes.append([node_name] + parent_names)
+
+    # Build interaction graph
+    all_vars = set()
+    for s in scopes:
+        all_vars.update(s)
+    adj = {v: set() for v in all_vars}
+    for s in scopes:
+        for i, u in enumerate(s):
+            for v in s[i + 1:]:
+                adj[u].add(v)
+                adj[v].add(u)
+
+    # Min-fill elimination, tracking max cluster size
+    remaining = set(all_vars)
+    max_width = 0
+    for _ in range(len(all_vars)):
+        # Pick variable with fewest fill edges
+        best_var = None
+        best_fill = float('inf')
+        for v in remaining:
+            nbrs = [u for u in adj[v] if u in remaining]
+            fill = sum(1 for i, u in enumerate(nbrs)
+                       for w in nbrs[i + 1:] if w not in adj[u])
+            if fill < best_fill or (fill == best_fill and
+                    (best_var is None or v < best_var)):
+                best_fill = fill
+                best_var = v
+
+        # The cluster at this step = {best_var} + its remaining neighbors
+        nbrs = [u for u in adj[best_var] if u in remaining]
+        max_width = max(max_width, len(nbrs))
+
+        # Add fill edges
+        for i, u in enumerate(nbrs):
+            for w in nbrs[i + 1:]:
+                adj[u].add(w)
+                adj[w].add(u)
+
+        # Remove variable
+        remaining.remove(best_var)
+        for u in adj[best_var]:
+            adj[u].discard(best_var)
+        del adj[best_var]
+
+    return max_width
+
+
 def _filter_singletons(results):
     """Keep only singleton variables (no '-' in name) from a results dict."""
     return {k: v for k, v in results.items() if "-" not in k}
@@ -88,6 +157,7 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
         "build_time": 0.0,
         "run_time": 0.0,
         "total_time": 0.0,
+        "induced_width": None,
         "status": "ok",
         "marginals": {},
         "error": None,
@@ -115,13 +185,14 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             t_end = time.time()
             result["run_time"] = round(t_end - t_start, 4)
 
-        elif algorithm in ("ibp", "ccte", "approxlp"):
+        elif algorithm in _CVE_ALGORITHMS:
             # Build factorization (CredalVE) — timed separately
             t_build_start = time.time()
             cve = CredalVE(lcn=l)
             cve.build(verbosity=verbosity)
             t_build_end = time.time()
             result["build_time"] = round(t_build_end - t_build_start, 4)
+            result["induced_width"] = _compute_induced_width(cve)
 
             # Run the algorithm — timed separately
             t_run_start = time.time()

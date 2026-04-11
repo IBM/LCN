@@ -1,20 +1,20 @@
 """Experiment runner: run inference algorithms on benchmark instances.
 
-Each algorithm writes to its own JSONL file (results_{algorithm}.jsonl)
-so that multiple algorithm runs can execute in parallel without conflicts.
+Each (benchmark, algorithm) pair writes to its own JSONL file so that
+multiple benchmarks and algorithms can run in parallel without conflicts.
+
+Output structure:
+    {output-dir}/{benchmark-name}/{algorithm}.jsonl
 
 Usage:
-    # Run all algorithms sequentially
-    python experiments/run_experiment.py --input-dir benchmarks/
+    # Run all algorithms on all benchmarks
+    python experiments/run_experiment.py --input-dir benchmarks/chain
 
-    # Run a single algorithm (safe to launch multiple in parallel)
-    python experiments/run_experiment.py --input-dir benchmarks/ --algorithms ccte
-    python experiments/run_experiment.py --input-dir benchmarks/ --algorithms ibp
-    python experiments/run_experiment.py --input-dir benchmarks/ --algorithms ariel
-    python experiments/run_experiment.py --input-dir benchmarks/ --algorithms approxlp
-
-    # Exact inference for small instances only
-    python experiments/run_experiment.py --input-dir benchmarks/ --algorithms exact --exact-threshold 15
+    # Parallel across benchmarks and algorithms (safe — separate files)
+    python experiments/run_experiment.py --input-dir benchmarks/chain --algorithms ccte &
+    python experiments/run_experiment.py --input-dir benchmarks/chain --algorithms ibp &
+    python experiments/run_experiment.py --input-dir benchmarks/polytree --algorithms ccte &
+    python experiments/run_experiment.py --input-dir benchmarks/polytree --algorithms ibp &
 """
 
 import argparse
@@ -24,10 +24,9 @@ import os
 import re
 import sys
 
-from run_algorithm import run_single, set_num_threads
+from run_algorithm import run_single, set_num_threads, ALGORITHMS as ALL_ALGORITHMS
 
-APPROX_ALGORITHMS = ["ariel", "ibp", "ccte", "approxlp"]
-ALL_ALGORITHMS = ["exact"] + APPROX_ALGORITHMS
+APPROX_ALGORITHMS = ["ariel", "ibp", "ccte", "ccte_e", "approxlp"]
 
 
 def _parse_instance_info(filepath):
@@ -56,9 +55,12 @@ def _load_completed(output_file):
     return completed
 
 
-def _output_path(output_dir, algorithm):
-    """Return the per-algorithm JSONL output path."""
-    return os.path.join(output_dir, f"results_{algorithm}.jsonl")
+def _benchmark_name(input_dir):
+    """Derive a benchmark name from the input directory path.
+    e.g. 'benchmarks/chain' -> 'chain', 'benchmarks' -> 'benchmarks'
+    """
+    name = os.path.basename(os.path.normpath(input_dir))
+    return name if name else "default"
 
 
 def main():
@@ -66,26 +68,31 @@ def main():
         description="Run inference algorithms on benchmark LCN instances.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
-Parallel usage (launch in separate terminals/processes):
-  python experiments/run_experiment.py --algorithms exact --exact-threshold 15
-  python experiments/run_experiment.py --algorithms ariel
-  python experiments/run_experiment.py --algorithms ccte
-  python experiments/run_experiment.py --algorithms ibp
-  python experiments/run_experiment.py --algorithms approxlp
+Parallel usage — each combination gets its own output file:
+  python experiments/run_experiment.py --input-dir benchmarks/chain --algorithms ccte &
+  python experiments/run_experiment.py --input-dir benchmarks/chain --algorithms ibp &
+  python experiments/run_experiment.py --input-dir benchmarks/polytree --algorithms ccte &
+  python experiments/run_experiment.py --input-dir benchmarks/polytree --algorithms ibp &
 """)
     parser.add_argument(
         "--input-dir", type=str, default="benchmarks",
-        help="root directory with .lcn files (default: benchmarks)")
+        help="directory with .lcn files (default: benchmarks)")
     parser.add_argument(
         "--output-dir", type=str, default="results",
-        help="output directory for per-algorithm JSONL files (default: results)")
+        help="root output directory (default: results)")
+    parser.add_argument(
+        "--benchmark", type=str, default=None,
+        help="benchmark name for output subdir (default: derived from input-dir)")
     parser.add_argument(
         "--algorithms", type=str, nargs="+", default=APPROX_ALGORITHMS,
         choices=ALL_ALGORITHMS,
-        help="algorithms to run (default: ariel ibp ccte approxlp)")
+        help="algorithms to run (default: all approximate)")
     parser.add_argument(
         "--exact-threshold", type=int, default=15,
         help="max num_vars for running exact inference (default: 15)")
+    parser.add_argument(
+        "--epsilon", type=float, default=None,
+        help="epsilon for ccte_e algorithm (default: None)")
     parser.add_argument(
         "--evidence", type=str, default="{}",
         help="evidence as JSON string (default: {})")
@@ -99,7 +106,9 @@ Parallel usage (launch in separate terminals/processes):
 
     set_num_threads(args.num_threads)
     evidence = json.loads(args.evidence)
-    os.makedirs(args.output_dir, exist_ok=True)
+
+    # Derive benchmark name
+    bench_name = args.benchmark or _benchmark_name(args.input_dir)
 
     # Find all .lcn files
     pattern = os.path.join(args.input_dir, "**", "*.lcn")
@@ -111,13 +120,16 @@ Parallel usage (launch in separate terminals/processes):
     total = len(instances)
 
     for algo in args.algorithms:
-        out_path = _output_path(args.output_dir, algo)
+        # Output: {output_dir}/{benchmark}/{algorithm}.jsonl
+        bench_dir = os.path.join(args.output_dir, bench_name)
+        os.makedirs(bench_dir, exist_ok=True)
+        out_path = os.path.join(bench_dir, f"{algo}.jsonl")
 
-        # Load already-completed instances for this algorithm (resume)
+        # Load already-completed instances for resume
         completed = _load_completed(out_path)
         if completed and args.verbosity > 0:
-            print(f"[{algo}] Resuming: {len(completed)} instances "
-                  f"already in {out_path}")
+            print(f"[{bench_name}/{algo}] Resuming: {len(completed)} "
+                  f"instances already in {out_path}")
 
         outf = open(out_path, "a")
         try:
@@ -132,20 +144,27 @@ Parallel usage (launch in separate terminals/processes):
                 # Skip already completed
                 if instance in completed:
                     if args.verbosity > 0:
-                        print(f"[{algo}] [{idx}/{total}] {basename} | skip")
+                        print(f"[{bench_name}/{algo}] [{idx}/{total}] "
+                              f"{basename} | skip")
                     continue
+
+                # Build kwargs for algorithm-specific params
+                kwargs = {}
+                if args.epsilon is not None:
+                    kwargs["epsilon"] = args.epsilon
 
                 result = run_single(
                     instance, algo, evidence=evidence,
-                    verbosity=args.verbosity)
+                    verbosity=args.verbosity, **kwargs)
 
                 # Enrich with instance metadata
                 result["instance"] = instance
+                result["benchmark"] = bench_name
                 result["graph_type"] = graph_type
                 result["num_vars"] = num_vars
                 result["evidence"] = evidence
 
-                # Write to per-algorithm JSONL
+                # Write to JSONL
                 outf.write(json.dumps(result) + "\n")
                 outf.flush()
 
@@ -155,18 +174,18 @@ Parallel usage (launch in separate terminals/processes):
                     rt = result["run_time"]
                     tt = result["total_time"]
                     if bt > 0:
-                        print(f"[{algo}] [{idx}/{total}] {basename} | "
-                              f"build={bt:.2f}s run={rt:.2f}s "
+                        print(f"[{bench_name}/{algo}] [{idx}/{total}] "
+                              f"{basename} | build={bt:.2f}s run={rt:.2f}s "
                               f"total={tt:.2f}s {status}")
                     else:
-                        print(f"[{algo}] [{idx}/{total}] {basename} | "
-                              f"{tt:.2f}s {status}")
+                        print(f"[{bench_name}/{algo}] [{idx}/{total}] "
+                              f"{basename} | {tt:.2f}s {status}")
 
         finally:
             outf.close()
 
         if args.verbosity > 0:
-            print(f"[{algo}] Done. Results in {out_path}\n")
+            print(f"[{bench_name}/{algo}] Done. Results in {out_path}\n")
 
 
 if __name__ == "__main__":
