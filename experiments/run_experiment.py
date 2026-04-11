@@ -24,7 +24,7 @@ import os
 import re
 import sys
 
-from run_algorithm import run_single
+from run_algorithm import run_single, set_num_threads
 
 APPROX_ALGORITHMS = ["ariel", "ibp", "ccte", "approxlp"]
 ALL_ALGORITHMS = ["exact"] + APPROX_ALGORITHMS
@@ -90,10 +90,14 @@ Parallel usage (launch in separate terminals/processes):
         "--evidence", type=str, default="{}",
         help="evidence as JSON string (default: {})")
     parser.add_argument(
+        "--num-threads", type=int, default=1,
+        help="number of threads for BLAS/LAPACK/ipopt (default: 1)")
+    parser.add_argument(
         "--verbosity", type=int, default=1,
         help="0=silent, 1=progress (default: 1)")
     args = parser.parse_args()
 
+    set_num_threads(args.num_threads)
     evidence = json.loads(args.evidence)
     os.makedirs(args.output_dir, exist_ok=True)
 

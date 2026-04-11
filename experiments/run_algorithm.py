@@ -9,6 +9,27 @@ Usage:
         --algorithm ccte
 """
 
+import os
+
+
+def set_num_threads(n):
+    """Pin BLAS/LAPACK/OpenMP thread count. Must be called before
+    importing numpy, pyomo, or any numerical library."""
+    t = str(n)
+    os.environ["OMP_NUM_THREADS"] = t
+    os.environ["OPENBLAS_NUM_THREADS"] = t
+    os.environ["MKL_NUM_THREADS"] = t
+    os.environ["VECLIB_MAXIMUM_THREADS"] = t
+    os.environ["NUMEXPR_NUM_THREADS"] = t
+
+
+# Default to 1 thread for reproducible benchmarking.
+# Can be overridden by calling set_num_threads() before _ensure_imports(),
+# or via the --num-threads CLI flag.
+_DEFAULT_NUM_THREADS = 1
+if "OMP_NUM_THREADS" not in os.environ:
+    set_num_threads(_DEFAULT_NUM_THREADS)
+
 import argparse
 import json
 import time
@@ -156,9 +177,14 @@ def main():
         "--evidence", type=str, default="{}",
         help="Evidence as JSON string (default: {})")
     parser.add_argument(
+        "--num-threads", type=int, default=1,
+        help="Number of threads for BLAS/LAPACK/ipopt (default: 1)")
+    parser.add_argument(
         "--verbosity", type=int, default=1,
         help="Verbosity level (default: 1)")
     args = parser.parse_args()
+
+    set_num_threads(args.num_threads)
 
     evidence = json.loads(args.evidence)
     result = run_single(
