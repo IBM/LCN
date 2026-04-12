@@ -32,6 +32,7 @@ if "OMP_NUM_THREADS" not in os.environ:
 
 import argparse
 import json
+import multiprocessing
 import time
 import numpy as np
 
@@ -131,20 +132,82 @@ def _marginals_to_dict(results):
     return out
 
 
-def run_single(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
+def _run_single_worker(queue, lcn_file, algorithm, evidence, verbosity, kwargs):
+    """Worker function for multiprocessing timeout enforcement."""
+    result = _run_single_impl(lcn_file, algorithm, evidence, verbosity, **kwargs)
+    queue.put(result)
+
+
+def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
+               time_limit=None, **kwargs):
     """
-    Run one algorithm on one LCN instance.
+    Run one algorithm on one LCN instance, with optional time limit.
 
     Args:
         lcn_file: path to .lcn file
-        algorithm: one of "exact", "ariel", "ibp", "ccte", "approxlp"
+        algorithm: one of "exact", "ariel", "ibp", "ccte", "ccte_e", "approxlp"
         evidence: dict of evidence (default: {})
         verbosity: 0=silent
+        time_limit: max wall-clock seconds (None=unlimited). Enforced by
+                    running the algorithm in a subprocess that is killed
+                    if it exceeds the limit.
         **kwargs: algorithm-specific params
 
     Returns:
-        dict with keys: algorithm, time_seconds, status, marginals, error
+        dict with keys: algorithm, build_time, run_time, total_time,
+        induced_width, status, marginals, error, epsilon
     """
+    if evidence is None:
+        evidence = {}
+
+    if time_limit is None:
+        return _run_single_impl(
+            lcn_file, algorithm, evidence, verbosity, **kwargs)
+
+    # Run in a subprocess with timeout
+    queue = multiprocessing.Queue()
+    proc = multiprocessing.Process(
+        target=_run_single_worker,
+        args=(queue, lcn_file, algorithm, evidence, verbosity, kwargs))
+    proc.start()
+    proc.join(timeout=time_limit)
+
+    if proc.is_alive():
+        proc.terminate()
+        proc.join(timeout=5)
+        if proc.is_alive():
+            proc.kill()
+            proc.join()
+        return {
+            "algorithm": algorithm,
+            "build_time": 0.0,
+            "run_time": 0.0,
+            "total_time": round(time_limit, 4),
+            "induced_width": None,
+            "status": "timeout",
+            "marginals": {},
+            "error": f"Time limit exceeded ({time_limit}s)",
+            "epsilon": kwargs.get("epsilon", None),
+        }
+
+    if not queue.empty():
+        return queue.get_nowait()
+
+    return {
+        "algorithm": algorithm,
+        "build_time": 0.0,
+        "run_time": 0.0,
+        "total_time": 0.0,
+        "induced_width": None,
+        "status": "error",
+        "marginals": {},
+        "error": "Worker process exited without result",
+        "epsilon": kwargs.get("epsilon", None),
+    }
+
+
+def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
+    """Run one algorithm on one LCN instance (no timeout enforcement)."""
     if evidence is None:
         evidence = {}
 
@@ -256,19 +319,29 @@ def main():
         "--evidence", type=str, default="{}",
         help="Evidence as JSON string (default: {})")
     parser.add_argument(
+        "--epsilon", type=float, default=None,
+        help="Epsilon for ccte_e algorithm (required for ccte_e)")
+    parser.add_argument(
+        "--time-limit", type=float, default=None,
+        help="Time limit in seconds per instance (default: unlimited)")
+    parser.add_argument(
         "--num-threads", type=int, default=1,
         help="Number of threads for BLAS/LAPACK/ipopt (default: 1)")
     parser.add_argument(
-        "--verbosity", type=int, default=1,
-        help="Verbosity level (default: 1)")
+        "--verbosity", type=int, default=2,
+        help="Verbosity level (default: 2)")
     args = parser.parse_args()
 
     set_num_threads(args.num_threads)
 
     evidence = json.loads(args.evidence)
+    kwargs = {}
+    if args.epsilon is not None:
+        kwargs["epsilon"] = args.epsilon
     result = run_single(
         args.instance, args.algorithm,
-        evidence=evidence, verbosity=args.verbosity)
+        evidence=evidence, verbosity=args.verbosity,
+        time_limit=args.time_limit, **kwargs)
 
     print(json.dumps(result, indent=2))
 

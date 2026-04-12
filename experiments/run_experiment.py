@@ -97,11 +97,14 @@ Parallel usage — each combination gets its own output file:
         "--evidence", type=str, default="{}",
         help="evidence as JSON string (default: {})")
     parser.add_argument(
+        "--time-limit", type=float, default=None,
+        help="time limit in seconds per instance per algorithm (default: unlimited)")
+    parser.add_argument(
         "--num-threads", type=int, default=1,
         help="number of threads for BLAS/LAPACK/ipopt (default: 1)")
     parser.add_argument(
-        "--verbosity", type=int, default=1,
-        help="0=silent, 1=progress (default: 1)")
+        "--verbosity", type=int, default=2,
+        help="0=silent, 1=progress, 2=detailed (default: 2)")
     args = parser.parse_args()
 
     set_num_threads(args.num_threads)
@@ -110,9 +113,12 @@ Parallel usage — each combination gets its own output file:
     # Derive benchmark name
     bench_name = args.benchmark or _benchmark_name(args.input_dir)
 
-    # Find all .lcn files
+    # Find all .lcn files, sorted by (num_vars, filename) so that
+    # instances are processed in increasing problem size
     pattern = os.path.join(args.input_dir, "**", "*.lcn")
-    instances = sorted(glob.glob(pattern, recursive=True))
+    instances = glob.glob(pattern, recursive=True)
+    instances.sort(key=lambda p: (_parse_instance_info(p)[1],
+                                  os.path.basename(p)))
     if not instances:
         print(f"No .lcn files found under {args.input_dir}")
         sys.exit(1)
@@ -155,7 +161,8 @@ Parallel usage — each combination gets its own output file:
 
                 result = run_single(
                     instance, algo, evidence=evidence,
-                    verbosity=args.verbosity, **kwargs)
+                    verbosity=args.verbosity,
+                    time_limit=args.time_limit, **kwargs)
 
                 # Enrich with instance metadata
                 result["instance"] = instance
