@@ -1,13 +1,13 @@
 """Analyze inference results against exact bounds.
 
 For instances where exact inference results are available (small instances),
-compute error metrics for each approximate algorithm.
+compute absolute error metrics for each approximate algorithm.
 
 Loads all per-algorithm JSONL files from the results directory.
 
-Metrics per variable:
-  - Lower bound error: exact_lower - approx_lower (positive = approx looser)
-  - Upper bound error: approx_upper - exact_upper (positive = approx looser)
+Metrics per variable (absolute errors on P(var=1) bounds):
+  - |exact_lower - approx_lower|
+  - |approx_upper - exact_upper|
   - Interval width ratio: approx_width / exact_width
 
 Usage:
@@ -25,12 +25,23 @@ import sys
 from collections import defaultdict
 
 
+def _mean(vals):
+    return sum(vals) / len(vals) if vals else float("nan")
+
+
 def _std(vals):
     """Compute population standard deviation."""
     if len(vals) < 2:
         return 0.0
-    mean = sum(vals) / len(vals)
-    return math.sqrt(sum((x - mean) ** 2 for x in vals) / len(vals))
+    m = sum(vals) / len(vals)
+    return math.sqrt(sum((x - m) ** 2 for x in vals) / len(vals))
+
+
+def _rmse(vals):
+    """Compute root mean squared error from a list of absolute errors."""
+    if not vals:
+        return float("nan")
+    return math.sqrt(sum(x * x for x in vals) / len(vals))
 
 
 def _load_results(results_dir):
@@ -59,12 +70,13 @@ def _group_by_instance(records):
 
 
 def analyze(records, output_file=None):
-    """Compute error metrics for approximate algorithms vs exact."""
+    """Compute absolute error metrics for approximate algorithms vs exact."""
     groups = _group_by_instance(records)
 
     # Collect per (graph_type, num_vars, algorithm) stats
     stats = defaultdict(lambda: {
-        "lb_errors": [], "ub_errors": [], "width_ratios": [],
+        "abs_lb_errors": [], "abs_ub_errors": [], "width_ratios": [],
+        "contained": [],
         "build_times": [], "run_times": [], "total_times": [],
         "induced_widths": []
     })
@@ -100,14 +112,19 @@ def analyze(records, output_file=None):
                 a_lo = approx_marg[var]["lower"]
                 a_hi = approx_marg[var]["upper"]
 
-                # Use P(var=1) bounds (index 1)
-                lb_err = e_lo[1] - a_lo[1]  # positive = approx is looser
-                ub_err = a_hi[1] - e_hi[1]  # positive = approx is looser
+                # Absolute errors on P(var=1) bounds (index 1)
+                s["abs_lb_errors"].append(abs(e_lo[1] - a_lo[1]))
+                s["abs_ub_errors"].append(abs(a_hi[1] - e_hi[1]))
+
+                # Containment: approx interval contains exact interval
+                # (a_lo <= e_lo and a_hi >= e_hi, with small tolerance)
+                tol = 1e-9
+                s["contained"].append(
+                    1 if (a_lo[1] <= e_lo[1] + tol and
+                          a_hi[1] >= e_hi[1] - tol) else 0)
+
                 exact_width = e_hi[1] - e_lo[1]
                 approx_width = a_hi[1] - a_lo[1]
-
-                s["lb_errors"].append(lb_err)
-                s["ub_errors"].append(ub_err)
                 if exact_width > 1e-12:
                     s["width_ratios"].append(approx_width / exact_width)
 
@@ -125,9 +142,9 @@ def analyze(records, output_file=None):
 
     # Print summary table
     header = (f"{'type':<12} {'n':>4} {'algo':<10} "
-              f"{'mean_lb':>9} {'std_lb':>9} {'max_lb':>9} "
-              f"{'mean_ub':>9} {'std_ub':>9} {'max_ub':>9} "
-              f"{'mean_wr':>9} {'std_wr':>9} "
+              f"{'mae_lb':>9} {'rmse_lb':>9} {'max_lb':>9} "
+              f"{'mae_ub':>9} {'rmse_ub':>9} {'max_ub':>9} "
+              f"{'contain':>8} {'mean_wr':>9} "
               f"{'build_t':>8} {'run_t':>8} {'total_t':>8} "
               f"{'std_tt':>8} {'exact_t':>8} {'avg_iw':>7}")
     print(header)
@@ -135,34 +152,32 @@ def analyze(records, output_file=None):
 
     rows = []
     for (graph_type, num_vars, algo), s in sorted(stats.items()):
-        if not s["lb_errors"]:
+        if not s["abs_lb_errors"]:
             continue
 
-        mean_lb = sum(s["lb_errors"]) / len(s["lb_errors"])
-        std_lb = _std(s["lb_errors"])
-        max_lb = max(abs(x) for x in s["lb_errors"])
-        mean_ub = sum(s["ub_errors"]) / len(s["ub_errors"])
-        std_ub = _std(s["ub_errors"])
-        max_ub = max(abs(x) for x in s["ub_errors"])
-        mean_wr = (sum(s["width_ratios"]) / len(s["width_ratios"])
-                   if s["width_ratios"] else float("nan"))
-        std_wr = (_std(s["width_ratios"])
-                  if len(s["width_ratios"]) >= 2 else 0.0)
-        mean_bt = sum(s["build_times"]) / len(s["build_times"])
-        mean_rt = sum(s["run_times"]) / len(s["run_times"])
-        mean_tt = sum(s["total_times"]) / len(s["total_times"])
+        mae_lb = _mean(s["abs_lb_errors"])
+        rmse_lb = _rmse(s["abs_lb_errors"])
+        max_lb = max(s["abs_lb_errors"])
+        mae_ub = _mean(s["abs_ub_errors"])
+        rmse_ub = _rmse(s["abs_ub_errors"])
+        max_ub = max(s["abs_ub_errors"])
+        contain = _mean(s["contained"])
+        mean_wr = _mean(s["width_ratios"])
+        std_wr = _std(s["width_ratios"])
+        mean_bt = _mean(s["build_times"])
+        mean_rt = _mean(s["run_times"])
+        mean_tt = _mean(s["total_times"])
         std_tt = _std(s["total_times"])
 
         et_list = exact_stats.get((graph_type, num_vars), [])
-        exact_t = sum(et_list) / len(et_list) if et_list else float("nan")
-        avg_iw = (sum(s["induced_widths"]) / len(s["induced_widths"])
-                  if s["induced_widths"] else float("nan"))
+        exact_t = _mean(et_list)
+        avg_iw = _mean(s["induced_widths"])
 
         iw_str = f"{avg_iw:>7.1f}" if s["induced_widths"] else f"{'n/a':>7}"
         print(f"{graph_type:<12} {num_vars:>4} {algo:<10} "
-              f"{mean_lb:>9.6f} {std_lb:>9.6f} {max_lb:>9.6f} "
-              f"{mean_ub:>9.6f} {std_ub:>9.6f} {max_ub:>9.6f} "
-              f"{mean_wr:>9.4f} {std_wr:>9.4f} "
+              f"{mae_lb:>9.6f} {rmse_lb:>9.6f} {max_lb:>9.6f} "
+              f"{mae_ub:>9.6f} {rmse_ub:>9.6f} {max_ub:>9.6f} "
+              f"{contain:>8.4f} {mean_wr:>9.4f} "
               f"{mean_bt:>8.3f} {mean_rt:>8.3f} {mean_tt:>8.3f} "
               f"{std_tt:>8.3f} {exact_t:>8.3f} {iw_str}")
 
@@ -170,12 +185,13 @@ def analyze(records, output_file=None):
             "graph_type": graph_type,
             "num_vars": num_vars,
             "algorithm": algo,
-            "mean_lb_error": round(mean_lb, 8),
-            "std_lb_error": round(std_lb, 8),
+            "mae_lb_error": round(mae_lb, 8),
+            "rmse_lb_error": round(rmse_lb, 8),
             "max_lb_error": round(max_lb, 8),
-            "mean_ub_error": round(mean_ub, 8),
-            "std_ub_error": round(std_ub, 8),
+            "mae_ub_error": round(mae_ub, 8),
+            "rmse_ub_error": round(rmse_ub, 8),
             "max_ub_error": round(max_ub, 8),
+            "containment_rate": round(contain, 6),
             "mean_width_ratio": round(mean_wr, 6),
             "std_width_ratio": round(std_wr, 6),
             "mean_build_time": round(mean_bt, 4),
