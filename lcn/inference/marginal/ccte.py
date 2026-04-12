@@ -415,7 +415,7 @@ class CredalCTE:
 
                 down_msgs[child] = msg
 
-                if verbosity > 1:
+                if verbosity > 0:
                     print(f"  [Distribute] {var} -> {child}: "
                           f"{len(msg.functions)} funcs, scope {msg.scope}")
 
