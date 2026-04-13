@@ -19,8 +19,8 @@ a=$2
 t=$3
 e=$4
 
-if [ -z "$b" ] || [ -z "$a" ] || [ -z "$t" ]; then
-    echo "Usage: $0 <benchmark_dir> <algorithm> <time_limit> [epsilon]"
+if [ -z "$b" ] || [ -z "$a" ]; then
+    echo "Usage: $0 <benchmark_dir> <algorithm> [time_limit] [epsilon]"
     exit 1
 fi
 
@@ -29,7 +29,11 @@ mkdir -p logs
 l="logs/$(basename $b)_$a.log"
 
 # Build the command
-cmd="python experiments/run_experiment.py --input-dir $b --algorithms $a --time-limit $t"
+cmd="python experiments/run_experiment.py --input-dir $b --algorithms $a"
+
+if [ -n "$t" ]; then
+    cmd="$cmd --time-limit $t"
+fi
 
 if [ -n "$e" ]; then
     cmd="$cmd --epsilon $e"
