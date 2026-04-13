@@ -440,7 +440,7 @@ class ExactInference:
 
         # Create a shared solver instance
         solver = SolverFactory('ipopt')
-        solver.options['max_iter'] = 10000
+        solver.options['max_iter'] = 1000
         solver.options['max_cpu_time'] = 7200
         solver.options['acceptable_tol'] = _ACCEPTABLE_TOL
         if not debug:
@@ -518,26 +518,26 @@ if __name__ == "__main__":
                 print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
     # Load the LCN
-    file_name = "examples/alarm.lcn"
+    file_name = "benchmarks/polytree/polytree_n10_1.lcn" #"examples/alarm.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
     print(l)
 
     # Check consistency
-    ok = check_consistency(l)
-    if ok:
-        print("CONSISTENT")
-    else:
-        print("INCONSISTENT")
+    # ok = check_consistency(l)
+    # if ok:
+    #     print("CONSISTENT")
+    # else:
+    #     print("INCONSISTENT")
 
     # Run exact marginal inference (no evidence)
     print("\n=== ExactInference (no evidence) ===")
     algo = ExactInference(lcn=l)
-    results = algo.run(evidence={}, debug=False)
+    results = algo.run(evidence={}, debug=False, verbosity=2)
     print_singleton_marginals(results)
 
     # Run exact marginal inference (with evidence)
-    print("\n=== ExactInference (B=0, E=0) ===")
-    algo2 = ExactInference(lcn=l)
-    results = algo2.run(evidence={"B": 0, "E": 0}, debug=False)
-    print_singleton_marginals(results)
+    # print("\n=== ExactInference (B=0, E=0) ===")
+    # algo2 = ExactInference(lcn=l)
+    # results = algo2.run(evidence={"B": 0, "E": 0}, debug=False)
+    # print_singleton_marginals(results)
