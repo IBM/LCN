@@ -114,14 +114,25 @@ class CredalCTE:
             self._build_bucket_tree(potentials, elim_order)
 
         # Step 4: Upward pass (collect)
-        up_msgs, combined = self._collect(
+        up_msgs, combined, collect_sizes = self._collect(
             elim_order, buckets, parent, children, local_pots, prune_fn,
             verbosity)
 
         # Step 5: Downward pass (distribute)
-        down_msgs = self._distribute(
+        down_msgs, distribute_sizes = self._distribute(
             elim_order, parent, children, up_msgs, local_pots, prune_fn,
             verbosity)
+
+        # Message size statistics
+        all_msg_sizes = collect_sizes + distribute_sizes
+        if all_msg_sizes and verbosity > 0:
+            avg_sz = sum(all_msg_sizes) / len(all_msg_sizes)
+            min_sz = min(all_msg_sizes)
+            max_sz = max(all_msg_sizes)
+            print(f"[CredalCTE] Message sizes: "
+                  f"avg={avg_sz:.1f}, min={min_sz}, max={max_sz} "
+                  f"(collect={len(collect_sizes)}, "
+                  f"distribute={len(distribute_sizes)})")
 
         # Step 6: Extract all marginals (compound variables)
         self.marginals = self._extract_marginals(
@@ -313,10 +324,11 @@ class CredalCTE:
                  prune_fn, verbosity):
         """
         Process buckets in elimination order (leaves to root).
-        Returns upward messages and combined potentials.
+        Returns upward messages, combined potentials, and message sizes.
         """
         up_msgs = {}     # var -> Potential (message sent upward to parent)
         combined = {}    # var -> Potential (combined before marginalization)
+        msg_sizes = []   # number of functions in each message sent
 
         for var in elim_order:
             # Gather: local potentials + incoming upward messages from children
@@ -351,13 +363,15 @@ class CredalCTE:
             msg = prune_fn(msg)
 
             up_msgs[var] = msg
+            msg_sizes.append(len(msg.functions))
 
-            if verbosity > 1:
+            if verbosity > 0:
                 print(f"  [Collect] {var}: "
-                      f"{len(comb.functions)} -> {len(msg.functions)} funcs, "
+                      f"combined={len(comb.functions)} -> "
+                      f"msg={len(msg.functions)} funcs, "
                       f"scope {msg.scope}")
 
-        return up_msgs, combined
+        return up_msgs, combined, msg_sizes
 
     # ------------------------------------------------------------------
     # Downward pass (distribute from root)
@@ -367,9 +381,10 @@ class CredalCTE:
                     local_pots, prune_fn, verbosity):
         """
         Process buckets in reverse elimination order (root to leaves).
-        Returns downward messages.
+        Returns downward messages and message sizes.
         """
         down_msgs = {}  # var -> Potential (message received from parent)
+        msg_sizes = []  # number of functions in each message sent
 
         # Process in reverse order (root first, then down to leaves)
         for var in reversed(elim_order):
@@ -402,10 +417,12 @@ class CredalCTE:
                     k = self.cve.bn_min.variable(nid).domainSize()
                     msg = Potential([var], cards_dict, [np.ones(k)])
                     msg = msg.marginalize(var)
+                    comb_size = 1
                 else:
                     comb = pots_to_combine[0]
                     for p in pots_to_combine[1:]:
                         comb = comb.combine(p)
+                    comb_size = len(comb.functions)
 
                     # Marginalize out var
                     msg = comb.marginalize(var)
@@ -414,12 +431,15 @@ class CredalCTE:
                 msg = prune_fn(msg)
 
                 down_msgs[child] = msg
+                msg_sizes.append(len(msg.functions))
 
                 if verbosity > 0:
                     print(f"  [Distribute] {var} -> {child}: "
-                          f"{len(msg.functions)} funcs, scope {msg.scope}")
+                          f"combined={comb_size} -> "
+                          f"msg={len(msg.functions)} funcs, "
+                          f"scope {msg.scope}")
 
-        return down_msgs
+        return down_msgs, msg_sizes
 
     # ------------------------------------------------------------------
     # Extract all marginals
