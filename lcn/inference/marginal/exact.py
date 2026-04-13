@@ -27,6 +27,8 @@ from lcn.core.independencies import Independencies
 from lcn.inference.utils.common import make_conjunction, check_consistency
 
 _ACCEPTABLE_TOL = 1e-9
+_MAX_ITER = 1000
+_MAX_CPU_TIME = 7200
 _HESSIAN_APPROX = "limited-memory"
 
 
@@ -395,7 +397,7 @@ class ExactInference:
             self,
             evidence: dict = {},
             debug: bool = False,
-            verbosity: int = 1
+            verbosity: int = 2
     ) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
         """
         Run exact inference to compute marginals for ALL singleton variables.
@@ -440,8 +442,9 @@ class ExactInference:
 
         # Create a shared solver instance
         solver = SolverFactory('ipopt')
-        solver.options['max_iter'] = 1000
-        solver.options['max_cpu_time'] = 7200
+        solver.options['max_iter'] = _MAX_ITER
+        solver.options['max_cpu_time'] = _MAX_CPU_TIME
+        # solver.options['hessian_approximation'] = _HESSIAN_APPROX
         solver.options['acceptable_tol'] = _ACCEPTABLE_TOL
         if not debug:
             solver.options['print_level'] = 0

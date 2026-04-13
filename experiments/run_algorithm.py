@@ -232,7 +232,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
 
         if algorithm == "exact":
             algo = ExactInference(lcn=l)
-            raw = algo.run(evidence=evidence, verbosity=verbosity)
+            raw = algo.run(evidence=evidence, verbosity=verbosity, debug=True)
             marginals = _filter_singletons(raw)
             t_end = time.time()
             result["run_time"] = round(t_end - t_start, 4)
