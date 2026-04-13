@@ -69,7 +69,7 @@ def _group_by_instance(records):
     return groups
 
 
-def analyze(records, reference="ariel", output_file=None):
+def analyze(records, reference="ariel", output_file=None, latex_file=None):
     """Compute absolute error metrics vs a reference algorithm."""
     groups = _group_by_instance(records)
 
@@ -208,7 +208,71 @@ def analyze(records, reference="ariel", output_file=None):
             writer = csv.DictWriter(f, fieldnames=rows[0].keys())
             writer.writeheader()
             writer.writerows(rows)
-        print(f"\nSaved to {output_file}")
+        print(f"\nSaved CSV to {output_file}")
+
+    # Save LaTeX
+    if latex_file and rows:
+        _save_latex(rows, latex_file, reference,
+                    caption=f"Error metrics vs.\\ {reference} reference")
+        print(f"Saved LaTeX to {latex_file}")
+
+
+def _save_latex(rows, path, reference, caption="Results"):
+    """Write rows as a LaTeX table."""
+    cols = [
+        ("type", "Type", "l"),
+        ("num_vars", "$n$", "r"),
+        ("algorithm", "Algorithm", "l"),
+        ("mae_lb_error", "MAE$_{\\text{lb}}$", "r"),
+        ("rmse_lb_error", "RMSE$_{\\text{lb}}$", "r"),
+        ("max_lb_error", "Max$_{\\text{lb}}$", "r"),
+        ("mae_ub_error", "MAE$_{\\text{ub}}$", "r"),
+        ("rmse_ub_error", "RMSE$_{\\text{ub}}$", "r"),
+        ("max_ub_error", "Max$_{\\text{ub}}$", "r"),
+        ("containment_rate", "Contain", "r"),
+        ("mean_width_ratio", "W-ratio", "r"),
+        ("mean_build_time", "Build", "r"),
+        ("mean_run_time", "Run", "r"),
+        ("mean_total_time", "Total", "r"),
+        ("ref_time", "Ref", "r"),
+        ("avg_induced_width", "IW", "r"),
+    ]
+    keys = [c[0] for c in cols]
+    headers = [c[1] for c in cols]
+    aligns = "".join(c[2] for c in cols)
+
+    with open(path, "w") as f:
+        f.write("\\begin{table}[ht]\n")
+        f.write("\\centering\n")
+        f.write("\\scriptsize\n")
+        f.write(f"\\caption{{{caption}}}\n")
+        f.write(f"\\begin{{tabular}}{{{aligns}}}\n")
+        f.write("\\toprule\n")
+        f.write(" & ".join(headers) + " \\\\\n")
+        f.write("\\midrule\n")
+        for row in rows:
+            vals = []
+            for k in keys:
+                v = row.get(k)
+                if v is None:
+                    vals.append("--")
+                elif isinstance(v, float):
+                    if k.startswith("mae") or k.startswith("rmse") or k.startswith("max"):
+                        vals.append(f"{v:.4f}")
+                    elif k == "containment_rate":
+                        vals.append(f"{v:.3f}")
+                    elif "time" in k:
+                        vals.append(f"{v:.2f}")
+                    elif k == "mean_width_ratio":
+                        vals.append(f"{v:.3f}")
+                    else:
+                        vals.append(f"{v:.2f}")
+                else:
+                    vals.append(str(v))
+            f.write(" & ".join(vals) + " \\\\\n")
+        f.write("\\bottomrule\n")
+        f.write("\\end{tabular}\n")
+        f.write("\\end{table}\n")
 
 
 def main():
@@ -223,6 +287,9 @@ def main():
     parser.add_argument(
         "--output", type=str, default=None,
         help="Output CSV file (optional)")
+    parser.add_argument(
+        "--latex", type=str, default=None,
+        help="Output LaTeX table file (optional)")
     args = parser.parse_args()
 
     records = _load_results(args.results_dir)
@@ -231,7 +298,7 @@ def main():
         sys.exit(1)
 
     print(f"Loaded {len(records)} results from {args.results_dir}/\n")
-    analyze(records, args.reference, args.output)
+    analyze(records, args.reference, args.output, args.latex)
 
 
 if __name__ == "__main__":
