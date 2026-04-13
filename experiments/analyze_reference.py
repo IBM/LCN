@@ -69,8 +69,8 @@ def _group_by_instance(records):
     return groups
 
 
-def analyze(records, reference="ariel", exact_threshold=15, output_file=None):
-    """Compute absolute error metrics vs a reference algorithm for large instances."""
+def analyze(records, reference="ariel", output_file=None):
+    """Compute absolute error metrics vs a reference algorithm."""
     groups = _group_by_instance(records)
 
     # Collect per (graph_type, num_vars, algorithm) stats
@@ -89,10 +89,6 @@ def analyze(records, reference="ariel", exact_threshold=15, output_file=None):
 
         ref_rec = algos[reference]
         num_vars = ref_rec["num_vars"]
-
-        # Only consider instances above the exact threshold
-        if num_vars <= exact_threshold:
-            continue
 
         ref_marg = ref_rec["marginals"]
         ref_stats[(ref_rec["graph_type"], num_vars)].append(
@@ -138,12 +134,11 @@ def analyze(records, reference="ariel", exact_threshold=15, output_file=None):
                     s["width_ratios"].append(approx_width / ref_width)
 
     if not stats:
-        print(f"No results found for instances with num_vars > {exact_threshold} "
-              f"and reference algorithm '{reference}'.")
+        print(f"No results found for reference algorithm '{reference}'.")
         return
 
     # Print summary table
-    print(f"Reference: {reference} (instances with num_vars > {exact_threshold})")
+    print(f"Reference: {reference}")
     print()
     header = (f"{'type':<12} {'n':>4} {'algo':<10} "
               f"{'mae_lb':>9} {'rmse_lb':>9} {'max_lb':>9} "
@@ -226,9 +221,6 @@ def main():
         "--reference", type=str, default="ariel",
         help="Reference algorithm (default: ariel)")
     parser.add_argument(
-        "--exact-threshold", type=int, default=15,
-        help="Only analyze instances with num_vars > this (default: 15)")
-    parser.add_argument(
         "--output", type=str, default=None,
         help="Output CSV file (optional)")
     args = parser.parse_args()
@@ -239,7 +231,7 @@ def main():
         sys.exit(1)
 
     print(f"Loaded {len(records)} results from {args.results_dir}/\n")
-    analyze(records, args.reference, args.exact_threshold, args.output)
+    analyze(records, args.reference, args.output)
 
 
 if __name__ == "__main__":
