@@ -94,6 +94,9 @@ Parallel usage — each combination gets its own output file:
         "--epsilon", type=float, default=None,
         help="epsilon for ccte_e algorithm (default: None)")
     parser.add_argument(
+        "--ibound", type=int, default=2,
+        help="ibound for ijgp, ijgp_e algorithms (default: 2)")
+    parser.add_argument(
         "--evidence", type=str, default="{}",
         help="evidence as JSON string (default: {})")
     parser.add_argument(
@@ -158,6 +161,8 @@ Parallel usage — each combination gets its own output file:
                 kwargs = {}
                 if args.epsilon is not None:
                     kwargs["epsilon"] = args.epsilon
+                if args.ibound is not None:
+                    kwargs["ibound"] = args.ibound
 
                 result = run_single(
                     instance, algo, evidence=evidence,

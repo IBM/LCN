@@ -279,7 +279,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                     n_iters=n_iters, threshold=threshold,
                     epsilon=epsilon, verbosity=verbosity)
             elif algorithm == "ijgp_e":
-                i_bound = kwargs.get("i_bound", 2)
+                i_bound = kwargs.get("ibound", 2)
                 n_iters = kwargs.get("n_iters", 100)
                 threshold = kwargs.get("threshold", 1e-6)
                 epsilon = kwargs.get("epsilon", None)
