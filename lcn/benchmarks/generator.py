@@ -43,10 +43,13 @@ class Generator:
         num_vars: int,
         graph_type: str,
         num_instances: int = 1,
+        num_sentences: int = None,
         max_vars_per_sentence: int = 3,
         num_extras: int = 0,
         epsilon: float = 0.3,
         max_retries: int = 100,
+        max_component_size: int = 3,
+        max_parents: int = 2,
         verbosity: int = 1,
     ) -> List[LCN]:
         """
@@ -56,10 +59,16 @@ class Generator:
             num_vars: Number of variables in each LCN.
             graph_type: Graph topology — "random", "dag", "polytree", or "chain".
             num_instances: Number of consistent instances to generate.
+            num_sentences: Number of sentences per instance (only used when
+                graph_type="random"). Defaults to num_vars if not specified.
             max_vars_per_sentence: Maximum number of variables in a formula.
             num_extras: Number of extra marginal sentences P(x) to add.
             epsilon: Half-width of the probability interval around a random value.
             max_retries: Maximum generation attempts per instance before giving up.
+            max_component_size: Maximum number of variables in a chain component
+                (only used when graph_type="chain").
+            max_parents: Maximum number of parents per child node
+                (only used when graph_type="dag" or "polytree").
             verbosity: Verbosity level (0 = silent).
 
         Returns:
@@ -69,6 +78,11 @@ class Generator:
             f"Unknown graph_type '{graph_type}'. " \
             f"Use 'random', 'dag', 'polytree', or 'chain'."
         assert num_vars >= 3, "Need at least 3 variables."
+        assert max_component_size >= 1, "max_component_size must be >= 1."
+        assert max_parents >= 1, "max_parents must be >= 1."
+
+        if num_sentences is None:
+            num_sentences = num_vars
 
         instances = []
         total_attempts = 0
@@ -80,9 +94,15 @@ class Generator:
                           f"Generated {len(instances)}/{num_instances} instances.")
                 break
 
-            scopes, components = self._make_graph(num_vars, graph_type)
-            lcn = self._build_lcn(scopes, components, num_vars, epsilon,
-                                  max_vars_per_sentence, num_extras)
+            if graph_type == "random":
+                lcn = self._build_random_lcn(num_vars, num_sentences,
+                                             max_vars_per_sentence, epsilon)
+            else:
+                scopes, components = self._make_graph(num_vars, graph_type,
+                                                      max_component_size,
+                                                      max_parents)
+                lcn = self._build_lcn(scopes, components, num_vars, epsilon,
+                                      max_vars_per_sentence, num_extras)
             if self._check_and_build(lcn):
                 instances.append(lcn)
                 if verbosity > 0:
@@ -99,7 +119,9 @@ class Generator:
     # Graph topology generators
     # ------------------------------------------------------------------
 
-    def _make_graph(self, num_vars: int, graph_type: str):
+    def _make_graph(self, num_vars: int, graph_type: str,
+                    max_component_size: int = 3,
+                    max_parents: int = 2):
         """
         Generate scopes for the given topology.
 
@@ -111,14 +133,12 @@ class Generator:
               sentences (undirected cliques in chain graphs). Empty for
               non-chain-graph topologies.
         """
-        if graph_type == "random":
-            return self._graph_random(num_vars), []
-        elif graph_type == "dag":
-            return self._graph_dag(num_vars), []
+        if graph_type == "dag":
+            return self._graph_dag(num_vars, max_parents), []
         elif graph_type == "polytree":
-            return self._graph_polytree(num_vars), []
+            return self._graph_polytree(num_vars, max_parents), []
         elif graph_type == "chain":
-            return self._graph_chain(num_vars)
+            return self._graph_chain(num_vars, max_component_size)
 
     def _random_ordering(self, n: int) -> List[int]:
         """Return a random permutation of 0..n-1."""
@@ -128,23 +148,9 @@ class Generator:
             ordering[i], ordering[j] = ordering[j], ordering[i]
         return ordering
 
-    def _graph_random(self, n: int) -> List[List[int]]:
-        """Random graph (may have cycles). Chain + random extra edges."""
-        ordering = self._random_ordering(n)
-        scopes = [[ordering[0]]]  # root
-        for i in range(1, n):
-            scopes.append([ordering[i - 1], ordering[i]])
-        # Add a few random edges
-        extras = self.rng.randint(1, max(2, n // 2))
-        for _ in range(extras):
-            x = ordering[self.rng.randint(n)]
-            y = ordering[self.rng.randint(n)]
-            if x != y and [x, y] not in scopes:
-                scopes.append([x, y])
-        return scopes
-
-    def _graph_dag(self, n: int) -> List[List[int]]:
-        """Random DAG. Each non-root picks 1-2 parents from higher-ordered vars."""
+    def _graph_dag(self, n: int, max_parents: int = 2) -> List[List[int]]:
+        """Random DAG. Each non-root picks 1..max_parents parents from
+        higher-ordered vars."""
         ordering = self._random_ordering(n)
         position = [0] * n
         for i, v in enumerate(ordering):
@@ -157,42 +163,61 @@ class Generator:
             if i < num_roots:
                 scopes.append([v])
             else:
-                num_parents = self.rng.randint(1, min(3, i + 1))
+                num_parents = self.rng.randint(1, min(max_parents + 1, i + 1))
                 parent_indices = self.rng.choice(i, size=num_parents, replace=False)
                 parents = [ordering[pi] for pi in parent_indices]
                 scopes.append(parents + [v])
         return scopes
 
-    def _graph_polytree(self, n: int) -> List[List[int]]:
-        """Random polytree (tree-shaped DAG, each node has at most 1 parent in the
-        undirected sense, but may have multiple parents via directed edges)."""
+    def _graph_polytree(self, n: int,
+                        max_parents: int = 1) -> List[List[int]]:
+        """Random singly connected DAG: for every pair of nodes (a, b) there
+        is at most one directed path from a to b.
+
+        Built in topological order.  Each non-root node picks 1..max_parents
+        parents from earlier nodes, accepting a candidate only if the
+        singly-connected invariant is preserved.
+
+        Args:
+            n: Number of variables.
+            max_parents: Maximum number of parents per child node.
+        """
         ordering = self._random_ordering(n)
-        G = nx.DiGraph()
-        G.add_nodes_from(range(n))
-        # Start with a chain
-        for i in range(1, n):
-            G.add_edge(ordering[i - 1], ordering[i])
-        # Randomly swap some edges to create a polytree
-        for _ in range(n):
-            i = self.rng.randint(n)
-            j = self.rng.randint(n)
-            if i < j:
-                u, v = ordering[i], ordering[j]
-                if not G.has_edge(u, v):
-                    UG = nx.to_undirected(G)
-                    paths = list(nx.all_simple_paths(UG, u, v))
-                    if len(paths) == 1:
-                        k = paths[0][-2]
-                        G.remove_edge(k, v)
-                        G.add_edge(u, v)
+
+        # ancestors[v] = set of all nodes that can reach v (including v)
+        ancestors = {ordering[i]: {ordering[i]} for i in range(n)}
+
+        parents_of = {ordering[i]: [] for i in range(n)}  # parent lists
+        num_roots = max(1, self.rng.randint(1, 3))
+
+        for i in range(num_roots, n):
+            v = ordering[i]
+            # candidates: all earlier nodes in topological order
+            candidates = list(range(i))
+            self.rng.shuffle(candidates)
+            k = self.rng.randint(1, min(max_parents, i) + 1)
+
+            added = 0
+            for ci in candidates:
+                p = ordering[ci]
+                # Adding edge p -> v is safe iff ancestors of p and
+                # current ancestors of v are disjoint (no node already
+                # reaches v through another path).
+                if ancestors[p].isdisjoint(ancestors[v]):
+                    parents_of[v].append(p)
+                    ancestors[v] |= ancestors[p]
+                    added += 1
+                    if added >= k:
+                        break
 
         scopes = []
-        for child in range(n):
-            parents = list(G.predecessors(child))
-            scopes.append(parents + [child])
+        for i in range(n):
+            v = ordering[i]
+            scopes.append(parents_of[v] + [v])
         return scopes
 
-    def _graph_chain(self, n: int) -> List[List[int]]:
+    def _graph_chain(self, n: int,
+                     max_component_size: int = 3) -> List[List[int]]:
         """
         Chain graph: a DAG of chain components.
 
@@ -203,12 +228,17 @@ class Generator:
 
         Each component is either:
         - A single variable (singleton)
-        - A group of 2-3 variables fully connected by undirected edges (clique)
+        - A group of variables fully connected by undirected edges (clique),
+          with size bounded by max_component_size
 
         The LCN sentences reflect this structure:
         - Variables within a component: Type 1 sentences P(phi) where phi
           involves multiple atoms (creating undirected edges in the structure graph)
         - Directed edges between components: Type 2 sentences P(phi|psi)
+
+        Args:
+            n: Number of variables.
+            max_component_size: Maximum number of variables per chain component.
 
         Returns scopes as a list of:
         - [v1, v2, ...] for undirected clique sentences (Type 1, multi-var phi)
@@ -218,17 +248,13 @@ class Generator:
         ordering = self._random_ordering(n)
 
         # Step 1: Partition variables into chain components
-        # Randomly assign variables to components of size 1-3
+        # Randomly assign variables to components of size 1..max_component_size
         components = []
         idx = 0
         while idx < n:
             remaining = n - idx
-            if remaining == 1:
-                size = 1
-            elif remaining == 2:
-                size = self.rng.choice([1, 2])
-            else:
-                size = self.rng.choice([1, 2, 3], p=[0.4, 0.4, 0.2])
+            max_size = min(max_component_size, remaining)
+            size = self.rng.randint(1, max_size + 1)
             comp = [ordering[idx + j] for j in range(size)]
             components.append(comp)
             idx += size
@@ -331,9 +357,67 @@ class Generator:
     def _make_bounds(self, epsilon: float):
         """Generate random lower and upper probability bounds."""
         val = self.rng.uniform()
-        lo = max(0.0, val - epsilon)
+        lo = max(0.01, val - epsilon)
         hi = min(1.0, val + epsilon)
         return round(lo, 6), round(hi, 6)
+
+    def _build_random_lcn(self, num_vars: int, num_sentences: int,
+                          max_vars: int, epsilon: float) -> LCN:
+        """
+        Build a random LCN by generating m sentences of the form P(q) or
+        P(q|r) over n variables.
+
+        Each sentence is randomly (50/50) either:
+        - Type 1 P(q) with tau=False
+        - Type 2 P(q|r) with tau=True, where q and r use disjoint variables
+
+        Args:
+            num_vars: Number of variables (n).
+            num_sentences: Number of sentences (m).
+            max_vars: Maximum number of variables per formula.
+            epsilon: Half-width of probability intervals.
+        """
+        lcn = LCN()
+        all_vars = list(range(num_vars))
+        atoms = [Atom(f"x{i}") for i in range(num_vars)]
+        lcn.add_atoms(atoms)
+
+        for sid in range(num_sentences):
+            lo, hi = self._make_bounds(epsilon)
+            is_conditional = self.rng.uniform() < 0.5
+
+            if is_conditional and num_vars >= 2:
+                # Type 2: P(q | r) with disjoint variable sets, tau=True
+                total = min(2 * max_vars, num_vars)
+                chosen = list(self.rng.choice(all_vars, size=total, replace=False))
+                split = self.rng.randint(1, total)
+                q_vars = chosen[:split]
+                r_vars = chosen[split:]
+                phi = self._make_random_formula(list(q_vars), max_vars)
+                psi = self._make_random_formula(list(r_vars), max_vars)
+                sentence = Sentence(
+                    label=f"s{sid}",
+                    phi=phi,
+                    psi=psi,
+                    lower=lo,
+                    upper=hi,
+                    tau=True,
+                )
+            else:
+                # Type 1: P(q), tau=False
+                phi = self._make_random_formula(all_vars, max_vars)
+                sentence = Sentence(
+                    label=f"s{sid}",
+                    phi=phi,
+                    psi=None,
+                    lower=lo,
+                    upper=hi,
+                    tau=False,
+                )
+
+            lcn.add_sentence(sentence)
+
+        return lcn
 
     def _build_lcn(self, scopes: List[List[int]],
                    components: List[List[int]],
