@@ -543,17 +543,18 @@ if __name__ == "__main__":
                     print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
     # Load the LCN
-    file_name = "examples/alarm.lcn"
+    # file_name = "examples/alarm.lcn"
+    file_name = "benchmarks/chain/chain_n20_1.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
     print(l)
 
     # Check consistency
-    ok = check_consistency(l)
-    if ok:
-        print("CONSISTENT")
-    else:
-        print("INCONSISTENT")
+    # ok = check_consistency(l)
+    # if ok:
+    #     print("CONSISTENT")
+    # else:
+    #     print("INCONSISTENT")
 
     # Build the CredalVE (needed for extreme points)
     cve = CredalVE(lcn=l)
@@ -564,10 +565,10 @@ if __name__ == "__main__":
 
     # All marginals (no evidence)
     print("\n=== ApproxLP (no evidence) ===")
-    results = alp.run(evidence={}, verbosity=1)
+    results = alp.run(evidence={}, verbosity=2)
     print_singleton_marginals(results)
 
     # All marginals (with evidence)
-    print("\n=== ApproxLP (B=0, E=0) ===")
-    results = alp.run(evidence={"B": 0, "E": 0}, verbosity=1)
-    print_singleton_marginals(results)
+    # print("\n=== ApproxLP (B=0, E=0) ===")
+    # results = alp.run(evidence={"B": 0, "E": 0}, verbosity=1)
+    # print_singleton_marginals(results)

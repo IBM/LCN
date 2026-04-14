@@ -213,31 +213,39 @@ class Factorization:
             print(f"Processing family: {family}")
             child = family["child"]
             parents = family["parents"]
+            parents_lst = []
             sentences = family["sentences"]
             vars = [child] if "-" not in child else child.split("-")
             for par in parents:
                 if "-" in par:
-                    vars.append(par.split("-"))
+                    vars += par.split("-")
+                    parents_lst += par.split("-")
                 else:
-                    vars.append(par)
+                    vars += [par]
+                    parents_lst += [par]
 
             print(f"Processing family: {child} <-- {parents}")
+            print(f"Parents list: {parents_lst}")
             print(f"Full scope: {vars}")
+            if vars == ['x10', 'x5', 'x0', 'x2']:
+                aaa = 1 # breakpoint for debugging
 
             # Iterate over all interpretations of the scope
             factor = {}
             interpretations = list(itertools.product([0, 1], repeat=len(vars)))
             for i, interpretation in enumerate(interpretations):
                 literals = dict(zip(vars, interpretation))
-                lobo = self.solve_submodel(vars, literals, child, parents, sentences, sense="min")
-                upbo = self.solve_submodel(vars, literals, child, parents, sentences, sense="max")
+                lobo = self.solve_submodel(vars, literals, child, parents_lst, sentences, sense="min")
+                upbo = self.solve_submodel(vars, literals, child, parents_lst, sentences, sense="max")
                 factor[i] = {
                     "interpretation": interpretation,
                     "scope": vars,
                     "child": child,
                     "parents": parents,
-                    "lobo": lobo,
-                    "upbo": upbo
+                    "parents_lst": parents_lst,
+                    "child_lst": child.split("-") if "-" in child else [child],
+                    "lobo": lobo if lobo is not None else 0.0,
+                    "upbo": upbo if upbo is not None else 1.0
                 }
 
             self.factors.append(factor)
@@ -247,17 +255,19 @@ class Factorization:
 if __name__ == "__main__":
 
     # Load the LCN
-    file_name = "examples/alarm.lcn"
+    # file_name = "examples/alarm.lcn"
+    # file_name = "benchmarks/chain/chain_n20_1.lcn"
+    file_name = "examples/smokers.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
     print(l)
 
     # Check consistency
-    ok = check_consistency(l)
-    if ok:
-        print("CONSISTENT")
-    else:
-        print("INCONSISTENT")
+    # ok = check_consistency(l)
+    # if ok:
+    #     print("CONSISTENT")
+    # else:
+    #     print("INCONSISTENT")
 
     # Factorize
     l.build_primal_graph(formula_labels=True)
