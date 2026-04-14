@@ -43,11 +43,12 @@ from lcn.inference.marginal.cve import CredalVE
 from lcn.inference.marginal.ibp import IntervalBP
 from lcn.inference.marginal.ccte import CredalCTE
 from lcn.inference.marginal.approxlp import ApproxLP
+from lcn.inference.marginal.ijgp import CredalIJGP
 
-ALGORITHMS = ["exact", "ariel", "ibp", "ccte", "ccte_e", "approxlp"]
+ALGORITHMS = ["exact", "ariel", "ibp", "ijgp", "ccte", "ccte_e", "approxlp"]
 
 
-_CVE_ALGORITHMS = {"ibp", "ccte", "ccte_e", "approxlp"}
+_CVE_ALGORITHMS = {"ibp", "ijgp", "ccte", "ccte_e", "approxlp"}
 
 
 def _compute_induced_width(cve):
@@ -267,6 +268,16 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                     evidence=evidence, n_iters=n_iters,
                     threshold=threshold, method="interval",
                     verbosity=verbosity)
+            elif algorithm == "ijgp":
+                i_bound = kwargs.get("i_bound", 4)
+                n_iters = kwargs.get("n_iters", 100)
+                threshold = kwargs.get("threshold", 1e-6)
+                epsilon = kwargs.get("epsilon", None)
+                algo = CredalIJGP(cve=cve)
+                raw = algo.run(
+                    evidence=evidence, i_bound=i_bound,
+                    n_iters=n_iters, threshold=threshold,
+                    epsilon=epsilon, verbosity=verbosity)
             elif algorithm == "ccte":
                 epsilon = kwargs.get("epsilon", None)
                 algo = CredalCTE(cve=cve)
