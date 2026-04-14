@@ -521,9 +521,10 @@ if __name__ == "__main__":
                 print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
     # Load the LCN
-    file_name = "benchmarks/polytree/polytree_n10_1.lcn" #"examples/alarm.lcn"
+    file_name = "examples/alarm.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
+    l.summary()
     print(l)
 
     # Check consistency

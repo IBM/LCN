@@ -397,6 +397,17 @@ class LCN:
             output += str(self.sentences[label]) + "\n"
         return output
 
+    def summary(self):
+        """Print a summary of the LCN listing atoms, sentences, and structure."""
+        atoms = sorted(self.atoms.keys())
+        print(f"LCN with {len(atoms)} atoms and {len(self.sentences)} sentences")
+        print(f"Atoms: {', '.join(atoms)}")
+        print("Sentences:")
+        for label in sorted(self.sentences.keys()):
+            s = self.sentences[label]
+            tau_str = f" ; tau={s.tau}" if s.type == SentenceType.Type2 or not s.tau else ""
+            print(f"  {s}{tau_str}")
+
     def build_primal_graph(
             self, 
             formula_labels: bool = False
@@ -408,14 +419,15 @@ class LCN:
         correspond to the formulas involved in the LCN sentences. There are 
         directed edges between the nodes as follows:
         
-        Type (1) sentences:
-            - from the variable nodes to the corresponding formula node `phi` 
+        Type (1) sentences (Definition 1 from the paper):
+            - [tau=True]  bidirectional edges between `phi` and its atom nodes
+            - [tau=False] directed edges from `phi` to its atom nodes only
 
         Type (2) sentences:
-            - from the variable nodes to the corresponding formula node `psi`
+            - from atom nodes of `psi` to formula node `psi`
             - from formula node `psi` to formula node `phi`
-            - from formula node `phi` to its corresponding variable nodes
-            - [tau=False] from the variable nodes to the formula node `phi`
+            - from formula node `phi` to its atom nodes
+            - [tau=True]  also from atom nodes to formula node `phi`
 
         Args:
             formula_labels: bool
@@ -466,67 +478,70 @@ class LCN:
                         label=sentence.phi if formula_labels else ""
                     )
 
-        # Create the directed edges
+        # Create the directed edges (Definition 1 from the paper)
         for sid, sentence in self.sentences.items():
-            if sentence.type == SentenceType.Type1: # Type 1 sentence P(phi)
+            if sentence.type == SentenceType.Type1:  # P(q)
                 if not sentence.phi_formula.is_atomic():
-                    for _, v in sentence.phi_formula.atoms.items():
-                        G.add_edge(
-                            v,
-                            sid,
-                            color="black"
-                        )
-            else: # Type 2 sentence P(phi|psi)
-                # edges from atoms to psi
+                    if sentence.tau:
+                        # (i) tau=True: bidirectional edges q <-> x_i
+                        for _, v in sentence.phi_formula.atoms.items():
+                            G.add_edge(v, sentence.phi_formula.label,
+                                       color="black")
+                            G.add_edge(sentence.phi_formula.label, v,
+                                       color="black")
+                    else:
+                        # (iii) tau=False: directed edges q -> x_i only
+                        for _, v in sentence.phi_formula.atoms.items():
+                            G.add_edge(sentence.phi_formula.label, v,
+                                       color="black")
+
+            else:  # P(q|r)
+                # Common edges for both tau=True and tau=False:
+                # edges a_j -> r (atoms of psi to psi formula node)
                 if not sentence.psi_formula.is_atomic():
                     for _, v in sentence.psi_formula.atoms.items():
-                        G.add_edge(
-                            v,
-                            sentence.psi_formula.label,
-                            color="black"
-                        )
-                # edges from psi to phi
-                G.add_edge(
-                    sentence.psi_formula.label,
-                    sentence.phi_formula.label,
-                    color="red"
-                )
-
-                # edges from phi to atoms                
+                        G.add_edge(v, sentence.psi_formula.label,
+                                   color="black")
+                # edge r -> q
+                G.add_edge(sentence.psi_formula.label,
+                           sentence.phi_formula.label,
+                           color="red")
+                # edges q -> x_i (phi formula to its atoms)
                 if not sentence.phi_formula.is_atomic():
                     for _, v in sentence.phi_formula.atoms.items():
-                        G.add_edge(
-                            sentence.phi_formula.label,
-                            v,
-                            color="blue"
-                        )
-                    if sentence.tau == False:
-                        for k, v in sentence.phi_formula.atoms.items():
-                            G.add_edge(
-                                v,
-                                sentence.phi_formula.label,
-                                color="blue"
-                            )
+                        G.add_edge(sentence.phi_formula.label, v,
+                                   color="blue")
+
+                # (ii) tau=True: also add x_i -> q
+                if sentence.tau:
+                    if not sentence.phi_formula.is_atomic():
+                        for _, v in sentence.phi_formula.atoms.items():
+                            G.add_edge(v, sentence.phi_formula.label,
+                                       color="blue")
+                # (iv) tau=False: no x_i -> q edges
 
         self.primal_graph = G
         return self.primal_graph
     
     def build_structure_graph(self) -> MixedGraph:
         """
-        Construct the structure of the LCN. Specifically, the structure is a
-        mixed graph defined over the atoms only and containing both directed as
-        well as undirected edges.
+        Construct the structure of the LCN (Section 4 of LCN_IJAR_Revised).
+        The structure is a mixed graph over atoms only, derived from the
+        primal graph in 4 steps:
 
-        1. For each sentence P(phi), add undirecte edges between any pair of
-        atoms in phi.
+        1. For each formula-node phi that appears as a conditioned formula
+           in a constraint with tau=True, place an undirected edge between
+           any two propositions that appear in phi.
 
-        2. For each sentence P(phi|psi), add directed edges from each atom in psi
-        to each atom in phi.
+        2. For each pair of formula-nodes phi and psi that appear in a
+           constraint P(phi|psi), add a directed edge from each proposition
+           in psi to each proposition in phi.
 
-        3. Replace bidirected edges between any pair of atoms by an undirected edge.
+        3. If for some pair of proposition-nodes A and B there is now a
+           pair of edges A->B and B->A, replace both by an undirected edge.
 
-        For now, we skip step 3 and use two bidirected edges to represent the
-        undirected edges from step 1. 
+        4. Remove formula-nodes and all edges in and out of them; remove
+           duplicate edges.
         """
 
         G = MixedGraph()
@@ -535,21 +550,24 @@ class LCN:
         for vid in sorted(self.atoms.keys()):
             G.add_node(vid, color="blue", type="atom", shape="ellipse", label=vid)
 
-
         # Loop over the sentences
         for _, sentence in self.sentences.items():
             print(f"Processing sentence: {sentence}")
-            nodes = [v for _, v in sentence.phi_formula.atoms.items()]
-            pairs = list(combinations(nodes, 2))
-            for u, v in pairs:
-                G.add_undirected_edge(u, v, color="blue")
 
-            if sentence.type == SentenceType.Type2: # Type 2 sentence
+            # Step 1: undirected edges between phi-atoms (tau=True only)
+            if sentence.tau:
+                nodes = [v for _, v in sentence.phi_formula.atoms.items()]
+                pairs = list(combinations(nodes, 2))
+                for u, v in pairs:
+                    G.add_undirected_edge(u, v, color="blue")
+
+            # Step 2: directed edges from psi-atoms to phi-atoms (Type 2)
+            if sentence.type == SentenceType.Type2:
                 for _, u in sentence.psi_formula.atoms.items():
                     for _, v in sentence.phi_formula.atoms.items():
                         G.add_directed_edge(u, v, color="red")
-        
-        # Replace directed edges (u->v) and (u<-v) with and undirected edge (u-v)
+
+        # Step 3: replace bidirected edges (A->B and B->A) with undirected
         to_replace = []
         all_nodes = G.get_nodes()
         for u, v in list(combinations(all_nodes, 2)):
@@ -739,8 +757,8 @@ class LCN:
             for path in paths:
                 path_found = True
                 for Y in path:
-                    if Y == X:
-                        continue # skip the end of the path
+                    if Y == X or Y == candidate:
+                        continue  # skip the endpoints of the path
                     if Y in parents:
                         path_found = False
                         break
