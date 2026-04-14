@@ -121,7 +121,8 @@ class CredalIJGP:
 
         # Step 3: Build join graph via mini-bucket partitioning
         clusters, edges, neighbors, cluster_order = \
-            self._build_join_graph(potentials, elim_order, i_bound, cards)
+            self._build_join_graph(potentials, elim_order, i_bound, cards,
+                                   verbosity)
 
         if verbosity > 0:
             print(f"[IJGP] Join graph: {len(clusters)} clusters, "
@@ -149,9 +150,19 @@ class CredalIJGP:
                 messages, cards, prune_fn, verbosity)
             max_delta = max(fwd_delta, bwd_delta)
 
-            if verbosity > 1:
+            if verbosity > 0:
+                # Message size statistics for this iteration
+                msg_sizes = [len(m.functions)
+                             for m in messages.values()]
+                avg_sz = sum(msg_sizes) / len(msg_sizes) \
+                    if msg_sizes else 0
+                max_sz = max(msg_sizes) if msg_sizes else 0
                 print(f"  Iteration {iteration}: "
-                      f"max_delta = {max_delta:.8f}")
+                      f"fwd_delta={fwd_delta:.6f}, "
+                      f"bwd_delta={bwd_delta:.6f}, "
+                      f"max_delta={max_delta:.6f}, "
+                      f"msgs={len(msg_sizes)} "
+                      f"(avg={avg_sz:.1f}, max={max_sz} funcs)")
 
             if max_delta < threshold:
                 if verbosity > 0:
@@ -320,7 +331,8 @@ class CredalIJGP:
     def _build_join_graph(self, potentials: List[Potential],
                           elim_order: List[str],
                           i_bound: int,
-                          cards: Dict[str, int]):
+                          cards: Dict[str, int],
+                          verbosity: int = 0):
         """
         Build a join graph via mini-bucket partitioning along the
         elimination ordering.
@@ -357,6 +369,18 @@ class CredalIJGP:
             # Partition into mini-buckets
             mini_bucket_groups = self._mini_bucket_partition(
                 pots_only, var, i_bound)
+
+            if verbosity > 1:
+                mb_scopes = []
+                for mb in mini_bucket_groups:
+                    s = set()
+                    for p in mb:
+                        s.update(p.scope)
+                    mb_scopes.append(s)
+                print(f"  [Build] Bucket {var}: "
+                      f"{len(pots_only)} potentials -> "
+                      f"{len(mini_bucket_groups)} mini-bucket(s), "
+                      f"scopes {[sorted(s) for s in mb_scopes]}")
 
             mb_cluster_ids = []
             for mb in mini_bucket_groups:
@@ -415,6 +439,17 @@ class CredalIJGP:
         for (a, b) in edges:
             neighbors[a].add(b)
             neighbors[b].add(a)
+
+        if verbosity > 1:
+            for c in clusters:
+                n_funcs = sum(len(p.functions) for p in c['potentials'])
+                print(f"  [Build] Cluster {c['id']} (elim={c['var']}): "
+                      f"scope={sorted(c['scope'])}, "
+                      f"{len(c['potentials'])} pots, "
+                      f"{n_funcs} funcs")
+            for (a, b), sep in edges.items():
+                print(f"  [Build] Edge ({a},{b}): "
+                      f"sep={sorted(sep)}")
 
         return clusters, edges, neighbors, cluster_order
 
@@ -515,8 +550,16 @@ class CredalIJGP:
                     if old_msg is not None:
                         delta = self._message_delta(old_msg, new_msg)
                         max_delta = max(max_delta, delta)
+                    else:
+                        delta = float('inf')
 
                     messages[(src_id, dst_id)] = new_msg
+
+                    if verbosity > 2:
+                        print(f"    [Fwd] {src_id}->{dst_id}: "
+                              f"{len(new_msg.functions)} funcs, "
+                              f"scope={new_msg.scope}, "
+                              f"delta={delta:.6f}")
 
         return max_delta
 
@@ -540,8 +583,16 @@ class CredalIJGP:
                     if old_msg is not None:
                         delta = self._message_delta(old_msg, new_msg)
                         max_delta = max(max_delta, delta)
+                    else:
+                        delta = float('inf')
 
                     messages[(src_id, dst_id)] = new_msg
+
+                    if verbosity > 2:
+                        print(f"    [Bwd] {src_id}->{dst_id}: "
+                              f"{len(new_msg.functions)} funcs, "
+                              f"scope={new_msg.scope}, "
+                              f"delta={delta:.6f}")
 
         return max_delta
 
@@ -709,7 +760,7 @@ if __name__ == "__main__":
                     print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
     # Load the LCN
-    file_name = "examples/lcn_chain_1.lcn"
+    file_name = "benchmarks/real/engine.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
     print(l)
@@ -723,15 +774,15 @@ if __name__ == "__main__":
 
     # Run IJGP with i_bound=2
     print("\n=== Interval IJGP (i_bound=2, no evidence) ===")
-    results = ijgp.run(evidence={}, i_bound=2, verbosity=1)
+    results = ijgp.run(evidence={}, i_bound=2, verbosity=3, epsilon=0.1)
     print_singleton_marginals(results)
 
     # Run IJGP with i_bound=4
     print("\n=== Interval IJGP (i_bound=4, no evidence) ===")
-    results = ijgp.run(evidence={}, i_bound=4, verbosity=1)
+    results = ijgp.run(evidence={}, i_bound=4, verbosity=3, epsilon=0.1)
     print_singleton_marginals(results)
 
     # Run IJGP with evidence
-    print("\n=== Interval IJGP (i_bound=4, x0=0) ===")
-    results = ijgp.run(evidence={"x0": 0}, i_bound=4, verbosity=1)
-    print_singleton_marginals(results)
+    # print("\n=== Interval IJGP (i_bound=4, x0=0) ===")
+    # results = ijgp.run(evidence={"x0": 0}, i_bound=4, verbosity=3, epsilon=0.1)
+    # print_singleton_marginals(results)
