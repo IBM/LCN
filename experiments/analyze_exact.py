@@ -216,8 +216,10 @@ def analyze(records, output_file=None, latex_file=None, group_by="size"):
                 "instance": inst_name,
                 "algorithm": algo,
                 "mae_lb_error": round(mae_lb, 8),
+                "rmse_lb_error": round(rmse_lb, 8),
                 "max_lb_error": round(max_lb, 8),
                 "mae_ub_error": round(mae_ub, 8),
+                "rmse_ub_error": round(rmse_ub, 8),
                 "max_ub_error": round(max_ub, 8),
                 "containment_rate": round(contain, 6),
                 "mean_width_ratio": round(mean_wr, 6),
@@ -270,26 +272,42 @@ def analyze(records, output_file=None, latex_file=None, group_by="size"):
 
     # Save LaTeX
     if latex_file and rows:
-        _save_latex(rows, latex_file, caption="Error metrics vs.\\ exact bounds")
+        _save_latex(rows, latex_file, group_by,
+                    caption="Error metrics vs.\\ exact bounds")
         print(f"Saved LaTeX to {latex_file}")
 
 
-def _save_latex(rows, path, caption="Results"):
+def _save_latex(rows, path, group_by="size", caption="Results"):
     """Write rows as a LaTeX table."""
-    cols = [
-        ("type", "Type", "l"),
-        ("num_vars", "$n$", "r"),
-        ("algorithm", "Algorithm", "l"),
-        ("mae_lb_error", "MAE$_{\\text{lb}}$", "r"),
-        ("rmse_lb_error", "RMSE$_{\\text{lb}}$", "r"),
-        ("mae_ub_error", "MAE$_{\\text{ub}}$", "r"),
-        ("rmse_ub_error", "RMSE$_{\\text{ub}}$", "r"),
-        ("mean_build_time", "Build", "r"),
-        ("mean_run_time", "Run", "r"),
-        ("mean_total_time", "Total", "r"),
-        ("exact_time", "Exact", "r"),
-        ("avg_induced_width", "IW", "r"),
-    ]
+    if group_by == "instance":
+        cols = [
+            ("instance", "Instance", "l"),
+            ("algorithm", "Algorithm", "l"),
+            ("mae_lb_error", "MAE$_{\\text{lb}}$", "r"),
+            ("rmse_lb_error", "RMSE$_{\\text{lb}}$", "r"),
+            ("mae_ub_error", "MAE$_{\\text{ub}}$", "r"),
+            ("rmse_ub_error", "RMSE$_{\\text{ub}}$", "r"),
+            ("build_time", "Build", "r"),
+            ("run_time", "Run", "r"),
+            ("total_time", "Total", "r"),
+            ("exact_time", "Exact", "r"),
+            ("avg_induced_width", "IW", "r"),
+        ]
+    else:
+        cols = [
+            ("type", "Type", "l"),
+            ("num_vars", "$n$", "r"),
+            ("algorithm", "Algorithm", "l"),
+            ("mae_lb_error", "MAE$_{\\text{lb}}$", "r"),
+            ("rmse_lb_error", "RMSE$_{\\text{lb}}$", "r"),
+            ("mae_ub_error", "MAE$_{\\text{ub}}$", "r"),
+            ("rmse_ub_error", "RMSE$_{\\text{ub}}$", "r"),
+            ("mean_build_time", "Build", "r"),
+            ("mean_run_time", "Run", "r"),
+            ("mean_total_time", "Total", "r"),
+            ("exact_time", "Exact", "r"),
+            ("avg_induced_width", "IW", "r"),
+        ]
     keys = [c[0] for c in cols]
     headers = [c[1] for c in cols]
     aligns = "".join(c[2] for c in cols)
