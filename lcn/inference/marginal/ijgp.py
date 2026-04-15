@@ -68,6 +68,7 @@ class CredalIJGP:
             n_iters: int = 100,
             threshold: float = 1e-6,
             epsilon: float = None,
+            n_clusters: int = 0,
             verbosity: int = 1) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
         """
         Run interval IJGP inference for credal networks. Computes marginal
@@ -79,6 +80,10 @@ class CredalIJGP:
             n_iters: Maximum number of forward+backward iterations.
             threshold: Convergence threshold on max message change.
             epsilon: If not None, use epsilon-approximate pruning.
+            n_clusters: If >0, cluster functions into n_clusters groups
+                using K-means with Manhattan distance and replace each
+                cluster with its Pareto Least Upper Bound (PLUB) before
+                pruning.
             verbosity: Verbosity level (0=silent).
 
         Returns:
@@ -94,6 +99,13 @@ class CredalIJGP:
         else:
             def prune_fn(pot):
                 return pot.prune()
+
+        # Chain clustering before pruning if requested
+        if n_clusters > 0:
+            _base_prune = prune_fn
+            def prune_fn(pot, _nc=n_clusters, _bp=_base_prune):
+                pot = pot.cluster_prune(_nc)
+                return _bp(pot)
 
         # Build card dictionary
         bn = self.cve.bn_min

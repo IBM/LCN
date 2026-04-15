@@ -188,6 +188,66 @@ class Potential:
             new_functions = [self.functions[0]]
         return Potential(self.scope, self.cards, new_functions)
 
+    def cluster_prune(self, n_clusters: int,
+                      max_iters: int = 10) -> 'Potential':
+        """
+        Approximate the potential by clustering its functions using
+        K-means with Manhattan (L1) distance, then replacing each
+        cluster with its Pareto Least Upper Bound (PLUB) — the
+        componentwise maximum of all functions in the cluster.
+
+        This produces exactly n_clusters representative functions.
+
+        Args:
+            n_clusters: Target number of clusters (k).
+            max_iters: Maximum K-means iterations (default 10).
+        """
+        n = len(self.functions)
+        if n <= n_clusters or n_clusters <= 0:
+            return self
+
+        shape = self.functions[0].shape
+        flat = np.array([f.ravel() for f in self.functions])  # (n, d)
+        d = flat.shape[1]
+
+        # Initialize centroids: pick k distinct indices at random
+        rng = np.random.RandomState(42)
+        indices = rng.choice(n, size=n_clusters, replace=False)
+        centroids = flat[indices].copy()  # (k, d)
+
+        assignments = np.zeros(n, dtype=int)
+
+        for _ in range(max_iters):
+            # Assignment: each function -> nearest centroid (Manhattan)
+            new_assignments = np.empty(n, dtype=int)
+            for i in range(n):
+                dists = np.sum(np.abs(centroids - flat[i]), axis=1)
+                new_assignments[i] = np.argmin(dists)
+
+            # Check convergence
+            if np.array_equal(assignments, new_assignments):
+                break
+            assignments = new_assignments
+
+            # Update centroids: mean of assigned functions
+            for c in range(n_clusters):
+                members = flat[assignments == c]
+                if len(members) > 0:
+                    centroids[c] = np.mean(members, axis=0)
+
+        # Compute PLUB for each cluster: componentwise max
+        new_functions = []
+        for c in range(n_clusters):
+            members = flat[assignments == c]
+            if len(members) > 0:
+                plub = np.max(members, axis=0).reshape(shape)
+                new_functions.append(plub)
+
+        if not new_functions:
+            new_functions = [self.functions[0]]
+
+        return Potential(self.scope, self.cards, new_functions)
+
 
 def _parse_credal_net_vertices(cn: gum.CredalNet) -> Dict:
     """

@@ -45,10 +45,10 @@ from lcn.inference.marginal.ccte import CredalCTE
 from lcn.inference.marginal.approxlp import ApproxLP
 from lcn.inference.marginal.ijgp import CredalIJGP
 
-ALGORITHMS = ["exact", "ariel", "ibp", "ijgp", "ijgp_e", "ccte", "ccte_e", "approxlp"]
+ALGORITHMS = ["exact", "ariel", "ibp", "ijgp", "ijgp_e", "ijgp_c", "ccte", "ccte_e", "approxlp"]
 
 
-_CVE_ALGORITHMS = {"ibp", "ijgp", "ijgp_e", "ccte", "ccte_e", "approxlp"}
+_CVE_ALGORITHMS = {"ibp", "ijgp", "ijgp_e", "ijgp_c", "ccte", "ccte_e", "approxlp"}
 
 
 def _compute_induced_width(cve):
@@ -288,6 +288,18 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                     evidence=evidence, i_bound=i_bound,
                     n_iters=n_iters, threshold=threshold,
                     epsilon=epsilon, verbosity=verbosity)
+            elif algorithm == "ijgp_c":
+                i_bound = kwargs.get("i_bound", 2)
+                n_iters = kwargs.get("n_iters", 100)
+                threshold = kwargs.get("threshold", 1e-6)
+                epsilon = kwargs.get("epsilon", None)
+                n_clusters = kwargs.get("n_clusters", 10)
+                algo = CredalIJGP(cve=cve)
+                raw = algo.run(
+                    evidence=evidence, i_bound=i_bound,
+                    n_iters=n_iters, threshold=threshold,
+                    epsilon=epsilon, n_clusters=n_clusters,
+                    verbosity=verbosity)
             elif algorithm == "ccte":
                 epsilon = None
                 algo = CredalCTE(cve=cve)
@@ -343,6 +355,9 @@ def main():
         "--epsilon", type=float, default=None,
         help="Epsilon for ccte_e and ijgp_e algorithms")
     parser.add_argument(
+        "--n-clusters", type=int, default=None,
+        help="Number of clusters for ijgp_c algorithm (default: 10)")
+    parser.add_argument(
         "--time-limit", type=float, default=None,
         help="Time limit in seconds per instance (default: unlimited)")
     parser.add_argument(
@@ -359,6 +374,8 @@ def main():
     kwargs = {}
     if args.epsilon is not None:
         kwargs["epsilon"] = args.epsilon
+    if args.n_clusters is not None:
+        kwargs["n_clusters"] = args.n_clusters
     result = run_single(
         args.instance, args.algorithm,
         evidence=evidence, verbosity=args.verbosity,
