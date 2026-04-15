@@ -97,6 +97,13 @@ Parallel usage — each combination gets its own output file:
         "--ibound", type=int, default=2,
         help="ibound for ijgp, ijgp_e algorithms (default: 2)")
     parser.add_argument(
+        "--n-clusters", type=int, default=None,
+        help="Number of clusters for ijgp_c algorithm (default: 10)")
+    parser.add_argument(
+        "--cluster-representative", type=str, default="plub",
+        choices=["plub", "mean"],
+        help="Cluster representative for ijgp_c: plub or mean (default: plub)")
+    parser.add_argument(
         "--evidence", type=str, default="{}",
         help="evidence as JSON string (default: {})")
     parser.add_argument(
