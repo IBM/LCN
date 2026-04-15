@@ -45,10 +45,10 @@ from lcn.inference.marginal.ccte import CredalCTE
 from lcn.inference.marginal.approxlp import ApproxLP
 from lcn.inference.marginal.ijgp import CredalIJGP
 
-ALGORITHMS = ["exact", "ariel", "ibp", "ijgp", "ijgp_e", "ijgp_c", "ccte", "ccte_e", "approxlp"]
+ALGORITHMS = ["exact", "ariel", "ibp", "ijgp", "ijgp_e", "ijgp_cp", "ijgp_cm", "ccte", "ccte_e", "ccte_cp", "ccte_cm", "approxlp"]
 
 
-_CVE_ALGORITHMS = {"ibp", "ijgp", "ijgp_e", "ijgp_c", "ccte", "ccte_e", "approxlp"}
+_CVE_ALGORITHMS = {"ibp", "ijgp", "ijgp_e", "ijgp_cp", "ijgp_cm", "ccte", "ccte_e", "ccte_cp", "ccte_cm", "approxlp"}
 
 
 def _compute_induced_width(cve):
@@ -288,17 +288,33 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                     evidence=evidence, i_bound=i_bound,
                     n_iters=n_iters, threshold=threshold,
                     epsilon=epsilon, verbosity=verbosity)
-            elif algorithm == "ijgp_c":
+            elif algorithm == "ijgp_cp":
                 i_bound = kwargs.get("i_bound", 2)
                 n_iters = kwargs.get("n_iters", 100)
                 threshold = kwargs.get("threshold", 1e-6)
                 epsilon = kwargs.get("epsilon", None)
                 n_clusters = kwargs.get("n_clusters", 10)
+                cluster_rep = kwargs.get("cluster_representative", "plub")
                 algo = CredalIJGP(cve=cve)
                 raw = algo.run(
                     evidence=evidence, i_bound=i_bound,
                     n_iters=n_iters, threshold=threshold,
                     epsilon=epsilon, n_clusters=n_clusters,
+                    cluster_representative=cluster_rep,
+                    verbosity=verbosity)
+            elif algorithm == "ijgp_cm":
+                i_bound = kwargs.get("i_bound", 2)
+                n_iters = kwargs.get("n_iters", 100)
+                threshold = kwargs.get("threshold", 1e-6)
+                epsilon = kwargs.get("epsilon", None)
+                n_clusters = kwargs.get("n_clusters", 10)
+                cluster_rep = kwargs.get("cluster_representative", "mean")
+                algo = CredalIJGP(cve=cve)
+                raw = algo.run(
+                    evidence=evidence, i_bound=i_bound,
+                    n_iters=n_iters, threshold=threshold,
+                    epsilon=epsilon, n_clusters=n_clusters,
+                    cluster_representative=cluster_rep,
                     verbosity=verbosity)
             elif algorithm == "ccte":
                 epsilon = None
@@ -312,6 +328,26 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 algo = CredalCTE(cve=cve)
                 raw = algo.run(
                     evidence=evidence, epsilon=epsilon,
+                    verbosity=verbosity)
+            elif algorithm == "ccte_cp":
+                epsilon = kwargs.get("epsilon", None)
+                n_clusters = kwargs.get("n_clusters", 10)
+                cluster_rep = kwargs.get("cluster_representative", "plub")
+                algo = CredalCTE(cve=cve)
+                raw = algo.run(
+                    evidence=evidence, epsilon=epsilon,
+                    n_clusters=n_clusters,
+                    cluster_representative=cluster_rep,
+                    verbosity=verbosity)
+            elif algorithm == "ccte_cm":
+                epsilon = kwargs.get("epsilon", None)
+                n_clusters = kwargs.get("n_clusters", 10)
+                cluster_rep = kwargs.get("cluster_representative", "mean")
+                algo = CredalCTE(cve=cve)
+                raw = algo.run(
+                    evidence=evidence, epsilon=epsilon,
+                    n_clusters=n_clusters,
+                    cluster_representative=cluster_rep,
                     verbosity=verbosity)
             elif algorithm == "approxlp":
                 n_iters = kwargs.get("n_iters", 50)
@@ -358,6 +394,10 @@ def main():
         "--n-clusters", type=int, default=None,
         help="Number of clusters for ijgp_c algorithm (default: 10)")
     parser.add_argument(
+        "--cluster-representative", type=str, default="plub",
+        choices=["plub", "mean"],
+        help="Cluster representative for ijgp_c: plub or mean (default: plub)")
+    parser.add_argument(
         "--time-limit", type=float, default=None,
         help="Time limit in seconds per instance (default: unlimited)")
     parser.add_argument(
@@ -376,6 +416,8 @@ def main():
         kwargs["epsilon"] = args.epsilon
     if args.n_clusters is not None:
         kwargs["n_clusters"] = args.n_clusters
+    if args.cluster_representative in ["plub", "mean"]:
+        kwargs["cluster_representative"] = args.cluster_representative
     result = run_single(
         args.instance, args.algorithm,
         evidence=evidence, verbosity=args.verbosity,

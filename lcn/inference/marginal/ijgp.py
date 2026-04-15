@@ -69,6 +69,7 @@ class CredalIJGP:
             threshold: float = 1e-6,
             epsilon: float = None,
             n_clusters: int = 0,
+            cluster_representative: str = "plub",
             verbosity: int = 1) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
         """
         Run interval IJGP inference for credal networks. Computes marginal
@@ -81,9 +82,10 @@ class CredalIJGP:
             threshold: Convergence threshold on max message change.
             epsilon: If not None, use epsilon-approximate pruning.
             n_clusters: If >0, cluster functions into n_clusters groups
-                using K-means with Manhattan distance and replace each
-                cluster with its Pareto Least Upper Bound (PLUB) before
-                pruning.
+                using K-means with Manhattan distance before pruning.
+            cluster_representative: How to compute cluster representatives.
+                "plub" — Pareto Least Upper Bound (componentwise max).
+                "mean" — cluster centroid (componentwise mean).
             verbosity: Verbosity level (0=silent).
 
         Returns:
@@ -103,8 +105,9 @@ class CredalIJGP:
         # Chain clustering before pruning if requested
         if n_clusters > 0:
             _base_prune = prune_fn
-            def prune_fn(pot, _nc=n_clusters, _bp=_base_prune):
-                pot = pot.cluster_prune(_nc)
+            def prune_fn(pot, _nc=n_clusters, _cr=cluster_representative,
+                         _bp=_base_prune):
+                pot = pot.cluster_prune(_nc, representative=_cr)
                 return _bp(pot)
 
         # Build card dictionary
@@ -786,12 +789,12 @@ if __name__ == "__main__":
 
     # Run IJGP with i_bound=2
     print("\n=== Interval IJGP (i_bound=2, no evidence) ===")
-    results = ijgp.run(evidence={}, i_bound=2, verbosity=3, epsilon=0.1)
+    results = ijgp.run(evidence={}, i_bound=2, verbosity=3, n_clusters=4, cluster_representative="mean")
     print_singleton_marginals(results)
 
     # Run IJGP with i_bound=4
     print("\n=== Interval IJGP (i_bound=4, no evidence) ===")
-    results = ijgp.run(evidence={}, i_bound=4, verbosity=3, epsilon=0.1)
+    results = ijgp.run(evidence={}, i_bound=2, verbosity=3, n_clusters=4, cluster_representative="plub")
     print_singleton_marginals(results)
 
     # Run IJGP with evidence

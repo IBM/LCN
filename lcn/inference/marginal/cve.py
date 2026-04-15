@@ -189,18 +189,21 @@ class Potential:
         return Potential(self.scope, self.cards, new_functions)
 
     def cluster_prune(self, n_clusters: int,
-                      max_iters: int = 10) -> 'Potential':
+                      max_iters: int = 10,
+                      representative: str = "plub") -> 'Potential':
         """
         Approximate the potential by clustering its functions using
         K-means with Manhattan (L1) distance, then replacing each
-        cluster with its Pareto Least Upper Bound (PLUB) — the
-        componentwise maximum of all functions in the cluster.
+        cluster with a single representative function.
 
         This produces exactly n_clusters representative functions.
 
         Args:
             n_clusters: Target number of clusters (k).
             max_iters: Maximum K-means iterations (default 10).
+            representative: How to compute the cluster representative.
+                "plub" — Pareto Least Upper Bound (componentwise max).
+                "mean" — cluster centroid (componentwise mean).
         """
         n = len(self.functions)
         if n <= n_clusters or n_clusters <= 0:
@@ -235,13 +238,16 @@ class Potential:
                 if len(members) > 0:
                     centroids[c] = np.mean(members, axis=0)
 
-        # Compute PLUB for each cluster: componentwise max
+        # Compute representative for each cluster
         new_functions = []
         for c in range(n_clusters):
             members = flat[assignments == c]
             if len(members) > 0:
-                plub = np.max(members, axis=0).reshape(shape)
-                new_functions.append(plub)
+                if representative == "mean":
+                    rep = np.mean(members, axis=0).reshape(shape)
+                else:  # "plub"
+                    rep = np.max(members, axis=0).reshape(shape)
+                new_functions.append(rep)
 
         if not new_functions:
             new_functions = [self.functions[0]]

@@ -62,6 +62,8 @@ class CredalCTE:
 
     def run(self, evidence: dict = {},
             epsilon: float = None,
+            n_clusters: int = 0,
+            cluster_representative: str = "plub",
             verbosity: int = 1) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
         """
         Compute lower and upper bounds on the marginal of EVERY variable
@@ -70,6 +72,11 @@ class CredalCTE:
         Args:
             evidence: {variable_name: value} for observed variables.
             epsilon: None for exact pruning, >0 for epsilon-approximate.
+            n_clusters: If >0, cluster functions into n_clusters groups
+                using K-means with Manhattan distance before pruning.
+            cluster_representative: How to compute cluster representatives.
+                "plub" — Pareto Least Upper Bound (componentwise max).
+                "mean" — cluster centroid (componentwise mean).
             verbosity: 0=silent, 1=summary, 2=detailed.
 
         Returns:
@@ -86,6 +93,14 @@ class CredalCTE:
         else:
             def prune_fn(pot):
                 return pot.prune()
+
+        # Chain clustering before pruning if requested
+        if n_clusters > 0:
+            _base_prune = prune_fn
+            def prune_fn(pot, _nc=n_clusters, _cr=cluster_representative,
+                         _bp=_base_prune):
+                pot = pot.cluster_prune(_nc, representative=_cr)
+                return _bp(pot)
 
         # Step 1: Build potentials from extreme points + evidence
         bn = self.cve.bn_min
