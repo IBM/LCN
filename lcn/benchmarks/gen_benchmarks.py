@@ -60,6 +60,12 @@ examples:
         "--num-extras", type=int, default=2,
         help="extra marginal sentences per instance (default: 2)")
     parser.add_argument(
+        "--max-component-size", type=int, default=3,
+        help="max variables per chain component (default: 3, chain only)")
+    parser.add_argument(
+        "--max-parents", type=int, default=2,
+        help="max parents per child node (default: 2, polytree/dag only)")
+    parser.add_argument(
         "--verbosity", type=int, default=1,
         help="verbosity level: 0=silent, 1=summary (default: 1)")
     args = parser.parse_args()
@@ -82,6 +88,8 @@ examples:
                 max_vars_per_sentence=args.max_vars,
                 num_extras=args.num_extras,
                 epsilon=args.epsilon,
+                max_component_size=args.max_component_size,
+                max_parents=args.max_parents,
                 verbosity=max(0, args.verbosity - 1),
             )
             for i, lcn in enumerate(instances):
