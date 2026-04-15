@@ -20,7 +20,7 @@ import argparse
 
 from lcn.benchmarks.generator import Generator
 
-TOPOLOGIES = ["chain", "polytree", "random"]
+TOPOLOGIES = ["chain", "polytree", "random", "dag"]
 
 
 def main():
