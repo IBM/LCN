@@ -69,11 +69,29 @@ def _group_by_instance(records):
     return groups
 
 
-def analyze(records, reference="ariel", output_file=None, latex_file=None):
-    """Compute absolute error metrics vs a reference algorithm."""
+def _make_stats_key(rec, instance, group_by):
+    """Build the grouping key depending on mode."""
+    if group_by == "instance":
+        return (os.path.basename(instance), rec["algorithm"])
+    else:
+        return (rec["graph_type"], rec["num_vars"], rec["algorithm"])
+
+
+def analyze(records, reference="ariel", output_file=None, latex_file=None,
+            group_by="size"):
+    """Compute absolute error metrics vs a reference algorithm.
+
+    Args:
+        records: list of result dicts loaded from JSONL.
+        reference: name of the reference algorithm.
+        output_file: optional CSV output path.
+        latex_file: optional LaTeX table output path.
+        group_by: "size" to aggregate by (graph_type, num_vars, algorithm),
+                  "instance" for per-instance rows.
+    """
     groups = _group_by_instance(records)
 
-    # Collect per (graph_type, num_vars, algorithm) stats
+    # Collect stats using the chosen grouping key
     stats = defaultdict(lambda: {
         "abs_lb_errors": [], "abs_ub_errors": [], "width_ratios": [],
         "contained": [],
@@ -91,7 +109,11 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None):
         num_vars = ref_rec["num_vars"]
 
         ref_marg = ref_rec["marginals"]
-        ref_stats[(ref_rec["graph_type"], num_vars)].append(
+        if group_by == "instance":
+            ref_key = os.path.basename(instance)
+        else:
+            ref_key = (ref_rec["graph_type"], num_vars)
+        ref_stats[ref_key].append(
             ref_rec.get("total_time", ref_rec.get("time_seconds", 0.0)))
 
         for algo_name, rec in algos.items():
@@ -99,7 +121,7 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None):
                 continue
 
             approx_marg = rec["marginals"]
-            key = (rec["graph_type"], num_vars, algo_name)
+            key = _make_stats_key(rec, instance, group_by)
             s = stats[key]
             s["build_times"].append(rec.get("build_time", 0.0))
             s["run_times"].append(rec.get("run_time", 0.0))
@@ -140,17 +162,25 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None):
     # Print summary table
     print(f"Reference: {reference}")
     print()
-    header = (f"{'type':<12} {'n':>4} {'algo':<10} "
-              f"{'mae_lb':>9} {'rmse_lb':>9} {'max_lb':>9} "
-              f"{'mae_ub':>9} {'rmse_ub':>9} {'max_ub':>9} "
-              f"{'contain':>8} {'mean_wr':>9} "
-              f"{'build_t':>8} {'run_t':>8} {'total_t':>8} "
-              f"{'std_tt':>8} {'ref_t':>8} {'avg_iw':>7}")
+    if group_by == "instance":
+        header = (f"{'instance':<30} {'algo':<10} "
+                  f"{'mae_lb':>9} {'max_lb':>9} "
+                  f"{'mae_ub':>9} {'max_ub':>9} "
+                  f"{'contain':>8} {'mean_wr':>9} "
+                  f"{'build_t':>8} {'run_t':>8} {'total_t':>8} "
+                  f"{'ref_t':>8} {'avg_iw':>7}")
+    else:
+        header = (f"{'type':<12} {'n':>4} {'algo':<10} "
+                  f"{'mae_lb':>9} {'rmse_lb':>9} {'max_lb':>9} "
+                  f"{'mae_ub':>9} {'rmse_ub':>9} {'max_ub':>9} "
+                  f"{'contain':>8} {'mean_wr':>9} "
+                  f"{'build_t':>8} {'run_t':>8} {'total_t':>8} "
+                  f"{'std_tt':>8} {'ref_t':>8} {'avg_iw':>7}")
     print(header)
     print("-" * len(header))
 
     rows = []
-    for (graph_type, num_vars, algo), s in sorted(stats.items()):
+    for key, s in sorted(stats.items()):
         if not s["abs_lb_errors"]:
             continue
 
@@ -167,40 +197,70 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None):
         mean_rt = _mean(s["run_times"])
         mean_tt = _mean(s["total_times"])
         std_tt = _std(s["total_times"])
-
-        rt_list = ref_stats.get((graph_type, num_vars), [])
-        ref_t = _mean(rt_list)
         avg_iw = _mean(s["induced_widths"])
-
         iw_str = f"{avg_iw:>7.1f}" if s["induced_widths"] else f"{'n/a':>7}"
-        print(f"{graph_type:<12} {num_vars:>4} {algo:<10} "
-              f"{mae_lb:>9.6f} {rmse_lb:>9.6f} {max_lb:>9.6f} "
-              f"{mae_ub:>9.6f} {rmse_ub:>9.6f} {max_ub:>9.6f} "
-              f"{contain:>8.4f} {mean_wr:>9.4f} "
-              f"{mean_bt:>8.3f} {mean_rt:>8.3f} {mean_tt:>8.3f} "
-              f"{std_tt:>8.3f} {ref_t:>8.3f} {iw_str}")
 
-        rows.append({
-            "graph_type": graph_type,
-            "num_vars": num_vars,
-            "algorithm": algo,
-            "reference": reference,
-            "mae_lb_error": round(mae_lb, 8),
-            "rmse_lb_error": round(rmse_lb, 8),
-            "max_lb_error": round(max_lb, 8),
-            "mae_ub_error": round(mae_ub, 8),
-            "rmse_ub_error": round(rmse_ub, 8),
-            "max_ub_error": round(max_ub, 8),
-            "containment_rate": round(contain, 6),
-            "mean_width_ratio": round(mean_wr, 6),
-            "std_width_ratio": round(std_wr, 6),
-            "mean_build_time": round(mean_bt, 4),
-            "mean_run_time": round(mean_rt, 4),
-            "mean_total_time": round(mean_tt, 4),
-            "std_total_time": round(std_tt, 4),
-            "ref_time": round(ref_t, 4),
-            "avg_induced_width": round(avg_iw, 2) if s["induced_widths"] else None,
-        })
+        if group_by == "instance":
+            inst_name, algo = key
+            rt_list = ref_stats.get(inst_name, [])
+            ref_t = _mean(rt_list)
+
+            print(f"{inst_name:<30} {algo:<10} "
+                  f"{mae_lb:>9.6f} {max_lb:>9.6f} "
+                  f"{mae_ub:>9.6f} {max_ub:>9.6f} "
+                  f"{contain:>8.4f} {mean_wr:>9.4f} "
+                  f"{mean_bt:>8.3f} {mean_rt:>8.3f} {mean_tt:>8.3f} "
+                  f"{ref_t:>8.3f} {iw_str}")
+
+            rows.append({
+                "instance": inst_name,
+                "algorithm": algo,
+                "reference": reference,
+                "mae_lb_error": round(mae_lb, 8),
+                "max_lb_error": round(max_lb, 8),
+                "mae_ub_error": round(mae_ub, 8),
+                "max_ub_error": round(max_ub, 8),
+                "containment_rate": round(contain, 6),
+                "mean_width_ratio": round(mean_wr, 6),
+                "build_time": round(mean_bt, 4),
+                "run_time": round(mean_rt, 4),
+                "total_time": round(mean_tt, 4),
+                "ref_time": round(ref_t, 4),
+                "avg_induced_width": round(avg_iw, 2) if s["induced_widths"] else None,
+            })
+        else:
+            graph_type, num_vars, algo = key
+            rt_list = ref_stats.get((graph_type, num_vars), [])
+            ref_t = _mean(rt_list)
+
+            print(f"{graph_type:<12} {num_vars:>4} {algo:<10} "
+                  f"{mae_lb:>9.6f} {rmse_lb:>9.6f} {max_lb:>9.6f} "
+                  f"{mae_ub:>9.6f} {rmse_ub:>9.6f} {max_ub:>9.6f} "
+                  f"{contain:>8.4f} {mean_wr:>9.4f} "
+                  f"{mean_bt:>8.3f} {mean_rt:>8.3f} {mean_tt:>8.3f} "
+                  f"{std_tt:>8.3f} {ref_t:>8.3f} {iw_str}")
+
+            rows.append({
+                "graph_type": graph_type,
+                "num_vars": num_vars,
+                "algorithm": algo,
+                "reference": reference,
+                "mae_lb_error": round(mae_lb, 8),
+                "rmse_lb_error": round(rmse_lb, 8),
+                "max_lb_error": round(max_lb, 8),
+                "mae_ub_error": round(mae_ub, 8),
+                "rmse_ub_error": round(rmse_ub, 8),
+                "max_ub_error": round(max_ub, 8),
+                "containment_rate": round(contain, 6),
+                "mean_width_ratio": round(mean_wr, 6),
+                "std_width_ratio": round(std_wr, 6),
+                "mean_build_time": round(mean_bt, 4),
+                "mean_run_time": round(mean_rt, 4),
+                "mean_total_time": round(mean_tt, 4),
+                "std_total_time": round(std_tt, 4),
+                "ref_time": round(ref_t, 4),
+                "avg_induced_width": round(avg_iw, 2) if s["induced_widths"] else None,
+            })
 
     # Save CSV
     if output_file and rows:
@@ -286,6 +346,10 @@ def main():
     parser.add_argument(
         "--latex", type=str, default=None,
         help="Output LaTeX table file (optional)")
+    parser.add_argument(
+        "--group-by", type=str, default="size",
+        choices=["size", "instance"],
+        help="Group results by problem size or per instance (default: size)")
     args = parser.parse_args()
 
     records = _load_results(args.results_dir)
@@ -294,7 +358,8 @@ def main():
         sys.exit(1)
 
     print(f"Loaded {len(records)} results from {args.results_dir}/\n")
-    analyze(records, args.reference, args.output, args.latex)
+    analyze(records, args.reference, args.output, args.latex,
+            group_by=args.group_by)
 
 
 if __name__ == "__main__":
