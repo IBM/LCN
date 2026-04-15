@@ -1,28 +1,40 @@
 #!/bin/bash
 
 # Usage:
-#   ./run.sh <benchmark_dir> <algorithm> <time_limit> [epsilon]
+#   ./run.sh <benchmark_dir> <algorithm> [options...]
 #
 # Arguments:
 #   benchmark_dir  - path to benchmark instances (e.g., benchmarks/polytree)
-#   algorithm      - one of: exact, ariel, ibp, ccte, ccte_e, ijgp, ijgp_e approxlp
-#   time_limit     - (optional) time limit in seconds per instance (e.g., 300)
-#   epsilon        - (optional) epsilon value for ccte_e, ijgp_e algorithm
-#   ibound         - (optional) ibound value for ijgp, ijgp_e algorithms
+#   algorithm      - one of: exact, ariel, ibp, ijgp, ijgp_e, ijgp_cp, ijgp_cm,
+#                    ccte, ccte_e, ccte_cp, ccte_cm, approxlp
+#
+# Options (positional, after algorithm):
+#   time_limit     - time limit in seconds per instance (e.g., 300)
+#   epsilon        - epsilon value for *_e, *_cp, *_cm algorithms
+#   ibound         - i-bound for ijgp* algorithms
+#   n_clusters     - number of clusters for *_cp, *_cm algorithms
 #
 # Examples:
+#   ./run.sh benchmarks/chain exact 300
 #   ./run.sh benchmarks/chain ccte 300
 #   ./run.sh benchmarks/polytree ccte_e 600 0.01
-#   ./run.sh benchmarks/random ariel 120
+#   ./run.sh benchmarks/polytree ijgp 300 "" 4
+#   ./run.sh benchmarks/polytree ijgp_e 600 0.01 4
+#   ./run.sh benchmarks/polytree ijgp_cp 600 0.01 4 10
+#   ./run.sh benchmarks/polytree ccte_cp 600 0.01 "" 10
 
 b=$1
 a=$2
 t=$3
 e=$4
 i=$5
+k=$6
 
 if [ -z "$b" ] || [ -z "$a" ]; then
-    echo "Usage: $0 <benchmark_dir> <algorithm> [time_limit] [epsilon] [ibound]"
+    echo "Usage: $0 <benchmark_dir> <algorithm> [time_limit] [epsilon] [ibound] [n_clusters]"
+    echo ""
+    echo "Algorithms: exact, ariel, ibp, ijgp, ijgp_e, ijgp_cp, ijgp_cm,"
+    echo "            ccte, ccte_e, ccte_cp, ccte_cm, approxlp"
     exit 1
 fi
 
@@ -30,19 +42,93 @@ mkdir -p logs
 
 l="logs/$(basename $b)_$a.log"
 
-# Build the command
+# Build the command based on the algorithm
 cmd="python experiments/run_experiment.py --input-dir $b --algorithms $a"
 
+# Add time limit if provided
 if [ -n "$t" ]; then
     cmd="$cmd --time-limit $t"
 fi
 
+if [ "$a" = "exact" ]; then
+    # exact: no extra arguments
+    :
+
+elif [ "$a" = "ariel" ]; then
+    # ariel: no extra arguments
+    :
+
+elif [ "$a" = "ibp" ]; then
+    # ibp: no extra arguments
+    :
+
+elif [ "$a" = "ijgp" ]; then
+    # ijgp: optional ibound
+    if [ -n "$i" ]; then
+        cmd="$cmd --ibound $i"
+    fi
+
+elif [ "$a" = "ijgp_e" ]; then
+    # ijgp_e: epsilon + optional ibound
     if [ -n "$e" ]; then
-    cmd="$cmd --epsilon $e"
+        cmd="$cmd --epsilon $e"
+    fi
+    if [ -n "$i" ]; then
+        cmd="$cmd --ibound $i"
+    fi
+
+elif [ "$a" = "ijgp_cp" ]; then
+    # ijgp_cp: ibound + n_clusters, cluster_representative=plub
+    if [ -n "$i" ]; then
+        cmd="$cmd --ibound $i"
+    fi
+    if [ -n "$k" ]; then
+        cmd="$cmd --n-clusters $k"
+    fi
+
+elif [ "$a" = "ijgp_cm" ]; then
+    # ijgp_cm: ibound + n_clusters, cluster_representative=mean
+    if [ -n "$i" ]; then
+        cmd="$cmd --ibound $i"
+    fi
+    if [ -n "$k" ]; then
+        cmd="$cmd --n-clusters $k --cluster-representative mean"
+    fi
+
+elif [ "$a" = "ccte" ]; then
+    # ccte: no extra arguments
+    :
+
+elif [ "$a" = "ccte_e" ]; then
+    # ccte_e: epsilon required
+    if [ -n "$e" ]; then
+        cmd="$cmd --epsilon $e"
+    fi
+
+elif [ "$a" = "ccte_cp" ]; then
+    # ccte_cp: n_clusters, cluster_representative=plub
+    if [ -n "$k" ]; then
+        cmd="$cmd --n-clusters $k --cluster-representative plub"
+    fi
+
+elif [ "$a" = "ccte_cm" ]; then
+    # ccte_cm: n_clusters, cluster_representative=mean
+    if [ -n "$k" ]; then
+        cmd="$cmd --n-clusters $k --cluster-representative mean"
+    fi
+
+elif [ "$a" = "approxlp" ]; then
+    # approxlp: no extra arguments
+    :
+
+else
+    echo "Unknown algorithm: $a"
+    echo "Allowed: exact, ariel, ibp, ijgp, ijgp_e, ijgp_cp, ijgp_cm,"
+    echo "         ccte, ccte_e, ccte_cp, ccte_cm, approxlp"
+    exit 1
 fi
 
-if [ -n "$i" ]; then
-    cmd="$cmd --ibound $i"
-fi
+echo "Running: $cmd"
+echo "Log: $l"
 
 ./timeout -m 30000000 $cmd >& $l
