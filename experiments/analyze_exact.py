@@ -277,6 +277,14 @@ def analyze(records, output_file=None, latex_file=None, group_by="size"):
         print(f"Saved LaTeX to {latex_file}")
 
 
+def _latex_safe(s):
+    """Escape a string for LaTeX. Wrap in math text if it contains underscores."""
+    s = str(s)
+    if "_" in s:
+        return "$\\text{" + s.replace("_", "\\_") + "}$"
+    return s
+
+
 def _save_latex(rows, path, group_by="size", caption="Results"):
     """Write rows as a LaTeX table."""
     if group_by == "instance":
@@ -339,7 +347,7 @@ def _save_latex(rows, path, group_by="size", caption="Results"):
                     else:
                         vals.append(f"{v:.2f}")
                 else:
-                    vals.append(str(v))
+                    vals.append(_latex_safe(v))
             f.write(" & ".join(vals) + " \\\\\n")
         f.write("\\bottomrule\n")
         f.write("\\end{tabular}\n")
