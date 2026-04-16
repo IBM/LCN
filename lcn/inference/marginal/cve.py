@@ -308,7 +308,8 @@ class CredalVE:
         self.credal_net = None
         self.extreme_points = None
 
-    def build(self, verbosity: int = 1) -> Dict:
+    def build(self, verbosity: int = 1,
+              factorization_method: str = "linear") -> Dict:
         """
         Build the credal network from the LCN factorization and enumerate
         extreme points via LRS.
@@ -316,6 +317,9 @@ class CredalVE:
         Args:
             verbosity: int
                 Verbosity level (0 is silent).
+            factorization_method: str
+                "linear" for standard LP/fractional LP factorization,
+                "nlp" for nonlinear program with pairwise independence.
 
         Returns:
             A dict of extreme points per node per parent configuration.
@@ -334,7 +338,7 @@ class CredalVE:
 
         # Step 2: Run the factorization to get local intervals
         self.factorization = Factorization(self.lcn)
-        self.factors = self.factorization.build()
+        self.factors = self.factorization.build(method=factorization_method)
 
         if verbosity > 0:
             print(f"[CredalVE] Factorization produced {len(self.factors)} factors.")

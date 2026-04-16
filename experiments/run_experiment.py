@@ -104,6 +104,10 @@ Parallel usage — each combination gets its own output file:
         choices=["plub", "mean"],
         help="Cluster representative for ijgp_c: plub or mean (default: plub)")
     parser.add_argument(
+        "--factorization-method", type=str, default="linear",
+        choices=["linear", "nlp"],
+        help="Factorization method: linear or nlp (default: linear)")
+    parser.add_argument(
         "--evidence", type=str, default="{}",
         help="evidence as JSON string (default: {})")
     parser.add_argument(
@@ -170,6 +174,8 @@ Parallel usage — each combination gets its own output file:
                     kwargs["epsilon"] = args.epsilon
                 if args.ibound is not None:
                     kwargs["ibound"] = args.ibound
+                if args.factorization_method != "linear":
+                    kwargs["factorization_method"] = args.factorization_method
 
                 result = run_single(
                     instance, algo, evidence=evidence,

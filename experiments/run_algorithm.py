@@ -252,8 +252,10 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
         elif algorithm in _CVE_ALGORITHMS:
             # Build factorization (CredalVE) — timed separately
             t_build_start = time.time()
+            fact_method = kwargs.get("factorization_method", "linear")
             cve = CredalVE(lcn=l)
-            cve.build(verbosity=verbosity)
+            cve.build(verbosity=verbosity,
+                      factorization_method=fact_method)
             t_build_end = time.time()
             result["build_time"] = round(t_build_end - t_build_start, 4)
             result["induced_width"] = _compute_induced_width(cve)
@@ -398,6 +400,10 @@ def main():
         choices=["plub", "mean"],
         help="Cluster representative for ijgp_c: plub or mean (default: plub)")
     parser.add_argument(
+        "--factorization-method", type=str, default="linear",
+        choices=["linear", "nlp"],
+        help="Factorization method: linear (LP) or nlp (with independence constraints) (default: linear)")
+    parser.add_argument(
         "--time-limit", type=float, default=None,
         help="Time limit in seconds per instance (default: unlimited)")
     parser.add_argument(
@@ -418,6 +424,8 @@ def main():
         kwargs["n_clusters"] = args.n_clusters
     if args.cluster_representative in ["plub", "mean"]:
         kwargs["cluster_representative"] = args.cluster_representative
+    if args.factorization_method != "linear":
+        kwargs["factorization_method"] = args.factorization_method
     result = run_single(
         args.instance, args.algorithm,
         evidence=evidence, verbosity=args.verbosity,

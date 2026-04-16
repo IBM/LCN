@@ -100,6 +100,93 @@ class Factorization:
             # e = denominator coefficients, f = 0
             return self._solve_charnes_cooper_lp(N, AE, 0.0, E, 0.0, constraint_rows, sense)
 
+    def solve_submodel_nlp(self, scope, literals, child, parents, sentences, sense):
+        """
+        Solve a nonlinear program for a single factor interpretation,
+        adding pairwise marginal independence constraints for all pairs
+        of variables in the scope: P(xi=1, xj=1) = P(xi=1) * P(xj=1).
+        """
+        items_tuples = list(itertools.product([0, 1], repeat=len(scope)))
+        interpretations = [dict(zip(scope, t)) for t in items_tuples]
+        N = len(interpretations)
+
+        model = ConcreteModel()
+        model.ITEMS = Set(initialize=range(N))
+        model.p = Var(model.ITEMS, within=NonNegativeReals)
+        model.constr = ConstraintList()
+
+        # Probability simplex: sum(p) = 1
+        model.constr.add(sum(model.p[i] for i in model.ITEMS) == 1.0)
+
+        # Sentence constraints (same as linear variant)
+        for sid in sentences:
+            s = self.lcn.sentences.get(sid)
+            if s.type == SentenceType.Type1:
+                A = _eval_indicator(s.phi_formula, interpretations)
+                lobo = s.get_lower_bound()
+                upbo = s.get_upper_bound()
+                expr = _dot(A, model, model.ITEMS)
+                model.constr.add(expr >= lobo)
+                model.constr.add(expr <= upbo)
+            else:
+                Aqr = _eval_indicator(s.phi_and_psi_formula, interpretations)
+                Ar = _eval_indicator(s.psi_formula, interpretations)
+                lobo = s.get_lower_bound()
+                upbo = s.get_upper_bound()
+                expr_qr = _dot(Aqr, model, model.ITEMS)
+                expr_r = _dot(Ar, model, model.ITEMS)
+                model.constr.add(expr_qr >= lobo * expr_r)
+                model.constr.add(expr_qr <= upbo * expr_r)
+
+        # Pairwise marginal independence constraints:
+        # For each pair (xi, xj), P(xi=1, xj=1) = P(xi=1) * P(xj=1)
+        for i in range(len(scope)):
+            for j in range(i + 1, len(scope)):
+                xi, xj = scope[i], scope[j]
+                lits_both = {xi: 1, xj: 1}
+                lits_xi = {xi: 1}
+                lits_xj = {xj: 1}
+                Fa = make_conjunction(variables=[xi, xj], literals=lits_both)
+                Fb = make_conjunction(variables=[xi], literals=lits_xi)
+                Fc = make_conjunction(variables=[xj], literals=lits_xj)
+                Aa = _eval_indicator(Fa, interpretations)
+                Ab = _eval_indicator(Fb, interpretations)
+                Ac = _eval_indicator(Fc, interpretations)
+                expr_joint = _dot(Aa, model, model.ITEMS)
+                expr_xi = _dot(Ab, model, model.ITEMS)
+                expr_xj = _dot(Ac, model, model.ITEMS)
+                model.constr.add(expr_joint == expr_xi * expr_xj)
+
+        # Objective
+        Fq = make_conjunction(variables=scope, literals=literals)
+        A = _eval_indicator(Fq, interpretations)
+
+        if len(parents) == 0:
+            # No parents: linear objective
+            obj_expr = _dot(A, model, model.ITEMS)
+            if sense == 'min':
+                model.objective = Objective(expr=obj_expr, sense=minimize)
+            else:
+                model.objective = Objective(expr=obj_expr, sense=maximize)
+        else:
+            # With parents: fractional objective via auxiliary variable
+            # obj = P(child_match AND parent_match) / P(parent_match)
+            Fe = make_conjunction(variables=parents, literals=literals)
+            E = _eval_indicator(Fe, interpretations)
+            AE = A * E
+
+            AE_expr = _dot(AE, model, model.ITEMS)
+            E_expr = _dot(E, model, model.ITEMS)
+
+            model.obj_var = Var(within=NonNegativeReals)
+            model.constr.add(model.obj_var * E_expr == AE_expr)
+            if sense == 'min':
+                model.objective = Objective(expr=model.obj_var, sense=minimize)
+            else:
+                model.objective = Objective(expr=model.obj_var, sense=maximize)
+
+        return self._solve_and_extract(model)
+
     def _solve_linear_lp(self, N, c, constraint_rows, sense):
         """Solve a standard LP: min/max c^T p subject to constraints."""
         model = ConcreteModel()
@@ -197,15 +284,25 @@ class Factorization:
             print(f"[Solver] objective={objective_value}, optimal={objective_optimal}")
         return objective_value
 
-    def build(self):
+    def build(self, method: str = "linear"):
         """
-        Process the factorization
+        Process the factorization.
+
+        Args:
+            method: "linear" for standard LP/fractional LP (default),
+                    "nlp" for nonlinear program with pairwise independence
+                    constraints.
         """
+        assert method in ("linear", "nlp"), \
+            f"Unknown method '{method}'. Use 'linear' or 'nlp'."
 
         # Ensure that the LCN has been postprocessed (structure, etc.)
         assert self.lcn.structure_graph is not None
         assert self.lcn.simplified_structure_graph is not None
         assert self.lcn.families is not None
+
+        solver_fn = self.solve_submodel if method == "linear" \
+            else self.solve_submodel_nlp
 
         # Process each family
         self.factors = []
@@ -227,16 +324,14 @@ class Factorization:
             print(f"Processing family: {child} <-- {parents}")
             print(f"Parents list: {parents_lst}")
             print(f"Full scope: {vars}")
-            if vars == ['x10', 'x5', 'x0', 'x2']:
-                aaa = 1 # breakpoint for debugging
 
             # Iterate over all interpretations of the scope
             factor = {}
             interpretations = list(itertools.product([0, 1], repeat=len(vars)))
             for i, interpretation in enumerate(interpretations):
                 literals = dict(zip(vars, interpretation))
-                lobo = self.solve_submodel(vars, literals, child, parents_lst, sentences, sense="min")
-                upbo = self.solve_submodel(vars, literals, child, parents_lst, sentences, sense="max")
+                lobo = solver_fn(vars, literals, child, parents_lst, sentences, sense="min")
+                upbo = solver_fn(vars, literals, child, parents_lst, sentences, sense="max")
                 factor[i] = {
                     "interpretation": interpretation,
                     "scope": vars,
