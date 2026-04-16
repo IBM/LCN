@@ -1,0 +1,1 @@
+{"algorithm": "ccte", "build_time": 0.0, "run_time": 0.0, "total_time": 3600.0, "induced_width": null, "status": "timeout", "marginals": {}, "error": "Time limit exceeded (3600.0s)", "epsilon": null, "instance": "benchmarks/chain/chain_n5_1.lcn", "benchmark": "chain", "graph_type": "chain", "num_vars": 5, "evidence": {}}
