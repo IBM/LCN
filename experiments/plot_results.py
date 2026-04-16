@@ -97,12 +97,9 @@ def _set_log_xaxis(ax, sizes):
     ax.minorticks_off()
 
 
-def plot_mae(df, output_prefix):
+def _plot_mae_panel(df, output_path, suptitle):
     """
-    Figure 1: Two side-by-side panels.
-      Left  -- MAE on lower bound vs. n
-      Right -- MAE on upper bound vs. n
-    Log-scale x-axis so points are evenly spaced.
+    Two side-by-side panels: MAE lower bound (left) and upper bound (right).
     """
     algos = sorted(df["algorithm"].unique(),
                    key=lambda a: list(ALGO_STYLE.keys()).index(a)
@@ -137,17 +134,34 @@ def plot_mae(df, output_prefix):
     fig.legend(handles, labels, loc="upper center",
                ncol=min(len(algos), 6), frameon=False,
                bbox_to_anchor=(0.5, 1.02), fontsize=9)
+    fig.suptitle(suptitle, fontsize=12, y=1.08)
     fig.tight_layout(rect=[0, 0, 1, 0.91])
 
-    path = f"{output_prefix}_mae.pdf"
-    fig.savefig(path, bbox_inches="tight", dpi=150)
-    print(f"Saved {path}")
+    fig.savefig(output_path, bbox_inches="tight", dpi=150)
+    print(f"Saved {output_path}")
     plt.close(fig)
+
+
+def plot_mae(exact_path, ref_path, output_prefix):
+    """
+    Generate separate MAE plots for exact and reference comparisons.
+    """
+    if exact_path and os.path.exists(exact_path):
+        df_exact = pd.read_csv(exact_path)
+        _plot_mae_panel(df_exact, f"{output_prefix}_mae_exact.pdf",
+                        "MAE vs. Exact")
+
+    if ref_path and os.path.exists(ref_path):
+        df_ref = pd.read_csv(ref_path)
+        _plot_mae_panel(df_ref, f"{output_prefix}_mae_ref.pdf",
+                        "MAE vs. Reference (ARIEL)")
 
 
 def plot_runtime(df, output_prefix, exact_times, ref_times):
     """
-    Figure 2: Total runtime vs. n (log-log scale).
+    Figure 2: Two side-by-side panels (log-log scale).
+      Left  -- Algorithm run time only (excludes build/factorization).
+      Right -- Total time (build + run), showing end-to-end cost.
     Exact and reference baselines plotted as separate dashed lines.
     """
     algos = sorted(df["algorithm"].unique(),
@@ -155,39 +169,57 @@ def plot_runtime(df, output_prefix, exact_times, ref_times):
                    if a in ALGO_STYLE else 999)
     sizes = sorted(df["num_vars"].unique())
 
-    fig, ax = plt.subplots(figsize=(6, 4))
+    fig, (ax_run, ax_total) = plt.subplots(1, 2, figsize=(10, 4),
+                                           sharey=True)
 
     for algo in algos:
         sub = df[df["algorithm"] == algo].sort_values("num_vars")
         if sub.empty:
             continue
         s = _style(algo)
+
+        # Run time (algorithm only, no build)
+        if "mean_run_time" in sub.columns:
+            ax_run.plot(sub["num_vars"], sub["mean_run_time"],
+                        marker=s["marker"], color=s["color"],
+                        label=s["label"], linewidth=1.4, markersize=6)
+
+        # Total time (build + run)
         time_col = "mean_total_time" if "mean_total_time" in sub.columns \
             else "total_time"
-        if time_col not in sub.columns:
-            continue
-        ax.plot(sub["num_vars"], sub[time_col],
-                marker=s["marker"], color=s["color"], label=s["label"],
-                linewidth=1.4, markersize=6)
+        if time_col in sub.columns:
+            ax_total.plot(sub["num_vars"], sub[time_col],
+                          marker=s["marker"], color=s["color"],
+                          label=s["label"], linewidth=1.4, markersize=6)
 
-    # Plot baselines
-    if exact_times is not None and not exact_times.empty:
-        ax.plot(exact_times["num_vars"], exact_times["exact_time"],
-                linestyle="--", color="black", linewidth=1.5,
-                marker="*", markersize=7, label="Exact", alpha=0.7)
-    if ref_times is not None and not ref_times.empty:
-        ax.plot(ref_times["num_vars"], ref_times["ref_time"],
-                linestyle=":", color="dimgray", linewidth=1.5,
-                marker=".", markersize=7, label="Reference (ARIEL)",
-                alpha=0.7)
+    # Plot baselines on both panels
+    for ax in (ax_run, ax_total):
+        if exact_times is not None and not exact_times.empty:
+            ax.plot(exact_times["num_vars"], exact_times["exact_time"],
+                    linestyle="--", color="black", linewidth=1.5,
+                    marker="*", markersize=7, label="Exact", alpha=0.7)
+        if ref_times is not None and not ref_times.empty:
+            ax.plot(ref_times["num_vars"], ref_times["ref_time"],
+                    linestyle=":", color="dimgray", linewidth=1.5,
+                    marker=".", markersize=7, label="Reference (ARIEL)",
+                    alpha=0.7)
 
-    _set_log_xaxis(ax, sizes)
-    ax.set_xlabel("Number of variables ($n$)")
-    ax.set_ylabel("Total time (seconds)")
-    ax.set_yscale("log")
-    ax.grid(True, alpha=0.25, which="both", linewidth=0.5)
-    ax.legend(frameon=False, fontsize=8.5, loc="best")
-    fig.tight_layout()
+    for ax, title in [(ax_run, "Run time (algorithm only)"),
+                      (ax_total, "Total time (build + run)")]:
+        _set_log_xaxis(ax, sizes)
+        ax.set_xlabel("Number of variables ($n$)")
+        ax.set_title(title, fontsize=11)
+        ax.set_yscale("log")
+        ax.grid(True, alpha=0.25, which="both", linewidth=0.5)
+
+    ax_run.set_ylabel("Time (seconds)")
+
+    # Shared legend at the top
+    handles, labels = ax_total.get_legend_handles_labels()
+    fig.legend(handles, labels, loc="upper center",
+               ncol=min(len(algos) + 2, 6), frameon=False,
+               bbox_to_anchor=(0.5, 1.02), fontsize=8.5)
+    fig.tight_layout(rect=[0, 0, 1, 0.91])
 
     path = f"{output_prefix}_runtime.pdf"
     fig.savefig(path, bbox_inches="tight", dpi=150)
@@ -218,7 +250,7 @@ def main():
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
 
-    plot_mae(df, args.output)
+    plot_mae(args.exact, args.ref, args.output)
     plot_runtime(df, args.output, exact_times, ref_times)
 
 
