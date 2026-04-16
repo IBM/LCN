@@ -558,7 +558,7 @@ if __name__ == "__main__":
 
     # Build the CredalVE (needed for extreme points)
     cve = CredalVE(lcn=l)
-    cve.build(verbosity=0)
+    cve.build(verbosity=1, factorization_method="nlp")
 
     # Create ApproxLP solver
     alp = ApproxLP(cve=cve)
