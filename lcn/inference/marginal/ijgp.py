@@ -775,27 +775,27 @@ if __name__ == "__main__":
                     print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
     # Load the LCN
-    file_name = "benchmarks/real/engine.lcn"
+    file_name = "benchmarks/real/alarm.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
     print(l)
 
     # Build the CredalVE (needed for extreme points)
     cve = CredalVE(lcn=l)
-    cve.build(verbosity=0)
+    cve.build(verbosity=1, factorization_method="nlp")
 
     # Create the IJGP solver
     ijgp = CredalIJGP(cve=cve)
 
     # Run IJGP with i_bound=2
     print("\n=== Interval IJGP (i_bound=2, no evidence) ===")
-    results = ijgp.run(evidence={}, i_bound=2, verbosity=3, n_clusters=4, cluster_representative="mean")
+    results = ijgp.run(evidence={}, i_bound=2, verbosity=3)
     print_singleton_marginals(results)
 
     # Run IJGP with i_bound=4
-    print("\n=== Interval IJGP (i_bound=4, no evidence) ===")
-    results = ijgp.run(evidence={}, i_bound=2, verbosity=3, n_clusters=4, cluster_representative="plub")
-    print_singleton_marginals(results)
+    # print("\n=== Interval IJGP (i_bound=4, no evidence) ===")
+    # results = ijgp.run(evidence={}, i_bound=2, verbosity=3, n_clusters=4, cluster_representative="plub")
+    # print_singleton_marginals(results)
 
     # Run IJGP with evidence
     # print("\n=== Interval IJGP (i_bound=4, x0=0) ===")
