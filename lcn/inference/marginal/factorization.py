@@ -103,8 +103,9 @@ class Factorization:
     def solve_submodel_nlp(self, scope, literals, child, parents, sentences, sense):
         """
         Solve a nonlinear program for a single factor interpretation,
-        adding pairwise marginal independence constraints for all pairs
-        of variables in the scope: P(xi=1, xj=1) = P(xi=1) * P(xj=1).
+        adding pairwise marginal independence constraints between parent
+        variables: P(xi=1, xj=1) = P(xi=1) * P(xj=1) for all pairs
+        of (individual) parent variables.
         """
         items_tuples = list(itertools.product([0, 1], repeat=len(scope)))
         interpretations = [dict(zip(scope, t)) for t in items_tuples]
@@ -138,11 +139,12 @@ class Factorization:
                 model.constr.add(expr_qr >= lobo * expr_r)
                 model.constr.add(expr_qr <= upbo * expr_r)
 
-        # Pairwise marginal independence constraints:
-        # For each pair (xi, xj), P(xi=1, xj=1) = P(xi=1) * P(xj=1)
-        for i in range(len(scope)):
-            for j in range(i + 1, len(scope)):
-                xi, xj = scope[i], scope[j]
+        # Pairwise marginal independence constraints between parent
+        # variables only: P(xi=1, xj=1) = P(xi=1) * P(xj=1)
+        # (parents is already flattened: compound nodes split by "-")
+        for i in range(len(parents)):
+            for j in range(i + 1, len(parents)):
+                xi, xj = parents[i], parents[j]
                 lits_both = {xi: 1, xj: 1}
                 lits_xi = {xi: 1}
                 lits_xj = {xj: 1}
