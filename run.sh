@@ -7,6 +7,7 @@
 #   benchmark_dir  - path to benchmark instances (e.g., benchmarks/polytree)
 #   algorithm      - one of: exact, ariel, ibp, ijgp, ijgp_e, ijgp_cp, ijgp_cm,
 #                    ccte, ccte_e, ccte_cp, ccte_cm, approxlp
+#   factorization  - the factorization to use (e.g., linear, nlp)
 #
 # Options (positional, after algorithm):
 #   time_limit     - time limit in seconds per instance (e.g., 300)
@@ -25,13 +26,14 @@
 
 b=$1
 a=$2
-t=$3
-e=$4
-i=$5
-k=$6
+f=$3
+t=$4
+e=$5
+i=$6
+k=$7
 
-if [ -z "$b" ] || [ -z "$a" ]; then
-    echo "Usage: $0 <benchmark_dir> <algorithm> [time_limit] [epsilon] [ibound] [n_clusters]"
+if [ -z "$b" ] || [ -z "$a" ] || [ -z "$f" ]; then
+    echo "Usage: $0 <benchmark_dir> <algorithm> <factorization> [time_limit] [epsilon] [ibound] [n_clusters]"
     echo ""
     echo "Algorithms: exact, ariel, ibp, ijgp, ijgp_e, ijgp_cp, ijgp_cm,"
     echo "            ccte, ccte_e, ccte_cp, ccte_cm, approxlp"
@@ -43,7 +45,7 @@ mkdir -p logs
 l="logs/$(basename $b)_$a.log"
 
 # Build the command based on the algorithm
-cmd="python experiments/run_experiment.py --input-dir $b --algorithms $a"
+cmd="python experiments/run_experiment.py --input-dir $b --algorithms $a --factorization-method $f"
 
 # Add time limit if provided
 if [ -n "$t" ]; then
