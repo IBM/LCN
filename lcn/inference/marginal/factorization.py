@@ -189,6 +189,119 @@ class Factorization:
 
         return self._solve_and_extract(model)
 
+    def solve_submodel_exact(self, scope, literals, child, parents, sentences, sense):
+        """
+        Solve a nonlinear program for a single factor interpretation using
+        ALL LCN sentences whose atoms fall within the scope and ALL LMC
+        independence constraints whose variables fall within the scope.
+
+        This is the most constrained factorization variant and produces
+        the tightest bounds.
+        """
+        items_tuples = list(itertools.product([0, 1], repeat=len(scope)))
+        interpretations = [dict(zip(scope, t)) for t in items_tuples]
+        N = len(interpretations)
+        scope_set = set(scope)
+
+        model = ConcreteModel()
+        model.ITEMS = Set(initialize=range(N))
+        model.p = Var(model.ITEMS, within=NonNegativeReals)
+        model.constr = ConstraintList()
+
+        # Probability simplex: sum(p) = 1
+        model.constr.add(sum(model.p[i] for i in model.ITEMS) == 1.0)
+
+        # ALL sentence constraints whose atoms are within the scope
+        for sid, s in self.lcn.sentences.items():
+            s_atoms = set(s.get_atoms().keys())
+            if not s_atoms.issubset(scope_set):
+                continue
+            if s.type == SentenceType.Type1:
+                A = _eval_indicator(s.phi_formula, interpretations)
+                lobo = s.get_lower_bound()
+                upbo = s.get_upper_bound()
+                expr = _dot(A, model, model.ITEMS)
+                model.constr.add(expr >= lobo)
+                model.constr.add(expr <= upbo)
+            else:
+                Aqr = _eval_indicator(s.phi_and_psi_formula, interpretations)
+                Ar = _eval_indicator(s.psi_formula, interpretations)
+                lobo = s.get_lower_bound()
+                upbo = s.get_upper_bound()
+                expr_qr = _dot(Aqr, model, model.ITEMS)
+                expr_r = _dot(Ar, model, model.ITEMS)
+                model.constr.add(expr_qr >= lobo * expr_r)
+                model.constr.add(expr_qr <= upbo * expr_r)
+
+        # ALL LMC independence constraints whose variables are within the scope
+        for indep in self.lcn.independencies.get_assertions():
+            X = list(indep.event1)
+            T = list(indep.event2)
+            S = list(indep.event3)
+            all_vars = set(X) | set(T) | set(S)
+            if not all_vars.issubset(scope_set):
+                continue
+
+            configs_S = [()] if len(S) == 0 else list(
+                itertools.product([0, 1], repeat=len(S)))
+            if len(S) > 0:
+                for t in T:
+                    x = X[0]
+                    lits = {x: 1, t: 1}
+                    for s_cfg in configs_S:
+                        lits.update(dict(zip(S, list(s_cfg))))
+                        Fa = make_conjunction(variables=X + S + [t], literals=lits)
+                        Fb = make_conjunction(variables=S, literals=lits)
+                        Fc = make_conjunction(variables=X + S, literals=lits)
+                        Fd = make_conjunction(variables=S + [t], literals=lits)
+                        Aa = _eval_indicator(Fa, interpretations)
+                        Ab = _eval_indicator(Fb, interpretations)
+                        Ac = _eval_indicator(Fc, interpretations)
+                        Ad = _eval_indicator(Fd, interpretations)
+                        val1 = _dot(Aa, model, model.ITEMS) * _dot(Ab, model, model.ITEMS)
+                        val2 = _dot(Ac, model, model.ITEMS) * _dot(Ad, model, model.ITEMS)
+                        model.constr.add(val1 - val2 == 0.0)
+            else:
+                for t in T:
+                    x = X[0]
+                    lits = {x: 1, t: 1}
+                    Fa = make_conjunction(variables=X + [t], literals=lits)
+                    Fb = make_conjunction(variables=X, literals=lits)
+                    Fc = make_conjunction(variables=[t], literals=lits)
+                    Aa = _eval_indicator(Fa, interpretations)
+                    Ab = _eval_indicator(Fb, interpretations)
+                    Ac = _eval_indicator(Fc, interpretations)
+                    val1 = _dot(Aa, model, model.ITEMS)
+                    val2 = _dot(Ab, model, model.ITEMS) * _dot(Ac, model, model.ITEMS)
+                    model.constr.add(val1 - val2 == 0.0)
+
+        # Objective
+        Fq = make_conjunction(variables=scope, literals=literals)
+        A = _eval_indicator(Fq, interpretations)
+
+        if len(parents) == 0:
+            obj_expr = _dot(A, model, model.ITEMS)
+            if sense == 'min':
+                model.objective = Objective(expr=obj_expr, sense=minimize)
+            else:
+                model.objective = Objective(expr=obj_expr, sense=maximize)
+        else:
+            Fe = make_conjunction(variables=parents, literals=literals)
+            E = _eval_indicator(Fe, interpretations)
+            AE = A * E
+
+            AE_expr = _dot(AE, model, model.ITEMS)
+            E_expr = _dot(E, model, model.ITEMS)
+
+            model.obj_var = Var(within=NonNegativeReals)
+            model.constr.add(model.obj_var * E_expr == AE_expr)
+            if sense == 'min':
+                model.objective = Objective(expr=model.obj_var, sense=minimize)
+            else:
+                model.objective = Objective(expr=model.obj_var, sense=maximize)
+
+        return self._solve_and_extract(model)
+
     def _solve_linear_lp(self, N, c, constraint_rows, sense):
         """Solve a standard LP: min/max c^T p subject to constraints."""
         model = ConcreteModel()
@@ -295,16 +408,23 @@ class Factorization:
                     "nlp" for nonlinear program with pairwise independence
                     constraints.
         """
-        assert method in ("linear", "nlp"), \
-            f"Unknown method '{method}'. Use 'linear' or 'nlp'."
+        assert method in ("linear", "nlp", "exact"), \
+            f"Unknown method '{method}'. Use 'linear', 'nlp', or 'exact'."
 
         # Ensure that the LCN has been postprocessed (structure, etc.)
         assert self.lcn.structure_graph is not None
         assert self.lcn.simplified_structure_graph is not None
         assert self.lcn.families is not None
+        if method == "exact":
+            assert self.lcn.independencies is not None, \
+                "LMC independencies must be computed before exact factorization."
 
-        solver_fn = self.solve_submodel if method == "linear" \
-            else self.solve_submodel_nlp
+        if method == "linear":
+            solver_fn = self.solve_submodel
+        elif method == "nlp":
+            solver_fn = self.solve_submodel_nlp
+        else:
+            solver_fn = self.solve_submodel_exact
 
         # Process each family
         self.factors = []

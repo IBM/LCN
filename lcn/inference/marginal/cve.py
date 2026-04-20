@@ -335,6 +335,9 @@ class CredalVE:
         assert self.lcn.is_chain_graph(), "The LCN must be a chain graph."
         if self.lcn.families is None:
             self.lcn.process_chain_graph()
+        if factorization_method == "exact":
+            if self.lcn.independencies is None:
+                self.lcn.local_markov_condition()
 
         # Step 2: Run the factorization to get local intervals
         self.factorization = Factorization(self.lcn)

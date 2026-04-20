@@ -105,8 +105,8 @@ Parallel usage — each combination gets its own output file:
         help="Cluster representative for ijgp_c: plub or mean (default: plub)")
     parser.add_argument(
         "--factorization-method", type=str, default="linear",
-        choices=["linear", "nlp"],
-        help="Factorization method: linear or nlp (default: linear)")
+        choices=["linear", "nlp", "exact"],
+        help="Factorization method: linear, nlp, or exact (default: linear)")
     parser.add_argument(
         "--evidence", type=str, default="{}",
         help="evidence as JSON string (default: {})")

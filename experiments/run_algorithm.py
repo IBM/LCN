@@ -401,8 +401,8 @@ def main():
         help="Cluster representative for ijgp_c: plub or mean (default: plub)")
     parser.add_argument(
         "--factorization-method", type=str, default="linear",
-        choices=["linear", "nlp"],
-        help="Factorization method: linear (LP) or nlp (with independence constraints) (default: linear)")
+        choices=["linear", "nlp", "exact"],
+        help="Factorization method: linear (LP), nlp (pairwise parent independence), or exact (all LMC independencies) (default: linear)")
     parser.add_argument(
         "--time-limit", type=float, default=None,
         help="Time limit in seconds per instance (default: unlimited)")
