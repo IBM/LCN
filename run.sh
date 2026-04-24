@@ -7,7 +7,7 @@
 #   benchmark_dir  - path to benchmark instances (e.g., benchmarks/polytree)
 #   algorithm      - one of: exact, ariel, ibp, ijgp, ijgp_e, ijgp_cp, ijgp_cm,
 #                    ccte, ccte_e, ccte_cp, ccte_cm, approxlp
-#   factorization  - the factorization to use (e.g., linear, nlp)
+#   factorization  - the factorization to use (e.g., linear, nlp, exact)
 #
 # Options (positional, after algorithm):
 #   time_limit     - time limit in seconds per instance (e.g., 300)
