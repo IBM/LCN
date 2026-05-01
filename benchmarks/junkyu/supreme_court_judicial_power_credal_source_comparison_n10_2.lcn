@@ -1,0 +1,359 @@
+# Title: Supreme Court Judicial Power
+# Summary: A data-backed benchmark derived from the Supreme Court judicial-power fit, with one issue atom feeding a single nine-justice undirected interaction component sourced either from the executed HITON artifacts or a paper-aligned XMRF re-estimation.
+# Benchmark Family: supreme_court_judicial_power
+# issue_judicial_power: The Supreme Court case falls in the judicial power issue area.
+# lib_breyer: Justice Stephen Breyer casts a liberal vote.
+# lib_ginsburg: Justice Ruth Bader Ginsburg casts a liberal vote.
+# lib_kennedy: Justice Anthony Kennedy casts a liberal vote.
+# lib_oconnor: Justice Sandra Day O'Connor casts a liberal vote.
+# lib_rehnquist: Chief Justice William Rehnquist casts a liberal vote.
+# lib_scalia: Justice Antonin Scalia casts a liberal vote.
+# lib_souter: Justice David Souter casts a liberal vote.
+# lib_stevens: Justice John Paul Stevens casts a liberal vote.
+# lib_thomas: Justice Clarence Thomas casts a liberal vote.
+
+jp_issue_prior: 0.149 <= P(issue_judicial_power) <= 0.149
+jp_bootstrap_j1_f_000: 0.026 <= P(lib_rehnquist | not issue_judicial_power and not lib_kennedy and not lib_souter and not lib_thomas and not lib_ginsburg and not lib_breyer) <= 0.085
+jp_bootstrap_j1_f_001: 0.101 <= P(lib_rehnquist | not issue_judicial_power and not lib_kennedy and not lib_souter and not lib_thomas and not lib_ginsburg and lib_breyer) <= 0.305
+jp_bootstrap_j1_f_002: 0.062 <= P(lib_rehnquist | not issue_judicial_power and not lib_kennedy and not lib_souter and not lib_thomas and lib_ginsburg and not lib_breyer) <= 0.35
+jp_bootstrap_j1_f_003: 0.218 <= P(lib_rehnquist | not issue_judicial_power and not lib_kennedy and not lib_souter and not lib_thomas and lib_ginsburg and lib_breyer) <= 0.704
+jp_bootstrap_j1_f_004: 0.187 <= P(lib_rehnquist | not issue_judicial_power and not lib_kennedy and not lib_souter and lib_thomas and not lib_ginsburg and not lib_breyer) <= 0.402
+jp_bootstrap_j1_f_005: 0.43 <= P(lib_rehnquist | not issue_judicial_power and not lib_kennedy and not lib_souter and lib_thomas and not lib_ginsburg and lib_breyer) <= 0.803
+jp_bootstrap_j1_f_006: 0.373 <= P(lib_rehnquist | not issue_judicial_power and not lib_kennedy and not lib_souter and lib_thomas and lib_ginsburg and not lib_breyer) <= 0.788
+jp_bootstrap_j1_f_007: 0.677 <= P(lib_rehnquist | not issue_judicial_power and not lib_kennedy and not lib_souter and lib_thomas and lib_ginsburg and lib_breyer) <= 0.948
+jp_bootstrap_j1_f_008: 0.025 <= P(lib_rehnquist | not issue_judicial_power and not lib_kennedy and lib_souter and not lib_thomas and not lib_ginsburg and not lib_breyer) <= 0.182
+jp_bootstrap_j1_f_009: 0.108 <= P(lib_rehnquist | not issue_judicial_power and not lib_kennedy and lib_souter and not lib_thomas and not lib_ginsburg and lib_breyer) <= 0.478
+jp_bootstrap_j1_f_010: 0.083 <= P(lib_rehnquist | not issue_judicial_power and not lib_kennedy and lib_souter and not lib_thomas and lib_ginsburg and not lib_breyer) <= 0.412
+jp_bootstrap_j1_f_011: 0.34 <= P(lib_rehnquist | not issue_judicial_power and not lib_kennedy and lib_souter and not lib_thomas and lib_ginsburg and lib_breyer) <= 0.745
+jp_bootstrap_j1_f_012: 0.188 <= P(lib_rehnquist | not issue_judicial_power and not lib_kennedy and lib_souter and lib_thomas and not lib_ginsburg and not lib_breyer) <= 0.628
+jp_bootstrap_j1_f_013: 0.472 <= P(lib_rehnquist | not issue_judicial_power and not lib_kennedy and lib_souter and lib_thomas and not lib_ginsburg and lib_breyer) <= 0.896
+jp_bootstrap_j1_f_014: 0.491 <= P(lib_rehnquist | not issue_judicial_power and not lib_kennedy and lib_souter and lib_thomas and lib_ginsburg and not lib_breyer) <= 0.831
+jp_bootstrap_j1_f_015: 0.796 <= P(lib_rehnquist | not issue_judicial_power and not lib_kennedy and lib_souter and lib_thomas and lib_ginsburg and lib_breyer) <= 0.957
+jp_bootstrap_j1_f_016: 0.261 <= P(lib_rehnquist | not issue_judicial_power and lib_kennedy and not lib_souter and not lib_thomas and not lib_ginsburg and not lib_breyer) <= 0.619
+jp_bootstrap_j1_f_017: 0.584 <= P(lib_rehnquist | not issue_judicial_power and lib_kennedy and not lib_souter and not lib_thomas and not lib_ginsburg and lib_breyer) <= 0.887
+jp_bootstrap_j1_f_018: 0.482 <= P(lib_rehnquist | not issue_judicial_power and lib_kennedy and not lib_souter and not lib_thomas and lib_ginsburg and not lib_breyer) <= 0.884
+jp_bootstrap_j1_f_019: 0.8 <= P(lib_rehnquist | not issue_judicial_power and lib_kennedy and not lib_souter and not lib_thomas and lib_ginsburg and lib_breyer) <= 0.973
+jp_bootstrap_j1_f_020: 0.764 <= P(lib_rehnquist | not issue_judicial_power and lib_kennedy and not lib_souter and lib_thomas and not lib_ginsburg and not lib_breyer) <= 0.915
+jp_bootstrap_j1_f_021: 0.922 <= P(lib_rehnquist | not issue_judicial_power and lib_kennedy and not lib_souter and lib_thomas and not lib_ginsburg and lib_breyer) <= 0.984
+jp_bootstrap_j1_f_022: 0.901 <= P(lib_rehnquist | not issue_judicial_power and lib_kennedy and not lib_souter and lib_thomas and lib_ginsburg and not lib_breyer) <= 0.982
+jp_bootstrap_j1_f_023: 0.971 <= P(lib_rehnquist | not issue_judicial_power and lib_kennedy and not lib_souter and lib_thomas and lib_ginsburg and lib_breyer) <= 0.996
+jp_bootstrap_j1_f_024: 0.281 <= P(lib_rehnquist | not issue_judicial_power and lib_kennedy and lib_souter and not lib_thomas and not lib_ginsburg and not lib_breyer) <= 0.785
+jp_bootstrap_j1_f_025: 0.657 <= P(lib_rehnquist | not issue_judicial_power and lib_kennedy and lib_souter and not lib_thomas and not lib_ginsburg and lib_breyer) <= 0.934
+jp_bootstrap_j1_f_026: 0.59 <= P(lib_rehnquist | not issue_judicial_power and lib_kennedy and lib_souter and not lib_thomas and lib_ginsburg and not lib_breyer) <= 0.915
+jp_bootstrap_j1_f_027: 0.884 <= P(lib_rehnquist | not issue_judicial_power and lib_kennedy and lib_souter and not lib_thomas and lib_ginsburg and lib_breyer) <= 0.978
+jp_bootstrap_j1_f_028: 0.781 <= P(lib_rehnquist | not issue_judicial_power and lib_kennedy and lib_souter and lib_thomas and not lib_ginsburg and not lib_breyer) <= 0.96
+jp_bootstrap_j1_f_029: 0.929 <= P(lib_rehnquist | not issue_judicial_power and lib_kennedy and lib_souter and lib_thomas and not lib_ginsburg and lib_breyer) <= 0.992
+jp_bootstrap_j1_f_030: 0.939 <= P(lib_rehnquist | not issue_judicial_power and lib_kennedy and lib_souter and lib_thomas and lib_ginsburg and not lib_breyer) <= 0.987
+jp_bootstrap_j1_f_031: 0.985 <= P(lib_rehnquist | not issue_judicial_power and lib_kennedy and lib_souter and lib_thomas and lib_ginsburg and lib_breyer) <= 0.997
+jp_bootstrap_j1_t_000: 0.013 <= P(lib_rehnquist | issue_judicial_power and not lib_kennedy and not lib_souter and not lib_thomas and not lib_ginsburg and not lib_breyer) <= 0.092
+jp_bootstrap_j1_t_001: 0.056 <= P(lib_rehnquist | issue_judicial_power and not lib_kennedy and not lib_souter and not lib_thomas and not lib_ginsburg and lib_breyer) <= 0.308
+jp_bootstrap_j1_t_002: 0.036 <= P(lib_rehnquist | issue_judicial_power and not lib_kennedy and not lib_souter and not lib_thomas and lib_ginsburg and not lib_breyer) <= 0.319
+jp_bootstrap_j1_t_003: 0.154 <= P(lib_rehnquist | issue_judicial_power and not lib_kennedy and not lib_souter and not lib_thomas and lib_ginsburg and lib_breyer) <= 0.662
+jp_bootstrap_j1_t_004: 0.097 <= P(lib_rehnquist | issue_judicial_power and not lib_kennedy and not lib_souter and lib_thomas and not lib_ginsburg and not lib_breyer) <= 0.441
+jp_bootstrap_j1_t_005: 0.311 <= P(lib_rehnquist | issue_judicial_power and not lib_kennedy and not lib_souter and lib_thomas and not lib_ginsburg and lib_breyer) <= 0.809
+jp_bootstrap_j1_t_006: 0.239 <= P(lib_rehnquist | issue_judicial_power and not lib_kennedy and not lib_souter and lib_thomas and lib_ginsburg and not lib_breyer) <= 0.773
+jp_bootstrap_j1_t_007: 0.587 <= P(lib_rehnquist | issue_judicial_power and not lib_kennedy and not lib_souter and lib_thomas and lib_ginsburg and lib_breyer) <= 0.949
+jp_bootstrap_j1_t_008: 0.015 <= P(lib_rehnquist | issue_judicial_power and not lib_kennedy and lib_souter and not lib_thomas and not lib_ginsburg and not lib_breyer) <= 0.184
+jp_bootstrap_j1_t_009: 0.067 <= P(lib_rehnquist | issue_judicial_power and not lib_kennedy and lib_souter and not lib_thomas and not lib_ginsburg and lib_breyer) <= 0.467
+jp_bootstrap_j1_t_010: 0.055 <= P(lib_rehnquist | issue_judicial_power and not lib_kennedy and lib_souter and not lib_thomas and lib_ginsburg and not lib_breyer) <= 0.398
+jp_bootstrap_j1_t_011: 0.235 <= P(lib_rehnquist | issue_judicial_power and not lib_kennedy and lib_souter and not lib_thomas and lib_ginsburg and lib_breyer) <= 0.733
+jp_bootstrap_j1_t_012: 0.114 <= P(lib_rehnquist | issue_judicial_power and not lib_kennedy and lib_souter and lib_thomas and not lib_ginsburg and not lib_breyer) <= 0.651
+jp_bootstrap_j1_t_013: 0.362 <= P(lib_rehnquist | issue_judicial_power and not lib_kennedy and lib_souter and lib_thomas and not lib_ginsburg and lib_breyer) <= 0.886
+jp_bootstrap_j1_t_014: 0.349 <= P(lib_rehnquist | issue_judicial_power and not lib_kennedy and lib_souter and lib_thomas and lib_ginsburg and not lib_breyer) <= 0.836
+jp_bootstrap_j1_t_015: 0.706 <= P(lib_rehnquist | issue_judicial_power and not lib_kennedy and lib_souter and lib_thomas and lib_ginsburg and lib_breyer) <= 0.958
+jp_bootstrap_j1_t_016: 0.159 <= P(lib_rehnquist | issue_judicial_power and lib_kennedy and not lib_souter and not lib_thomas and not lib_ginsburg and not lib_breyer) <= 0.644
+jp_bootstrap_j1_t_017: 0.466 <= P(lib_rehnquist | issue_judicial_power and lib_kennedy and not lib_souter and not lib_thomas and not lib_ginsburg and lib_breyer) <= 0.888
+jp_bootstrap_j1_t_018: 0.36 <= P(lib_rehnquist | issue_judicial_power and lib_kennedy and not lib_souter and not lib_thomas and lib_ginsburg and not lib_breyer) <= 0.889
+jp_bootstrap_j1_t_019: 0.711 <= P(lib_rehnquist | issue_judicial_power and lib_kennedy and not lib_souter and not lib_thomas and lib_ginsburg and lib_breyer) <= 0.971
+jp_bootstrap_j1_t_020: 0.608 <= P(lib_rehnquist | issue_judicial_power and lib_kennedy and not lib_souter and lib_thomas and not lib_ginsburg and not lib_breyer) <= 0.928
+jp_bootstrap_j1_t_021: 0.874 <= P(lib_rehnquist | issue_judicial_power and lib_kennedy and not lib_souter and lib_thomas and not lib_ginsburg and lib_breyer) <= 0.987
+jp_bootstrap_j1_t_022: 0.842 <= P(lib_rehnquist | issue_judicial_power and lib_kennedy and not lib_souter and lib_thomas and lib_ginsburg and not lib_breyer) <= 0.983
+jp_bootstrap_j1_t_023: 0.955 <= P(lib_rehnquist | issue_judicial_power and lib_kennedy and not lib_souter and lib_thomas and lib_ginsburg and lib_breyer) <= 0.997
+jp_bootstrap_j1_t_024: 0.19 <= P(lib_rehnquist | issue_judicial_power and lib_kennedy and lib_souter and not lib_thomas and not lib_ginsburg and not lib_breyer) <= 0.756
+jp_bootstrap_j1_t_025: 0.52 <= P(lib_rehnquist | issue_judicial_power and lib_kennedy and lib_souter and not lib_thomas and not lib_ginsburg and lib_breyer) <= 0.933
+jp_bootstrap_j1_t_026: 0.481 <= P(lib_rehnquist | issue_judicial_power and lib_kennedy and lib_souter and not lib_thomas and lib_ginsburg and not lib_breyer) <= 0.915
+jp_bootstrap_j1_t_027: 0.823 <= P(lib_rehnquist | issue_judicial_power and lib_kennedy and lib_souter and not lib_thomas and lib_ginsburg and lib_breyer) <= 0.979
+jp_bootstrap_j1_t_028: 0.64 <= P(lib_rehnquist | issue_judicial_power and lib_kennedy and lib_souter and lib_thomas and not lib_ginsburg and not lib_breyer) <= 0.962
+jp_bootstrap_j1_t_029: 0.894 <= P(lib_rehnquist | issue_judicial_power and lib_kennedy and lib_souter and lib_thomas and not lib_ginsburg and lib_breyer) <= 0.991
+jp_bootstrap_j1_t_030: 0.896 <= P(lib_rehnquist | issue_judicial_power and lib_kennedy and lib_souter and lib_thomas and lib_ginsburg and not lib_breyer) <= 0.985
+jp_bootstrap_j1_t_031: 0.975 <= P(lib_rehnquist | issue_judicial_power and lib_kennedy and lib_souter and lib_thomas and lib_ginsburg and lib_breyer) <= 0.997
+jp_bootstrap_j2_f_000: 0.005 <= P(lib_stevens | not issue_judicial_power and not lib_kennedy and not lib_souter and not lib_ginsburg and not lib_breyer) <= 0.016
+jp_bootstrap_j2_f_001: 0.045 <= P(lib_stevens | not issue_judicial_power and not lib_kennedy and not lib_souter and not lib_ginsburg and lib_breyer) <= 0.135
+jp_bootstrap_j2_f_002: 0.031 <= P(lib_stevens | not issue_judicial_power and not lib_kennedy and not lib_souter and lib_ginsburg and not lib_breyer) <= 0.118
+jp_bootstrap_j2_f_003: 0.233 <= P(lib_stevens | not issue_judicial_power and not lib_kennedy and not lib_souter and lib_ginsburg and lib_breyer) <= 0.585
+jp_bootstrap_j2_f_004: 0.022 <= P(lib_stevens | not issue_judicial_power and not lib_kennedy and lib_souter and not lib_ginsburg and not lib_breyer) <= 0.092
+jp_bootstrap_j2_f_005: 0.177 <= P(lib_stevens | not issue_judicial_power and not lib_kennedy and lib_souter and not lib_ginsburg and lib_breyer) <= 0.468
+jp_bootstrap_j2_f_006: 0.148 <= P(lib_stevens | not issue_judicial_power and not lib_kennedy and lib_souter and lib_ginsburg and not lib_breyer) <= 0.398
+jp_bootstrap_j2_f_007: 0.613 <= P(lib_stevens | not issue_judicial_power and not lib_kennedy and lib_souter and lib_ginsburg and lib_breyer) <= 0.867
+jp_bootstrap_j2_f_008: 0.017 <= P(lib_stevens | not issue_judicial_power and lib_kennedy and not lib_souter and not lib_ginsburg and not lib_breyer) <= 0.05
+jp_bootstrap_j2_f_009: 0.145 <= P(lib_stevens | not issue_judicial_power and lib_kennedy and not lib_souter and not lib_ginsburg and lib_breyer) <= 0.32
+jp_bootstrap_j2_f_010: 0.096 <= P(lib_stevens | not issue_judicial_power and lib_kennedy and not lib_souter and lib_ginsburg and not lib_breyer) <= 0.291
+jp_bootstrap_j2_f_011: 0.528 <= P(lib_stevens | not issue_judicial_power and lib_kennedy and not lib_souter and lib_ginsburg and lib_breyer) <= 0.782
+jp_bootstrap_j2_f_012: 0.07 <= P(lib_stevens | not issue_judicial_power and lib_kennedy and lib_souter and not lib_ginsburg and not lib_breyer) <= 0.229
+jp_bootstrap_j2_f_013: 0.44 <= P(lib_stevens | not issue_judicial_power and lib_kennedy and lib_souter and not lib_ginsburg and lib_breyer) <= 0.715
+jp_bootstrap_j2_f_014: 0.393 <= P(lib_stevens | not issue_judicial_power and lib_kennedy and lib_souter and lib_ginsburg and not lib_breyer) <= 0.644
+jp_bootstrap_j2_f_015: 0.874 <= P(lib_stevens | not issue_judicial_power and lib_kennedy and lib_souter and lib_ginsburg and lib_breyer) <= 0.94
+jp_bootstrap_j2_t_000: 0.011 <= P(lib_stevens | issue_judicial_power and not lib_kennedy and not lib_souter and not lib_ginsburg and not lib_breyer) <= 0.046
+jp_bootstrap_j2_t_001: 0.097 <= P(lib_stevens | issue_judicial_power and not lib_kennedy and not lib_souter and not lib_ginsburg and lib_breyer) <= 0.323
+jp_bootstrap_j2_t_002: 0.073 <= P(lib_stevens | issue_judicial_power and not lib_kennedy and not lib_souter and lib_ginsburg and not lib_breyer) <= 0.289
+jp_bootstrap_j2_t_003: 0.413 <= P(lib_stevens | issue_judicial_power and not lib_kennedy and not lib_souter and lib_ginsburg and lib_breyer) <= 0.793
+jp_bootstrap_j2_t_004: 0.046 <= P(lib_stevens | issue_judicial_power and not lib_kennedy and lib_souter and not lib_ginsburg and not lib_breyer) <= 0.218
+jp_bootstrap_j2_t_005: 0.316 <= P(lib_stevens | issue_judicial_power and not lib_kennedy and lib_souter and not lib_ginsburg and lib_breyer) <= 0.741
+jp_bootstrap_j2_t_006: 0.289 <= P(lib_stevens | issue_judicial_power and not lib_kennedy and lib_souter and lib_ginsburg and not lib_breyer) <= 0.665
+jp_bootstrap_j2_t_007: 0.785 <= P(lib_stevens | issue_judicial_power and not lib_kennedy and lib_souter and lib_ginsburg and lib_breyer) <= 0.949
+jp_bootstrap_j2_t_008: 0.035 <= P(lib_stevens | issue_judicial_power and lib_kennedy and not lib_souter and not lib_ginsburg and not lib_breyer) <= 0.131
+jp_bootstrap_j2_t_009: 0.258 <= P(lib_stevens | issue_judicial_power and lib_kennedy and not lib_souter and not lib_ginsburg and lib_breyer) <= 0.586
+jp_bootstrap_j2_t_010: 0.204 <= P(lib_stevens | issue_judicial_power and lib_kennedy and not lib_souter and lib_ginsburg and not lib_breyer) <= 0.543
+jp_bootstrap_j2_t_011: 0.716 <= P(lib_stevens | issue_judicial_power and lib_kennedy and not lib_souter and lib_ginsburg and lib_breyer) <= 0.916
+jp_bootstrap_j2_t_012: 0.138 <= P(lib_stevens | issue_judicial_power and lib_kennedy and lib_souter and not lib_ginsburg and not lib_breyer) <= 0.464
+jp_bootstrap_j2_t_013: 0.626 <= P(lib_stevens | issue_judicial_power and lib_kennedy and lib_souter and not lib_ginsburg and lib_breyer) <= 0.884
+jp_bootstrap_j2_t_014: 0.594 <= P(lib_stevens | issue_judicial_power and lib_kennedy and lib_souter and lib_ginsburg and not lib_breyer) <= 0.846
+jp_bootstrap_j2_t_015: 0.933 <= P(lib_stevens | issue_judicial_power and lib_kennedy and lib_souter and lib_ginsburg and lib_breyer) <= 0.98
+jp_bootstrap_j3_f_000: 0.025 <= P(lib_oconnor | not issue_judicial_power and not lib_kennedy and not lib_souter and not lib_thomas and not lib_breyer) <= 0.084
+jp_bootstrap_j3_f_001: 0.231 <= P(lib_oconnor | not issue_judicial_power and not lib_kennedy and not lib_souter and not lib_thomas and lib_breyer) <= 0.556
+jp_bootstrap_j3_f_002: 0.097 <= P(lib_oconnor | not issue_judicial_power and not lib_kennedy and not lib_souter and lib_thomas and not lib_breyer) <= 0.248
+jp_bootstrap_j3_f_003: 0.539 <= P(lib_oconnor | not issue_judicial_power and not lib_kennedy and not lib_souter and lib_thomas and lib_breyer) <= 0.837
+jp_bootstrap_j3_f_004: 0.101 <= P(lib_oconnor | not issue_judicial_power and not lib_kennedy and lib_souter and not lib_thomas and not lib_breyer) <= 0.39
+jp_bootstrap_j3_f_005: 0.638 <= P(lib_oconnor | not issue_judicial_power and not lib_kennedy and lib_souter and not lib_thomas and lib_breyer) <= 0.874
+jp_bootstrap_j3_f_006: 0.335 <= P(lib_oconnor | not issue_judicial_power and not lib_kennedy and lib_souter and lib_thomas and not lib_breyer) <= 0.713
+jp_bootstrap_j3_f_007: 0.866 <= P(lib_oconnor | not issue_judicial_power and not lib_kennedy and lib_souter and lib_thomas and lib_breyer) <= 0.969
+jp_bootstrap_j3_f_008: 0.11 <= P(lib_oconnor | not issue_judicial_power and lib_kennedy and not lib_souter and not lib_thomas and not lib_breyer) <= 0.325
+jp_bootstrap_j3_f_009: 0.601 <= P(lib_oconnor | not issue_judicial_power and lib_kennedy and not lib_souter and not lib_thomas and lib_breyer) <= 0.878
+jp_bootstrap_j3_f_010: 0.388 <= P(lib_oconnor | not issue_judicial_power and lib_kennedy and not lib_souter and lib_thomas and not lib_breyer) <= 0.605
+jp_bootstrap_j3_f_011: 0.867 <= P(lib_oconnor | not issue_judicial_power and lib_kennedy and not lib_souter and lib_thomas and lib_breyer) <= 0.963
+jp_bootstrap_j3_f_012: 0.359 <= P(lib_oconnor | not issue_judicial_power and lib_kennedy and lib_souter and not lib_thomas and not lib_breyer) <= 0.78
+jp_bootstrap_j3_f_013: 0.895 <= P(lib_oconnor | not issue_judicial_power and lib_kennedy and lib_souter and not lib_thomas and lib_breyer) <= 0.976
+jp_bootstrap_j3_f_014: 0.742 <= P(lib_oconnor | not issue_judicial_power and lib_kennedy and lib_souter and lib_thomas and not lib_breyer) <= 0.927
+jp_bootstrap_j3_f_015: 0.975 <= P(lib_oconnor | not issue_judicial_power and lib_kennedy and lib_souter and lib_thomas and lib_breyer) <= 0.994
+jp_bootstrap_j3_t_000: 0.012 <= P(lib_oconnor | issue_judicial_power and not lib_kennedy and not lib_souter and not lib_thomas and not lib_breyer) <= 0.075
+jp_bootstrap_j3_t_001: 0.136 <= P(lib_oconnor | issue_judicial_power and not lib_kennedy and not lib_souter and not lib_thomas and lib_breyer) <= 0.522
+jp_bootstrap_j3_t_002: 0.057 <= P(lib_oconnor | issue_judicial_power and not lib_kennedy and not lib_souter and lib_thomas and not lib_breyer) <= 0.223
+jp_bootstrap_j3_t_003: 0.417 <= P(lib_oconnor | issue_judicial_power and not lib_kennedy and not lib_souter and lib_thomas and lib_breyer) <= 0.804
+jp_bootstrap_j3_t_004: 0.067 <= P(lib_oconnor | issue_judicial_power and not lib_kennedy and lib_souter and not lib_thomas and not lib_breyer) <= 0.333
+jp_bootstrap_j3_t_005: 0.504 <= P(lib_oconnor | issue_judicial_power and not lib_kennedy and lib_souter and not lib_thomas and lib_breyer) <= 0.852
+jp_bootstrap_j3_t_006: 0.244 <= P(lib_oconnor | issue_judicial_power and not lib_kennedy and lib_souter and lib_thomas and not lib_breyer) <= 0.652
+jp_bootstrap_j3_t_007: 0.804 <= P(lib_oconnor | issue_judicial_power and not lib_kennedy and lib_souter and lib_thomas and lib_breyer) <= 0.96
+jp_bootstrap_j3_t_008: 0.055 <= P(lib_oconnor | issue_judicial_power and lib_kennedy and not lib_souter and not lib_thomas and not lib_breyer) <= 0.319
+jp_bootstrap_j3_t_009: 0.416 <= P(lib_oconnor | issue_judicial_power and lib_kennedy and not lib_souter and not lib_thomas and lib_breyer) <= 0.869
+jp_bootstrap_j3_t_010: 0.242 <= P(lib_oconnor | issue_judicial_power and lib_kennedy and not lib_souter and lib_thomas and not lib_breyer) <= 0.601
+jp_bootstrap_j3_t_011: 0.785 <= P(lib_oconnor | issue_judicial_power and lib_kennedy and not lib_souter and lib_thomas and lib_breyer) <= 0.955
+jp_bootstrap_j3_t_012: 0.257 <= P(lib_oconnor | issue_judicial_power and lib_kennedy and lib_souter and not lib_thomas and not lib_breyer) <= 0.753
+jp_bootstrap_j3_t_013: 0.832 <= P(lib_oconnor | issue_judicial_power and lib_kennedy and lib_souter and not lib_thomas and lib_breyer) <= 0.972
+jp_bootstrap_j3_t_014: 0.64 <= P(lib_oconnor | issue_judicial_power and lib_kennedy and lib_souter and lib_thomas and not lib_breyer) <= 0.908
+jp_bootstrap_j3_t_015: 0.959 <= P(lib_oconnor | issue_judicial_power and lib_kennedy and lib_souter and lib_thomas and lib_breyer) <= 0.992
+jp_bootstrap_j4_f_000: 0.034 <= P(lib_scalia | not issue_judicial_power and not lib_kennedy and not lib_thomas) <= 0.105
+jp_bootstrap_j4_f_001: 0.758 <= P(lib_scalia | not issue_judicial_power and not lib_kennedy and lib_thomas) <= 0.889
+jp_bootstrap_j4_f_002: 0.123 <= P(lib_scalia | not issue_judicial_power and lib_kennedy and not lib_thomas) <= 0.361
+jp_bootstrap_j4_f_003: 0.933 <= P(lib_scalia | not issue_judicial_power and lib_kennedy and lib_thomas) <= 0.972
+jp_bootstrap_j4_t_000: 0.041 <= P(lib_scalia | issue_judicial_power and not lib_kennedy and not lib_thomas) <= 0.218
+jp_bootstrap_j4_t_001: 0.76 <= P(lib_scalia | issue_judicial_power and not lib_kennedy and lib_thomas) <= 0.957
+jp_bootstrap_j4_t_002: 0.176 <= P(lib_scalia | issue_judicial_power and lib_kennedy and not lib_thomas) <= 0.551
+jp_bootstrap_j4_t_003: 0.941 <= P(lib_scalia | issue_judicial_power and lib_kennedy and lib_thomas) <= 0.989
+jp_bootstrap_j5_f_000: 0.008 <= P(lib_kennedy | not issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_oconnor and not lib_scalia and not lib_thomas) <= 0.029
+jp_bootstrap_j5_f_001: 0.018 <= P(lib_kennedy | not issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_oconnor and not lib_scalia and lib_thomas) <= 0.104
+jp_bootstrap_j5_f_002: 0.028 <= P(lib_kennedy | not issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_oconnor and lib_scalia and not lib_thomas) <= 0.141
+jp_bootstrap_j5_f_003: 0.09 <= P(lib_kennedy | not issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_oconnor and lib_scalia and lib_thomas) <= 0.278
+jp_bootstrap_j5_f_004: 0.036 <= P(lib_kennedy | not issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_oconnor and not lib_scalia and not lib_thomas) <= 0.145
+jp_bootstrap_j5_f_005: 0.088 <= P(lib_kennedy | not issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_oconnor and not lib_scalia and lib_thomas) <= 0.377
+jp_bootstrap_j5_f_006: 0.125 <= P(lib_kennedy | not issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_oconnor and lib_scalia and not lib_thomas) <= 0.467
+jp_bootstrap_j5_f_007: 0.344 <= P(lib_kennedy | not issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_oconnor and lib_scalia and lib_thomas) <= 0.669
+jp_bootstrap_j5_f_008: 0.024 <= P(lib_kennedy | not issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_oconnor and not lib_scalia and not lib_thomas) <= 0.104
+jp_bootstrap_j5_f_009: 0.053 <= P(lib_kennedy | not issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_oconnor and not lib_scalia and lib_thomas) <= 0.278
+jp_bootstrap_j5_f_010: 0.071 <= P(lib_kennedy | not issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_oconnor and lib_scalia and not lib_thomas) <= 0.385
+jp_bootstrap_j5_f_011: 0.227 <= P(lib_kennedy | not issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_oconnor and lib_scalia and lib_thomas) <= 0.62
+jp_bootstrap_j5_f_012: 0.115 <= P(lib_kennedy | not issue_judicial_power and not lib_rehnquist and lib_stevens and lib_oconnor and not lib_scalia and not lib_thomas) <= 0.362
+jp_bootstrap_j5_f_013: 0.23 <= P(lib_kennedy | not issue_judicial_power and not lib_rehnquist and lib_stevens and lib_oconnor and not lib_scalia and lib_thomas) <= 0.662
+jp_bootstrap_j5_f_014: 0.288 <= P(lib_kennedy | not issue_judicial_power and not lib_rehnquist and lib_stevens and lib_oconnor and lib_scalia and not lib_thomas) <= 0.748
+jp_bootstrap_j5_f_015: 0.622 <= P(lib_kennedy | not issue_judicial_power and not lib_rehnquist and lib_stevens and lib_oconnor and lib_scalia and lib_thomas) <= 0.88
+jp_bootstrap_j5_f_016: 0.105 <= P(lib_kennedy | not issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_oconnor and not lib_scalia and not lib_thomas) <= 0.322
+jp_bootstrap_j5_f_017: 0.263 <= P(lib_kennedy | not issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_oconnor and not lib_scalia and lib_thomas) <= 0.62
+jp_bootstrap_j5_f_018: 0.284 <= P(lib_kennedy | not issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_oconnor and lib_scalia and not lib_thomas) <= 0.737
+jp_bootstrap_j5_f_019: 0.66 <= P(lib_kennedy | not issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_oconnor and lib_scalia and lib_thomas) <= 0.828
+jp_bootstrap_j5_f_020: 0.367 <= P(lib_kennedy | not issue_judicial_power and lib_rehnquist and not lib_stevens and lib_oconnor and not lib_scalia and not lib_thomas) <= 0.734
+jp_bootstrap_j5_f_021: 0.627 <= P(lib_kennedy | not issue_judicial_power and lib_rehnquist and not lib_stevens and lib_oconnor and not lib_scalia and lib_thomas) <= 0.898
+jp_bootstrap_j5_f_022: 0.683 <= P(lib_kennedy | not issue_judicial_power and lib_rehnquist and not lib_stevens and lib_oconnor and lib_scalia and not lib_thomas) <= 0.939
+jp_bootstrap_j5_f_023: 0.913 <= P(lib_kennedy | not issue_judicial_power and lib_rehnquist and not lib_stevens and lib_oconnor and lib_scalia and lib_thomas) <= 0.963
+jp_bootstrap_j5_f_024: 0.259 <= P(lib_kennedy | not issue_judicial_power and lib_rehnquist and lib_stevens and not lib_oconnor and not lib_scalia and not lib_thomas) <= 0.625
+jp_bootstrap_j5_f_025: 0.495 <= P(lib_kennedy | not issue_judicial_power and lib_rehnquist and lib_stevens and not lib_oconnor and not lib_scalia and lib_thomas) <= 0.849
+jp_bootstrap_j5_f_026: 0.546 <= P(lib_kennedy | not issue_judicial_power and lib_rehnquist and lib_stevens and not lib_oconnor and lib_scalia and not lib_thomas) <= 0.905
+jp_bootstrap_j5_f_027: 0.838 <= P(lib_kennedy | not issue_judicial_power and lib_rehnquist and lib_stevens and not lib_oconnor and lib_scalia and lib_thomas) <= 0.947
+jp_bootstrap_j5_f_028: 0.655 <= P(lib_kennedy | not issue_judicial_power and lib_rehnquist and lib_stevens and lib_oconnor and not lib_scalia and not lib_thomas) <= 0.899
+jp_bootstrap_j5_f_029: 0.839 <= P(lib_kennedy | not issue_judicial_power and lib_rehnquist and lib_stevens and lib_oconnor and not lib_scalia and lib_thomas) <= 0.964
+jp_bootstrap_j5_f_030: 0.865 <= P(lib_kennedy | not issue_judicial_power and lib_rehnquist and lib_stevens and lib_oconnor and lib_scalia and not lib_thomas) <= 0.98
+jp_bootstrap_j5_f_031: 0.967 <= P(lib_kennedy | not issue_judicial_power and lib_rehnquist and lib_stevens and lib_oconnor and lib_scalia and lib_thomas) <= 0.989
+jp_bootstrap_j5_t_000: 0.005 <= P(lib_kennedy | issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_oconnor and not lib_scalia and not lib_thomas) <= 0.029
+jp_bootstrap_j5_t_001: 0.01 <= P(lib_kennedy | issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_oconnor and not lib_scalia and lib_thomas) <= 0.097
+jp_bootstrap_j5_t_002: 0.016 <= P(lib_kennedy | issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_oconnor and lib_scalia and not lib_thomas) <= 0.131
+jp_bootstrap_j5_t_003: 0.055 <= P(lib_kennedy | issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_oconnor and lib_scalia and lib_thomas) <= 0.256
+jp_bootstrap_j5_t_004: 0.024 <= P(lib_kennedy | issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_oconnor and not lib_scalia and not lib_thomas) <= 0.128
+jp_bootstrap_j5_t_005: 0.054 <= P(lib_kennedy | issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_oconnor and not lib_scalia and lib_thomas) <= 0.354
+jp_bootstrap_j5_t_006: 0.08 <= P(lib_kennedy | issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_oconnor and lib_scalia and not lib_thomas) <= 0.444
+jp_bootstrap_j5_t_007: 0.242 <= P(lib_kennedy | issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_oconnor and lib_scalia and lib_thomas) <= 0.636
+jp_bootstrap_j5_t_008: 0.014 <= P(lib_kennedy | issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_oconnor and not lib_scalia and not lib_thomas) <= 0.088
+jp_bootstrap_j5_t_009: 0.031 <= P(lib_kennedy | issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_oconnor and not lib_scalia and lib_thomas) <= 0.25
+jp_bootstrap_j5_t_010: 0.047 <= P(lib_kennedy | issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_oconnor and lib_scalia and not lib_thomas) <= 0.346
+jp_bootstrap_j5_t_011: 0.148 <= P(lib_kennedy | issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_oconnor and lib_scalia and lib_thomas) <= 0.564
+jp_bootstrap_j5_t_012: 0.073 <= P(lib_kennedy | issue_judicial_power and not lib_rehnquist and lib_stevens and lib_oconnor and not lib_scalia and not lib_thomas) <= 0.332
+jp_bootstrap_j5_t_013: 0.154 <= P(lib_kennedy | issue_judicial_power and not lib_rehnquist and lib_stevens and lib_oconnor and not lib_scalia and lib_thomas) <= 0.622
+jp_bootstrap_j5_t_014: 0.22 <= P(lib_kennedy | issue_judicial_power and not lib_rehnquist and lib_stevens and lib_oconnor and lib_scalia and not lib_thomas) <= 0.724
+jp_bootstrap_j5_t_015: 0.502 <= P(lib_kennedy | issue_judicial_power and not lib_rehnquist and lib_stevens and lib_oconnor and lib_scalia and lib_thomas) <= 0.861
+jp_bootstrap_j5_t_016: 0.064 <= P(lib_kennedy | issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_oconnor and not lib_scalia and not lib_thomas) <= 0.307
+jp_bootstrap_j5_t_017: 0.164 <= P(lib_kennedy | issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_oconnor and not lib_scalia and lib_thomas) <= 0.591
+jp_bootstrap_j5_t_018: 0.212 <= P(lib_kennedy | issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_oconnor and lib_scalia and not lib_thomas) <= 0.681
+jp_bootstrap_j5_t_019: 0.508 <= P(lib_kennedy | issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_oconnor and lib_scalia and lib_thomas) <= 0.824
+jp_bootstrap_j5_t_020: 0.265 <= P(lib_kennedy | issue_judicial_power and lib_rehnquist and not lib_stevens and lib_oconnor and not lib_scalia and not lib_thomas) <= 0.687
+jp_bootstrap_j5_t_021: 0.509 <= P(lib_kennedy | issue_judicial_power and lib_rehnquist and not lib_stevens and lib_oconnor and not lib_scalia and lib_thomas) <= 0.887
+jp_bootstrap_j5_t_022: 0.594 <= P(lib_kennedy | issue_judicial_power and lib_rehnquist and not lib_stevens and lib_oconnor and lib_scalia and not lib_thomas) <= 0.922
+jp_bootstrap_j5_t_023: 0.856 <= P(lib_kennedy | issue_judicial_power and lib_rehnquist and not lib_stevens and lib_oconnor and lib_scalia and lib_thomas) <= 0.96
+jp_bootstrap_j5_t_024: 0.178 <= P(lib_kennedy | issue_judicial_power and lib_rehnquist and lib_stevens and not lib_oconnor and not lib_scalia and not lib_thomas) <= 0.599
+jp_bootstrap_j5_t_025: 0.354 <= P(lib_kennedy | issue_judicial_power and lib_rehnquist and lib_stevens and not lib_oconnor and not lib_scalia and lib_thomas) <= 0.829
+jp_bootstrap_j5_t_026: 0.434 <= P(lib_kennedy | issue_judicial_power and lib_rehnquist and lib_stevens and not lib_oconnor and lib_scalia and not lib_thomas) <= 0.883
+jp_bootstrap_j5_t_027: 0.755 <= P(lib_kennedy | issue_judicial_power and lib_rehnquist and lib_stevens and not lib_oconnor and lib_scalia and lib_thomas) <= 0.944
+jp_bootstrap_j5_t_028: 0.547 <= P(lib_kennedy | issue_judicial_power and lib_rehnquist and lib_stevens and lib_oconnor and not lib_scalia and not lib_thomas) <= 0.883
+jp_bootstrap_j5_t_029: 0.775 <= P(lib_kennedy | issue_judicial_power and lib_rehnquist and lib_stevens and lib_oconnor and not lib_scalia and lib_thomas) <= 0.962
+jp_bootstrap_j5_t_030: 0.808 <= P(lib_kennedy | issue_judicial_power and lib_rehnquist and lib_stevens and lib_oconnor and lib_scalia and not lib_thomas) <= 0.974
+jp_bootstrap_j5_t_031: 0.948 <= P(lib_kennedy | issue_judicial_power and lib_rehnquist and lib_stevens and lib_oconnor and lib_scalia and lib_thomas) <= 0.988
+jp_bootstrap_j6_f_000: 0.006 <= P(lib_souter | not issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_oconnor and not lib_ginsburg) <= 0.031
+jp_bootstrap_j6_f_001: 0.119 <= P(lib_souter | not issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_oconnor and lib_ginsburg) <= 0.436
+jp_bootstrap_j6_f_002: 0.035 <= P(lib_souter | not issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_oconnor and not lib_ginsburg) <= 0.159
+jp_bootstrap_j6_f_003: 0.443 <= P(lib_souter | not issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_oconnor and lib_ginsburg) <= 0.835
+jp_bootstrap_j6_f_004: 0.027 <= P(lib_souter | not issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_oconnor and not lib_ginsburg) <= 0.161
+jp_bootstrap_j6_f_005: 0.384 <= P(lib_souter | not issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_oconnor and lib_ginsburg) <= 0.816
+jp_bootstrap_j6_f_006: 0.146 <= P(lib_souter | not issue_judicial_power and not lib_rehnquist and lib_stevens and lib_oconnor and not lib_ginsburg) <= 0.514
+jp_bootstrap_j6_f_007: 0.802 <= P(lib_souter | not issue_judicial_power and not lib_rehnquist and lib_stevens and lib_oconnor and lib_ginsburg) <= 0.964
+jp_bootstrap_j6_f_008: 0.01 <= P(lib_souter | not issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_oconnor and not lib_ginsburg) <= 0.044
+jp_bootstrap_j6_f_009: 0.2 <= P(lib_souter | not issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_oconnor and lib_ginsburg) <= 0.519
+jp_bootstrap_j6_f_010: 0.073 <= P(lib_souter | not issue_judicial_power and lib_rehnquist and not lib_stevens and lib_oconnor and not lib_ginsburg) <= 0.181
+jp_bootstrap_j6_f_011: 0.65 <= P(lib_souter | not issue_judicial_power and lib_rehnquist and not lib_stevens and lib_oconnor and lib_ginsburg) <= 0.838
+jp_bootstrap_j6_f_012: 0.044 <= P(lib_souter | not issue_judicial_power and lib_rehnquist and lib_stevens and not lib_oconnor and not lib_ginsburg) <= 0.225
+jp_bootstrap_j6_f_013: 0.527 <= P(lib_souter | not issue_judicial_power and lib_rehnquist and lib_stevens and not lib_oconnor and lib_ginsburg) <= 0.857
+jp_bootstrap_j6_f_014: 0.257 <= P(lib_souter | not issue_judicial_power and lib_rehnquist and lib_stevens and lib_oconnor and not lib_ginsburg) <= 0.562
+jp_bootstrap_j6_f_015: 0.902 <= P(lib_souter | not issue_judicial_power and lib_rehnquist and lib_stevens and lib_oconnor and lib_ginsburg) <= 0.966
+jp_bootstrap_j6_t_000: 0.004 <= P(lib_souter | issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_oconnor and not lib_ginsburg) <= 0.037
+jp_bootstrap_j6_t_001: 0.089 <= P(lib_souter | issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_oconnor and lib_ginsburg) <= 0.477
+jp_bootstrap_j6_t_002: 0.028 <= P(lib_souter | issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_oconnor and not lib_ginsburg) <= 0.203
+jp_bootstrap_j6_t_003: 0.372 <= P(lib_souter | issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_oconnor and lib_ginsburg) <= 0.852
+jp_bootstrap_j6_t_004: 0.019 <= P(lib_souter | issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_oconnor and not lib_ginsburg) <= 0.166
+jp_bootstrap_j6_t_005: 0.363 <= P(lib_souter | issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_oconnor and lib_ginsburg) <= 0.833
+jp_bootstrap_j6_t_006: 0.117 <= P(lib_souter | issue_judicial_power and not lib_rehnquist and lib_stevens and lib_oconnor and not lib_ginsburg) <= 0.583
+jp_bootstrap_j6_t_007: 0.764 <= P(lib_souter | issue_judicial_power and not lib_rehnquist and lib_stevens and lib_oconnor and lib_ginsburg) <= 0.971
+jp_bootstrap_j6_t_008: 0.007 <= P(lib_souter | issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_oconnor and not lib_ginsburg) <= 0.055
+jp_bootstrap_j6_t_009: 0.157 <= P(lib_souter | issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_oconnor and lib_ginsburg) <= 0.56
+jp_bootstrap_j6_t_010: 0.051 <= P(lib_souter | issue_judicial_power and lib_rehnquist and not lib_stevens and lib_oconnor and not lib_ginsburg) <= 0.245
+jp_bootstrap_j6_t_011: 0.543 <= P(lib_souter | issue_judicial_power and lib_rehnquist and not lib_stevens and lib_oconnor and lib_ginsburg) <= 0.877
+jp_bootstrap_j6_t_012: 0.035 <= P(lib_souter | issue_judicial_power and lib_rehnquist and lib_stevens and not lib_oconnor and not lib_ginsburg) <= 0.241
+jp_bootstrap_j6_t_013: 0.505 <= P(lib_souter | issue_judicial_power and lib_rehnquist and lib_stevens and not lib_oconnor and lib_ginsburg) <= 0.865
+jp_bootstrap_j6_t_014: 0.209 <= P(lib_souter | issue_judicial_power and lib_rehnquist and lib_stevens and lib_oconnor and not lib_ginsburg) <= 0.622
+jp_bootstrap_j6_t_015: 0.875 <= P(lib_souter | issue_judicial_power and lib_rehnquist and lib_stevens and lib_oconnor and lib_ginsburg) <= 0.972
+jp_bootstrap_j7_f_000: 0.029 <= P(lib_thomas | not issue_judicial_power and not lib_rehnquist and not lib_oconnor and not lib_scalia and not lib_kennedy and not lib_breyer) <= 0.067
+jp_bootstrap_j7_f_001: 0.007 <= P(lib_thomas | not issue_judicial_power and not lib_rehnquist and not lib_oconnor and not lib_scalia and not lib_kennedy and lib_breyer) <= 0.045
+jp_bootstrap_j7_f_002: 0.048 <= P(lib_thomas | not issue_judicial_power and not lib_rehnquist and not lib_oconnor and not lib_scalia and lib_kennedy and not lib_breyer) <= 0.261
+jp_bootstrap_j7_f_003: 0.015 <= P(lib_thomas | not issue_judicial_power and not lib_rehnquist and not lib_oconnor and not lib_scalia and lib_kennedy and lib_breyer) <= 0.146
+jp_bootstrap_j7_f_004: 0.655 <= P(lib_thomas | not issue_judicial_power and not lib_rehnquist and not lib_oconnor and lib_scalia and not lib_kennedy and not lib_breyer) <= 0.867
+jp_bootstrap_j7_f_005: 0.331 <= P(lib_thomas | not issue_judicial_power and not lib_rehnquist and not lib_oconnor and lib_scalia and not lib_kennedy and lib_breyer) <= 0.791
+jp_bootstrap_j7_f_006: 0.793 <= P(lib_thomas | not issue_judicial_power and not lib_rehnquist and not lib_oconnor and lib_scalia and lib_kennedy and not lib_breyer) <= 0.963
+jp_bootstrap_j7_f_007: 0.543 <= P(lib_thomas | not issue_judicial_power and not lib_rehnquist and not lib_oconnor and lib_scalia and lib_kennedy and lib_breyer) <= 0.929
+jp_bootstrap_j7_f_008: 0.07 <= P(lib_thomas | not issue_judicial_power and not lib_rehnquist and lib_oconnor and not lib_scalia and not lib_kennedy and not lib_breyer) <= 0.318
+jp_bootstrap_j7_f_009: 0.032 <= P(lib_thomas | not issue_judicial_power and not lib_rehnquist and lib_oconnor and not lib_scalia and not lib_kennedy and lib_breyer) <= 0.157
+jp_bootstrap_j7_f_010: 0.159 <= P(lib_thomas | not issue_judicial_power and not lib_rehnquist and lib_oconnor and not lib_scalia and lib_kennedy and not lib_breyer) <= 0.596
+jp_bootstrap_j7_f_011: 0.079 <= P(lib_thomas | not issue_judicial_power and not lib_rehnquist and lib_oconnor and not lib_scalia and lib_kennedy and lib_breyer) <= 0.345
+jp_bootstrap_j7_f_012: 0.844 <= P(lib_thomas | not issue_judicial_power and not lib_rehnquist and lib_oconnor and lib_scalia and not lib_kennedy and not lib_breyer) <= 0.972
+jp_bootstrap_j7_f_013: 0.675 <= P(lib_thomas | not issue_judicial_power and not lib_rehnquist and lib_oconnor and lib_scalia and not lib_kennedy and lib_breyer) <= 0.94
+jp_bootstrap_j7_f_014: 0.928 <= P(lib_thomas | not issue_judicial_power and not lib_rehnquist and lib_oconnor and lib_scalia and lib_kennedy and not lib_breyer) <= 0.991
+jp_bootstrap_j7_f_015: 0.865 <= P(lib_thomas | not issue_judicial_power and not lib_rehnquist and lib_oconnor and lib_scalia and lib_kennedy and lib_breyer) <= 0.975
+jp_bootstrap_j7_f_016: 0.142 <= P(lib_thomas | not issue_judicial_power and lib_rehnquist and not lib_oconnor and not lib_scalia and not lib_kennedy and not lib_breyer) <= 0.444
+jp_bootstrap_j7_f_017: 0.052 <= P(lib_thomas | not issue_judicial_power and lib_rehnquist and not lib_oconnor and not lib_scalia and not lib_kennedy and lib_breyer) <= 0.279
+jp_bootstrap_j7_f_018: 0.325 <= P(lib_thomas | not issue_judicial_power and lib_rehnquist and not lib_oconnor and not lib_scalia and lib_kennedy and not lib_breyer) <= 0.717
+jp_bootstrap_j7_f_019: 0.153 <= P(lib_thomas | not issue_judicial_power and lib_rehnquist and not lib_oconnor and not lib_scalia and lib_kennedy and lib_breyer) <= 0.512
+jp_bootstrap_j7_f_020: 0.923 <= P(lib_thomas | not issue_judicial_power and lib_rehnquist and not lib_oconnor and lib_scalia and not lib_kennedy and not lib_breyer) <= 0.986
+jp_bootstrap_j7_f_021: 0.804 <= P(lib_thomas | not issue_judicial_power and lib_rehnquist and not lib_oconnor and lib_scalia and not lib_kennedy and lib_breyer) <= 0.969
+jp_bootstrap_j7_f_022: 0.973 <= P(lib_thomas | not issue_judicial_power and lib_rehnquist and not lib_oconnor and lib_scalia and lib_kennedy and not lib_breyer) <= 0.995
+jp_bootstrap_j7_f_023: 0.926 <= P(lib_thomas | not issue_judicial_power and lib_rehnquist and not lib_oconnor and lib_scalia and lib_kennedy and lib_breyer) <= 0.987
+jp_bootstrap_j7_f_024: 0.325 <= P(lib_thomas | not issue_judicial_power and lib_rehnquist and lib_oconnor and not lib_scalia and not lib_kennedy and not lib_breyer) <= 0.821
+jp_bootstrap_j7_f_025: 0.173 <= P(lib_thomas | not issue_judicial_power and lib_rehnquist and lib_oconnor and not lib_scalia and not lib_kennedy and lib_breyer) <= 0.59
+jp_bootstrap_j7_f_026: 0.63 <= P(lib_thomas | not issue_judicial_power and lib_rehnquist and lib_oconnor and not lib_scalia and lib_kennedy and not lib_breyer) <= 0.932
+jp_bootstrap_j7_f_027: 0.493 <= P(lib_thomas | not issue_judicial_power and lib_rehnquist and lib_oconnor and not lib_scalia and lib_kennedy and lib_breyer) <= 0.773
+jp_bootstrap_j7_f_028: 0.97 <= P(lib_thomas | not issue_judicial_power and lib_rehnquist and lib_oconnor and lib_scalia and not lib_kennedy and not lib_breyer) <= 0.997
+jp_bootstrap_j7_f_029: 0.938 <= P(lib_thomas | not issue_judicial_power and lib_rehnquist and lib_oconnor and lib_scalia and not lib_kennedy and lib_breyer) <= 0.993
+jp_bootstrap_j7_f_030: 0.992 <= P(lib_thomas | not issue_judicial_power and lib_rehnquist and lib_oconnor and lib_scalia and lib_kennedy and not lib_breyer) <= 0.999
+jp_bootstrap_j7_f_031: 0.986 <= P(lib_thomas | not issue_judicial_power and lib_rehnquist and lib_oconnor and lib_scalia and lib_kennedy and lib_breyer) <= 0.996
+jp_bootstrap_j7_t_000: 0.011 <= P(lib_thomas | issue_judicial_power and not lib_rehnquist and not lib_oconnor and not lib_scalia and not lib_kennedy and not lib_breyer) <= 0.056
+jp_bootstrap_j7_t_001: 0.003 <= P(lib_thomas | issue_judicial_power and not lib_rehnquist and not lib_oconnor and not lib_scalia and not lib_kennedy and lib_breyer) <= 0.033
+jp_bootstrap_j7_t_002: 0.023 <= P(lib_thomas | issue_judicial_power and not lib_rehnquist and not lib_oconnor and not lib_scalia and lib_kennedy and not lib_breyer) <= 0.204
+jp_bootstrap_j7_t_003: 0.007 <= P(lib_thomas | issue_judicial_power and not lib_rehnquist and not lib_oconnor and not lib_scalia and lib_kennedy and lib_breyer) <= 0.117
+jp_bootstrap_j7_t_004: 0.474 <= P(lib_thomas | issue_judicial_power and not lib_rehnquist and not lib_oconnor and lib_scalia and not lib_kennedy and not lib_breyer) <= 0.82
+jp_bootstrap_j7_t_005: 0.206 <= P(lib_thomas | issue_judicial_power and not lib_rehnquist and not lib_oconnor and lib_scalia and not lib_kennedy and lib_breyer) <= 0.71
+jp_bootstrap_j7_t_006: 0.673 <= P(lib_thomas | issue_judicial_power and not lib_rehnquist and not lib_oconnor and lib_scalia and lib_kennedy and not lib_breyer) <= 0.949
+jp_bootstrap_j7_t_007: 0.408 <= P(lib_thomas | issue_judicial_power and not lib_rehnquist and not lib_oconnor and lib_scalia and lib_kennedy and lib_breyer) <= 0.894
+jp_bootstrap_j7_t_008: 0.036 <= P(lib_thomas | issue_judicial_power and not lib_rehnquist and lib_oconnor and not lib_scalia and not lib_kennedy and not lib_breyer) <= 0.225
+jp_bootstrap_j7_t_009: 0.016 <= P(lib_thomas | issue_judicial_power and not lib_rehnquist and lib_oconnor and not lib_scalia and not lib_kennedy and lib_breyer) <= 0.101
+jp_bootstrap_j7_t_010: 0.083 <= P(lib_thomas | issue_judicial_power and not lib_rehnquist and lib_oconnor and not lib_scalia and lib_kennedy and not lib_breyer) <= 0.494
+jp_bootstrap_j7_t_011: 0.041 <= P(lib_thomas | issue_judicial_power and not lib_rehnquist and lib_oconnor and not lib_scalia and lib_kennedy and lib_breyer) <= 0.275
+jp_bootstrap_j7_t_012: 0.743 <= P(lib_thomas | issue_judicial_power and not lib_rehnquist and lib_oconnor and lib_scalia and not lib_kennedy and not lib_breyer) <= 0.959
+jp_bootstrap_j7_t_013: 0.545 <= P(lib_thomas | issue_judicial_power and not lib_rehnquist and lib_oconnor and lib_scalia and not lib_kennedy and lib_breyer) <= 0.889
+jp_bootstrap_j7_t_014: 0.882 <= P(lib_thomas | issue_judicial_power and not lib_rehnquist and lib_oconnor and lib_scalia and lib_kennedy and not lib_breyer) <= 0.986
+jp_bootstrap_j7_t_015: 0.791 <= P(lib_thomas | issue_judicial_power and not lib_rehnquist and lib_oconnor and lib_scalia and lib_kennedy and lib_breyer) <= 0.964
+jp_bootstrap_j7_t_016: 0.063 <= P(lib_thomas | issue_judicial_power and lib_rehnquist and not lib_oconnor and not lib_scalia and not lib_kennedy and not lib_breyer) <= 0.391
+jp_bootstrap_j7_t_017: 0.023 <= P(lib_thomas | issue_judicial_power and lib_rehnquist and not lib_oconnor and not lib_scalia and not lib_kennedy and lib_breyer) <= 0.237
+jp_bootstrap_j7_t_018: 0.163 <= P(lib_thomas | issue_judicial_power and lib_rehnquist and not lib_oconnor and not lib_scalia and lib_kennedy and not lib_breyer) <= 0.69
+jp_bootstrap_j7_t_019: 0.071 <= P(lib_thomas | issue_judicial_power and lib_rehnquist and not lib_oconnor and not lib_scalia and lib_kennedy and lib_breyer) <= 0.473
+jp_bootstrap_j7_t_020: 0.85 <= P(lib_thomas | issue_judicial_power and lib_rehnquist and not lib_oconnor and lib_scalia and not lib_kennedy and not lib_breyer) <= 0.981
+jp_bootstrap_j7_t_021: 0.641 <= P(lib_thomas | issue_judicial_power and lib_rehnquist and not lib_oconnor and lib_scalia and not lib_kennedy and lib_breyer) <= 0.961
+jp_bootstrap_j7_t_022: 0.943 <= P(lib_thomas | issue_judicial_power and lib_rehnquist and not lib_oconnor and lib_scalia and lib_kennedy and not lib_breyer) <= 0.994
+jp_bootstrap_j7_t_023: 0.866 <= P(lib_thomas | issue_judicial_power and lib_rehnquist and not lib_oconnor and lib_scalia and lib_kennedy and lib_breyer) <= 0.984
+jp_bootstrap_j7_t_024: 0.183 <= P(lib_thomas | issue_judicial_power and lib_rehnquist and lib_oconnor and not lib_scalia and not lib_kennedy and not lib_breyer) <= 0.745
+jp_bootstrap_j7_t_025: 0.091 <= P(lib_thomas | issue_judicial_power and lib_rehnquist and lib_oconnor and not lib_scalia and not lib_kennedy and lib_breyer) <= 0.495
+jp_bootstrap_j7_t_026: 0.431 <= P(lib_thomas | issue_judicial_power and lib_rehnquist and lib_oconnor and not lib_scalia and lib_kennedy and not lib_breyer) <= 0.889
+jp_bootstrap_j7_t_027: 0.286 <= P(lib_thomas | issue_judicial_power and lib_rehnquist and lib_oconnor and not lib_scalia and lib_kennedy and lib_breyer) <= 0.712
+jp_bootstrap_j7_t_028: 0.942 <= P(lib_thomas | issue_judicial_power and lib_rehnquist and lib_oconnor and lib_scalia and not lib_kennedy and not lib_breyer) <= 0.996
+jp_bootstrap_j7_t_029: 0.885 <= P(lib_thomas | issue_judicial_power and lib_rehnquist and lib_oconnor and lib_scalia and not lib_kennedy and lib_breyer) <= 0.988
+jp_bootstrap_j7_t_030: 0.984 <= P(lib_thomas | issue_judicial_power and lib_rehnquist and lib_oconnor and lib_scalia and lib_kennedy and not lib_breyer) <= 0.998
+jp_bootstrap_j7_t_031: 0.972 <= P(lib_thomas | issue_judicial_power and lib_rehnquist and lib_oconnor and lib_scalia and lib_kennedy and lib_breyer) <= 0.994
+jp_bootstrap_j8_f_000: 0.011 <= P(lib_ginsburg | not issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_souter) <= 0.043
+jp_bootstrap_j8_f_001: 0.207 <= P(lib_ginsburg | not issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_souter) <= 0.539
+jp_bootstrap_j8_f_002: 0.055 <= P(lib_ginsburg | not issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_souter) <= 0.285
+jp_bootstrap_j8_f_003: 0.616 <= P(lib_ginsburg | not issue_judicial_power and not lib_rehnquist and lib_stevens and lib_souter) <= 0.907
+jp_bootstrap_j8_f_004: 0.052 <= P(lib_ginsburg | not issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_souter) <= 0.12
+jp_bootstrap_j8_f_005: 0.559 <= P(lib_ginsburg | not issue_judicial_power and lib_rehnquist and not lib_stevens and lib_souter) <= 0.77
+jp_bootstrap_j8_f_006: 0.251 <= P(lib_ginsburg | not issue_judicial_power and lib_rehnquist and lib_stevens and not lib_souter) <= 0.532
+jp_bootstrap_j8_f_007: 0.894 <= P(lib_ginsburg | not issue_judicial_power and lib_rehnquist and lib_stevens and lib_souter) <= 0.962
+jp_bootstrap_j8_t_000: 0.017 <= P(lib_ginsburg | issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_souter) <= 0.103
+jp_bootstrap_j8_t_001: 0.269 <= P(lib_ginsburg | issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_souter) <= 0.755
+jp_bootstrap_j8_t_002: 0.09 <= P(lib_ginsburg | issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_souter) <= 0.496
+jp_bootstrap_j8_t_003: 0.722 <= P(lib_ginsburg | issue_judicial_power and not lib_rehnquist and lib_stevens and lib_souter) <= 0.96
+jp_bootstrap_j8_t_004: 0.065 <= P(lib_ginsburg | issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_souter) <= 0.3
+jp_bootstrap_j8_t_005: 0.609 <= P(lib_ginsburg | issue_judicial_power and lib_rehnquist and not lib_stevens and lib_souter) <= 0.923
+jp_bootstrap_j8_t_006: 0.314 <= P(lib_ginsburg | issue_judicial_power and lib_rehnquist and lib_stevens and not lib_souter) <= 0.76
+jp_bootstrap_j8_t_007: 0.922 <= P(lib_ginsburg | issue_judicial_power and lib_rehnquist and lib_stevens and lib_souter) <= 0.987
+jp_bootstrap_j9_f_000: 0.026 <= P(lib_breyer | not issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_oconnor and not lib_thomas) <= 0.08
+jp_bootstrap_j9_f_001: 0.009 <= P(lib_breyer | not issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_oconnor and lib_thomas) <= 0.041
+jp_bootstrap_j9_f_002: 0.226 <= P(lib_breyer | not issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_oconnor and not lib_thomas) <= 0.58
+jp_bootstrap_j9_f_003: 0.109 <= P(lib_breyer | not issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_oconnor and lib_thomas) <= 0.325
+jp_bootstrap_j9_f_004: 0.178 <= P(lib_breyer | not issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_oconnor and not lib_thomas) <= 0.502
+jp_bootstrap_j9_f_005: 0.063 <= P(lib_breyer | not issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_oconnor and lib_thomas) <= 0.331
+jp_bootstrap_j9_f_006: 0.717 <= P(lib_breyer | not issue_judicial_power and not lib_rehnquist and lib_stevens and lib_oconnor and not lib_thomas) <= 0.934
+jp_bootstrap_j9_f_007: 0.499 <= P(lib_breyer | not issue_judicial_power and not lib_rehnquist and lib_stevens and lib_oconnor and lib_thomas) <= 0.849
+jp_bootstrap_j9_f_008: 0.085 <= P(lib_breyer | not issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_oconnor and not lib_thomas) <= 0.347
+jp_bootstrap_j9_f_009: 0.042 <= P(lib_breyer | not issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_oconnor and lib_thomas) <= 0.14
+jp_bootstrap_j9_f_010: 0.538 <= P(lib_breyer | not issue_judicial_power and lib_rehnquist and not lib_stevens and lib_oconnor and not lib_thomas) <= 0.883
+jp_bootstrap_j9_f_011: 0.433 <= P(lib_breyer | not issue_judicial_power and lib_rehnquist and not lib_stevens and lib_oconnor and lib_thomas) <= 0.63
+jp_bootstrap_j9_f_012: 0.439 <= P(lib_breyer | not issue_judicial_power and lib_rehnquist and lib_stevens and not lib_oconnor and not lib_thomas) <= 0.839
+jp_bootstrap_j9_f_013: 0.283 <= P(lib_breyer | not issue_judicial_power and lib_rehnquist and lib_stevens and not lib_oconnor and lib_thomas) <= 0.638
+jp_bootstrap_j9_f_014: 0.906 <= P(lib_breyer | not issue_judicial_power and lib_rehnquist and lib_stevens and lib_oconnor and not lib_thomas) <= 0.986
+jp_bootstrap_j9_f_015: 0.862 <= P(lib_breyer | not issue_judicial_power and lib_rehnquist and lib_stevens and lib_oconnor and lib_thomas) <= 0.948
+jp_bootstrap_j9_t_000: 0.027 <= P(lib_breyer | issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_oconnor and not lib_thomas) <= 0.109
+jp_bootstrap_j9_t_001: 0.009 <= P(lib_breyer | issue_judicial_power and not lib_rehnquist and not lib_stevens and not lib_oconnor and lib_thomas) <= 0.057
+jp_bootstrap_j9_t_002: 0.226 <= P(lib_breyer | issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_oconnor and not lib_thomas) <= 0.65
+jp_bootstrap_j9_t_003: 0.112 <= P(lib_breyer | issue_judicial_power and not lib_rehnquist and not lib_stevens and lib_oconnor and lib_thomas) <= 0.413
+jp_bootstrap_j9_t_004: 0.209 <= P(lib_breyer | issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_oconnor and not lib_thomas) <= 0.545
+jp_bootstrap_j9_t_005: 0.066 <= P(lib_breyer | issue_judicial_power and not lib_rehnquist and lib_stevens and not lib_oconnor and lib_thomas) <= 0.377
+jp_bootstrap_j9_t_006: 0.74 <= P(lib_breyer | issue_judicial_power and not lib_rehnquist and lib_stevens and lib_oconnor and not lib_thomas) <= 0.948
+jp_bootstrap_j9_t_007: 0.519 <= P(lib_breyer | issue_judicial_power and not lib_rehnquist and lib_stevens and lib_oconnor and lib_thomas) <= 0.877
+jp_bootstrap_j9_t_008: 0.089 <= P(lib_breyer | issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_oconnor and not lib_thomas) <= 0.392
+jp_bootstrap_j9_t_009: 0.044 <= P(lib_breyer | issue_judicial_power and lib_rehnquist and not lib_stevens and not lib_oconnor and lib_thomas) <= 0.198
+jp_bootstrap_j9_t_010: 0.536 <= P(lib_breyer | issue_judicial_power and lib_rehnquist and not lib_stevens and lib_oconnor and not lib_thomas) <= 0.909
+jp_bootstrap_j9_t_011: 0.401 <= P(lib_breyer | issue_judicial_power and lib_rehnquist and not lib_stevens and lib_oconnor and lib_thomas) <= 0.736
+jp_bootstrap_j9_t_012: 0.479 <= P(lib_breyer | issue_judicial_power and lib_rehnquist and lib_stevens and not lib_oconnor and not lib_thomas) <= 0.859
+jp_bootstrap_j9_t_013: 0.3 <= P(lib_breyer | issue_judicial_power and lib_rehnquist and lib_stevens and not lib_oconnor and lib_thomas) <= 0.693
+jp_bootstrap_j9_t_014: 0.915 <= P(lib_breyer | issue_judicial_power and lib_rehnquist and lib_stevens and lib_oconnor and not lib_thomas) <= 0.988
+jp_bootstrap_j9_t_015: 0.861 <= P(lib_breyer | issue_judicial_power and lib_rehnquist and lib_stevens and lib_oconnor and lib_thomas) <= 0.961

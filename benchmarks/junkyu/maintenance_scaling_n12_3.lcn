@@ -1,0 +1,39 @@
+# Title: Maintenance Escalation
+# Summary: A scalable operations benchmark where issue signals move through repeated review and repair stages.
+# Benchmark Family: maintenance_escalation
+# Repair_1: Operators coordinate a repair action at maintenance stage 1.
+# Repair_2: Operators coordinate a repair action at maintenance stage 2.
+# Repair_3: Operators coordinate a repair action at maintenance stage 3.
+# Repair_4: Operators coordinate a repair action at maintenance stage 4.
+# Review_1: Operators review the signal at maintenance stage 1.
+# Review_2: Operators review the signal at maintenance stage 2.
+# Review_3: Operators review the signal at maintenance stage 3.
+# Review_4: Operators review the signal at maintenance stage 4.
+# Signal_1: An issue signal is detected at maintenance stage 1.
+# Signal_2: An issue signal is detected at maintenance stage 2.
+# Signal_3: An issue signal is detected at maintenance stage 3.
+# Signal_4: An issue signal is detected at maintenance stage 4.
+
+prior_1: 0.122 <= P(Repair_1) <= 0.295
+prior_2: 0.076 <= P(Repair_2) <= 0.302
+prior_3: 0.0 <= P(Repair_3) <= 0.203
+prior_4: 0.168 <= P(Repair_4) <= 0.372
+prior_5: 0.249 <= P(Review_1) <= 0.345
+prior_6: 0.212 <= P(Review_2) <= 0.39
+prior_7: 0.012 <= P(Review_3) <= 0.227
+prior_8: 0.104 <= P(Review_4) <= 0.294
+prior_9: 0.011 <= P(Signal_1) <= 0.194
+prior_10: 0.046 <= P(Signal_2) <= 0.117
+prior_11: 0.074 <= P(Signal_3) <= 0.143
+prior_12: 0.189 <= P(Signal_4) <= 0.289
+component_1: 0.122 <= P(Repair_1 and Review_1) <= 0.295
+component_2: 0.076 <= P(Repair_2 and Review_2) <= 0.302
+component_3: 0.0 <= P(Repair_3 and Review_3) <= 0.203
+component_4: 0.104 <= P(Repair_4 and Review_4) <= 0.294
+link_1: 0.317 <= P(Repair_1 and Review_1 | Signal_1) <= 0.439
+link_2: 0.439 <= P(Signal_2 | Repair_1 and Review_1) <= 0.526
+link_3: 0.131 <= P(Repair_2 and Review_2 | Signal_2) <= 0.271
+link_4: 0.292 <= P(Signal_3 | Repair_2 and Review_2) <= 0.356
+link_5: 0.273 <= P(Repair_3 and Review_3 | Signal_3) <= 0.452
+link_6: 0.652 <= P(Signal_4 | Repair_3 and Review_3) <= 0.71
+link_7: 0.613 <= P(Repair_4 and Review_4 | Signal_4) <= 0.723
