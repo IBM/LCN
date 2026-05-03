@@ -4,6 +4,7 @@
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{booktabs}
+\usepackage{multicol}
 \usepackage{hyperref}
 \usepackage{tikz}
 \usetikzlibrary{positioning,shapes.geometric,shapes.misc}
@@ -69,9 +70,10 @@ All messages are initialized to the vacuous interval $([0, \dots, 0], [1, \dots,
 \caption{Interval Belief Propagation (IBP)}
 \label{alg:ibp}
 \begin{algorithmic}[1]
-\Require Factor graph with extreme points, query $Z$, evidence $\mathbf{Y} = \mathbf{y}$,
+\Require Factor graph with extreme points, evidence $\mathbf{Y} = \mathbf{y}$,
          max iterations $T$, threshold $\tau$
-\Ensure Bounds $[\underline{P}(Z{=}z),\; \overline{P}(Z{=}z)]$ for each $z$
+\Ensure Bounds $[\underline{P}(X_i{=}x),\; \overline{P}(X_i{=}x)]$ for \textbf{all}
+        variables $X_i$ and states $x$
 \Statex
 \State Initialize $\mu_{v \to f} \gets (\mathbf{0}, \mathbf{1})$ and
        $\mu_{f \to v} \gets (\mathbf{0}, \mathbf{1})$ for all edges
@@ -113,12 +115,14 @@ All messages are initialized to the vacuous interval $([0, \dots, 0], [1, \dots,
   \If{$\delta < \tau$} \textbf{break} \EndIf
 \EndFor
 \Statex
-\Comment{\textsc{Extract Marginal Bounds}}
-\For{each state $z$}
-  \State $\underline{P}(z) \gets \max_{f \in \mathcal{N}(Z)} l_{f \to Z}(z)$
-  \State $\overline{P}(z) \gets \min_{f \in \mathcal{N}(Z)} u_{f \to Z}(z)$
+\Comment{\textsc{Extract Marginal Bounds (All Variables)}}
+\For{each variable $X_i$ in the factor graph}
+  \For{each state $x \in D_{X_i}$}
+    \State $\underline{P}(X_i{=}x) \gets \max_{f \in \mathcal{N}(X_i)} l_{f \to X_i}(x)$
+    \State $\overline{P}(X_i{=}x) \gets \min_{f \in \mathcal{N}(X_i)} u_{f \to X_i}(x)$
+  \EndFor
 \EndFor
-\State \Return $[\underline{P}(z), \overline{P}(z)]$ for each $z$
+\State \Return $[\underline{P}(X_i{=}x), \overline{P}(X_i{=}x)]$ for every variable $X_i$ and state $x$
 \end{algorithmic}
 \end{algorithm}
 
@@ -212,6 +216,65 @@ over all $(\mathbf{vc}, \mathbf{cc})$ pairs:
   l_{f \to v}(x) &= \min_{\mathbf{vc},\,\mathbf{cc}} p(x), \\
   u_{f \to v}(x) &= \max_{\mathbf{vc},\,\mathbf{cc}} p(x).
 \end{align*}
+
+Algorithm~\ref{alg:ftov} summarizes this computation as a self-contained
+subroutine. The outer loops over vertex combinations $\mathbf{vc}$ and
+corner-point combinations $\mathbf{cc}$ are laid out across two columns for
+readability: the left column contains the setup and Case~1 (target is the
+child node $X_i$); the right column continues with Case~2 (target is a parent)
+and the min/max accumulation.
+
+\begin{algorithm}[H]
+\caption{Factor-to-Variable Message (\textsc{FTOV})}
+\label{alg:ftov}
+\begin{multicols}{2}
+\noindent
+\begin{algorithmic}[1]
+\Require Factor $f_i$ with scope $\{X_i\} \cup \mathrm{Pa}(X_i)$; target
+         $v \in \mathrm{scope}(f_i)$; incoming messages
+         $\{\mu_{w \to f_i} : w \in \mathcal{O}\}$ where
+         $\mathcal{O} = \mathrm{scope}(f_i) \setminus \{v\}$;
+         extreme points of $K(X_i \mid \pi)$ for every parent configuration $\pi$
+\Ensure Outgoing message $\mu_{f_i \to v} = (\mathbf{l}, \mathbf{u})$
+\Statex
+\State $\mathbf{l} \gets \mathbf{1}, \quad \mathbf{u} \gets \mathbf{0}$
+       \Comment{componentwise initialization}
+\For{each vertex combination $\mathbf{vc}$}
+  \For{each corner-point combination $\mathbf{cc} \in \{0,1\}^{|\mathcal{O}|}$}
+    \For{each $w \in \mathcal{O}$}
+      \State $\mathbf{q}_w \gets \mathbf{l}_w$ if $\mathrm{cc}_w = 0$ else $\mathbf{u}_w$
+    \EndFor
+    \If{$v = X_i$}
+      \Comment{Case~1: target is the child}
+      \For{each state $x \in D_{X_i}$}
+        \State $m(x) \gets \sum_{\pi} P_{\mathbf{vc}}(X_i{=}x \mid \pi)
+                          \cdot \prod_{w \in \mathrm{Pa}(X_i) \cap \mathcal{O}}
+                          \mathbf{q}_w(\pi_w)$
+      \EndFor
+    \Else
+      \Comment{Case~2: target is a parent}
+      \For{each state $x \in D_v$}
+        \State $m(x) \gets \sum_{\pi : \pi_v = x}
+               \Bigl(\sum_{x_i} P_{\mathbf{vc}}(X_i{=}x_i \mid \pi)
+                     \cdot \mathbf{q}_{X_i}(x_i)\Bigr)$
+        \Statex \hspace{3.8em}$\cdot \prod_{w \in \mathrm{Pa}(X_i) \setminus \{v\}}
+                     \mathbf{q}_w(\pi_w)$
+      \EndFor
+    \EndIf
+    \State $Z \gets \sum_{x} m(x)$
+    \If{$Z > 0$}
+      \State $\mathbf{p} \gets \mathbf{m} / Z$
+      \State $\mathbf{l} \gets \min(\mathbf{l}, \mathbf{p})$
+             \Comment{componentwise}
+      \State $\mathbf{u} \gets \max(\mathbf{u}, \mathbf{p})$
+             \Comment{componentwise}
+    \EndIf
+  \EndFor
+\EndFor
+\State \Return $(\mathbf{l}, \mathbf{u})$
+\end{algorithmic}
+\end{multicols}
+\end{algorithm}
 
 %% ================================================================
 \section{Detailed Running Example: Alarm Network}
