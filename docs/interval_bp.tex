@@ -4,7 +4,6 @@
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{booktabs}
-\usepackage{multicol}
 \usepackage{hyperref}
 \usepackage{tikz}
 \usetikzlibrary{positioning,shapes.geometric,shapes.misc}
@@ -64,6 +63,42 @@ Messages are of two types:
 
 All messages are initialized to the vacuous interval $([0, \dots, 0], [1, \dots, 1])$.
 
+\subsection{Evidence}\label{sec:evidence}
+
+\textbf{Evidence} is a (possibly empty) set of observed variable assignments
+\[
+  \mathbf{Y} = \mathbf{y} = \{\, Y_1 = y_1,\; Y_2 = y_2,\; \ldots,\; Y_m = y_m \,\}.
+\]
+For each evidence variable $Y_j = y_j$, the outgoing variable-to-factor message
+is clamped to the one-hot indicator $\delta_{y_j} \in \{0,1\}^{|D_{Y_j}|}$
+(entry $y_j$ equals $1$, all others equal $0$):
+\[
+  \mu_{Y_j \to f} \;\gets\; (\delta_{y_j},\, \delta_{y_j}) \qquad
+  \text{for every factor } f \in \mathcal{N}(Y_j).
+\]
+The interval collapses to a single point, pinning $Y_j$ to $y_j$. Two
+consequences for the main loop:
+\begin{itemize}
+  \item \textbf{Clamped messages are held fixed.} During the variable-to-factor
+        update phase, evidence variables are \emph{skipped} --- their outgoing
+        messages are never recomputed.
+  \item \textbf{Factor-to-variable updates use the clamped input.} When a factor
+        $f$ computes an outgoing message, any incoming message from an evidence
+        variable $Y_j$ has $\mathbf{l}_{Y_j \to f} = \mathbf{u}_{Y_j \to f}
+        = \delta_{y_j}$. The corner-point enumeration of Section~\ref{sec:cc}
+        then contributes no degrees of freedom for $Y_j$: both corners select
+        the same vector $\mathbf{q}_{Y_j} = \delta_{y_j}$, and the marginal
+        sum in Equations~\ref{eq:case1}--\ref{eq:case2} is restricted to parent
+        configurations consistent with $Y_j = y_j$.
+\end{itemize}
+After convergence, the extracted marginal bounds at every non-evidence variable
+$X_i$ are bounds on the \emph{conditional} marginal $P(X_i \mid \mathbf{Y} = \mathbf{y})$.
+
+For compound variables that bundle multiple atoms, if an atom is itself an
+evidence variable, the singleton-marginal extraction LP (described in the
+companion CCTE document) skips that atom, since its bound is trivially
+$[\mathbb{1}[y_j{=}1],\; \mathbb{1}[y_j{=}1]]$.
+
 \section{Algorithm}
 
 \begin{algorithm}[H]
@@ -77,16 +112,22 @@ All messages are initialized to the vacuous interval $([0, \dots, 0], [1, \dots,
 \Statex
 \State Initialize $\mu_{v \to f} \gets (\mathbf{0}, \mathbf{1})$ and
        $\mu_{f \to v} \gets (\mathbf{0}, \mathbf{1})$ for all edges
-\For{each evidence variable $Y_j = y_j$}
+\Statex
+\Comment{\textsc{Evidence Clamping}}
+\For{each evidence variable $Y_j = y_j \in \mathbf{Y}$}
   \State Set $\mu_{Y_j \to f} \gets (\delta_{y_j}, \delta_{y_j})$ for all factors
          $f \in \mathcal{N}(Y_j)$
+         \Comment{$\delta_{y_j}$ is the one-hot indicator at $y_j$}
 \EndFor
 \Statex
 \For{$t = 1, \dots, T$}
   \State $\delta \gets 0$
   \Statex
   \Comment{\textsc{Variable-to-Factor Updates}}
-  \For{each variable $v$ (not evidence), each factor $f \in \mathcal{N}(v)$}
+  \For{each variable $v$, each factor $f \in \mathcal{N}(v)$}
+    \If{$v \in \mathbf{Y}$} \textbf{continue}
+      \Comment{evidence messages are held fixed}
+    \EndIf
     \For{each state $x$}
       \State $l_{v \to f}(x) \gets \max_{f' \in \mathcal{N}(v) \setminus \{f\}}
              l_{f' \to v}(x)$
@@ -115,14 +156,14 @@ All messages are initialized to the vacuous interval $([0, \dots, 0], [1, \dots,
   \If{$\delta < \tau$} \textbf{break} \EndIf
 \EndFor
 \Statex
-\Comment{\textsc{Extract Marginal Bounds (All Variables)}}
+\Comment{\textsc{Extract Marginal Bounds (All Variables, Given Evidence)}}
 \For{each variable $X_i$ in the factor graph}
   \For{each state $x \in D_{X_i}$}
-    \State $\underline{P}(X_i{=}x) \gets \max_{f \in \mathcal{N}(X_i)} l_{f \to X_i}(x)$
-    \State $\overline{P}(X_i{=}x) \gets \min_{f \in \mathcal{N}(X_i)} u_{f \to X_i}(x)$
+    \State $\underline{P}(X_i{=}x \mid \mathbf{Y}{=}\mathbf{y}) \gets \max_{f \in \mathcal{N}(X_i)} l_{f \to X_i}(x)$
+    \State $\overline{P}(X_i{=}x \mid \mathbf{Y}{=}\mathbf{y}) \gets \min_{f \in \mathcal{N}(X_i)} u_{f \to X_i}(x)$
   \EndFor
 \EndFor
-\State \Return $[\underline{P}(X_i{=}x), \overline{P}(X_i{=}x)]$ for every variable $X_i$ and state $x$
+\State \Return $[\underline{P}(X_i{=}x \mid \mathbf{Y}{=}\mathbf{y}),\; \overline{P}(X_i{=}x \mid \mathbf{Y}{=}\mathbf{y})]$ for every variable $X_i$ and state $x$
 \end{algorithmic}
 \end{algorithm}
 
@@ -216,65 +257,6 @@ over all $(\mathbf{vc}, \mathbf{cc})$ pairs:
   l_{f \to v}(x) &= \min_{\mathbf{vc},\,\mathbf{cc}} p(x), \\
   u_{f \to v}(x) &= \max_{\mathbf{vc},\,\mathbf{cc}} p(x).
 \end{align*}
-
-Algorithm~\ref{alg:ftov} summarizes this computation as a self-contained
-subroutine. The outer loops over vertex combinations $\mathbf{vc}$ and
-corner-point combinations $\mathbf{cc}$ are laid out across two columns for
-readability: the left column contains the setup and Case~1 (target is the
-child node $X_i$); the right column continues with Case~2 (target is a parent)
-and the min/max accumulation.
-
-\begin{algorithm}[H]
-\caption{Factor-to-Variable Message (\textsc{FTOV})}
-\label{alg:ftov}
-\begin{multicols}{2}
-\noindent
-\begin{algorithmic}[1]
-\Require Factor $f_i$ with scope $\{X_i\} \cup \mathrm{Pa}(X_i)$; target
-         $v \in \mathrm{scope}(f_i)$; incoming messages
-         $\{\mu_{w \to f_i} : w \in \mathcal{O}\}$ where
-         $\mathcal{O} = \mathrm{scope}(f_i) \setminus \{v\}$;
-         extreme points of $K(X_i \mid \pi)$ for every parent configuration $\pi$
-\Ensure Outgoing message $\mu_{f_i \to v} = (\mathbf{l}, \mathbf{u})$
-\Statex
-\State $\mathbf{l} \gets \mathbf{1}, \quad \mathbf{u} \gets \mathbf{0}$
-       \Comment{componentwise initialization}
-\For{each vertex combination $\mathbf{vc}$}
-  \For{each corner-point combination $\mathbf{cc} \in \{0,1\}^{|\mathcal{O}|}$}
-    \For{each $w \in \mathcal{O}$}
-      \State $\mathbf{q}_w \gets \mathbf{l}_w$ if $\mathrm{cc}_w = 0$ else $\mathbf{u}_w$
-    \EndFor
-    \If{$v = X_i$}
-      \Comment{Case~1: target is the child}
-      \For{each state $x \in D_{X_i}$}
-        \State $m(x) \gets \sum_{\pi} P_{\mathbf{vc}}(X_i{=}x \mid \pi)
-                          \cdot \prod_{w \in \mathrm{Pa}(X_i) \cap \mathcal{O}}
-                          \mathbf{q}_w(\pi_w)$
-      \EndFor
-    \Else
-      \Comment{Case~2: target is a parent}
-      \For{each state $x \in D_v$}
-        \State $m(x) \gets \sum_{\pi : \pi_v = x}
-               \Bigl(\sum_{x_i} P_{\mathbf{vc}}(X_i{=}x_i \mid \pi)
-                     \cdot \mathbf{q}_{X_i}(x_i)\Bigr)$
-        \Statex \hspace{3.8em}$\cdot \prod_{w \in \mathrm{Pa}(X_i) \setminus \{v\}}
-                     \mathbf{q}_w(\pi_w)$
-      \EndFor
-    \EndIf
-    \State $Z \gets \sum_{x} m(x)$
-    \If{$Z > 0$}
-      \State $\mathbf{p} \gets \mathbf{m} / Z$
-      \State $\mathbf{l} \gets \min(\mathbf{l}, \mathbf{p})$
-             \Comment{componentwise}
-      \State $\mathbf{u} \gets \max(\mathbf{u}, \mathbf{p})$
-             \Comment{componentwise}
-    \EndIf
-  \EndFor
-\EndFor
-\State \Return $(\mathbf{l}, \mathbf{u})$
-\end{algorithmic}
-\end{multicols}
-\end{algorithm}
 
 %% ================================================================
 \section{Detailed Running Example: Alarm Network}
@@ -561,6 +543,104 @@ Factor $f_B$ provides the tightest bounds for $B$ since it directly encodes $K(B
   P(B{=}1) \in [0.10,\; 0.20].
 \]
 
+\subsection{Query with Evidence: $P(B{=}1 \mid E{=}1)$}\label{sec:example-evidence}
+
+We now rerun IBP with evidence $E = 1$. According to Section~\ref{sec:evidence},
+the outgoing messages from $E$ are clamped to the one-hot indicator for state
+$1$:
+\[
+  \mu_{E \to f_E} \;=\; \mu_{E \to f_A} \;=\; \bigl([0,\, 1],\; [0,\, 1]\bigr),
+\]
+and $E$ is skipped in every subsequent variable-to-factor update.
+
+\subsubsection{Iteration 1: $f_B \to B$ and $f_E \to E$.}
+$f_B$ is not adjacent to $E$, so its outgoing message is identical to the
+no-evidence case:
+\[
+  \mu_{f_B \to B} = \bigl([\,0.80,\; 0.10\,],\; [\,0.90,\; 0.20\,]\bigr).
+\]
+$f_E \to E$ is also unchanged by the clamping of $\mu_{E \to f_E}$ (the factor
+receives evidence on its target; the outgoing message still reflects
+$K(E)$). However, this message will be intersected with the clamped
+$\mu_{E \to f_E}$ only at the extraction step, so in practice $P(E)$ is pinned
+to $[0, 1]$ on state $1$.
+
+\subsubsection{Iteration 1: $f_A \to A$ with $E$ clamped.}
+Target is $A$ (Case~1), $\mathcal{O} = \{B, E\}$. In iteration~1, $B$ still
+sends the vacuous message $\mu_{B \to f_A} = ([0,0],[1,1])$, but
+$\mu_{E \to f_A} = ([0,1], [0,1])$. The corner-point enumeration over
+$\mathcal{O}$ now collapses along the $E$ axis since both corners select
+$\mathbf{q}_E = [0, 1]$, leaving only the two $B$ corners free. Using
+Equation~\ref{eq:case1}:
+\[
+  m(A{=}x) = \sum_{\pi_B, \pi_E \in \{0,1\}}
+             P_{\mathbf{vc}}(A{=}x \mid B{=}\pi_B, E{=}\pi_E) \cdot
+             \mathbf{q}_B(\pi_B) \cdot \underbrace{\mathbf{q}_E(\pi_E)}_{0 \text{ if } \pi_E = 0}.
+\]
+Only the $\pi_E = 1$ terms survive. With $\mathbf{vc} = (1,1,1,1)$ (vertex~1
+for every parent configuration) and $\mathbf{q}_B = [1, 1]$ (the upper corner,
+since $B$'s message is vacuous):
+\begin{align*}
+  m(A{=}0) &= \underbrace{0.9556 \cdot 1 \cdot 0}_{B{=}0,E{=}0}
+           + \underbrace{0.0000 \cdot 1 \cdot 0}_{B{=}1,E{=}0}
+           + \underbrace{0.0000 \cdot 1 \cdot 1}_{B{=}0,E{=}1}
+           + \underbrace{0.0000 \cdot 1 \cdot 1}_{B{=}1,E{=}1} = 0, \\
+  m(A{=}1) &= \underbrace{0.0444 \cdot 1 \cdot 0}_{B{=}0,E{=}0}
+           + \underbrace{1.0000 \cdot 1 \cdot 0}_{B{=}1,E{=}0}
+           + \underbrace{1.0000 \cdot 1 \cdot 1}_{B{=}0,E{=}1}
+           + \underbrace{1.0000 \cdot 1 \cdot 1}_{B{=}1,E{=}1} = 2.0, \\
+  p &= [0,\; 2.0]/2.0 = [0,\; 1].
+\end{align*}
+Under $\mathbf{vc} = (2,2,1,1)$ (vertex~2 for $B{=}0,E{=}0$ and $B{=}1,E{=}0$,
+vertex~1 for $B{=}0,E{=}1$ and $B{=}1,E{=}1$), the same calculation still gives
+$p = [0, 1]$ because the $\pi_E = 0$ terms are zeroed out regardless of the
+vertex choice there. Clamping $E{=}1$ drives the marginal of $A$ toward
+$A{=}1$: whenever $E{=}1$ forces the child, all surviving vertices in these
+configurations have $P(A{=}1 \mid \cdot) = 1.0$ for vertex~1 and $P(A{=}0 \mid
+\cdot) = 1.0$ for vertex~2. Combining across vertex combinations yields
+$\mu_{f_A \to A} = ([0, 0], [1, 1])$ in iteration~1 --- still wide, because
+$B$ is vacuous.
+
+\subsubsection{Iteration 1: $f_A \to B$ with $E$ clamped.}
+Target is $B$ (Case~2), $\mathcal{O} = \{A, E\}$. Again $\mathbf{q}_E = [0, 1]$
+in both corners, and only parent configurations with $\pi_E = 1$ contribute.
+Using Equation~\ref{eq:case2} with $\mathbf{q}_A = [0, 0]$ or $[1, 1]$
+(vacuous):
+\[
+  m(B{=}x) = \sum_{\pi_E = 1}
+             \Bigl(\sum_{x_i} P_{\mathbf{vc}}(A{=}x_i \mid B{=}x, E{=}1)
+                   \cdot \mathbf{q}_A(x_i)\Bigr) \cdot \mathbf{q}_E(1).
+\]
+The inner sum over $x_i$ is exactly $\sum_{x_i} \mathbf{q}_A(x_i) \cdot 1$
+(since vertex~1 has $P(A{=}1 \mid \cdot) = 1$ and vertex~2 has
+$P(A{=}0 \mid \cdot) = 1$ for the two $E{=}1$ rows). The upper corner
+$\mathbf{q}_A = [1,1]$ gives $m(B{=}0) = m(B{=}1) = 1$, i.e.\ $p = [0.5, 0.5]$;
+the lower corner $\mathbf{q}_A = [0,0]$ zeros out the marginal. Combined with
+other vertex combinations, $\mu_{f_A \to B}$ in iteration~1 remains wide.
+
+\subsubsection{Iteration 2: $B \to f_A$ and recomputation.}
+By Section~\ref{sec:evidence}, $E$ is skipped in the variable-to-factor phase;
+only $B$ (and $A$, $CD$) are updated. $B$'s message to $f_A$ tightens to
+$\mu_{B \to f_A} = \mu_{f_B \to B} = ([0.80, 0.10], [0.90, 0.20])$.
+Re-executing $f_A \to B$ with this informative $B$ message and the still-clamped
+$E$ produces a tighter interval. After message passing converges, the bounds on
+$B$ follow from the extraction step applied to evidence-clamped messages:
+\[
+  \underline{P}(B{=}x \mid E{=}1) = \max_{f \in \{f_B, f_A\}} l_{f \to B}(x),
+  \quad
+  \overline{P}(B{=}x \mid E{=}1) = \min_{f \in \{f_B, f_A\}} u_{f \to B}(x).
+\]
+$f_B$ still contributes its prior bounds $[0.10, 0.20]$ on $P(B{=}1)$, while
+$f_A$ now carries information about $B$ conditioned on $E{=}1$. On this
+polytree the two are consistent and the conditional posterior recovers the
+prior:
+\[
+  P(B{=}1 \mid E{=}1) \in [0.10,\; 0.20],
+\]
+reflecting the fact that $B$ and $E$ are marginally independent in the alarm
+network and the asymmetry of $A$'s CPT does not alter $B$'s marginal under
+evidence on $E$ alone.
+
 \subsection{Comparison with Exact Variable Elimination}
 
 \begin{center}
@@ -573,6 +653,9 @@ $P(B{=}1)$ & IBP & 0.1000 & 0.2000 \\
 \midrule
 $P(A{=}1 \mid B{=}0, E{=}0)$ & Exact VE & 0.0000 & 0.0444 \\
 $P(A{=}1 \mid B{=}0, E{=}0)$ & IBP & 0.0000 & 0.0444 \\
+\midrule
+$P(B{=}1 \mid E{=}1)$ & Exact VE & 0.1000 & 0.2000 \\
+$P(B{=}1 \mid E{=}1)$ & IBP & 0.1000 & 0.2000 \\
 \bottomrule
 \end{tabular}
 \end{center}
