@@ -167,6 +167,95 @@ $[\mathbb{1}[y_j{=}1],\; \mathbb{1}[y_j{=}1]]$.
 \end{algorithmic}
 \end{algorithm}
 
+\section{Compact Description (NeurIPS Format)}\label{sec:compact}
+
+\paragraph{Setup.}
+Given a credal network $\langle G, \mathcal{K} \rangle$ compiled to a factor
+graph whose factor nodes $\{f_i\}$ store the finite sets of extreme points
+$\mathrm{ext}\,K(X_i \mid \pi)$ (one per parent configuration $\pi$ of the
+associated variable $X_i$), plus evidence $\mathbf{Y} = \mathbf{y}$, \emph{interval
+belief propagation} (IBP) computes bounds
+$[\underline{P}(X_i{=}x \mid \mathbf{y}),\, \overline{P}(X_i{=}x \mid \mathbf{y})]$
+for every non-evidence variable $X_i$ and every state $x \in D_{X_i}$.
+
+\paragraph{Messages.}
+Each directed edge of the factor graph carries an interval-vector message
+$\mu_{v \to f} = (\mathbf{l}_{v \to f}, \mathbf{u}_{v \to f}) \in
+[0,1]^{|D_v|} \times [0,1]^{|D_v|}$ (and symmetrically $\mu_{f \to v}$) with
+$\mathbf{l} \le \mathbf{u}$ componentwise. All messages are initialized to the
+vacuous interval $(\mathbf{0}, \mathbf{1})$. For every evidence assignment
+$Y_j = y_j$, the outgoing variable-to-factor messages from $Y_j$ are clamped to
+the one-hot indicator
+$\mu_{Y_j \to f} \gets (\delta_{y_j}, \delta_{y_j})$ and held fixed throughout.
+
+\paragraph{Updates.}
+At every iteration, two sweeps are performed. \emph{Variable-to-factor} messages
+(skipped for evidence variables) tighten by intersecting the other incoming
+bounds:
+\begin{equation}\label{eq:compact-vtof}
+  \mathbf{l}_{v \to f} \;=\; \max_{f' \in \mathcal{N}(v) \setminus \{f\}}
+                              \mathbf{l}_{f' \to v},
+  \qquad
+  \mathbf{u}_{v \to f} \;=\; \min_{f' \in \mathcal{N}(v) \setminus \{f\}}
+                              \mathbf{u}_{f' \to v}, \qquad v \notin \mathbf{Y}
+\end{equation}
+(componentwise, over all neighbor factors other than $f$). \emph{Factor-to-variable}
+messages extremize the target's normalized marginal over two discrete choice
+sets:
+\begin{equation}\label{eq:compact-ftov}
+  \mathbf{l}_{f_i \to v}(x) \;=\; \min_{(\mathbf{vc},\,\mathbf{cc})}
+    \tilde{p}_{\mathbf{vc},\mathbf{cc}}(x),
+  \qquad
+  \mathbf{u}_{f_i \to v}(x) \;=\; \max_{(\mathbf{vc},\,\mathbf{cc})}
+    \tilde{p}_{\mathbf{vc},\mathbf{cc}}(x),
+\end{equation}
+where a \emph{vertex combination} $\mathbf{vc}$ picks one extreme point
+$P_{\mathbf{vc}}(X_i \mid \pi) \in \mathrm{ext}\,K(X_i \mid \pi)$ for every
+parent configuration $\pi$, a \emph{corner-point combination} $\mathbf{cc}$
+picks $\mathbf{q}_w \in \{\mathbf{l}_{w \to f_i}, \mathbf{u}_{w \to f_i}\}$ for
+each other-variable $w \in \mathrm{scope}(f_i) \setminus \{v\}$, and
+$\tilde{p}_{\mathbf{vc},\mathbf{cc}}(x) = m_{\mathbf{vc},\mathbf{cc}}(x) /
+\sum_{x'} m_{\mathbf{vc},\mathbf{cc}}(x')$ with $m_{\mathbf{vc},\mathbf{cc}}$
+the unnormalized marginal given by Eq.~\ref{eq:case1} (if $v = X_i$, the child)
+or Eq.~\ref{eq:case2} (if $v \in \mathrm{Pa}(X_i)$, a parent).
+
+\paragraph{Convergence and extraction.}
+The two sweeps are repeated until the maximum componentwise change across all
+messages falls below a tolerance $\tau$, or a cap of $T$ iterations is reached.
+The final conditional marginal bounds for every variable are obtained by
+intersecting all factor-to-variable messages incident on it:
+\begin{equation}\label{eq:compact-extract}
+  \underline{P}(X_i{=}x \mid \mathbf{y}) = \max_{f \in \mathcal{N}(X_i)}
+    \mathbf{l}_{f \to X_i}(x),
+  \qquad
+  \overline{P}(X_i{=}x \mid \mathbf{y}) = \min_{f \in \mathcal{N}(X_i)}
+    \mathbf{u}_{f \to X_i}(x).
+\end{equation}
+
+\begin{algorithm}[H]
+\caption{Interval Belief Propagation --- Compact Form}
+\label{alg:ibp-compact}
+\begin{algorithmic}[1]
+\Require Factor graph with extreme points, evidence $\mathbf{Y} = \mathbf{y}$,
+         max iterations $T$, tolerance $\tau$
+\Ensure $[\underline{P}(X_i{=}x \mid \mathbf{y}),\, \overline{P}(X_i{=}x \mid
+        \mathbf{y})]$ for all $X_i \notin \mathbf{Y}$, $x \in D_{X_i}$
+\State Initialize $\mu_{v \to f}, \mu_{f \to v} \gets (\mathbf{0}, \mathbf{1})$
+       for every edge; clamp $\mu_{Y_j \to f} \gets (\delta_{y_j}, \delta_{y_j})$
+       for each $Y_j \in \mathbf{Y}$
+\For{$t = 1, \dots, T$}
+  \State Update $\mu_{v \to f}$ via Eq.~\ref{eq:compact-vtof} for every edge
+         $(v, f)$ with $v \notin \mathbf{Y}$
+  \State Update $\mu_{f \to v}$ via Eq.~\ref{eq:compact-ftov} for every edge
+         $(f, v)$
+  \If{max componentwise change in any message $< \tau$} \textbf{break}
+  \EndIf
+\EndFor
+\State \Return bounds via Eq.~\ref{eq:compact-extract} for every
+       $X_i \notin \mathbf{Y}$
+\end{algorithmic}
+\end{algorithm}
+
 \section{Factor-to-Variable Message Computation}\label{sec:ftov}
 
 The factor-to-variable message from factor $f_i$ (associated with node $X_i$,

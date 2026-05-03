@@ -72,58 +72,74 @@ No LP solver is needed---vertex enumeration suffices.
 \section{Algorithm}
 
 \begin{algorithm}[H]
-\caption{ApproxLP: Coordinate Descent over Extreme Points}
+\caption{ApproxLP: Coordinate Descent over Extreme Points (All Non-Evidence Variables)}
 \label{alg:approxlp}
 \begin{algorithmic}[1]
-\Require Credal factors with extreme points, query $Z$, evidence $\mathbf{Y}{=}\mathbf{y}$,
-         max iterations $T$, sense $\in \{\min, \max\}$
-\Ensure Bound on $P(Z{=}z \mid \mathbf{Y}{=}\mathbf{y})$
+\Require Credal factors with extreme points, evidence $\mathbf{Y}{=}\mathbf{y}$,
+         max iterations $T$
+\Ensure Inner bounds $[\underline{P}(Z{=}z \mid \mathbf{y}),\, \overline{P}(Z{=}z \mid \mathbf{y})]$
+        for \textbf{every} non-evidence variable $Z$ and state $z \in D_Z$
 \Statex
-\Comment{\textsc{Initialization}}
-\For{each variable $X_i$, each parent config $\pi$}
-  \State $P(X_i \mid \pi) \gets \mathrm{center}(\mathrm{ext}\,K(X_i \mid \pi))$
-  \Comment{Average of extreme points}
-\EndFor
-\State $p^* \gets \mathrm{VE}(\{P(X_i \mid \pi)\},\, Z,\, \mathbf{y})$
-\Comment{Run standard VE with fixed distributions}
-\Statex
-\Comment{\textsc{Coordinate Descent}}
-\For{$t = 1, \dots, T$}
-  \State $\mathit{improved} \gets \mathsf{false}$
-  \For{each variable $X_i$}
-    \For{each parent config $\pi$ of $X_i$}
-      \State $P_{\mathrm{best}} \gets P(X_i \mid \pi)$
-      \Comment{Current incumbent}
-      \For{each vertex $v \in \mathrm{ext}\,K(X_i \mid \pi)$}
-        \State $P(X_i \mid \pi) \gets v$
-        \Comment{Temporarily set to vertex}
-        \State $p_v \gets \mathrm{VE}(\{P(X_j \mid \pi_j)\},\, Z,\, \mathbf{y})$
-        \Comment{Evaluate objective}
-        \If{$\mathrm{sense} = \min$ \textbf{and} $p_v(z) < p^*(z)$}
-          \State $p^* \gets p_v$, \quad $P_{\mathrm{best}} \gets v$, \quad $\mathit{improved} \gets \mathsf{true}$
-        \ElsIf{$\mathrm{sense} = \max$ \textbf{and} $p_v(z) > p^*(z)$}
-          \State $p^* \gets p_v$, \quad $P_{\mathrm{best}} \gets v$, \quad $\mathit{improved} \gets \mathsf{true}$
-        \EndIf
-      \EndFor
-      \State $P(X_i \mid \pi) \gets P_{\mathrm{best}}$
-    \EndFor
-  \EndFor
-  \If{$\neg\,\mathit{improved}$} \textbf{break}
-  \Comment{Converged}
+\For{each variable $Z$ in the network}
+  \If{$Z \in \mathbf{Y}$}
+    \State $\underline{P}(Z{=}z \mid \mathbf{y}),\, \overline{P}(Z{=}z \mid \mathbf{y})
+           \gets \mathbb{1}[z = y_Z]$ for each $z \in D_Z$
+    \Comment{Evidence: point mass}
+    \State \textbf{continue}
   \EndIf
+  \State $\underline{\mathbf{p}} \gets \mathbf{1},\quad \overline{\mathbf{p}} \gets \mathbf{0}$
+         \Comment{Componentwise bounds over $D_Z$}
+  \For{$\mathrm{sense} \in \{\min, \max\}$}
+    \Statex \hspace{1.5em}\Comment{\textsc{Initialization}}
+    \For{each variable $X_i$, each parent config $\pi$}
+      \State $P(X_i \mid \pi) \gets \mathrm{center}(\mathrm{ext}\,K(X_i \mid \pi))$
+      \Comment{Average of extreme points}
+    \EndFor
+    \State $p^* \gets \mathrm{VE}(\{P(X_i \mid \pi)\},\, Z,\, \mathbf{y})$
+    \Comment{Precise VE with fixed distributions}
+    \Statex \hspace{1.5em}\Comment{\textsc{Coordinate Descent}}
+    \For{$t = 1, \dots, T$}
+      \State $\mathit{improved} \gets \mathsf{false}$
+      \For{each variable $X_i$, each parent config $\pi$ of $X_i$}
+        \State $P_{\mathrm{best}} \gets P(X_i \mid \pi)$
+        \Comment{Current incumbent}
+        \For{each vertex $v \in \mathrm{ext}\,K(X_i \mid \pi)$}
+          \State $P(X_i \mid \pi) \gets v$
+          \State $p_v \gets \mathrm{VE}(\{P(X_j \mid \pi_j)\},\, Z,\, \mathbf{y})$
+          \If{$[\mathrm{sense}{=}\min \wedge p_v(z){<}p^*(z)] \vee
+               [\mathrm{sense}{=}\max \wedge p_v(z){>}p^*(z)]$}
+            \Comment{$z$ = target state tracked by this run}
+            \State $p^* \gets p_v$,\quad $P_{\mathrm{best}} \gets v$,\quad
+                   $\mathit{improved} \gets \mathsf{true}$
+          \EndIf
+        \EndFor
+        \State $P(X_i \mid \pi) \gets P_{\mathrm{best}}$
+      \EndFor
+      \If{$\neg\,\mathit{improved}$} \textbf{break} \Comment{Converged}
+      \EndIf
+    \EndFor
+    \State $\underline{\mathbf{p}} \gets \min(\underline{\mathbf{p}},\, p^*)$,\quad
+           $\overline{\mathbf{p}} \gets \max(\overline{\mathbf{p}},\, p^*)$
+           \Comment{Componentwise across $D_Z$}
+  \EndFor
+  \State Record $[\underline{P}(Z{=}z \mid \mathbf{y}),\, \overline{P}(Z{=}z \mid \mathbf{y})]
+         \gets [\underline{p}(z),\, \overline{p}(z)]$ for each $z \in D_Z$
 \EndFor
-\State \Return $p^*(z)$
+\State \Return all recorded bounds
 \end{algorithmic}
 \end{algorithm}
 
 \subsection{Computing Both Bounds}
 
-Algorithm~\ref{alg:approxlp} is run twice:
+For each non-evidence variable $Z$, Algorithm~\ref{alg:approxlp} runs coordinate
+descent twice:
 \begin{itemize}
-  \item With $\mathrm{sense} = \min$ to obtain $\underline{P}(Z{=}z \mid \mathbf{y})$.
-  \item With $\mathrm{sense} = \max$ to obtain $\overline{P}(Z{=}z \mid \mathbf{y})$.
+  \item With $\mathrm{sense} = \min$ to drive $p^*(z)$ toward $\underline{P}(Z{=}z \mid \mathbf{y})$.
+  \item With $\mathrm{sense} = \max$ to drive $p^*(z)$ toward $\overline{P}(Z{=}z \mid \mathbf{y})$.
 \end{itemize}
-Each run performs independent coordinate descent starting from the same initialization.
+Each run produces a full probability vector $p^* \in \Delta^{|D_Z|}$; the final
+per-state bounds are taken componentwise across the two runs, which lets a single
+pair of runs yield intervals for every state $z \in D_Z$ simultaneously.
 
 \subsection{Standard VE with Fixed Distributions}
 
@@ -138,6 +154,132 @@ a standard operation:
   \item Normalize and return $P(Z \mid \mathbf{y})$.
 \end{enumerate}
 Since all distributions are fixed (no sets of functions), each VE run is very fast.
+
+\section{Compact Description (NeurIPS Format)}\label{sec:compact}
+
+\paragraph{Overview.}
+ApproxLP computes marginal probability bounds in a credal network
+$\langle G, \mathcal{K} \rangle$ --- a DAG whose local conditional
+distributions $P(X_i \mid \pi_i)$ are each constrained to lie in a
+finitely-generated credal set $K(X_i \mid \pi_i)$ with pre-enumerated
+vertex set $\mathrm{ext}\,K(X_i \mid \pi_i)$. For a given non-evidence
+variable $Z$, the lower bound $\underline{P}(Z{=}z \mid \mathbf{y})$ is the
+minimum of the posterior $P(Z{=}z \mid \mathbf{y})$ over all combinations of
+extreme points, one per $(X_i, \pi_i)$ pair. Holding every local distribution
+fixed except one turns this global optimization into a linear program over a
+polytope whose vertices are already known, and a standard-LP result places
+the optimum at one of those vertices. ApproxLP exploits this: it fixes all
+distributions, sweeps through each $(X_i, \pi_i)$ in turn, and replaces
+$P(X_i \mid \pi_i)$ with whichever of its extreme points most improves the
+objective --- evaluated by running precise variable elimination on the
+fully-determined Bayesian network. No LP solver is needed.
+
+\paragraph{What Algorithm~\ref{alg:approxlp} does.}
+For every non-evidence variable $Z$, the algorithm runs coordinate descent
+twice --- once with sense $\min$ and once with sense $\max$. Each run starts
+by initializing all $P(X_i \mid \pi_i)$ at the centroid of their respective
+credal sets and computing $p^* = \mathrm{VE}(\{P\}, Z, \mathbf{y})$, the full
+posterior vector on $D_Z$ under these fixed distributions. A \emph{sweep}
+then visits every $(X_i, \pi_i)$: for each vertex $v \in
+\mathrm{ext}\,K(X_i \mid \pi_i)$, it temporarily sets $P(X_i \mid \pi_i)
+\gets v$, re-evaluates $\mathrm{VE}$, and accepts $v$ (strictly, else rejects)
+if the target component $p^*(z)$ moves in the sense's direction. Sweeps
+repeat until one produces no improvement or the cap $T$ is reached. Because
+each $\mathrm{VE}$ call returns a full vector, the two runs together yield
+componentwise bounds $[\underline{p}(z), \overline{p}(z)]$ for every state
+$z \in D_Z$ simultaneously. Evidence variables are skipped by a point-mass
+shortcut. The output is \emph{inner} --- coordinate descent explores only
+a subset of feasible vertex combinations, so the returned interval is
+contained in the true interval.
+
+\paragraph{Problem.}
+Let $\langle G, \mathcal{K} \rangle$ be a credal network: a DAG $G$ over
+variables $X_1, \ldots, X_n$ whose conditional distributions are each known
+only to belong to a finitely-generated credal set $K(X_i \mid \pi_i)$ with
+vertex set $\mathrm{ext}\,K(X_i \mid \pi_i)$, one per parent configuration
+$\pi_i$. Given evidence $\mathbf{Y} = \mathbf{y}$, we seek tight bounds
+$[\underline{P}(X_i{=}x \mid \mathbf{y}),\, \overline{P}(X_i{=}x \mid \mathbf{y})]$
+for every non-evidence variable $X_i$ and every state $x \in D_{X_i}$, where
+\begin{equation}\label{eq:compact-objective}
+  \underline{P}(Z{=}z \mid \mathbf{y}) =
+  \min_{\substack{P(X_i \mid \pi_i) \\ \in\, \mathrm{ext}\,K(X_i \mid \pi_i),\, \forall i, \pi_i}}
+  \frac{\sum_{\mathbf{x} : x_Z = z,\, \mathbf{x}_\mathbf{Y} = \mathbf{y}}
+        \prod_{i=1}^{n} P(x_i \mid \pi_i)}
+       {\sum_{\mathbf{x} : \mathbf{x}_\mathbf{Y} = \mathbf{y}}
+        \prod_{i=1}^{n} P(x_i \mid \pi_i)},
+\end{equation}
+and $\overline{P}(Z{=}z \mid \mathbf{y})$ is defined analogously with $\max$.
+The optimization is over all combinations of extreme points of the local
+credal sets --- a finite but exponentially large discrete set.
+
+\paragraph{Coordinate-descent reduction.}
+Holding every $P(X_j \mid \pi_j)$ fixed for $j \neq i$ at a specific extreme
+point collapses~\eqref{eq:compact-objective} to a fractional linear program in
+the single remaining distribution $P(X_i \mid \pi_i)$. Because the feasible
+region $K(X_i \mid \pi_i)$ is a polytope, the optimum is attained at one of
+its (finitely many, pre-enumerated) vertices. Evaluating the objective at
+each vertex and retaining the best therefore solves the subproblem
+\emph{exactly and without calling an LP solver}.
+
+\paragraph{Precise-BN subroutine.}
+For any fully fixed assignment $\{P(X_i \mid \pi_i)\}$, the numerator and
+denominator of~\eqref{eq:compact-objective} together yield the marginal
+$P(Z \mid \mathbf{y})$ of the precise Bayesian network defined by those
+distributions. Let $\mathrm{VE}(\{P(X_i \mid \pi_i)\},\, Z,\, \mathbf{y})
+\in \Delta^{|D_Z|}$ denote standard (precise) variable elimination applied
+to that BN, returning the full conditional marginal vector.
+
+\paragraph{Algorithm.}
+Initialize each $P(X_i \mid \pi_i)$ at the centroid of
+$\mathrm{ext}\,K(X_i \mid \pi_i)$ and compute $p^* = \mathrm{VE}(\cdot)$. A
+\emph{sweep} visits every pair $(X_i, \pi_i)$ and, holding all other
+distributions fixed, replaces $P(X_i \mid \pi_i)$ with the vertex
+$v \in \mathrm{ext}\,K(X_i \mid \pi_i)$ that most improves $p^*(z)$ in the
+requested sense (strictly, else keep the incumbent). Sweeps repeat until a
+full sweep makes no change or the cap $T$ is hit. Running this loop twice
+(once with sense $= \min$ and once with sense $= \max$) for each target
+state $z$ of each non-evidence variable $Z$ produces a lower/upper pair
+$(\underline{p}(z), \overline{p}(z))$; because each run also returns a full
+marginal vector, one pair of sweeps suffices to refine bounds for every
+state of $Z$ at once via componentwise tracking. The returned intervals
+are \emph{inner}: since coordinate descent explores only a subset of the
+feasible vertex combinations, $\underline{P}_{\mathrm{true}} \le \underline{P}$
+and $\overline{P} \le \overline{P}_{\mathrm{true}}$.
+
+\begin{algorithm}[H]
+\caption{ApproxLP --- Compact Form}
+\label{alg:approxlp-compact}
+\begin{algorithmic}[1]
+\Require Credal factors $\{\mathrm{ext}\,K(X_i \mid \pi_i)\}$,
+         evidence $\mathbf{Y} = \mathbf{y}$, iteration cap $T$
+\Ensure Inner bounds
+        $[\underline{P}(X_i{=}x \mid \mathbf{y}),\, \overline{P}(X_i{=}x \mid \mathbf{y})]$
+        for every $X_i \notin \mathbf{Y}$, $x \in D_{X_i}$
+\For{each non-evidence variable $Z$}
+  \State $\underline{\mathbf{p}},\, \overline{\mathbf{p}} \gets \mathbf{1},\, \mathbf{0}$
+         \Comment{componentwise over $D_Z$}
+  \For{$\mathrm{sense} \in \{\min, \max\}$}
+    \State $P(X_i \mid \pi_i) \gets \mathrm{centroid}(\mathrm{ext}\,K(X_i \mid \pi_i))$
+           for all $(X_i, \pi_i)$;\quad
+           $p^* \gets \mathrm{VE}(\{P\},\, Z,\, \mathbf{y})$
+    \For{sweep $t = 1, \dots, T$}
+      \For{each $(X_i, \pi_i)$}
+        \State $v^\star \gets \arg\,\mathrm{sense}_{v \in \mathrm{ext}\,K(X_i \mid \pi_i)}\;
+               \mathrm{VE}(\{P\}[P(X_i \mid \pi_i){\gets}v],\, Z,\, \mathbf{y})(z)$
+        \Statex \hspace{3em}\Comment{$z$ = target state this run is tracking}
+        \State \textbf{if} $v^\star$ strictly improves $p^*(z)$
+               \textbf{then} $P(X_i \mid \pi_i) \gets v^\star$,\;
+               $p^* \gets \mathrm{VE}(\{P\},\, Z,\, \mathbf{y})$
+      \EndFor
+      \State \textbf{if} sweep made no change \textbf{then break}
+    \EndFor
+    \State $\underline{\mathbf{p}} \gets \min(\underline{\mathbf{p}},\, p^*)$,\quad
+           $\overline{\mathbf{p}} \gets \max(\overline{\mathbf{p}},\, p^*)$
+  \EndFor
+  \State Record $[\underline{p}(z),\, \overline{p}(z)]$ for every $z \in D_Z$
+\EndFor
+\end{algorithmic}
+\end{algorithm}
 
 %% ================================================================
 \section{Detailed Example: Alarm Network}
