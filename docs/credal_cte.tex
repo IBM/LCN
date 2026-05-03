@@ -337,6 +337,86 @@ $\Phi_{CD} = \lambda_A$ (only child message, no parent). Already over $\{CD\}$:
 The wide bounds for $CD$ reflect the large number of extreme points (11 for $A{=}1$)
 and the vacuous prior.
 
+\subsection{Extracting Singleton Marginals from Compound Variables}
+
+LCN compiles groups of correlated atoms into \textbf{compound variables} whose
+states are joint assignments to the constituent atoms. The CTE algorithm described
+above produces bounds $[\underline{P}(X_i{=}s), \overline{P}(X_i{=}s)]$ for each
+state $s$ of every compound variable $X_i$, but downstream users typically want
+bounds on the individual atoms. Because the lower and upper bound of each
+compound state can come from \emph{different} extreme distributions (different
+functions surviving the pruning step), one cannot recover singleton bounds by
+simply summing compound bounds componentwise --- that would be valid but loose.
+Instead, for each singleton atom we solve a small linear program over the
+compound marginal polytope.
+
+\paragraph{The compound variable $CD$.}
+In the alarm network, $C$ and $D$ are merged into a single compound variable
+$CD$ with $k = 2^2 = 4$ states, using big-endian bit encoding:
+\[
+  s{=}0 \equiv (C{=}0, D{=}0), \quad
+  s{=}1 \equiv (C{=}0, D{=}1), \quad
+  s{=}2 \equiv (C{=}1, D{=}0), \quad
+  s{=}3 \equiv (C{=}1, D{=}1).
+\]
+The CTE run produces bounds $[\underline{P}(CD{=}s), \overline{P}(CD{=}s)]$ for
+each $s \in \{0, 1, 2, 3\}$.
+
+\paragraph{Linear program for $P(C{=}1)$.}
+The set of compound states where $C{=}1$ is $T_C = \{2, 3\}$. The lower bound
+$\underline{P}(C{=}1)$ is the optimum of the linear program
+\[
+\begin{aligned}
+  \underline{P}(C{=}1) \;=\; \min_{\mathbf{p} \in \mathbb{R}^4} \quad
+    & \sum_{s \in T_C} p_s \;=\; p_2 + p_3 \\
+  \text{subject to} \quad
+    & \sum_{s=0}^{3} p_s = 1, \\
+    & \underline{P}(CD{=}s) \;\le\; p_s \;\le\; \overline{P}(CD{=}s),
+      \quad s = 0, 1, 2, 3, \\
+    & p_s \ge 0, \quad s = 0, 1, 2, 3.
+\end{aligned}
+\]
+The upper bound $\overline{P}(C{=}1)$ is obtained by replacing $\min$ with $\max$
+(same feasible region, same objective). The complementary bounds for $C{=}0$
+follow from probabilistic duality:
+\[
+  \underline{P}(C{=}0) = 1 - \overline{P}(C{=}1), \qquad
+  \overline{P}(C{=}0) = 1 - \underline{P}(C{=}1).
+\]
+
+\paragraph{Linear program for $P(D{=}1)$.}
+For $D$, the set of compound states where $D{=}1$ is $T_D = \{1, 3\}$. Two more
+LPs with the \emph{same} feasible region but objective $\sum_{s \in T_D} p_s =
+p_1 + p_3$ yield $\underline{P}(D{=}1)$ and $\overline{P}(D{=}1)$; the bounds
+for $D{=}0$ follow by duality.
+
+\paragraph{General case.}
+For a compound variable with atoms $A_1, \ldots, A_m$ there are $k = 2^m$
+states. For each un-observed atom $A_j$ (atoms already present in the evidence
+are skipped), the set of states where $A_j{=}1$ is
+\[
+  T_{A_j} \;=\; \bigl\{\, s \in \{0, \ldots, k-1\} \;:\;
+                \text{bit } (m{-}1{-}j) \text{ of } s \text{ equals } 1 \,\bigr\},
+\]
+using big-endian encoding. Two LPs per atom (minimize and maximize
+$\sum_{s \in T_{A_j}} p_s$ over the compound marginal polytope) give
+$[\underline{P}(A_j{=}1), \overline{P}(A_j{=}1)]$.
+
+\paragraph{Implementation.}
+In \texttt{lcn/inference/marginal/ccte.py}, the method
+\texttt{\_extract\_singleton\_marginals} iterates over every compound marginal
+(identified by a \texttt{'-'} in the variable name), splits the name into its
+constituent atoms, computes $T_{A_j}$ for each un-observed atom, and calls
+\texttt{\_solve\_singleton\_lp} twice (once with \texttt{minimize}, once with
+\texttt{maximize}). The LP itself is a Pyomo \texttt{ConcreteModel} with:
+non-negative decision variables $p_s$ for $s \in \{0, \ldots, k-1\}$; a single
+equality constraint $\sum_s p_s = 1$; per-state box constraints
+$\underline{P}(CD{=}s) \le p_s \le \overline{P}(CD{=}s)$; and a linear
+objective $\sum_{s \in T_{A_j}} p_s$. The model is solved by \texttt{ipopt}.
+Because each LP has only $k = 2^m$ variables and $O(k)$ constraints, solving
+the $2m$ LPs per compound variable is negligible compared with the CTE passes
+themselves.
+
 \subsection{Summary of Messages}
 
 \begin{center}
