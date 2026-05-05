@@ -1,0 +1,26 @@
+\begin{table}[ht]
+\centering
+\scriptsize
+\caption{Error metrics vs.\ ariel reference}
+\begin{tabular}{llrrrrrrrrr}
+\toprule
+Instance & Algorithm & MAE$_{\text{lb}}$ & RMSE$_{\text{lb}}$ & MAE$_{\text{ub}}$ & RMSE$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+\midrule
+$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & approxlp & 0.1215 & 0.1377 & 0.4370 & 0.4777 & 14.27 & 28.42 & 42.69 & 12.71 & 4.00 \\
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & approxlp & 0.1148 & 0.1322 & 0.2247 & 0.2681 & 5.80 & 22.57 & 28.37 & 17.31 & 1.00 \\
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & ibp & 0.2317 & 0.2555 & 0.2879 & 0.3106 & 5.22 & 0.06 & 5.28 & 17.31 & 1.00 \\
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & approxlp & 0.1003 & 0.1211 & 0.5013 & 0.5542 & 2.81 & 1.09 & 3.90 & 5.60 & 2.00 \\
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & $\text{ccte\_cm}$ & 0.0738 & 0.0889 & 0.2752 & 0.3077 & 2.88 & 1.05 & 3.93 & 5.60 & 2.00 \\
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & ibp & 0.3554 & 0.3757 & 0.2748 & 0.2908 & 2.86 & 0.06 & 2.92 & 5.60 & 2.00 \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & approxlp & 0.0963 & 0.1251 & 0.3972 & 0.4539 & 1.17 & 0.10 & 1.28 & 1.64 & 2.00 \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & ccte & 0.0963 & 0.1251 & 0.3391 & 0.3796 & 1.28 & 697.66 & 698.94 & 1.64 & 2.00 \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & $\text{ccte\_cm}$ & 0.1037 & 0.1264 & 0.3194 & 0.3491 & 1.29 & 0.13 & 1.43 & 1.64 & 2.00 \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & ibp & 0.2768 & 0.3090 & 0.2742 & 0.3034 & 1.18 & 0.02 & 1.20 & 1.64 & 2.00 \\
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & approxlp & 0.1049 & 0.1360 & 0.4748 & 0.5358 & 1.93 & 0.51 & 2.44 & 3.42 & 2.00 \\
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & $\text{ccte\_cm}$ & 0.0810 & 0.1144 & 0.2742 & 0.3098 & 2.04 & 0.52 & 2.56 & 3.42 & 2.00 \\
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & ibp & 0.3291 & 0.3606 & 0.2495 & 0.2656 & 1.92 & 0.03 & 1.96 & 3.42 & 2.00 \\
+$\text{paper\_scaling\_directions\_n35\_2.lcn}$ & approxlp & 0.1442 & 0.1615 & 0.4419 & 0.4675 & 42.55 & 209.37 & 251.92 & 27.12 & 5.00 \\
+$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & approxlp & 0.1282 & 0.1440 & 0.2631 & 0.2950 & 6.97 & 55.66 & 62.63 & 31.41 & 1.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
