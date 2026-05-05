@@ -630,8 +630,8 @@ if __name__ == "__main__":
                     print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
     # Load the LCN
-    # file_name = "examples/alarm.lcn"
-    file_name = "benchmarks/polytree/polytree_n10_1.lcn"
+    file_name = "examples/alarm.lcn"
+    # file_name = "benchmarks/polytree/polytree_n10_1.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
     print(l)
@@ -651,9 +651,9 @@ if __name__ == "__main__":
     cte = CredalCTE(cve=cve)
 
     # Exact all-marginals (no evidence)
-    # print("\n=== All marginals (exact, no evidence) ===")
-    # results = cte.run(evidence={}, verbosity=2)
-    # print_singleton_marginals(results)
+    print("\n=== All marginals (exact, no evidence) ===")
+    results = cte.run(evidence={}, verbosity=2)
+    print_singleton_marginals(results)
 
     # # Exact all-marginals (with evidence)
     # print("\n=== All marginals (exact, B=0, E=0) ===")
@@ -661,6 +661,6 @@ if __name__ == "__main__":
     # print_singleton_marginals(results)
 
     # Epsilon-approximate all-marginals
-    print("\n=== All marginals (epsilon=0.1, no evidence) ===")
-    results = cte.run(evidence={}, epsilon=0.1, verbosity=2)
-    print_singleton_marginals(results)
+    # print("\n=== All marginals (epsilon=0.1, no evidence) ===")
+    # results = cte.run(evidence={}, epsilon=0.1, verbosity=2)
+    # print_singleton_marginals(results)

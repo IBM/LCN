@@ -618,7 +618,7 @@ if __name__ == "__main__":
                     print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
     # Load the LCN
-    file_name = "examples/lcn_chain_1.lcn"
+    file_name = "examples/alarm.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
     print(l)
@@ -636,14 +636,14 @@ if __name__ == "__main__":
     print_singleton_marginals(results)
 
     # Run interval BP (all marginals, with evidence)
-    print("\n=== Interval Belief Propagation (x0=0) ===")
-    results = ibp.run(evidence={"x0": 0}, method="interval", verbosity=1)
-    print_singleton_marginals(results)
+    # print("\n=== Interval Belief Propagation (x0=0) ===")
+    # results = ibp.run(evidence={"x0": 0}, method="interval", verbosity=1)
+    # print_singleton_marginals(results)
 
     # Run variational inference (all marginals, no evidence)
-    print("\n=== Variational Inference (no evidence) ===")
-    results = ibp.run(evidence={}, method="variational", n_iters=20, verbosity=1)
-    print_singleton_marginals(results)
+    # print("\n=== Variational Inference (no evidence) ===")
+    # results = ibp.run(evidence={}, method="variational", n_iters=20, verbosity=1)
+    # print_singleton_marginals(results)
 
     # Run variational inference (all marginals, with evidence)
     print("\n=== Variational Inference (x0=0) ===")

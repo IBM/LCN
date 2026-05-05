@@ -543,9 +543,9 @@ if __name__ == "__main__":
                     print(f"    P({var}={val}): [{abs(lo[val]):.6f}, {abs(hi[val]):.6f}]")
 
     # Load the LCN
-    # file_name = "examples/alarm.lcn"
+    file_name = "examples/alarm.lcn"
     # file_name = "benchmarks/chain/chain_n20_1.lcn"
-    file_name = "benchmarks/real/alarm.lcn"
+    # file_name = "benchmarks/real/alarm.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
     print(l)
@@ -559,7 +559,7 @@ if __name__ == "__main__":
 
     # Build the CredalVE (needed for extreme points)
     cve = CredalVE(lcn=l)
-    cve.build(verbosity=1, factorization_method="nlp")
+    cve.build(verbosity=1, factorization_method="linear")
 
     # Create ApproxLP solver
     alp = ApproxLP(cve=cve)
