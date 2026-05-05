@@ -24,7 +24,7 @@ import pandas as pd
 # Consistent styling per algorithm
 ALGO_STYLE = {
     "ariel":    {"marker": "o", "color": "#1f77b4", "label": "ARIEL"},
-    "approxlp": {"marker": "s", "color": "#2ca02c", "label": "ApproxLP"},
+    "approxlp": {"marker": "s", "color": "#2ca02c", "label": "CDVE"},
     "ibp":      {"marker": "^", "color": "#d62728", "label": "IBP"},
     "ccte":     {"marker": "D", "color": "#9467bd", "label": "CCTE"},
     "ccte_e":   {"marker": "d", "color": "#8c564b", "label": r"CCTE-$\epsilon$"},
