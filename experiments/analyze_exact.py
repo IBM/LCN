@@ -51,6 +51,7 @@ def _load_results(results_dir):
     records = []
     pattern = os.path.join(results_dir, "**", "*.jsonl")
     for path in sorted(glob.glob(pattern, recursive=True)):
+        print(f"Loading {path}...")
         with open(path, "r") as f:
             for line in f:
                 line = line.strip()
