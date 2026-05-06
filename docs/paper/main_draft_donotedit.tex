@@ -1,0 +1,1124 @@
+\documentclass{article}
+
+\usepackage{hyperref} 
+\usepackage{url}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+\usepackage{pifont}
+
+\usepackage{tabularx}
+\usepackage{times}
+\usepackage{soul}
+\usepackage{caption}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage[noend]{algpseudocode}
+\usepackage{multicol}
+\usepackage{wrapfig}
+\usepackage{multirow}
+\usepackage{comment}
+\usepackage{tikz}
+\usetikzlibrary{positioning,shapes.geometric,shapes.misc}
+    
+\urlstyle{same}
+
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{example}{Example}
+
+\newcommand{\pr}[1]{\mathbb{P}\!\left( #1 \right)}
+
+\include{macros}
+
+\title{New Advances in Approximate Inference for Logical Credal Networks}
+\author{Radu Marinescu}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+\section{Background}
+\label{sec-background}
+
+\subsection{Logical Credal Networks}
+
+A Logical Credal Network (LCN) consists of a set of propositions $\mathcal{A}$ and two sets of constraints $\mathcal{T}_U$ and $\mathcal{T}_D$. The set $\mathcal{N}$ is finite with  propositions $A_1, \dots, A_n$. Each proposition $A_i$ is associated with a random variable $X_i$ that is an indicator variable: if $A_i$ holds in an interpretation of the propositions then $X_i=1$; otherwise, $X_i=0$. From now on we simply use the same symbol for a proposition and its corresponding indicator random variable.  Each constraint in $\mathcal{T}_U$ and in $\mathcal{T}_D$ is of the form:
+
+\begin{equation}
+\alpha \leq P(\phi|\varphi) \leq \beta,
+\end{equation}
+
+\noindent where each $\phi$ and each $\varphi$ is a formula. Note that there is no syntactic difference between formulas in $\mathcal{T}_U$ and in $\mathcal{T}_D$; the difference between these sets lies in the distinct ways their formulas are interpreted (as discussed later).
+
+In this paper, formulas are propositional (with propositions in $\mathcal{A}$ and connectives such as negation, disjunction, conjunction).
+
+Note that $\varphi$ can be a tautology $\top$, in which case we can just write the ``unconditional'' probability $P(\phi)$.
+One can obviously use simple variants of constraints, such as $P(\phi|\varphi) = \beta$ or $P(\phi|\varphi) \geq \alpha$ or $P(\phi)\leq \alpha$, as syntactic sugar whenever needed. We use that in our examples. 
+
+\paragraph{Primal Graph of the LCN.} The semantics of an LCN is given by a translation from the LCN to a directed graph, referred to as the {\em primal graph} of the LCN. In the primal graph, each proposition in the LCN is a node  (we often refer to such nodes as {\em proposition-nodes}). Each constraint of the form $\alpha \leq P(\phi|\varphi) \leq \beta$ is processed as follows.
+
+\begin{enumerate}
+    \item First, a node labeled with formula $\phi$ is added, and an edge is added from node $\phi$ to each proposition in $\phi$.\footnote{We note that the original presentation of LCNs \cite{marinescu2022neurips} is a bit different from the one adopted here, as  no edges are added for a constraint in $\mathcal{T}_D$ for which $\varphi$ is $\top$. But this does not make any difference in the results and simplifies  the presentation. In fact, a more recent description of LCNs \cite{marinescu2023lcn} adopts the same scheme.}
+    \item In case the constraint is in $\mathcal{T}_U$, an edge is added from each proposition in $\phi$ to node $\phi$.
+    \item In case $\varphi$ is not $\top$, a node labeled with $\varphi$ is added, a directed edge from $\varphi$ to $\phi$ is added, and an edge from each proposition in $\varphi$ to node $\varphi$ is added.
+\end{enumerate}
+
+We often refer  to nodes labeled with formulas as {\em formula-nodes}. Note the difference between formulas in $\mathcal{T}_U$ and in $\mathcal{T}_D$: a formula in the former set leads to bi-directed edges between the node representing the formula and its ``conditioned'' propositions (that is, propositions in $\phi$), while a formula in the latter set only leads to directed edges from the node representing the formula to its ``conditioned'' atoms. 
+
+As we will see next, a formula in $\mathcal{T}_U$ introduces undirected edges among all propositions in $\phi$, thus eliminating the possibility that these propositions are independent, while a formula in $\mathcal{T}_D$ leaves open the possibility that the propositions are independent (they may become dependent through other paths imposed by other formulas). This distinction was proposed so as to enhance the level of expressivity at a small cost in language complexity. 
+
+\begin{figure}
+  \centering
+  \begin{subfigure}{0.4\textwidth}
+    \includegraphics[width=\textwidth]{figs/fig-lcn1-pg.png}
+    \caption{Primal graph}
+    \label{fig:ex1-pg}
+  \end{subfigure}
+  \qquad
+  \begin{subfigure}{0.3\textwidth}
+    \includegraphics[scale=0.6]{figs/fig-lcn1-st.png}
+    \caption{Structure}
+    \label{fig:ex1-st}
+  \end{subfigure}
+  \caption{Primal graph and structure of the LCN from Example \ref{ex:Smokers}.}
+  \label{fig:ex1}
+\end{figure}
+
+
+
+\begin{example}\label{ex:Smokers}
+    Consider the following LCN, based on the Smokers and Friends example by \cite{marinescu2022neurips}. We have propositions $C_i$, $F_i$, $S_i$ for $i\in\{1,2,3\}$. All constraints belong to $\mathcal{T}_U$ (that is, $\mathcal{T}_D$ is empty), with $i,j \in \{1,2,3\}$:
+
+\[
+\begin{array}{ll}
+0.5 \leq P(F_i | F_j \wedge F_k) \leq 1, & i \neq j, i \neq k, j \neq k; \\
+0.1 \leq P(S_i \vee S_j | F_i) \leq 0.2, & i \neq j; \\
+0.03 \leq P(C_i|S_i) \leq 0.04; & \\
+0.01 \leq P(C_i | \neg S_i) \leq 0.02.
+\end{array}
+\]
+
+    The primal graph of this LCN is depicted in Figure \ref{fig:ex1-pg}. Note that there are several directed cycles in this primal graph. The structure is depicted in Figure \ref{fig:ex1-st}.
+\end{example}
+
+
+\begin{figure}
+  \centering
+  \begin{subfigure}{0.4\textwidth}
+    \includegraphics[width=\textwidth]{figs/fig-lcn2-pg.png}
+    \caption{Primal graph}
+    \label{fig:ex2-pg}
+  \end{subfigure}
+  \qquad
+  \begin{subfigure}{0.3\textwidth}
+    \includegraphics[scale=0.8]{figs/fig-lcn2-st.png}
+    \caption{Structure}
+    \label{fig:ex2-st}
+  \end{subfigure}
+  \caption{Primal graph and structure of the LCN from Example \ref{ex:Earthquake}.}
+  \label{fig:ex2}
+\end{figure}
+
+
+\begin{example}\label{ex:Earthquake}
+   Consider another LCN based on the Earthquake example from \cite{marinescu2023lcn} and defined by the following constraints:
+
+\[
+\begin{array}{ll}
+0.1 \leq P(B) \leq 0.2 & \\
+0.05 \leq P(E) \leq 0.1 & \\
+0.8 \leq P(A|B \vee E) \leq 0.9 & \\
+0.7 \leq P(\neg (C \oplus D) | A) \leq 8 & \\
+0.01 \leq P(A) \leq 0.05 &
+\end{array}
+\]
+
+    The primal graph and structure are shown in Figures \ref{fig:ex2-pg} and \ref{fig:ex2-st}, respectively.
+\end{example}
+
+
+
+The primal graph of an LCN is rather similar in spirit to the {\em factor graph} of a Bayesian network \cite{koller2009probabilistic}, where both random variables and conditional probabilities are explicitly represented. This is a convenient device when it comes to message-passing inference algorithms \cite{koller2009probabilistic}, and indeed it has been used to develop message-passing schemes \cite{marinescu2023lcn}; however, perhaps it contains too much information when one wishes to examine independence relations.
+
+\paragraph{Structure of the LCN.} We introduce another graph called the {\em structure} of the LCN that can be extracted from the primal graph of a given LCN, as follows:
+
+\begin{enumerate}
+    \item For each formula-node $\phi$ that appears as a  conditioned formula in a constraint in $\mathcal{T}_U$, place an undirected edge between any two propositions that appear in $\phi$.
+    \item For each pair of formula-nodes $\varphi$ and $\phi$ that appear in a constraint, add a directed edge from each proposition in $\varphi$ to each proposition in $\phi$.
+    \item If, for some pair of proposition-nodes $A$ and $B$, there is now a pair of edges $A \leftrightarrows B$, then replace both edges by an undirected edge. 
+    \item Finally, remove the formula-nodes and all edges in and out of them; and if there are identical edges left, remove duplicates.
+\end{enumerate} 
+
+\subsection{Chain Graphs}
+
+A \emph{graph} is defined by a tuple $\langle \mathcal{N}, \mathcal{E}_D, \mathcal{E}_U \rangle$, where $\mathcal{N}$ is a set of nodes, and both $\mathcal{E}_D$ and $\mathcal{E}_U$ are sets of edges. The elements of $\mathcal{E}_D$ are \emph{directed} edges. A directed edge is an ordered pair of distinct nodes, denoted by $A \rightarrow B$. The elements of $\mathcal{E}_U$ are \emph{undirected} edges. An undirected edge is a pair of distinct nodes, denoted by $A - B$; note that the nodes are unordered, namely there is no difference between $A - B$ or $B - A$. 
+
+A \emph{path} from $A$ to $B$ is a sequence of distinct edges, the first one between $A$ and some node $C_1$, then between $C_1$ and $C_2$ and so on, until an edge between $C_k$ and $B$, where all nodes are distinct with the exception that the first and last nodes may be identical, and such that for each pair $(D_1,D_2)$ of consecutive nodes in the path we have either $D_1 \rightarrow D_2$ or $D_1 - D_2$ but never $D_2 \rightarrow D_1$. If $A$ and $B$ are in fact identical, the path is a \emph{cycle}. If there is at least one directed edge in a path, the path is a \emph{directed path}; if that path is a cycle, then it is a \emph{directed cycle}. If a path is not directed, then it is \emph{undirected} (as all edges in the path are undirected ones). A \emph{directed/undirected} graph is a graph that only contains \emph{directed/undirected} edges. A graph without directed cycles is a \emph{chain graph} (note that such a graph may contain undirected cycles). For example, the graphs shown in Figures \ref{fig:ex1-st} and \ref{fig:ex2-st} are chain graphs.
+
+\subsection{Factorization for Chain Graphs}
+
+Let $\mathcal{G}$ be a chain graph with set of nodes $\mathcal{N}$. The \emph{local Markov condition} for chain graphs is:
+
+\begin{definition}[LMC(C)]
+    A node $A$ is independent, given its boundary $\mbox{bd}(A)$, of all nodes that are not $A$ itself nor descendants of $A$ nor boundary nodes of $A$. 
+\end{definition}
+
+The \emph{global Markov condition} for chain graphs is significantly more complicated:
+
+\begin{definition}
+    Given any triple $(\mathcal{N}_1, \mathcal{N}_2, \mathcal{N}_3)$ of disjoint subsets of $\mathcal{N}$ , if $\mathcal{N}_2$ separates $\mathcal{N}_1$ and $\mathcal{N}_3$ in the graph $\mathcal{G}^{ma}(\mathcal{N}_1 \cup \mathcal{N}_2 \cup \mathcal{N}_3)$, then nodes $\mathcal{N}_1$ and $\mathcal{N}_3$ are independent given nodes $\mathcal{N}_2$.
+\end{definition}
+
+
+Assuming the probability of all configurations are positive, then both Markov conditions for chain graphs are equivalent and they are equivalent to a {\em factorization property}, as follows. Take the chain components $T_1, \dots, T_n$ ordered so that nodes in $T_i$ can only be at the end of directed edges starting from chain components before $T_i$; this is always possible in a chain graph. Then the factorization has the form:
+
+\[
+\pr{X=x} = \prod_{i=1}^n \pr{\mathcal{N}_i=x_{\mathcal{N}_i}\mid\mbox{bd}(\mathcal{N}_i)=x_{\mbox{\scriptsize bd}(\mathcal{N}_i)} }
+\]
+
+\noindent where $\mathcal{N}_i$ is the set of nodes in the $i$th chain component; $x_{\mathcal{N}_i}$ and $x_{\mbox{\scriptsize bd}(\mathcal{N}_i)}$ are respectively the projection of $x$ over $\mathcal{N}_i$ and $\mbox{bd}(\mathcal{N}_i)$. Moreover, each factor in the product itself factorizes accordingly to an undirected graph that depends on the corresponding chain component \cite{cowell99}. More precisely, for each chain component $T_i$, build an undirected graph consisting of the nodes in $\mathcal{N}_i$ and $\mbox{bd}(\mathcal{N}_i)$ with all edges between these nodes in $\mathcal{G}$ turned into undirected edges in this new graph, and with new undirected edges connecting each pair of nodes in  $\mbox{bd}(\mathcal{N}_i)$ that were not joined already; then each $\pr{\mathcal{N}_i\mid\mbox{bd}(\mathcal{N}_i)}$ equals the ratio $h_i(\mathcal{N}_i,\mbox{bd}(\mathcal{N}_i))/   (\sum h_i(\mathcal{N}_i,\mbox{bd}(\mathcal{N}_i)))$,
+%h_i(\mbox{bd}(\mathcal{N}_i)))$ for positive function  $h_i$, where $h_i(\mbox{bd}(\mathcal{N}_i)) = \sum h_i(\mathcal{N}_i,\mbox{bd}(\mathcal{N}_i))$ 
+with the sum extending over all configurations of $\mathcal{N}_i$, for appropriate positive functions $h_i$ that factorize according to the corresponding undirected graphs. 
+
+\section{Variable Elimination Algorithms}
+\label{sec-ve}
+
+In this section, we develop new inference algorithms that exploit the factorization described in the previous section. Let $\mathcal{L}$ be an LCN whose structure is a chain graph. For simplicity, we refer to $\mathcal{L}$ as a \emph{chain graph LCN}.  
+
+\subsection{Algorithm 1 - Approximate Credal VE for Marginals}
+
+\begin{algorithm}[t]
+  \caption{Approx-CVE for LCNs}
+  \label{alg:algo1}
+  % \vspace{-1em}
+  % \begin{footnotesize}
+  % \begin{multicols}{2}  
+    \begin{algorithmic}[1]
+
+    \State Let $\cL$ be the input LCN
+    \State Let $\cS$ be $\cL$'s structure
+    \State Let $\cF$ be the factorization of $\cS$: $P(x) = \prod_i P(T_i | \mbox{pa}(T_i))$
+    
+    \ForAll{family $\langle T_i, \mbox{pa}(T_i)\rangle$}
+        \ForAll{configuration $x$ of variables $X = \{T_i \cup \mbox{pa}(T_i)\}$}
+            \State Let $S_i = \{s_1, ..., s_k\}$ be $\cL$'s sentences defined on $X$
+            \State $lb \leftarrow \min (\mbox{Charnes-Cooper}(x, S_i))$
+            \State $ub \leftarrow \max (\mbox{Charnes-Cooper}(x, S_i))$
+            \State Let $K_i(x) = [lb, ub]$
+        \EndFor
+    \EndFor
+
+    \State Apply CVE on the credal factors $K_i(x)$
+    \end{algorithmic}
+  % \end{multicols}
+  % \end{footnotesize}
+\end{algorithm}
+
+Algorithm \ref{alg:algo1} describes our first approximation scheme for LCNs. The basic idea is to approximate each factor $K_i(x)$ in the factorization by solving a series of local LPs (obtained by applying the well known Charnes-Cooper transformation) for each configuration of the variables in its scope. Subsequently, we apply the Credal Variable Elimination (CVE) on these credal factors.
+
+\begin{itemize}
+    \item Build the LCN structure $\cS$
+    \item Extract factorization, each factor $K(T_i|\mbox{pa}(T_i))$, where $T_i \subseteq \bX$, $\mbox{pa}(T_i) \subseteq \bX$
+    \item Approximate $lb \leq K_i(x) \leq ub$, where the lower and upper bounds are computed by solving the corresponding local Charnes-Cooper LPs defined by the LCN sentences defined on $\{T_i \cup \mbox{pa}(T_i)\}$
+    \item Apply CVE on the credal factors $K_i(x)$
+\end{itemize}
+
+\subsection{Algorithm 2 - Variables in $pa(T_i)$ are independent of each other}
+Algorithm 2 Idea:
+\begin{itemize}
+    \item Build the LCN structure $\cS$
+    \item Extract factorization, each factor $K(T_i|\mbox{pa}(T_i))$, where $T_i \subseteq \bX$, $\mbox{pa}(T_i) \subseteq \bX$
+    \item Approximate $lb \leq K_i(x) \leq ub$, as in Algorithm \ref{alg:algo1} with additional non-linear constraint: variables in $\mbox{pa}(T_i)$ are independent of each other.
+    \item Apply CVE on the credal factors $K_i(x)$
+\end{itemize}
+
+
+\subsection{Potentials}
+
+\begin{definition}[Potential]
+A \textbf{potential} $\phi(\mathbf{Y})$ over variables $\mathbf{Y}$ is a finite set
+of non-negative real-valued functions $\{f_1, f_2, \dots, f_m\}$ on the joint domain
+of $\mathbf{Y}$. Each function $f_k$ maps configurations of $\mathbf{Y}$ to
+$\mathbb{R}_{\geq 0}$.
+\end{definition}
+
+Three operations on potentials are central to the algorithm:
+
+\paragraph{Product.}
+The product of $\phi(\mathbf{Y})$ and $\psi(\mathbf{Z})$ is:
+\[
+  \phi \cdot \psi = \{f \cdot g : f \in \phi, \; g \in \psi\},
+\]
+where $(f \cdot g)(\mathbf{y}, \mathbf{z}) = f(\mathbf{y}) \cdot g(\mathbf{z})$
+over the joint domain $\mathbf{Y} \cup \mathbf{Z}$ (with broadcasting for
+non-shared variables).
+
+\paragraph{Sum-Marginal.}
+The sum-marginal of $\phi(\mathbf{Y})$ with respect to $X \subseteq \mathbf{Y}$ is:
+\[
+  \sum_{X} \phi(\mathbf{Y}) = \Bigl\{ \sum_{x} f(\mathbf{y}) : f \in \phi \Bigr\},
+\]
+producing functions over $\mathbf{Y} \setminus \{X\}$.
+
+\paragraph{Pruning.}
+The pruning operation removes dominated functions:
+\[
+  \mathrm{prune}(\phi) = \{f \in \phi : \nexists\, g \in \phi \setminus \{f\}
+  \text{ s.t.\ } g(\mathbf{y}) \geq f(\mathbf{y})\; \forall\, \mathbf{y}\}.
+\]
+This reduces the cardinality of potentials without affecting the min/max bounds.
+
+\subsection{Algorithm: Credal Variable Elimination (CVE)}
+
+\begin{algorithm}[H]
+\caption{Credal Variable Elimination (CVE)}
+\label{alg:cve}
+\begin{algorithmic}[1]
+\Require Extreme points $\mathrm{ext}\,K(X_i \mid \mathrm{Pa}(X_i))$ for each node $X_i$,
+         query variable $Z$, evidence $\mathbf{Y} = \mathbf{y}$
+\Ensure Lower and upper bounds $[\underline{P}(Z{=}z \mid \mathbf{y}),\;
+        \overline{P}(Z{=}z \mid \mathbf{y})]$ for each state $z$
+\Statex
+\State $\Gamma \gets \emptyset$
+\Comment{Set of potentials}
+\For{each variable $X_i \in \mathbf{X}$}
+  \State $\phi_{X_i} \gets \{p : p \in \mathrm{ext}\,K(X_i \mid \mathrm{Pa}(X_i))\}$
+  \State $\Gamma \gets \Gamma \cup \{\phi_{X_i}\}$
+\EndFor
+\For{each evidence variable $Y_j \in \mathbf{Y}$}
+  \State $\phi'_{Y_j} \gets \{\delta_{y_j}\}$
+  \Comment{Indicator function}
+  \State $\Gamma \gets \Gamma \cup \{\phi'_{Y_j}\}$
+\EndFor
+\Statex
+\State Compute elimination ordering $\mathbf{o} = (X_{\sigma(1)}, \dots, X_{\sigma(n-1)})$
+       excluding $Z$
+\For{each $X_i$ in ordering $\mathbf{o}$}
+  \State $\Gamma_{X_i} \gets \{\phi \in \Gamma : X_i \in \mathrm{scope}(\phi)\}$
+  \State $\Gamma \gets \Gamma \setminus \Gamma_{X_i}$
+  \State $\psi \gets \prod \{\phi \in \Gamma_{X_i}\}$
+  \Comment{Combine all potentials in bucket}
+  \State $\psi' \gets \sum_{X_i} \psi$
+  \Comment{Marginalize out $X_i$}
+  \State $\psi'' \gets \mathrm{prune}(\psi')$
+  \Comment{Remove dominated functions}
+  \State $\Gamma \gets \Gamma \cup \{\psi''\}$
+\EndFor
+\Statex
+\State $\phi_{\mathrm{final}} \gets \prod \{\phi \in \Gamma\}$
+\Comment{Remaining potentials over $Z$}
+\State $\underline{P}(z) \gets 1,\; \overline{P}(z) \gets 0$ for each state $z$
+\For{each $f \in \phi_{\mathrm{final}}$}
+  \State $\mathbf{p} \gets f / \sum_{z'} f(z')$
+  \Comment{Normalize}
+  \For{each state $z$}
+    \State $\underline{P}(z) \gets \min(\underline{P}(z),\; \mathbf{p}(z))$
+    \State $\overline{P}(z) \gets \max(\overline{P}(z),\; \mathbf{p}(z))$
+  \EndFor
+\EndFor
+\State \Return $[\underline{P}(z),\; \overline{P}(z)]$ for each $z$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Running Example}
+
+\begin{example}[Alarm Network]
+Consider the LCN with variables $B$ (Burglary), $E$ (Earthquake), $A$ (Alarm),
+and compound variable $CD$ (representing $C$ and $D$). The DAG structure is:
+\[
+  B \to A, \quad E \to A, \quad A \to CD.
+\]
+The local credal sets (extreme points from LRS vertex enumeration) are:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Node} & \textbf{Parent Config} & \textbf{Vertices} \\
+\midrule
+$B$ & --- & $[0.8, 0.2]$, $[0.9, 0.1]$ \\
+$E$ & --- & $[0.9, 0.1]$, $[0.95, 0.05]$ \\
+$A$ & $B{=}0, E{=}0$ & $[0.956, 0.044]$, $[1.0, 0.0]$ \\
+$A$ & $B{=}1, E{=}0$ & $[0.0, 1.0]$, $[1.0, 0.0]$ \\
+$A$ & $B{=}0, E{=}1$ & $[0.0, 1.0]$, $[1.0, 0.0]$ \\
+$A$ & $B{=}1, E{=}1$ & $[0.0, 1.0]$, $[1.0, 0.0]$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Query: $P(B{=}1)$ (no evidence).}
+Elimination order (topological): $E, A, CD$.
+
+\textbf{Step 1: Eliminate $E$.}
+Potentials involving $E$: $\phi_E$ (scope $\{E\}$, 2 functions) and $\phi_A$
+(scope $\{A, B, E\}$, $2^3 = 8$ functions for the separately specified A).
+Combine: $\psi = \phi_E \cdot \phi_A$ produces $2 \times 8 = 16$ functions
+over $\{A, B, E\}$. Marginalize $E$: sum over $E$'s domain, producing 16
+functions over $\{A, B\}$. Prune: remove dominated functions.
+
+\textbf{Step 2: Eliminate $A$.}
+Combine with $CD$ factor, marginalize $A$, prune.
+
+\textbf{Step 3: Eliminate $CD$.}
+Marginalize $CD$, leaving functions over $\{B\}$ only.
+
+\textbf{Result.} Each surviving function $f(B)$ is normalized:
+$p(B{=}1) = f(1) / (f(0) + f(1))$. The minimum across all functions gives
+$\underline{P}(B{=}1) = 0.10$ and the maximum gives
+$\overline{P}(B{=}1) = 0.20$.
+\end{example}
+
+
+\section{Interval Belief Propagation Algorithms}
+\subsection{Factor Graph}
+
+Given a credal network $\langle G, \mathcal{K} \rangle$, we construct a
+\textbf{factor graph}: a bipartite graph with variable nodes and factor nodes.
+Each variable $X_i$ in the credal network corresponds to a variable node with
+cardinality $|D_i|$. Each conditional credal set $K(X_i \mid \mathrm{Pa}(X_i))$
+defines a factor node $f_i$ whose scope is $\{X_i\} \cup \mathrm{Pa}(X_i)$.
+The factor stores the extreme points of $K(X_i \mid \pi)$ for all parent
+configurations $\pi$.
+
+\subsection{Interval Messages}
+
+\begin{definition}[Interval Message]
+For a variable $X$ with $k$ states, an \textbf{interval message} is a pair of
+vectors $(\mathbf{l}, \mathbf{u}) \in \mathbb{R}^k \times \mathbb{R}^k$ where
+$0 \leq l_x \leq u_x \leq 1$ for each state $x \in D_X$. The interval
+$[l_x, u_x]$ bounds the probability $P(X = x)$ from the message sender's
+perspective.
+\end{definition}
+
+Messages are of two types:
+\begin{itemize}
+  \item $\mu_{v \to f} = (\mathbf{l}_{v \to f}, \mathbf{u}_{v \to f})$:
+        message from variable $v$ to factor $f$.
+  \item $\mu_{f \to v} = (\mathbf{l}_{f \to v}, \mathbf{u}_{f \to v})$:
+        message from factor $f$ to variable $v$.
+\end{itemize}
+
+All messages are initialized to the vacuous interval $([0, \dots, 0], [1, \dots, 1])$.
+
+\subsection{Algorithm}
+
+\begin{algorithm}[H]
+\caption{Interval Belief Propagation (IBP)}
+\label{alg:ibp}
+\begin{algorithmic}[1]
+\Require Factor graph with extreme points, query $Z$, evidence $\mathbf{Y} = \mathbf{y}$,
+         max iterations $T$, threshold $\tau$
+\Ensure Bounds $[\underline{P}(Z{=}z),\; \overline{P}(Z{=}z)]$ for each $z$
+\Statex
+\State Initialize $\mu_{v \to f} \gets (\mathbf{0}, \mathbf{1})$ and
+       $\mu_{f \to v} \gets (\mathbf{0}, \mathbf{1})$ for all edges
+\For{each evidence variable $Y_j = y_j$}
+  \State Set $\mu_{Y_j \to f} \gets (\delta_{y_j}, \delta_{y_j})$ for all factors
+         $f \in \mathcal{N}(Y_j)$
+\EndFor
+\Statex
+\For{$t = 1, \dots, T$}
+  \State $\delta \gets 0$
+  \Statex
+  \Comment{\textsc{Variable-to-Factor Updates}}
+  \For{each variable $v$ (not evidence), each factor $f \in \mathcal{N}(v)$}
+    \For{each state $x$}
+      \State $l_{v \to f}(x) \gets \max_{f' \in \mathcal{N}(v) \setminus \{f\}}
+             l_{f' \to v}(x)$
+      \State $u_{v \to f}(x) \gets \min_{f' \in \mathcal{N}(v) \setminus \{f\}}
+             u_{f' \to v}(x)$
+    \EndFor
+    \State $\mathbf{u}_{v \to f} \gets \max(\mathbf{l}_{v \to f}, \mathbf{u}_{v \to f})$
+    \Comment{Ensure $l \leq u$}
+    \State Update $\delta$
+  \EndFor
+  \Statex
+  \Comment{\textsc{Factor-to-Variable Updates}}
+  \For{each factor $f_i$, each target variable $v \in \mathrm{scope}(f_i)$}
+    \State $\mathbf{l}_{\mathrm{new}} \gets \mathbf{1}, \quad \mathbf{u}_{\mathrm{new}} \gets \mathbf{0}$
+    \For{each vertex combination $\mathbf{vc}$}
+      \For{each corner-point combination $\mathbf{cc}$}
+        \State Compute unnormalized marginal $\mathbf{m}(v)$ using $\mathbf{vc}$ and $\mathbf{cc}$
+        \State $\mathbf{p} \gets \mathbf{m} / \sum_{x} m(x)$
+        \State $\mathbf{l}_{\mathrm{new}} \gets \min(\mathbf{l}_{\mathrm{new}}, \mathbf{p})$
+        \State $\mathbf{u}_{\mathrm{new}} \gets \max(\mathbf{u}_{\mathrm{new}}, \mathbf{p})$
+      \EndFor
+    \EndFor
+    \State $\mu_{f \to v} \gets (\mathbf{l}_{\mathrm{new}}, \mathbf{u}_{\mathrm{new}})$
+    \State Update $\delta$
+  \EndFor
+  \If{$\delta < \tau$} \textbf{break} \EndIf
+\EndFor
+\Statex
+\Comment{\textsc{Extract Marginal Bounds}}
+\For{each state $z$}
+  \State $\underline{P}(z) \gets \max_{f \in \mathcal{N}(Z)} l_{f \to Z}(z)$
+  \State $\overline{P}(z) \gets \min_{f \in \mathcal{N}(Z)} u_{f \to Z}(z)$
+\EndFor
+\State \Return $[\underline{P}(z), \overline{P}(z)]$ for each $z$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Factor-to-Variable Message Computation}\label{sec:ftov}
+
+The factor-to-variable message from factor $f_i$ (associated with node $X_i$,
+parents $\mathrm{Pa}(X_i)$) to target variable $v \in \mathrm{scope}(f_i)$
+is computed by scanning over all \emph{vertex combinations} and
+\emph{corner-point combinations}, as defined below.
+
+Let $\mathcal{O} = \mathrm{scope}(f_i) \setminus \{v\}$ be the other variables.
+For each $w \in \mathcal{O}$, let $(\mathbf{l}_{w}, \mathbf{u}_{w}) = \mu_{w \to f_i}$ be the incoming message.
+
+\subsection{Vertex Combinations (vc)}\label{sec:vc}
+
+Factor $f_i$ stores a conditional credal set $K(X_i \mid \pi)$ for each parent
+configuration $\pi \in \Omega_{\mathrm{Pa}(X_i)}$. Each credal set has a finite
+number of extreme points (vertices):
+\[
+  \mathrm{ext}\,K(X_i \mid \pi) = \{P_1(X_i \mid \pi),\; P_2(X_i \mid \pi),\; \dots,\; P_{n_\pi}(X_i \mid \pi)\}.
+\]
+
+\begin{definition}[Vertex Combination]
+A \textbf{vertex combination} $\mathbf{vc} = (j_1, j_2, \dots, j_m)$ selects one vertex per parent
+configuration: vertex $j_k$ from configuration $\pi_k$. It specifies a complete conditional
+distribution $P_{\mathbf{vc}}(X_i \mid \pi_k)$ for every parent configuration.
+
+The total number of vertex combinations is $\prod_{k=1}^{m} n_{\pi_k}$.
+\end{definition}
+
+\textbf{Example.} If factor $f_A$ has parents $\{B, E\}$ with 4 parent configurations
+$(B{=}0,E{=}0)$, $(B{=}1,E{=}0)$, $(B{=}0,E{=}1)$, $(B{=}1,E{=}1)$, and each has
+2 vertices, then there are $2^4 = 16$ vertex combinations. The combination $\mathbf{vc} = (1,1,1,1)$
+selects vertex 1 from every parent configuration, while $\mathbf{vc} = (2,1,2,1)$ selects vertex 2
+from $(B{=}0,E{=}0)$ and $(B{=}0,E{=}1)$, and vertex 1 from the other two.
+
+\subsection{Corner-Point Combinations (cc)}\label{sec:cc}
+
+For each ``other'' variable $w \in \mathcal{O}$, the incoming interval message provides
+a lower bound vector $\mathbf{l}_w$ and an upper bound vector $\mathbf{u}_w$. To
+compute the factor-to-variable message, we must evaluate the marginal at the extreme
+points of these intervals.
+
+\begin{definition}[Corner-Point Combination]
+A \textbf{corner-point combination} $\mathbf{cc} = (c_1, c_2, \dots, c_{|\mathcal{O}|})$ where each $c_j \in \{0, 1\}$
+selects either the \emph{lower} ($c_j = 0$) or \emph{upper} ($c_j = 1$) bound vector
+for each other variable $w_j$:
+\[
+  \mathbf{q}_{w_j} = \begin{cases}
+    \mathbf{l}_{w_j} & \text{if } c_j = 0 \\
+    \mathbf{u}_{w_j} & \text{if } c_j = 1
+  \end{cases}
+\]
+The total number of corner-point combinations is $2^{|\mathcal{O}|}$.
+\end{definition}
+
+\textbf{Example.} When computing $f_A \to B$ (target is $B$), the other variables are
+$\mathcal{O} = \{A, E\}$. If the incoming messages are $\mu_{A \to f_A} = ([0.7, 0.0], [1.0, 0.3])$
+and $\mu_{E \to f_A} = ([0.9, 0.05], [0.95, 0.1])$, then there are $2^2 = 4$ corner-point
+combinations selecting $\mathbf{q}_A \in \{[0.7, 0.0], [1.0, 0.3]\}$ and
+$\mathbf{q}_E \in \{[0.9, 0.05], [0.95, 0.1]\}$.
+
+\subsection{Marginal Computation}
+
+For a given $(\mathbf{vc}, \mathbf{cc})$ pair, the unnormalized marginal over $v$ is:
+
+\medskip
+\noindent\textbf{Case 1:} $v = X_i$ (target is the child node):
+\begin{equation}\label{eq:case1}
+  m(v{=}x) = \sum_{\pi} P_{\mathbf{vc}}(X_i{=}x \mid \pi)
+  \cdot \prod_{w \in \mathrm{Pa}(X_i) \cap \mathcal{O}} \mathbf{q}_w(\pi_w),
+\end{equation}
+where $\mathbf{q}_w$ is the bound vector for $w$ selected by $\mathbf{cc}$, and
+$\pi_w$ is the value of $w$ in parent configuration $\pi$.
+
+\medskip
+\noindent\textbf{Case 2:} $v \in \mathrm{Pa}(X_i)$ (target is a parent):
+\begin{equation}\label{eq:case2}
+  m(v{=}x) = \sum_{\pi : \pi_v = x}
+  \Bigl(\sum_{x_i} P_{\mathbf{vc}}(X_i{=}x_i \mid \pi) \cdot \mathbf{q}_{X_i}(x_i)\Bigr)
+  \cdot \prod_{w \in \mathrm{Pa} \setminus \{v\}} \mathbf{q}_w(\pi_w),
+\end{equation}
+where $\mathbf{q}_{X_i}$ is the bound vector for $X_i$ if $X_i \in \mathcal{O}$.
+
+\medskip
+The marginal is normalized: $p(x) = m(x) / \sum_{x'} m(x')$.
+
+The factor-to-variable message then takes the component-wise minimum and maximum
+over all $(\mathbf{vc}, \mathbf{cc})$ pairs:
+\begin{align*}
+  l_{f \to v}(x) &= \min_{\mathbf{vc},\,\mathbf{cc}} p(x), \\
+  u_{f \to v}(x) &= \max_{\mathbf{vc},\,\mathbf{cc}} p(x).
+\end{align*}
+
+%% ================================================================
+\subsection{Detailed Running Example: Alarm Network}
+%% ================================================================
+
+We trace the IBP algorithm on the alarm network from file \texttt{alarm.lcn}:
+\begin{verbatim}
+s1: 0.1 <= P(B) <= 0.2
+s2: 0.05 <= P(E) <= 0.1
+s3: 0.6 <= P(A | (B or E)) <= 0.9
+s4: 0.5 <= P(not(C xor D) | A) <= 0.7 ; True
+s5: 0.05 <= P(A) <= 0.1
+\end{verbatim}
+
+After the chain graph factorization and LRS vertex enumeration, the credal network has
+four nodes: $B$ (binary), $E$ (binary), $A$ (binary), and $CD$ (4-valued, representing
+the compound variable for $C$ and $D$). The DAG structure is $B \to A$, $E \to A$,
+$A \to CD$.
+
+\subsection{Factor Graph}
+
+The factor graph is a bipartite graph with 4 variable nodes and 4 factor nodes:
+
+\begin{center}
+\begin{tikzpicture}[
+  var/.style={circle, draw, minimum size=10mm, font=\small},
+  fac/.style={rectangle, draw, fill=gray!20, minimum size=8mm, font=\small},
+  edge/.style={thick},
+  node distance=18mm
+]
+  % Variable nodes
+  \node[var] (B) {$B$};
+  \node[var, right=25mm of B] (A) {$A$};
+  \node[var, below=15mm of B] (E) {$E$};
+  \node[var, right=25mm of A] (CD) {$CD$};
+
+  % Factor nodes
+  \node[fac, above=10mm of B] (fB) {$f_B$};
+  \node[fac, below=10mm of E] (fE) {$f_E$};
+  \node[fac, below right=5mm and 12mm of B] (fA) {$f_A$};
+  \node[fac, above=10mm of CD] (fCD) {$f_{CD}$};
+
+  % Edges
+  \draw[edge] (B) -- (fB);
+  \draw[edge] (E) -- (fE);
+  \draw[edge] (B) -- (fA);
+  \draw[edge] (E) -- (fA);
+  \draw[edge] (A) -- (fA);
+  \draw[edge] (A) -- (fCD);
+  \draw[edge] (CD) -- (fCD);
+\end{tikzpicture}
+\end{center}
+
+\noindent Each factor's scope and adjacency:
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+\textbf{Factor} & \textbf{Node} & \textbf{Parents} & \textbf{Scope} \\
+\midrule
+$f_B$ & $B$ & --- & $\{B\}$ \\
+$f_E$ & $E$ & --- & $\{E\}$ \\
+$f_A$ & $A$ & $B, E$ & $\{A, B, E\}$ \\
+$f_{CD}$ & $CD$ & $A$ & $\{CD, A\}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Variable adjacency: $B \leftrightarrow \{f_B, f_A\}$, \;
+$E \leftrightarrow \{f_E, f_A\}$, \;
+$A \leftrightarrow \{f_A, f_{CD}\}$, \;
+$CD \leftrightarrow \{f_{CD}\}$.
+
+\subsection{Credal Factors (Extreme Points)}
+
+\paragraph{Factor $f_B$: $K(B)$, no parents.}
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Vertex} & $P(B{=}0)$ & $P(B{=}1)$ \\
+\midrule
+$v_1$ & 0.80 & 0.20 \\
+$v_2$ & 0.90 & 0.10 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Factor $f_E$: $K(E)$, no parents.}
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Vertex} & $P(E{=}0)$ & $P(E{=}1)$ \\
+\midrule
+$v_1$ & 0.90 & 0.10 \\
+$v_2$ & 0.95 & 0.05 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Factor $f_A$: $K(A \mid B, E)$, parents $\{B, E\}$.}
+Four parent configurations, each with 2 vertices ($2^4 = 16$ vertex combinations):
+\begin{center}
+\begin{tabular}{llcc}
+\toprule
+\textbf{Parent config} & \textbf{Vertex} & $P(A{=}0 \mid \cdot)$ & $P(A{=}1 \mid \cdot)$ \\
+\midrule
+$B{=}0, E{=}0$ & $v_1$ & 0.9556 & 0.0444 \\
+$B{=}0, E{=}0$ & $v_2$ & 1.0000 & 0.0000 \\
+\midrule
+$B{=}1, E{=}0$ & $v_1$ & 0.0000 & 1.0000 \\
+$B{=}1, E{=}0$ & $v_2$ & 1.0000 & 0.0000 \\
+\midrule
+$B{=}0, E{=}1$ & $v_1$ & 0.0000 & 1.0000 \\
+$B{=}0, E{=}1$ & $v_2$ & 1.0000 & 0.0000 \\
+\midrule
+$B{=}1, E{=}1$ & $v_1$ & 0.0000 & 1.0000 \\
+$B{=}1, E{=}1$ & $v_2$ & 1.0000 & 0.0000 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Factor $f_{CD}$: $K(CD \mid A)$, parent $\{A\}$.}
+Two parent configurations: $A{=}0$ (4 vertices) and $A{=}1$ (11 vertices).
+For brevity, we show a subset:
+\begin{center}
+\begin{tabular}{llcccc}
+\toprule
+\textbf{Config} & \textbf{Vtx} & $P(CD{=}0)$ & $P(CD{=}1)$ & $P(CD{=}2)$ & $P(CD{=}3)$ \\
+\midrule
+$A{=}0$ & $v_1$ & 0.00 & 0.00 & 0.00 & 1.00 \\
+$A{=}0$ & $v_2$ & 0.00 & 0.00 & 1.00 & 0.00 \\
+$A{=}0$ & $v_3$ & 0.00 & 1.00 & 0.00 & 0.00 \\
+$A{=}0$ & $v_4$ & 1.00 & 0.00 & 0.00 & 0.00 \\
+\midrule
+$A{=}1$ & $v_1$ & 0.00 & 0.00 & 0.30 & 0.70 \\
+$A{=}1$ & $v_2$ & 0.00 & 0.30 & 0.00 & 0.70 \\
+\multicolumn{2}{l}{$\cdots$ (9 more)} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+There are $4 \times 11 = 44$ vertex combinations for $f_{CD}$.
+
+\subsection{Query: $P(B{=}1)$, No Evidence}
+
+\subsubsection{Iteration 1: Factor-to-Variable Messages}
+
+\paragraph{Message $f_B \to B$.}
+Factor $f_B$ has scope $\{B\}$ with no parents and no other variables ($\mathcal{O} = \emptyset$).
+
+\begin{itemize}
+\item \textbf{Vertex combinations:} 2 (one per vertex of $K(B)$, since there is only one parent configuration---the empty one).
+\item \textbf{Corner-point combinations:} $2^0 = 1$ (no other variables).
+\end{itemize}
+
+Computation for each $\mathbf{vc}$:
+\begin{align*}
+  \mathbf{vc} = (1): \quad & m = v_1 = [0.80,\, 0.20], \quad
+  p = m / 1.0 = [0.80,\, 0.20]. \\
+  \mathbf{vc} = (2): \quad & m = v_2 = [0.90,\, 0.10], \quad
+  p = m / 1.0 = [0.90,\, 0.10].
+\end{align*}
+
+Result:
+\[
+  \mu_{f_B \to B} = \bigl(\,\underbrace{[\,0.80,\; 0.10\,]}_{\mathbf{l} = \min},\;
+  \underbrace{[\,0.90,\; 0.20\,]}_{\mathbf{u} = \max}\,\bigr).
+\]
+
+\paragraph{Message $f_E \to E$.} Analogous computation:
+\[
+  \mu_{f_E \to E} = \bigl(\,[\,0.90,\; 0.05\,],\; [\,0.95,\; 0.10\,]\,\bigr).
+\]
+
+\paragraph{Message $f_A \to A$.}
+Factor $f_A$ has scope $\{A, B, E\}$, target is $A$, so $\mathcal{O} = \{B, E\}$.
+This is Case~1 (target is the child node). Using Equation~\ref{eq:case1}:
+\[
+  m(A{=}x) = \sum_{\pi \in \{0,1\}^2} P_{\mathbf{vc}}(A{=}x \mid B{=}\pi_B, E{=}\pi_E)
+  \cdot \mathbf{q}_B(\pi_B) \cdot \mathbf{q}_E(\pi_E).
+\]
+
+In iteration~1, the incoming messages are vacuous: $\mu_{B \to f_A} = ([0,0],[1,1])$,
+$\mu_{E \to f_A} = ([0,0],[1,1])$.
+
+\begin{itemize}
+\item \textbf{Vertex combinations:} $2^4 = 16$ (2 vertices per each of 4 parent configs).
+\item \textbf{Corner-point combinations:} $2^2 = 4$ (lower or upper for $B$ and $E$).
+\end{itemize}
+
+When both incoming messages are vacuous, many $(\mathbf{vc}, \mathbf{cc})$ pairs
+produce $m = [0, 0]$ (zero total) because $\mathbf{q}_B = [0,0]$ or
+$\mathbf{q}_E = [0,0]$ zeroes out the product.
+Only $\mathbf{cc} = (1,1)$ (both upper bounds $=[1,1]$) produces nonzero marginals.
+
+\textbf{Detailed example:} $\mathbf{vc} = (1,1,1,1)$ (vertex~1 for all configs),
+$\mathbf{cc} = (1,1)$ ($\mathbf{q}_B = [1,1]$, $\mathbf{q}_E = [1,1]$):
+\begin{align*}
+  m(A{=}0) &= 0.9556 \cdot 1 \cdot 1 + 0.0000 \cdot 1 \cdot 1
+              + 0.0000 \cdot 1 \cdot 1 + 0.0000 \cdot 1 \cdot 1 = 0.9556, \\
+  m(A{=}1) &= 0.0444 \cdot 1 \cdot 1 + 1.0000 \cdot 1 \cdot 1
+              + 1.0000 \cdot 1 \cdot 1 + 1.0000 \cdot 1 \cdot 1 = 3.0444, \\
+  p &= [0.9556, 3.0444] / 4.0 = [0.2389,\, 0.7611].
+\end{align*}
+
+After scanning all 16 vertex combinations (with $\mathbf{cc} = (1,1)$),
+the resulting message is wide because vacuous inputs provide no information.
+
+\paragraph{Message $f_A \to B$.}
+Target is $B$ (a parent), $\mathcal{O} = \{A, E\}$. This is Case~2.
+With vacuous incoming messages, the message to $B$ is similarly wide.
+
+\paragraph{Messages from $f_{CD}$.}
+Factor $f_{CD}$ has scope $\{CD, A\}$ with 44 vertex combinations and $2^1 = 2$
+corner-point combinations per target variable. In the first iteration with
+vacuous incoming messages, these produce wide bounds.
+
+\subsubsection{Iteration 1: Variable-to-Factor Messages}
+
+After the factor-to-variable messages are computed, the variable-to-factor
+messages are updated by \emph{tightening}: each variable sends to a factor
+the intersection of messages from all \emph{other} factors.
+
+\paragraph{Message $B \to f_A$.}
+Variable $B$ has neighbors $\{f_B, f_A\}$. The message to $f_A$ excludes $f_A$ itself:
+\[
+  \mu_{B \to f_A} = \mu_{f_B \to B} = \bigl(\,[0.80,\, 0.10],\; [0.90,\, 0.20]\,\bigr).
+\]
+This is a significant tightening from the vacuous $([0,0],[1,1])$: factor $f_B$
+directly constrains $B$'s marginal, and this information is now passed to $f_A$.
+
+\paragraph{Message $E \to f_A$.}
+Similarly, $E$ has neighbors $\{f_E, f_A\}$:
+\[
+  \mu_{E \to f_A} = \mu_{f_E \to E} = \bigl(\,[0.90,\, 0.05],\; [0.95,\, 0.10]\,\bigr).
+\]
+
+\paragraph{Message $A \to f_{CD}$.}
+Variable $A$ has neighbors $\{f_A, f_{CD}\}$:
+\[
+  \mu_{A \to f_{CD}} = \mu_{f_A \to A}.
+\]
+
+\subsubsection{Iteration 2: Recomputing $f_A \to A$ with Informative Messages}
+
+Now $f_A$ receives informative messages from $B$ and $E$. The computation of
+$f_A \to A$ uses:
+\begin{align*}
+  \mathbf{q}_B &\in \{[0.80,\, 0.10],\; [0.90,\, 0.20]\}, \\
+  \mathbf{q}_E &\in \{[0.90,\, 0.05],\; [0.95,\, 0.10]\}.
+\end{align*}
+
+\textbf{Detailed example:} $\mathbf{vc} = (1,1,1,1)$, $\mathbf{cc}$: $\mathbf{q}_B = [0.80, 0.10]$,
+$\mathbf{q}_E = [0.90, 0.05]$:
+\begin{align*}
+  m(A{=}0) &= 0.9556 \cdot 0.80 \cdot 0.90 + 0.0000 \cdot 0.10 \cdot 0.90 \\
+            &\quad + 0.0000 \cdot 0.80 \cdot 0.05 + 0.0000 \cdot 0.10 \cdot 0.05 = 0.6880, \\
+  m(A{=}1) &= 0.0444 \cdot 0.80 \cdot 0.90 + 1.0000 \cdot 0.10 \cdot 0.90 \\
+            &\quad + 1.0000 \cdot 0.80 \cdot 0.05 + 1.0000 \cdot 0.10 \cdot 0.05 = 0.1670, \\
+  p &= [0.6880,\, 0.1670] / 0.8550 = [\,0.8047,\; 0.1953\,].
+\end{align*}
+
+Another example: $\mathbf{vc} = (1,1,1,1)$, $\mathbf{cc}$: $\mathbf{q}_B = [0.90, 0.20]$,
+$\mathbf{q}_E = [0.95, 0.10]$:
+\begin{align*}
+  m(A{=}0) &= 0.9556 \cdot 0.90 \cdot 0.95 + 0.0 \cdot 0.20 \cdot 0.95 \\
+            &\quad + 0.0 \cdot 0.90 \cdot 0.10 + 0.0 \cdot 0.20 \cdot 0.10 = 0.8170, \\
+  m(A{=}1) &= 0.0444 \cdot 0.90 \cdot 0.95 + 1.0 \cdot 0.20 \cdot 0.95 \\
+            &\quad + 1.0 \cdot 0.90 \cdot 0.10 + 1.0 \cdot 0.20 \cdot 0.10 = 0.3380, \\
+  p &= [0.8170,\, 0.3380] / 1.1550 = [\,0.7074,\; 0.2926\,].
+\end{align*}
+
+As the incoming messages become more informative (tighter intervals), the factor
+explores a more constrained space and the message to $A$ tightens accordingly.
+
+\subsubsection{Final Marginal Extraction}
+
+After convergence, the marginal bounds for $B$ are:
+\[
+  \underline{P}(B{=}x) = \max_{f \in \{f_B, f_A\}} l_{f \to B}(x), \quad
+  \overline{P}(B{=}x) = \min_{f \in \{f_B, f_A\}} u_{f \to B}(x).
+\]
+Factor $f_B$ provides the tightest bounds for $B$ since it directly encodes $K(B)$:
+\[
+  P(B{=}1) \in [0.10,\; 0.20].
+\]
+
+\subsection{Comparison with Exact Variable Elimination}
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Query} & \textbf{Method} & $\underline{P}$ & $\overline{P}$ \\
+\midrule
+$P(B{=}1)$ & Exact VE & 0.1000 & 0.2000 \\
+$P(B{=}1)$ & IBP & 0.1000 & 0.2000 \\
+\midrule
+$P(A{=}1 \mid B{=}0, E{=}0)$ & Exact VE & 0.0000 & 0.0444 \\
+$P(A{=}1 \mid B{=}0, E{=}0)$ & IBP & 0.0000 & 0.0444 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+For root nodes like $B$, IBP recovers the exact bounds because the local factor
+alone determines the marginal. For conditional queries with evidence, the bounds
+may differ on loopy graphs due to the approximation inherent in message passing.
+
+\section{Gradient Descent Based Algorithms}
+\subsection{The Linearization Idea}
+
+Solving the multilinear program (credal inference) directly is expensive. The key insight
+of Antonucci et al.\ (2013, 2015) is to apply \textbf{coordinate descent}: fix all local
+distributions $P(X_j \mid \pi_j)$ for $j \neq i$ to specific values, then the program becomes
+\textbf{linear} in the remaining variable $P(X_i \mid \pi_i)$.
+
+Since the optimal solution of a linear program over a polytope is attained at a vertex,
+and we already have the extreme points of each credal set $K(X_i \mid \pi_i)$ from LRS vertex
+enumeration, the linear optimization step reduces to:
+
+\begin{center}
+\emph{Try each extreme point of $K(X_i \mid \pi_i)$ and pick the one that optimizes the objective.}
+\end{center}
+
+No LP solver is needed---vertex enumeration suffices.
+
+\subsection{Algorithm}
+
+\begin{algorithm}[H]
+\caption{ApproxLP: Coordinate Descent over Extreme Points}
+\label{alg:approxlp}
+\begin{algorithmic}[1]
+\Require Credal factors with extreme points, query $Z$, evidence $\mathbf{Y}{=}\mathbf{y}$,
+         max iterations $T$, sense $\in \{\min, \max\}$
+\Ensure Bound on $P(Z{=}z \mid \mathbf{Y}{=}\mathbf{y})$
+\Statex
+\Comment{\textsc{Initialization}}
+\For{each variable $X_i$, each parent config $\pi$}
+  \State $P(X_i \mid \pi) \gets \mathrm{center}(\mathrm{ext}\,K(X_i \mid \pi))$
+  \Comment{Average of extreme points}
+\EndFor
+\State $p^* \gets \mathrm{VE}(\{P(X_i \mid \pi)\},\, Z,\, \mathbf{y})$
+\Comment{Run standard VE with fixed distributions}
+\Statex
+\Comment{\textsc{Coordinate Descent}}
+\For{$t = 1, \dots, T$}
+  \State $\mathit{improved} \gets \mathsf{false}$
+  \For{each variable $X_i$}
+    \For{each parent config $\pi$ of $X_i$}
+      \State $P_{\mathrm{best}} \gets P(X_i \mid \pi)$
+      \Comment{Current incumbent}
+      \For{each vertex $v \in \mathrm{ext}\,K(X_i \mid \pi)$}
+        \State $P(X_i \mid \pi) \gets v$
+        \Comment{Temporarily set to vertex}
+        \State $p_v \gets \mathrm{VE}(\{P(X_j \mid \pi_j)\},\, Z,\, \mathbf{y})$
+        \Comment{Evaluate objective}
+        \If{$\mathrm{sense} = \min$ \textbf{and} $p_v(z) < p^*(z)$}
+          \State $p^* \gets p_v$, \quad $P_{\mathrm{best}} \gets v$, \quad $\mathit{improved} \gets \mathsf{true}$
+        \ElsIf{$\mathrm{sense} = \max$ \textbf{and} $p_v(z) > p^*(z)$}
+          \State $p^* \gets p_v$, \quad $P_{\mathrm{best}} \gets v$, \quad $\mathit{improved} \gets \mathsf{true}$
+        \EndIf
+      \EndFor
+      \State $P(X_i \mid \pi) \gets P_{\mathrm{best}}$
+    \EndFor
+  \EndFor
+  \If{$\neg\,\mathit{improved}$} \textbf{break}
+  \Comment{Converged}
+  \EndIf
+\EndFor
+\State \Return $p^*(z)$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Computing Both Bounds}
+
+Algorithm~\ref{alg:approxlp} is run twice:
+\begin{itemize}
+  \item With $\mathrm{sense} = \min$ to obtain $\underline{P}(Z{=}z \mid \mathbf{y})$.
+  \item With $\mathrm{sense} = \max$ to obtain $\overline{P}(Z{=}z \mid \mathbf{y})$.
+\end{itemize}
+Each run performs independent coordinate descent starting from the same initialization.
+
+\subsection{Standard VE with Fixed Distributions}
+
+The subroutine $\mathrm{VE}(\{P(X_i \mid \pi)\}, Z, \mathbf{y})$ runs classical variable
+elimination on the precise Bayesian network defined by the fixed distributions. This is
+a standard operation:
+\begin{enumerate}
+  \item Build a factor for each variable: a numpy array over $\{X_i\} \cup \mathrm{Pa}(X_i)$
+        filled from $P(X_i \mid \pi)$.
+  \item Add indicator factors for evidence variables.
+  \item Eliminate all variables except $Z$ by combining and marginalizing.
+  \item Normalize and return $P(Z \mid \mathbf{y})$.
+\end{enumerate}
+Since all distributions are fixed (no sets of functions), each VE run is very fast.
+
+%% ================================================================
+\subsection{Detailed Example: Alarm Network}
+%% ================================================================
+
+We trace ApproxLP on the alarm network (\texttt{alarm.lcn}) with variables $B$, $E$, $A$,
+$CD$ and the DAG $B \to A$, $E \to A$, $A \to CD$.
+
+\subsection{Factor Graph}
+
+\begin{center}
+\begin{tikzpicture}[
+  var/.style={circle, draw, minimum size=10mm, font=\small},
+  fac/.style={rectangle, draw, fill=gray!20, minimum size=8mm, font=\small},
+  edge/.style={thick},
+  node distance=18mm
+]
+  \node[var] (B) {$B$};
+  \node[var, right=25mm of B] (A) {$A$};
+  \node[var, below=15mm of B] (E) {$E$};
+  \node[var, right=25mm of A] (CD) {$CD$};
+  \node[fac, above=10mm of B] (fB) {$f_B$};
+  \node[fac, below=10mm of E] (fE) {$f_E$};
+  \node[fac, below right=5mm and 12mm of B] (fA) {$f_A$};
+  \node[fac, above=10mm of CD] (fCD) {$f_{CD}$};
+  \draw[edge] (B) -- (fB);
+  \draw[edge] (E) -- (fE);
+  \draw[edge] (B) -- (fA);
+  \draw[edge] (E) -- (fA);
+  \draw[edge] (A) -- (fA);
+  \draw[edge] (A) -- (fCD);
+  \draw[edge] (CD) -- (fCD);
+\end{tikzpicture}
+\end{center}
+
+\subsection{Credal Factors (Extreme Points)}
+
+\paragraph{$f_B$: $K(B)$.} $v_1 = [0.80, 0.20]$, \; $v_2 = [0.90, 0.10]$.
+
+\paragraph{$f_E$: $K(E)$.} $v_1 = [0.90, 0.10]$, \; $v_2 = [0.95, 0.05]$.
+
+\paragraph{$f_A$: $K(A \mid B, E)$.} 4 parent configs, 2 vertices each:
+
+\begin{center}
+\begin{tabular}{llcc}
+\toprule
+\textbf{Config} & \textbf{Vtx} & $P(A{=}0)$ & $P(A{=}1)$ \\
+\midrule
+$B{=}0, E{=}0$ & $v_1$ & 0.9556 & 0.0444 \\
+$B{=}0, E{=}0$ & $v_2$ & 1.0000 & 0.0000 \\
+\midrule
+$B{=}1, E{=}0$ & $v_1$ & 0.0000 & 1.0000 \\
+$B{=}1, E{=}0$ & $v_2$ & 1.0000 & 0.0000 \\
+\midrule
+$B{=}0, E{=}1$ & $v_1$ & 0.0000 & 1.0000 \\
+$B{=}0, E{=}1$ & $v_2$ & 1.0000 & 0.0000 \\
+\midrule
+$B{=}1, E{=}1$ & $v_1$ & 0.0000 & 1.0000 \\
+$B{=}1, E{=}1$ & $v_2$ & 1.0000 & 0.0000 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{$f_{CD}$: $K(CD \mid A)$.} $A{=}0$: 4 vertices; $A{=}1$: 11 vertices (see companion documents for full listing).
+
+\subsection{Query 1: $P(B{=}1)$, No Evidence}
+
+\paragraph{Step 1: Initialization.}
+Each distribution is set to the center (average) of its credal set:
+\begin{align*}
+  P(B) &= \tfrac{1}{2}([0.80, 0.20] + [0.90, 0.10]) = [0.85,\; 0.15], \\
+  P(E) &= \tfrac{1}{2}([0.90, 0.10] + [0.95, 0.05]) = [0.925,\; 0.075], \\
+  P(A \mid B{=}0, E{=}0) &= \tfrac{1}{2}([0.9556, 0.0444] + [1.0, 0.0]) = [0.9778,\; 0.0222].
+\end{align*}
+(Other parent configs for $A$ are similarly averaged.)
+
+\paragraph{Step 2: Initial evaluation.}
+Run VE with these fixed distributions:
+\[
+  P(B{=}1) = 0.1500 \quad \text{(the center value for $B$).}
+\]
+
+\paragraph{Step 3: Coordinate descent (sense = $\min$).}
+
+\textbf{Iteration 0:}
+
+\emph{Try variable $B$, config $()$:}
+\begin{itemize}
+  \item Set $P(B) = v_1 = [0.80, 0.20]$, run VE: $P(B{=}1) = 0.2000$.
+        Worse than $0.1500$ $\to$ reject.
+  \item Set $P(B) = v_2 = [0.90, 0.10]$, run VE: $P(B{=}1) = 0.1000$.
+        Better $\to$ \textbf{accept}. Update incumbent: $p^* = 0.1000$.
+\end{itemize}
+
+\emph{Try variable $E$, config $()$:}
+\begin{itemize}
+  \item $v_1 = [0.90, 0.10]$: VE gives $P(B{=}1) = 0.1000$. No improvement.
+  \item $v_2 = [0.95, 0.05]$: VE gives $P(B{=}1) = 0.1000$. No improvement.
+\end{itemize}
+
+Since $B$ is a root node, $P(B)$ directly determines $P(B{=}1)$ regardless of
+other distributions. The algorithm correctly identifies $v_2 = [0.90, 0.10]$ as the
+minimizer in one iteration.
+
+\emph{Other variables ($A$, $CD$)} have no effect on $P(B{=}1)$ after $B$'s vertex is fixed.
+
+\textbf{Iteration 1:} No improvement found $\to$ converged.
+
+\textbf{Result (min):} $\underline{P}(B{=}1) = 0.1000$.
+
+\paragraph{Coordinate descent (sense = $\max$).}
+Analogous: selecting $v_1 = [0.80, 0.20]$ gives $\overline{P}(B{=}1) = 0.2000$.
+Converges in 1 iteration.
+
+\paragraph{Final result:}
+\[
+  \boxed{P(B{=}1) \in [0.1000,\; 0.2000].}
+\]
+
+\subsection{Query 2: $P(A{=}1 \mid B{=}0, E{=}0)$}
+
+\paragraph{Initialization.}
+With evidence $B{=}0, E{=}0$, the only relevant parent config for $A$ is $(B{=}0, E{=}0)$.
+The initial center distribution is:
+\[
+  P(A \mid B{=}0, E{=}0) = [0.9778,\; 0.0222].
+\]
+
+\paragraph{Initial evaluation.}
+VE with fixed distributions and evidence gives $P(A{=}1 \mid B{=}0, E{=}0) = 0.0222$.
+
+\paragraph{Coordinate descent (sense = $\min$).}
+
+\emph{Try $A$, config $(B{=}0, E{=}0)$:}
+\begin{itemize}
+  \item $v_1 = [0.9556, 0.0444]$: VE gives $P(A{=}1) = 0.0444$. Worse $\to$ reject.
+  \item $v_2 = [1.0000, 0.0000]$: VE gives $P(A{=}1) = 0.0000$. Better $\to$ \textbf{accept}.
+\end{itemize}
+
+Converged: $\underline{P}(A{=}1 \mid B{=}0, E{=}0) = 0.0000$.
+
+\paragraph{Coordinate descent (sense = $\max$).}
+
+\emph{Try $A$, config $(B{=}0, E{=}0)$:}
+\begin{itemize}
+  \item $v_1 = [0.9556, 0.0444]$: $P(A{=}1) = 0.0444$. Better $\to$ \textbf{accept}.
+  \item $v_2 = [1.0, 0.0]$: $P(A{=}1) = 0.0000$. Worse $\to$ reject.
+\end{itemize}
+
+Converged: $\overline{P}(A{=}1 \mid B{=}0, E{=}0) = 0.0444$.
+
+\paragraph{Final result:}
+\[
+  \boxed{P(A{=}1 \mid B{=}0, E{=}0) \in [0.0000,\; 0.0444].}
+\]
+
+Both results match exact VE, confirming that ApproxLP finds the global optimum on this network.
+
+
+\bibliography{ref}
+\bibliographystyle{unsrt}
+
+
+\end{document}

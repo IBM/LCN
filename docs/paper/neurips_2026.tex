@@ -1,0 +1,899 @@
+\documentclass{article}
+
+% if you need to pass options to natbib, use, e.g.:
+%     \PassOptionsToPackage{numbers, compress}{natbib}
+% before loading neurips_2026
+
+% The authors should use one of these tracks.
+% Before accepting by the NeurIPS conference, select one of the options below.
+% 0. "default" for submission
+\usepackage{neurips_2026}
+% the "default" option is equal to the "main" option, which is used for the Main Track with double-blind reviewing.
+% 1. "main" option is used for the Main Track
+%  \usepackage[main]{neurips_2026}
+% 2. "position" option is used for the Position Paper Track
+%  \usepackage[position]{neurips_2026}
+% 3. "eandd" option is used for the Evaluations & Datasets Track
+ % \usepackage[eandd]{neurips_2026}
+ % if you need to opt-in for a single-blind submission in the E&D track:
+ %\usepackage[eandd, nonanonymous]{neurips_2026}
+% 4. "creativeai" option is used for the Creative AI Track
+%  \usepackage[creativeai]{neurips_2026}
+% 5. "sglblindworkshop" option is used for the Workshop with single-blind reviewing
+ % \usepackage[sglblindworkshop]{neurips_2026}
+% 6. "dblblindworkshop" option is used for the Workshop with double-blind reviewing
+%  \usepackage[dblblindworkshop]{neurips_2026}
+
+% After being accepted, the authors should add "final" behind the track to compile a camera-ready version.
+% 1. Main Track
+ % \usepackage[main, final]{neurips_2026}
+% 2. Position Paper Track
+%  \usepackage[position, final]{neurips_2026}
+% 3. Evaluations & Datasets Track
+ % \usepackage[eandd, final]{neurips_2026}
+% 4. Creative AI Track
+%  \usepackage[creativeai, final]{neurips_2026}
+% 5. Workshop with single-blind reviewing
+%  \usepackage[sglblindworkshop, final]{neurips_2026}
+% 6. Workshop with double-blind reviewing
+%  \usepackage[dblblindworkshop, final]{neurips_2026}
+% Note. For the workshop paper template, both \title{} and \workshoptitle{} are required, with the former indicating the paper title shown in the title and the latter indicating the workshop title displayed in the footnote.
+% For workshops (5., 6.), the authors should add the name of the workshop, "\workshoptitle" command is used to set the workshop title.
+% \workshoptitle{WORKSHOP TITLE}
+
+% "preprint" option is used for arXiv or other preprint submissions
+ % \usepackage[preprint]{neurips_2026}
+
+% to avoid loading the natbib package, add option nonatbib:
+%    \usepackage[nonatbib]{neurips_2026}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+
+\usepackage{tabularx}
+\usepackage{times}
+\usepackage{soul}
+\usepackage{caption}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage[noend]{algpseudocode}
+\usepackage{multicol}
+\usepackage{wrapfig}
+\usepackage{multirow}
+\usepackage{comment}
+\usepackage{tikz}
+\usetikzlibrary{positioning,shapes.geometric,shapes.misc}
+
+
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{example}{Example}
+
+\newcommand{\pr}[1]{\mathbb{P}\!\left( #1 \right)}
+\newcommand{\kr}[1]{\mathbb{K}\!\left( #1 \right)}
+
+\algrenewcommand\algorithmicindent{0.5em}%
+
+% spacing commands----------------------
+%\renewcommand{\tabcolsep}{3pt}
+% \addtolength{\textfloatsep}{-10pt}
+
+% These are the \argmax and \argmin operators
+% \DeclareMathOperator*{\argmax}{\arg\!\max}
+% \DeclareMathOperator*{\argmin}{\arg\!\min}
+
+
+% Note. For the workshop paper template, both \title{} and \workshoptitle{} are required, with the former indicating the paper title shown in the title and the latter indicating the workshop title displayed in the footnote. 
+\title{Advances in Approximate Inference for\\Logical Credal Networks}
+
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to LaTeX to determine where to break the
+% lines. Using \AND forces a line break at that point. So, if LaTeX puts 3 of 4
+% authors names on the first line, and the last on the second line, try using
+% \AND instead of \And before the third author name.
+
+
+\author{%
+  David S.~Hippocampus\thanks{Use footnote for providing further information
+    about author (webpage, alternative address)---\emph{not} for acknowledging
+    funding agencies.} \\
+  Department of Computer Science\\
+  Cranberry-Lemon University\\
+  Pittsburgh, PA 15213 \\
+  \texttt{hippo@cs.cranberry-lemon.edu} \\
+  % examples of more authors
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \AND
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+}
+
+
+\begin{document}
+
+\include{macros}
+
+\maketitle
+
+
+\begin{abstract}
+    Logical Credal Networks (LCNs) are an expressive probabilistic logic that combines propositional formulas with imprecise probability bounds to represent sets of probability distributions. Although LCNs allow for cyclic dependencies and impose few syntactic restrictions, inference in these models remains challenging. Existing exact methods scale exponentially with the number of propositions, while the only available approximate approach relies on a single message-passing algorithm, ARIEL. In this paper, we exploit the underlying chain graph structure of LCNs and recast inference as a standard credal network problem. Based on this formulation, we introduce three novel approximate inference algorithms that apply either variable elimination or message-passing schemes propagating interval-valued vector messages to compute outer probability bounds. In addition, we develop a coordinate descent method that yields complementary inner bounds. We evaluate the proposed algorithms on a collection of randomly generated and realistic benchmark LCN instances. The results demonstrate substantial speedups over exact inference while maintaining good quality probability bounds.
+\end{abstract}
+
+
+%% ================================================================
+\section{Introduction}
+\label{sec-intro}
+%% ================================================================
+
+Combining logical and probabilistic reasoning is a long-standing goal of artificial intelligence. Frameworks such as Markov Logic Networks~\cite{mln}, ProbLog~\cite{problog}, and Probabilistic Soft Logic~\cite{bach2017psl} encode domain knowledge as logical rules augmented with uncertainty, but most of them require \emph{precise} probability values or impose strong structural assumptions such as acyclicity. In many real applications, however, domain expertise yields only \emph{ranges} of plausible probabilities and the rules of interest are neither directed nor acyclic.
+
+\emph{Logical Credal Networks} (LCNs)~\cite{marinescu2022neurips} were introduced to address this gap: they allow \emph{imprecise} specifications of the form $\alpha \leq P(\phi\,|\,\varphi) \leq \beta$ over arbitrary propositional formulas, with no acyclicity restriction. An LCN defines a \emph{credal set} --- the set of all distributions consistent with its constraints --- and inference amounts to computing tight lower and upper bounds on posterior probabilities of query formulas. This flexibility makes LCNs well suited to causal reasoning with partial knowledge, robust decision making, and trustworthy neuro-symbolic systems, but also makes inference considerably harder than in Bayesian or classical credal networks. Existing LCN inference algorithms are limited to exact constrained optimization~\cite{marinescu2022neurips}, which is confined to small instances, and the ARIEL message-passing scheme~\cite{marinescu2023lcn}, which is currently the \emph{only} approximate algorithm for LCN marginal inference and itself struggles to scale. The lack of a richer toolbox of scalable approximate algorithms is the main obstacle to deploying LCNs at practical sizes.
+
+In this paper we revisit the chain graph factorization of LCNs established by \cite{cozman23a} and turn it into a concrete algorithmic program. The key observation is that the local Markov condition associated with the LCN's chain graph decomposes global LCN inference into a collection of \emph{local credal network inference tasks}, each of which can be tackled with the well-developed machinery of credal networks \cite{cozman2000credal,maua2020ijar,l2u,antonucci2015approxlp}. This bridge lets us import and extend credal-network algorithms into the LCN setting for the first time, trading a controlled relaxation --- the strong extension $\kr{\bX}$ is a superset of the LCN's distribution set $\cP(\bX)$ --- for substantial scalability gains. Our contributions are:
+\begin{enumerate}
+    \item A \textbf{chain-graph-to-credal-network bridge} that decomposes global LCN inference into local credal-network tasks and makes the relationship between $\cP(\bX)$ and $\kr{\bX}$ explicit as a principled relaxation.
+    \item Three new approximate inference algorithms covering \textbf{complementary bound regimes}: \textbf{CCTE}, a credal bucket-tree elimination scheme producing exact-on-the-credal-network bounds, together with a message-truncated variant CCTE$_{cm}$; \textbf{IBP}, a fast interval-vector message-passing algorithm producing outer bounds with native multi-valued support; and \textbf{CDVE}, a coordinate descent algorithm producing inner bounds by optimizing over extreme points. All three come with explicit complexity analyses.
+    \item An \textbf{extensive empirical evaluation} on random LCNs, realistic LCNs from Bayesian network benchmarks, and a new family of chain-graph LCNs derived from the Supreme Court analysis of \cite{ogburn2020causal}, which scales to $n{=}40$ propositions. CDVE yields the tightest bounds among credal-network methods --- competitive with ARIEL and the only algorithm completing the largest instances --- while IBP is consistently fastest and CCTE$_{cm}$ offers a practical middle ground.
+\end{enumerate}
+Beyond these immediate results, the bridge opens LCN inference to the broader credal-network literature and substantially widens the range of LCN instances reachable in practice.
+
+%% ================================================================
+\section{Background}
+\label{sec-background}
+%% ================================================================
+
+\subsection{Logical Credal Networks}
+
+A Logical Credal Network (LCN) \cite{marinescu2022neurips} consists of a set of finite set of propositions $\cA = \{A_1, \dots, A_n \}$ and a set of constraints or probabilistic sentences $\cS_\cA$. Each proposition $A_i$ is associated with a binary indicator variable $X_i$: if $A_i$ holds in an interpretation then $X_i=1$; otherwise, $X_i=0$. Each probabilistic sentence in $\cS_\cA$ is a constraint of the form:
+\begin{equation}
+\alpha \leq P(\phi|\varphi) \leq \beta,
+\end{equation}
+where $\phi$ and $\varphi$ are propositional logic formulas over $\cA$. The formula $\varphi$ can be a tautology $\top$, yielding an unconditional constraint $\alpha \leq P(\phi) \leq \beta$. 
+
+Given an LCN, its \emph{primal graph} is defined as follows. Each proposition is a node (a \emph{proposition-node}). Each constraint $\alpha \leq P(\phi|\varphi) \leq \beta$ is processed as follows: (i) A node labeled with formula $\phi$ is added (a \emph{formula-node}), and a directed edge is added from $\phi$ to each proposition in $\phi$; (ii) If $\varphi = \top$, an edge is added from each proposition in $\phi$ to node $\phi$ (creating bidirected edges); (iii) If $\varphi \neq \top$, a node labeled $\varphi$ is added, a directed edge from $\varphi$ to $\phi$ is added, and edges from each proposition in $\varphi$ to $\varphi$ are added \cite{marinescu2022neurips}.
+
+The \emph{structure} of an LCN is a graph that can be extracted from the primal graph as follows:
+(i) For each formula-node $\phi$ appearing as a conditioned formula in a constraint place an undirected edge between any two propositions in $\phi$; (ii) For each pair of formula-nodes $\varphi$ and $\phi$ in a constraint, add a directed edge from each proposition in $\varphi$ to each proposition in $\phi$; (iii) If there is now a pair of edges $A \leftrightarrows B$ for some propositions $A, B$, replace both by an undirected edge; (iv) Remove formula-nodes and all their edges; remove duplicate edges \cite{cozman23a}.
+
+The parents of a proposition node $A_i$ in $G$, denoted $\mathbf{pa}(A_i)$, are the proposition nodes that reach $A_i$ via a directed path whose intermediate nodes (if any) are formula nodes. The descendants of $A_i$, denoted $\mathbf{de}(A_i)$, are the proposition nodes reachable from $A_i$ via a directed path whose intermediate nodes do not belong to $\mathbf{pa}({A_i})$. An LCN is endowed with a Local Markov Condition (LMC).
+
+\begin{definition}[LMC(LCN)]\label{def:lmc-lcn}
+    Given an LCN $\cL$ with primal graph $G$, every proposition $A_i$ in $\cL$ is independent of its non-parent non-descendant propositions conditioned on $A_i$'s parents in $G$.
+\end{definition}
+
+
+\begin{figure}[t]
+  \centering
+  \begin{subfigure}{0.3\textwidth}
+    \includegraphics[width=\textwidth]{figs/fig-lcn2.png}
+    \caption{LCN constraints}
+    \label{fig:constr}
+  \end{subfigure}
+  \quad
+  \begin{subfigure}{0.3\textwidth}
+    \includegraphics[width=\textwidth]{figs/fig-lcn2-pg.png}
+    \caption{Primal graph}
+    \label{fig:primal}
+  \end{subfigure}
+  \quad\quad
+  \begin{subfigure}{0.3\textwidth}
+    \includegraphics[scale=0.8]{figs/fig-lcn2-st.png}
+    \caption{Structure}
+    \label{fig:struct}
+  \end{subfigure}
+  \caption{A simple LCN instance with its primal graph and corresponding structure.}
+  \label{fig:alarm}
+\end{figure}
+
+\begin{example}
+    Figure \ref{fig:alarm} shows a simple LCN with 5 propositions and 5 constraints. The corresponding primal graph and structure are given in Figures \ref{fig:primal} and \ref{fig:struct}, respectively. The LMC implies the following conditional independencies: $B$ and $E$ are marginally independent, $C$ is conditionally independent of $B$ and $E$ given $C$'s parents $\{A, D\}$, and $D$ is conditionally independent of $B$ and $E$ given $\{A,C\}$, respectively.    
+\end{example}
+
+\paragraph{Inference in LCNs.}
+Exact inference in an LCN with $n$ propositions amounts to computing lower and upper posterior bounds for a query formula $\psi$ via a non‑linear optimization problem over the $2^n$ interpretation probabilities, subject to normalization, linear constraints encoding the probabilistic sentences, and non-linear constraints corresponding to the conditional independencies induced by the local Markov condition, while optimizing a linear objective representing $\pr{\psi}$ \cite{marinescu2022neurips}. Although principled, this approach is limited to small instances. To address scalability, ARIEL \cite{marinescu2023lcn} proposes an approximate message‑passing algorithm on a factor‑graph representation of the LCN, where variable‑to‑factor messages propagate probability bounds and factor‑to‑variable messages refine them by solving local constrained non‑linear programs under additional independence assumptions encoded as quadratic equalities. Empirically, ARIEL scales to larger problems with high‑quality bounds, but its performance remains constrained by the complexity of these local optimizations and it is currently the only available approximation method for marginal inference in LCNs.
+
+
+\subsection{Chain Graphs and Factorization}
+
+\begin{definition}[chain graph]
+Let $G = (V, E)$ be a mixed graph with $E = E_{\to} \cup E_{-}$, where $E_{\to}$ is a set of directed edges and $E_{-}$ a set of undirected edges. The graph $G$ is called a \emph{chain graph} if there exists a partition
+$V = C_1 \,\dot\cup\, C_2 \,\dot\cup\, \cdots \,\dot\cup\, C_k$
+such that: (i) for each $i$, the subgraph induced by $C_i$ contains only undirected edges: $\forall u,v \in C_i, (u,v)\in E \implies \{u,v\}\in E_{-}$; (ii) for $i \neq j$, every edge between $C_i$ and $C_j$ is directed, and all such edges have the same orientation; (iii) the directed graph obtained by contracting each $C_i$ to a single vertex is acyclic. The sets $C_1,\dots,C_k$ are called the \emph{chain components} of $G$.
+\end{definition}
+
+Let $G$ be a chain graph with nodes $\cN$. If there is a directed edge from $A$ to $B$ in $G$ then $A$ is a \emph{parent} of $B$ and $B$ is a \emph{child} of $A$. The parents of $A$ are denoted $\mathbf{pa}(A)$. If there is an undirected edge $A-B$ then both nodes are said to be \emph{neighbors}. The neighbors of $A$ are denoted by $\mathbf{ne}(A)$. The \emph{boundary} of a node $A$, denoted $\mathbf{bd}(A)$, is the set $\mathbf{pa}(A)\cup \mathbf{ne}(A)$. The boundary of a set $\cB$ of nodes is $\mathbf{bd}(\cB) = \bigcup_{A\in \cB} \mathbf{bd}(A) \setminus \cB$. The \emph{Local Markov Condition} (LMC) for chain graphs states:
+
+\begin{definition}[LMC(C)]\label{def:lmc-cg}
+    A node $A$ is independent, given its boundary $\mathbf{bd}(A)$, of all nodes that are not $A$ itself nor descendants of $A$ nor boundary nodes of $A$.
+\end{definition}
+
+Assuming positive probabilities, the local and global Markov conditions are equivalent and yield a \emph{factorization property} for chain graphs \cite{cowell99,cozman23a}. Let $T_1, \dots, T_n$ be the chain components ordered so that nodes in $T_i$ can only be at the end of directed edges from earlier components. Then:
+\begin{equation}\label{eq:factorization}
+\pr{\bX=\bx} = \prod_{i=1}^n \pr{\cN_i=\bx_{\cN_i}\mid\mathbf{bd}(\cN_i)=\bx_{\mathbf{bd}(\cN_i)}}
+\end{equation}
+
+where $\cN_i$ is the set of nodes in the $i$th chain component, and $\bx_{\cN_i}$, $\bx_{\mathbf{bd}(\cN_i)}$ are the projections of $\bx$ over $\cN_i$ and $\mathbf{bd}(\cN_i)$. It follows that if the structure of a given LCN $\cL$ is a chain graph, then the Local Markov Conditions from Definitions \ref{def:lmc-lcn} and \ref{def:lmc-cg} are equivalent \cite{cozman23a}. Furthermore, any joint probability distribution represented by $\cL$ admits a chain graph factorization \cite{cozman23a}.
+
+
+%% ================================================================
+\section{From LCNs to Credal Networks}
+\label{sec-lcn-to-credal}
+%% ================================================================
+
+In this section, we show how the chain‑graph factorization of an LCN can be leveraged to reduce LCN inference to inference in a credal network \cite{cozman2000credal}. We therefore focus on LCNs whose underlying structure is a chain graph, which we refer to as \emph{chain‑graph LCNs}. We begin with a brief review of credal networks.
+
+\subsection{Credal Networks}
+A \emph{credal network} (CN) \citep{cozman2000credal} is defined by a tuple $\langle \bX, \bD, \bK, G \rangle$, where $\bX=\{X_1, \ldots, X_n\}$ is a set of discrete variables with finite domains $\bD=\{D_1, \ldots, D_n\}$, $G$ is a directed acyclic graph (DAG) over $\bX$ as nodes, and $\bK=\{\kr{X_i|\mathbf{pa}(X_i)=\pi_{ik}}\}$ is a set of separately specified conditional credal sets for each variable $X_i$ and each $k$-th configuration $\pi_{ik}$ of its parents $\Pi_i$ in $G$. A credal set is a set of probability distributions \citep{levi80book} and we consider credal sets that are closed and convex with a finite number of vertices (e.g., probability intervals). The \emph{strong extension} $\kr{\bX}$ of a credal network is the \emph{convex hull} (denoted CH) of all joint distributions that satisfy the following Markov property: every variable is strongly independent of its non-descendants conditional on its parents \cite{cozman2000credal}.
+\begin{equation}\label{eq:strong-ext}
+    \kr{\bX}=CH\{\pr{\bX}~:~ \pr{\bX}=\prod_{i=1}^{n} \pr{X_i|\pi_{ik}}, \pr{X_i|\pi_{ik}} \textrm{~is a vertex of~} \kr{X_i|\mathbf{pa}(X_i)=\pi_{ik}}\}
+\end{equation}
+
+It can be shown that the strong extension $\kr{\bX}$ can be built from the extreme points of the conditional local credal sets denoted by $\textrm{ext}(\kr{X_i|\mathbf{pa}(X_i)=\pi_{ik})}$ \citep{maua2020ijar}. 
+
+\subsection{Chain Graph Approximation for LCNs}
+Let $\cL$ be a chain-graph LCN with $n$ variables $\bX = \{X_1, ..., X_n\}$, representing a set of $m$ joint distributions $\cP(\bX) = \{ \mathbb{P}_1(\bX), \mathbb{P}_2(\bX), \ldots, \mathbb{P}_m(\bX) \}$, where each distribution $\mathbb{P}_i(\bX)$ satisfies the probabislitic sentences of $\cL$ as well as its local Markov condition. Moreover, since the structure of $\cL$ is a chain graph with components $\cT = \{T_1, \ldots, T_k\}$ such that $T_j \subseteq \bX$ for $1\leq j \leq k$, each distributions $\mathbb{P}_i(\bX)$ admits the following factorization \cite{cozman23a}: 
+\begin{equation}
+\mathbb{P}_i(\bX=\bx) = \prod_{T_j \in \cT} \mathbb{P}_i(T_j=\bx_{T_j}\mid\mathbf{pa}(T_j)=\bx_{\mathbf{pa}(T_j)})
+\end{equation}
+where $\bx_{T_j}$ and $\bx_{\mathbf{pa}(T_j)}$ are the projections of $\bx$ over $T_j$ and $\mathbf{pa}(T_j)$, respectively.
+
+
+One way to approximate the set of joint distributions $\mathcal{P}(\mathbf{X})$ represented by $\mathcal{L}$ is via the strong extension $\mathbb{K}(\bX)$ of a credal network $\mathcal{C}$ induced by the chain components of the structure of $\mathcal{L}$. 
+In this approach, $\mathcal{C}$ is defined as a DAG $G$ whose nodes correspond to the chain components $\{T_1,\ldots,T_k\}$. 
+Each chain component $T_j$ is represented by a variable $Y_j$ with domain $D_j = \prod_{X_i \in T_j} D_i$,
+that is, the Cartesian product of the domains of the variables in $T_j$. If $T_j$ contains more than one variable, the corresponding $Y_j$ is called a \emph{compound variable}. 
+
+For each variable $Y_j$ and each configuration $\pi_{jk}$ of its parents $\mathbf{pa}(Y_j)$ in $G$, the approximation is completed by specifying a local conditional credal set $\mathbb{K} (Y_j \mid \mathbf{pa}(Y_j) = \pi_{jk})$. Specifically, for each configuration $\by$ of the variables $\bY = \{Y_j\} \cup \mathbf{pa}(Y_j)$ we obtain lower and upper bounds $[lb, ub]$ on the conditional probability $\pr{Y_j = \by_{Y_j} \mid \mathbf{pa}(Y_j) = \by_{\mathbf{pa}(Y_j)}}$ by solving a local fractional linear program defined by the probabilistic sentences of $\cL$ involving only the variables $Y_j \cup \mathbf{pa}(Y_j)$.
+
+Let $\Vec{p}=(p_1,\ldots,p_M)$ be a vector representing the probabilities of the $M=2^{m}$ configurations of variables $\bY$, and let $\Vec{A}_{\varphi}=(a_1^{\varphi},\ldots,a_{M}^{\varphi})$ be a binary \emph{indicator vector} vector, where $a_j^{\varphi} = 1$ iff formula $\varphi$ is true in the $j$-th configuration and $0$ otherwise. Since the $P(\varphi)$ is the sum of the probabilities of the configurations satisfying $\varphi$, we have $P(\varphi) = \Vec{A}_{\varphi} \odot \Vec{p}$ where $\odot$ is the dot-product of two vectors. Therefore, we solve the fractional LP defined by Equations \ref{eq:constr1}--\ref{eq:constr5}, 
+\begin{wrapfigure}[14]{r}{0.54\textwidth}
+\vspace{-1.1\baselineskip} % tune: pull box up to reduce top whitespace
+\begin{minipage}{0.54\textwidth}
+\begin{align}
+    & \sum_{i=1}^{N} p_i = 1 \label{eq:constr1} \\
+    & p_i \geq 0, \forall i=1,\ldots, N \label{eq:constr2}\\
+    & \alpha \leq \Vec{A}_\phi \odot \Vec{p} \leq \beta \label{eq:constr3}\\
+    & \alpha \cdot \Vec{A}_\varphi \odot \Vec{p} \leq \Vec{A}_{\phi \wedge \varphi}\odot \Vec{p} \leq \beta \cdot \Vec{A}_{\varphi}\odot \Vec{p} \label{eq:constr4}\\
+    & \textrm{minimize/maximize~~} \frac{\Vec{A}_{\rho \wedge \psi}\odot \Vec{p}}{\Vec{A}_{\psi}\odot \Vec{p}} \label{eq:constr5}
+\end{align}
+\end{minipage}
+\vspace{-0.9\baselineskip} % tune: reduce bottom whitespace
+\end{wrapfigure}
+%
+where $S_j=\{s_{j1},\ldots,s_{jk}\}$ and $T_j=\{t_{j1},\ldots,t_{jl}\}$ are the literals representing the positive or negative assignments of the singleton variables $Y_j$ and $\mathbf{pa}(Y_j)$ in $\by$, $\alpha \leq P(\phi) \leq \beta$ and $\alpha \leq P(\phi \mid \varphi) \leq \beta$ are the probabilistic sentences defined over variables $\bY$, $\Vec{A}_\phi$ and $\Vec{A}_{\phi \wedge \varphi}$ are the indicator vectors for formulas $\phi$ and $\phi \wedge \varphi$, and $\Vec{A}_{\psi}$, $\Vec{A}_{\rho}$ are the indicator vectors corresponding to the formulas 
+$\psi = (s_{j1}\wedge\cdots \wedge s_{jk} \wedge t_{j1} \wedge \cdots \wedge t_{jl})$ and $\rho = (t_{j1} \wedge \cdots \wedge t_{jl})$, respectively.
+
+\begin{figure}[t]
+  \centering
+  \begin{subfigure}{0.2\textwidth}
+    \includegraphics[width=\textwidth]{figs/fig-cn.png}
+    \caption{Credal network}
+    \label{fig:cn}
+  \end{subfigure}
+  \quad
+  \begin{subfigure}{0.4\textwidth}
+    \includegraphics[width=\textwidth]{figs/fig-flp.png}
+    \caption{Local fractional LPs}
+    \label{fig:flp}
+  \end{subfigure}
+  \quad
+  \begin{subfigure}{0.3\textwidth}
+    \includegraphics[width=.8\textwidth]{figs/fig-cset2.png}
+    \caption{Local credal set}
+    \label{fig:cset}
+  \end{subfigure}
+  \caption{The credal network for the chain-graph factorization of the LCN from Figure \ref{fig:alarm}.}
+  \label{fig:factorization}
+\end{figure}
+
+\begin{example}
+    The structure of the LCN from Figure \ref{fig:struct} is a \emph{chain graph}. In Figure \ref{fig:cn} we show the credal network induced by the chain-graph factorization. In this case, any distribution $\pr{\cdot}$ factorizes as: 
+    $\pr{A,B,C,D,E} = \pr{B}\cdot \pr{E} \cdot \pr{A|B,E} \cdot \pr{C,D|A}$. Figure \ref{fig:flp} shows the fractional linear programs for computing lower and upper bounds on $P(A=1|B=0,E=1)$, respectively. The credal set $\kr{A|B,E}$ is given in Figure \ref{fig:cset}.
+\end{example}
+
+
+In summary, our chain graph approximation for LCNs consists of the following steps: (i) extract the structure of the LCN and identify the chain components $\{T_1, \ldots, T_k\}$; (ii) construct a DAG $G$ with nodes corresponding to each $T_j$; (iii) for each $T_j$ and its parents $\mathbf{pa}(T_i)$ in $G$ identify the probabilistic sentences of the LCN that are defined on variables $Y_j \cup \mathbf{pa}(Y_j)$ only; (iii) compute the corresponding conditional credal sets $\kr{Y_j\mid \mathbf{pa}(Y_j) = \pi_{jk}}$ by solving the local fractional linear programs given by Equations \ref{eq:constr1}--\ref{eq:constr5} (in practice we solve linear programs by applying the Charnes-Cooper transform \cite{charnes1962flp}). The result is a credal network whose strong extension approximates the set of distributions represented by the input LCN. Consequently, standard credal network inference algorithms can be applied to compute bounds on the posterior marginals of the original LCN.
+
+\textcolor{red}{RM: Add one sentence about the relationship between $\cP(\bX)$ and $\kr{X}$}
+
+% Given the credal network obtained from the LCN factorization, we now present three inference algorithms for computing marginal probability bounds. Each algorithm offers different tradeoffs between bound quality, computational cost, and bound direction (inner vs.\ outer).
+
+\subsection{Credal Cluster Tree Elimination}
+Next we present the first of three inference algorithms that leverage the chain graph factorization of an LCN to compute marginal probability bounds. Credal Cluster Tree Elimination (CCTE) extends Credal Variable Elimination (CVE) \cite{maua2020ijar} to cluster (bucket) trees \cite{spiegelhalter88,dechter-bucket,kask05} by propagating credal potentials, represented as finite sets of non‑negative functions \cite{maua2020ijar}.
+
+
+\begin{definition}[potential]
+A \emph{potential} $\phi(\bY)$ over variables $\bY$ is a finite set of non-negative real-valued functions $\{f_1, f_2, \dots, f_m\}$ on the joint domain of $\bY$. The \emph{product} (or combination) of two potentials is defined by $\phi \cdot \psi = \{f \cdot g : f \in \phi, \; g \in \psi\}$, where $(f \cdot g)(\by, \bz) = f(\by) \cdot g(\bz)$ over the joint domain $\bY \cup \bZ$. The \emph{sum-marginal} is defined by $\sum_{X} \phi(\bY) = \{ \sum_{x} f(\by) : f \in \phi \}$, producing functions over $\bY \setminus \{X\}$. A \emph{pruning} operation is defined by $prune(\phi) = \{f \in \phi : \nexists\, g \in \phi \setminus \{f\} \text{ s.t.\ } g(\by) \geq f(\by)\; \forall\, \by\}$. 
+\end{definition}
+
+
+\begin{algorithm}[t]
+\caption{Credal Cluster Tree Elimination (CCTE)}
+\label{alg:cte}
+%\begin{small}
+\begin{multicols}{2}
+\begin{algorithmic}[1]
+\Require LCN $\cL$ with variables $\{X_1, \ldots, X_n\}$, evidence $\mathbf{E} = \mathbf{e}$
+\Ensure Bounds $[\underline{P}(X_i{=}x|\be),\; \overline{P}(X_i{=}x|\be)]$ for
+        non-evidence variables $X_i$ and states $x$
+\Statex
+\State Build credal network $\cC$ using chain graph factorization of $\cL$
+\State Build potentials from extreme points of each $\kr{Y_j\mid \mathbf{pa}(Y_j)}$ and evidence indicators
+\State Build bucket tree $\cT$: assign potentials, determine parent--child
+\Statex
+\Comment{\textsc{Collect (Upward)}}
+\For{each $Y_i$ in $\cT$ (leaves to root)}
+  \State $\psi_i \gets \prod\{\text{pots($Y_i$)} \cup \{\lambda_{Y_j} : Y_j \in \mathbf{ch}(Y_i)\}\}$
+  \State $\lambda_{Y_i} \gets \mathrm{prune}\bigl(\sum_{Y_i} \psi_i\bigr)$
+  \State Send $\lambda_{Y_i}$ to parent
+\EndFor
+%\Statex
+\Comment{\textsc{Distribute (Downward)}}
+\For{each $Y_i$ in $\cT$ (root to leaves)}
+  \For{each child $Y_j$ of $Y_i$ in $\cT$}
+    \State $\psi \gets \prod\{\pi_{Y_i},\;\text{pots($Y_i$)},\;
+           \{\lambda_{Y_k} : Y_k \in \mathbf{ch}(Y_i) \setminus \{Y_j\}\}\}$
+    \State $\pi_{Y_j} \gets \mathrm{prune}\bigl(\sum_{Y_i} \psi\bigr)$
+    \State Send $\pi_{Y_j}$ to child $Y_j$
+  \EndFor
+\EndFor
+%\Statex
+\Comment{\textsc{Extract Marginals}}
+\For{each variable $Y_i$}
+  \State $\Phi_i \gets \prod\{\text{pots($Y_i$)},\;
+         \{\lambda_{Y_j} : Y_j \in \mathbf{ch}(Y_i)\},\; \pi_{Y_i}\}$
+  \State $\phi_i \gets \sum_{\mathbf{Y} \setminus \{Y_i\}} \Phi_i$
+  \State $\underline{P}(Y_i{=}y) \gets \min_{f \in \phi_i} f(y)/\sum_{y'} f(y')$
+  \State $\overline{P}(Y_i{=}y) \gets \max_{f \in \phi_i} f(y)/\sum_{y'} f(y')$
+\EndFor
+\end{algorithmic}
+\end{multicols}
+%\end{small}
+\end{algorithm}
+
+
+Algorithm~\ref{alg:cte} outlines CCTE. Given an elimination order $\mathbf{o}=(Y_1,\dots,Y_m)$ and initial potentials (obtained from the extreme points of each conditional credal set $\kr{Y_j\mid \mathbf{pa}(Y_j)}$ and evidence), each potential is assigned to the bucket of the first variable in its scope. For bucket $Y_i$, the \emph{message scope} is the union of scopes of all assigned potentials and incoming messages, excluding $Y_i$. The parent of $Y_i$ is the next variable in $\mathbf{o}$ appearing in this scope, inducing a rooted bucket tree with root $Y_m$. The algorithm processes the buckets in an upward pass, from leaves to the root following the elimination order. At bucket $Y_i$, combine local potentials with incoming messages from children to form $\psi_i$, marginalize $Y_i$, prune, and send $\lambda_{Y_i} = \mathrm{prune}(\sum_{Y_i} \psi_i)$ to the parent. Subsequently, in a downward pass, from root to leaves, for each child bucket $Y_j$ of $Y_i$, combine the downward message from the parent, local potentials, and all upward messages except from $Y_j$, marginalize $Y_i$, prune, and send $\pi_{Y_j}$ to $Y_j$. After the message distribution, the information at bucket $Y_i$ is $\Phi_i = (\text{local potentials}) \cdot \prod_{j\in\mathrm{children}(i)} \lambda_{Y_j} \cdot \pi_{Y_i}$. Marginalizing all variables except $Y_i$, normalizing, and taking component-wise minima and maxima yields lower and upper bounds for $Y_i$.
+
+While CCTE preserves tight bounds, intermediate potentials can grow exponentially. Following \cite{maua2020ijar,marinescu2026iclr}, we can approximate the potentials by fixing their cardinality to a relatively small number $B$. Specifically, we group the elements of $\phi(\bY)$ into $B$ clusters based on minimizing the Manhattan distance to each cluster's centroid (i.e., minimize $\sum_{i=1}^{m} |p_i - r_i|$, where $p_i$ and $r_i$ are the $i$-th components of $p$ and $r$, respectively). Then, for each cluster we replace its components with their mean values. This yields an approximation methods  denoted hereafter by CCTE$_{cm}$.
+
+\begin{theorem}[complexity]
+    The time and space complexity of CCTE is $O(m \cdot C \cdot d^{w^*})$ where $m$ is the number of variables, $d$ bounds the domain size, $w^*$ is the treewidth, and $C$ is the maximum potential cardinality (which can be exponential). With potential approximation, $C$ is bounded by $B$ \cite{marinescu2026iclr}.
+\end{theorem}
+
+Since some $Y_j$ are compound variables, posterior lower and upper bounds for the corresponding singleton variables $X_{jk}$ can be obtained efficiently by solving a small linear program over the compound marginal polytope \cite{cozman2000credal,maua2020ijar}.
+
+\subsection{Interval Belief Propagation}
+\label{sec-ibp}
+
+
+
+Our second approach, called Interval Belief Propagation (IBP) and outlined in Algorithm \ref{alg:ibp}, is an iterative message-passing algorithm for approximate marginal inference that propagates \emph{interval messages} on the \emph{factor graph} associated with the credal network $\cC$ corresponding to the chain-graph factorization of the input LCN. Unlike previous algorithms like L2U \cite{l2u} and GL2U \cite{antonucci2010} which are restricted to binary variables, IBP natively handles multi-valued variables.
+
+\begin{algorithm}[t]
+\caption{Interval Belief Propagation (IBP)}
+\label{alg:ibp}
+\begin{multicols}{2}
+\begin{algorithmic}[1]
+\Require LCN $\cL$ with variables $\{X_1, \ldots, X_n\}$, evidence $\mathbf{E} = \mathbf{e}$, iterations $T$, threshold $\tau$
+\Ensure Bounds $[\underline{P}(Y_i{=}y|\be),\; \overline{P}(Y_i{=}y|\be)]$ for
+        non-evidence variables $Y_i$ and states $y$
+
+\Statex
+\State Build credal network $\cC$ using chain graph factorization of $\cL$
+\State Build factor graph and initialize factors from extreme points of each $\kr{Y_j\mid \mathbf{pa}(Y_j)}$
+\State Set $\mu_{v \to f} \gets (\mathbf{0}, \mathbf{1})$ and
+       $\mu_{f \to v} \gets (\mathbf{0}, \mathbf{1})$
+\For{each evidence variable $E_i = e_i$}
+  \State Set $\mu_{E_i \to f} \gets (\delta_{e_i}, \delta_{e_i})$ $\forall f \in \mathcal{N}(Y_j)$
+\EndFor
+%\Statex
+\For{iteration $t = 1, \dots, T$}
+  \State $\delta \gets 0$
+  \Statex
+  \Comment{\textsc{Variable-to-Factor Updates}}
+  \For{each $v$ ($\notin \bE$), each $f \in \mathcal{N}(v)$}
+    \For{each value $x$}
+      \State $l_{v \to f}(x) \gets \max_{f' \in \mathcal{N}(v) \setminus \{f\}}
+             l_{f' \to v}(x)$
+      \State $u_{v \to f}(x) \gets \min_{f' \in \mathcal{N}(v) \setminus \{f\}}
+             u_{f' \to v}(x)$
+    \EndFor
+    %\State $\mathbf{u}_{v \to f} \gets \max(\mathbf{l}_{v \to f}, \mathbf{u}_{v \to f})$
+    %\Comment{Ensure $l \leq u$}
+    \State Update $\delta$
+  \EndFor
+  \Statex
+  \Comment{\textsc{Factor-to-Variable Updates}}
+  \For{each $f_i$, each variable $v \in \mathrm{scope}(f_i)$}
+    \State $\mathbf{l}_{\mathrm{new}} \gets \mathbf{1}, \quad \mathbf{u}_{\mathrm{new}} \gets \mathbf{0}$
+    \For{each vertex combination $\mathbf{vc}$}
+      \For{each corner-point combination $\mathbf{cc}$}
+        \State Compute $\mathbf{m}(v)$ using $\mathbf{vc}$ and $\mathbf{cc}$
+        \State $\mathbf{p} \gets \mathbf{m} / \sum_{x} m(x)$
+        \State $\mathbf{l}_{\mathrm{new}} \gets \min(\mathbf{l}_{\mathrm{new}}, \mathbf{p})$
+        \State $\mathbf{u}_{\mathrm{new}} \gets \max(\mathbf{u}_{\mathrm{new}}, \mathbf{p})$
+      \EndFor
+    \EndFor
+    \State $\mu_{f \to v} \gets (\mathbf{l}_{\mathrm{new}}, \mathbf{u}_{\mathrm{new}})$
+    \State Update $\delta$
+  \EndFor
+  \If{$\delta < \tau$} \textbf{break} \EndIf
+\EndFor
+\Statex
+\Comment{\textsc{Extract Marginal Bounds}}
+\For{each non evidence variable $Y_i$}
+  \For{each value $y \in D_{Y_i}$}
+    \State $\underline{P}(Y_i{=}y \mid \mathbf{E}{=}\mathbf{e}) \gets \max_{f \in \mathcal{N}(Y_i)} l_{f \to Y_i}(y)$
+    \State $\overline{P}(Y_i{=}x \mid \mathbf{E}{=}\mathbf{e}) \gets \min_{f \in \mathcal{N}(Y_i)} u_{f \to Y_i}(y)$
+  \EndFor
+\EndFor
+\State \Return $[\underline{P}(Y_i{=}y \mid \mathbf{E}{=}\mathbf{e}),\; \overline{P}(Y_i{=}y \mid \mathbf{E}{=}\mathbf{e})]$
+\end{algorithmic}
+\end{multicols}
+\end{algorithm}
+
+The \emph{factor graph} of a credal network $\cC$ isa bipartite graph with variable nodes and factor nodes. Each variable $Y_j$ in $\cC$ corresponds to a variable node with cardinality $|D_j|$. Each conditional credal set $\kr{Y_i \mid \mathbf{pa}(Y_j)}$ defines a factor node $f_j$ whose scope is $\{Y_j\} \cup \mathbf{pa}(Y_j)$. The factor stores the extreme points of $\kr{Y_j \mid \pi_{jk}}$ for all parent configurations $\pi_{jk}$. For a variable $X$ with $k$ states, an \emph{interval message} is a pair of vectors $(\bl, \bu) \in \mathbb{R}^k \times \mathbb{R}^k$ where $0 \leq l_x \leq u_x \leq 1$ for each state $x$. Messages are of two types: variable-to-factor $\mu_{v \to f}$ and factor-to-variable $\mu_{f \to v}$ which are initialized to the vacuous interval $([0, \dots, 0], [1, \dots, 1])$. Evidence variables have their messages clamped to the one-hot indicator $\delta_{e_j} \in \{0,1\}^{|D_{E_j}|}$ (entry $e_j$ equals $1$, all others equal $0$): $\mu_{E_j \to f} \gets (\delta_{e_j},\, \delta_{e_j})
+  \forall f \in \mathcal{N}(E_j)$.
+
+\paragraph{Variable-to-Factor Updates.} Variable $v$ sends to factor $f$ the \emph{intersection} of messages from all other neighboring factors:
+\begin{equation}
+  l_{v \to f}(x) = \max_{f' \in \cN(v) \setminus \{f\}} l_{f' \to v}(x), \;
+  u_{v \to f}(x) = \min_{f' \in \cN(v) \setminus \{f\}} u_{f' \to v}(x)
+\end{equation}
+with the constraint $u_{v \to f}(x) \geq l_{v \to f}(x)$ enforced.
+
+\paragraph{Factor-to-Variable Updates.} The message from factor $f_i$ to target variable $v$ is computed by scanning over all \emph{vertex combinations} and \emph{corner-point combinations}.
+
+\begin{definition}[vertex combination]
+    A \emph{vertex combination} $\mathbf{vc} = (j_1, \dots, j_m)$ selects one extreme point per parent configuration of factor $f_i$, specifying a complete conditional distribution $P_{\mathbf{vc}}(Y_i \mid \pi_k)$ for every parent configuration $\pi_k$. The total number is $\prod_{k=1}^{m} n_{\pi_k}$.
+\end{definition}
+
+\begin{definition}[corner-point combination]
+    A \emph{corner-point combination} $\mathbf{cc} = (c_1, \dots, c_{|\cO|})$ with $c_j \in \{0,1\}$ selects either the lower or upper bound vector for each ``other'' variable $w_j \in \cO = scope(f_i) \setminus \{v\}$. The total number is $2^{|\cO|}$.
+\end{definition}
+
+For each $(\mathbf{vc}, \mathbf{cc})$ pair, the unnormalized marginal over $v$ is computed as:
+
+\noindent\textbf{Case 1} ($v = Y_i$, target is child):
+\begin{equation}\label{eq:ibp-case1}
+  m(v{=}y) = \sum_{\pi} P_{\mathbf{vc}}(Y_i{=}y \mid \pi)
+  \cdot \prod_{w \in \mathbf{pa}(Y_i) \cap \cO} \bq_w(\pi_w).
+\end{equation}
+
+\noindent\textbf{Case 2} ($v \in \mathbf{pa}(Y_i)$, target is parent):
+\begin{equation}\label{eq:ibp-case2}
+  m(v{=}y) = \sum_{\pi : \pi_v = y}
+  \Bigl(\sum_{y_i} P_{\mathbf{vc}}(Y_i{=}y_i \mid \pi) \cdot \bq_{Y_i}(y_i)\Bigr)
+  \cdot \prod_{w \in \mathbf{pa} \setminus \{v\}} \bq_w(\pi_w).
+\end{equation}
+
+After normalization, the factor-to-variable message takes component-wise min/max over all pairs:
+$l_{f \to v}(y) = \min_{\mathbf{vc},\mathbf{cc}} p(y)$, \;
+$u_{f \to v}(y) = \max_{\mathbf{vc},\mathbf{cc}} p(y)$.
+
+\paragraph{Marginal Extraction.} After convergence, the lower and upper bounds for every non evidence variable $Y_i$ are:
+$\underline{P}(y_i|\be) = \max_{f \in \cN(Y_i)} l_{f \to Y_i}(y_i)$, \;
+$\overline{P}(y_i|\be) = \min_{f \in \cN(Y_i)} u_{f \to Y_i}(y_i)$, respectively.
+
+IBP produces \emph{outer bounds}. On polytree-structured networks, it converges to exact bounds. On loopy graphs, convergence to a fixed point is empirically observed but not guaranteed. The complexity per iteration is $O(N_f \cdot V_{\max} \cdot 2^{S_{\max}} \cdot k^{S_{\max}})$, where $N_f$ is the number of factors, $V_{\max}$ the maximum vertex combinations per factor, $S_{\max}$ the maximum scope size, and $k$ the maximum domain size.
+
+
+\subsection{Coordinate Descent with Variable Elimination}
+
+\begin{algorithm}[t!]
+\caption{Coordinate Descend with Variable Elimination (CDVE)}
+\label{alg:cdve}
+\begin{multicols}{2}
+\begin{algorithmic}[1]
+\Require LCN $\cL$ with variables $\{X_1, \ldots, X_n\}$, evidence $\mathbf{E} = \mathbf{e}$, iterations $T$
+\Ensure Bounds $[\underline{P}(Z{=}z|\be),\; \overline{P}(Z{=}z|\be)]$ for
+        non-evidence variables $Z$ and states $z$
+\Statex
+\State Build credal network $\cC$ using chain graph factorization of $\cL$
+
+\For{each non-evidence variable $Z$}
+  \State $\underline{\mathbf{p}},\, \overline{\mathbf{p}} \gets \mathbf{1},\, \mathbf{0}$
+         \Comment{component-wise over $D_Z$}
+  \For{$\mathrm{sense} \in \{\min, \max\}$}
+    \State $P(X_i \mid \pi_i) \gets \mathrm{centroid}(\mathrm{ext}\,\kr{X_i \mid \pi_i})$
+    \State $p^* \gets \mathrm{VE}(\{P(X_i|\pi_i)\},\, Z,\, \mathbf{y})$
+    \For{sweep $t = 1, \dots, T$}
+      \For{each $(X_i, \pi_i)$}
+        \State $v^\star \gets \arg\,\mathrm{sense}_{v \in \mathrm{ext}\,K(X_i \mid \pi_i)}\;
+               \mathrm{VE}(\{P\}[P(X_i \mid \pi_i){\gets}v],\, Z,\, \mathbf{y})(z)$
+        \Statex \hspace{3em}\Comment{$z$ = target state this run is tracking}
+        \State \textbf{if} $v^\star$ strictly improves $p^*(z)$
+               \textbf{then} $P(X_i \mid \pi_i) \gets v^\star$,\;
+               $p^* \gets \mathrm{VE}(\{P\},\, Z,\, \mathbf{y})$
+      \EndFor
+      \State \textbf{if} sweep made no change \textbf{then break}
+    \EndFor
+    \State $\underline{\mathbf{p}} \gets \min(\underline{\mathbf{p}},\, p^*)$,\quad
+           $\overline{\mathbf{p}} \gets \max(\overline{\mathbf{p}},\, p^*)$
+  \EndFor
+  \State \Return $[\underline{p}(z),\, \overline{p}(z)]$ for every $z \in D_Z$
+\EndFor
+\end{algorithmic}
+\end{multicols}
+\end{algorithm}
+
+Our third approach is called Coordinate Descent with Variable Elimination (CDVE) and is described by Algorithm \ref{alg:cdve}. CDVE extends the ApproxLP method \cite{antonucci2015approxlp} that reformulates credal marginal inference as a multilinear program and solves it via coordinate descent. 
+
+Specifically, for every non-evidence variable $Z$, the CDVE runs coordinate descent twice --- once with sense $\min$ and once with sense $\max$. Each run starts by initializing all $P(X_i \mid \pi_i)$ at the centroid of their respective credal sets and computing $p^* = \mathrm{VE}(\{P\}, Z, \mathbf{y})$, the full posterior vector on $D_Z$ under these fixed distributions. A \emph{sweep} then visits every $(X_i, \pi_i)$: for each vertex $v \in \mathrm{ext}\,K(X_i \mid \pi_i)$, it temporarily sets $P(X_i \mid \pi_i) \gets v$, re-evaluates $\mathrm{VE}$, and accepts $v$ (strictly, else rejects) if the target component $p^*(z)$ moves in the sense's direction. Sweeps repeat until one produces no improvement or the cap $T$ is reached. Because
+each $\mathrm{VE}$ call returns a full vector, the two runs together yield componentwise bounds $[\underline{p}(z), \overline{p}(z)]$ for every state $z \in D_Z$ simultaneously. Evidence variables are skipped by a point-mass shortcut. The output is \emph{inner bounds} --- coordinate descent explores only a subset of feasible vertex combinations, so the returned interval is
+contained in the true interval. 
+
+\begin{theorem}[complexity]
+    The time and space complexity of CDVE is $O(T \cdot V_{\text{total}} \cdot n \cdot k^{w^*})$ and $O(n\cdot k^{w^*})$, where $V_{\text{total}}$ is the total number of extreme points across all credal sets, $k$ bounds the domain size, and $w^*$ is the induced width.    
+\end{theorem}
+
+%% ================================================================
+\section{Experiments}
+\label{sec-experiments}
+%% ================================================================
+
+We empirically evaluate the proposed schemes for marginal inference in LCNs and compare them against the exact inference method of \cite{marinescu2022neurips} and the approximate ARIEL method \cite{marinescu2023lcn} across several classes of LCNs.
+
+\paragraph{Benchmarks.} We consider three families of instances. \emph{(i) Random LCNs} are generated with $n$ propositions $\{X_1, \ldots X_n\}$ whose primal graph is a \texttt{polytree} or a \texttt{dag}, and whose sentences are of three types: $l \leq P(\varphi) \leq u$, $l \leq P(x_i\,|\,\varphi) \leq u$, and $l \leq P(\neg x_i\,|\,\varphi) \leq u$, where $\varphi$ is a random formula over up to three propositions and the bounds $l,u$ are sampled uniformly at random with $u-l \leq 0.6$; we ensure that every instance with $n \leq 10$ is consistent. \emph{(ii) Realistic LCNs} are the benchmarks introduced in \cite{marinescu2023lcn}, which are derived from real-world Bayesian networks \cite{bn-repo} and contain up to 10 propositions and up to 24 sentences of the form $l \leq P(x_i) \leq u$ and $l \leq P(x_i\,|\,\pi_i) \leq u$, where $\pi_i = y_{i1} \wedge \cdots \wedge y_{ik}$ is a parent configuration of $X_i$ in the underlying Bayesian network. \emph{(iii) Supreme Court LCNs} are a new family of instances derived from the causal chain graphs used in the US Supreme Court analysis of \cite{ogburn2020causal}, designed specifically to stress scalability (up to $n{=}40$ propositions).
+
+\paragraph{Algorithms and metrics.} We compare six algorithms: the four credal-network inference schemes developed in this paper --- CCTE (exact on the credal network), CCTE$_{cm}$ (CCTE with message cardinality capped at $10$; outer bounds), IBP (outer bounds), and CDVE (inner bounds) --- together with the LCN-native Exact (exact) and ARIEL (approximate) algorithms of \cite{marinescu2022neurips,marinescu2023lcn}, which serve as references. For each instance and algorithm we report the average CPU time in seconds and the mean absolute error (MAE) of the posterior marginal bounds, separately for the lower and upper bound:
+\begin{equation*}
+    \textrm{MAE}_l = \tfrac{1}{n}\sum_{i=1}^{n} |\underline{P}^*(x_i) - \underline{P}(x_i)|, \qquad
+    \textrm{MAE}_u = \tfrac{1}{n}\sum_{i=1}^{n} |\overline{P}^*(x_i) - \overline{P}(x_i)|,
+\end{equation*}
+where $\underline{P}(x_i),\overline{P}(x_i)$ are the bounds produced by the evaluated algorithm and $\underline{P}^*(x_i),\overline{P}^*(x_i)$ are the \emph{reference} bounds, i.e.\ the bounds produced by whichever algorithm we treat as ground truth for that benchmark --- Exact whenever it is tractable, and ARIEL otherwise. The reference algorithm used in each experiment is stated explicitly below.
+
+\paragraph{Hardware and software.} All algorithms were implemented in Python 3.12 and used the \texttt{ipopt} 3.14 solver \cite{ipopt} with default settings for the linear and non-linear programs. All experiments were run on a 3.2\,GHz Intel Core machine with 64\,GB of RAM.
+
+\paragraph{Results on random LCNs: small DAGs.} Figure \ref{fig:dag-small} plots the errors (top) and running times (bottom) as a function of problem size on \texttt{dag} LCNs with up to $10$ variables. In this regime the Exact algorithm is tractable, so we use it as the reference. ARIEL is the overall tightest --- consistent with \cite{marinescu2023lcn} --- and among the credal-network methods CDVE is the tightest, followed by CCTE and CCTE$_{cm}$, with IBP the loosest. The ranking reflects the theoretical guarantees: CCTE is exact on the credal network, CDVE computes inner bounds, and IBP computes outer bounds. Importantly, the residual gap between ARIEL and the credal-network methods does \emph{not} reflect algorithmic looseness but rather the intrinsic cost of the chain-graph-to-credal-network relaxation: the strong extension $\kr{\bX}$ is a strict superset of the LCN's distribution set $\cP(\bX)$, so any algorithm operating on the former is bound to be at least as loose as one operating on the latter. On running times, IBP is several orders of magnitude faster than the other methods; once the credal-network build time is included, IBP, CDVE, and CCTE$_{cm}$ remain substantially faster than exact LCN inference and are competitive with ARIEL.
+
+\paragraph{Results on random LCNs: large DAGs.} Figure \ref{fig:dag-large} reports results on substantially larger \texttt{dag} LCNs, where Exact is no longer tractable and we therefore use ARIEL as the reference algorithm. Plain CCTE fails to scale beyond roughly $10$ variables --- the untruncated credal potentials grow too quickly --- and is omitted from this plot. Among the remaining methods, CDVE again produces the tightest bounds, and its gap to ARIEL in fact \emph{narrows} as the problem size grows, a favorable scaling signal for an inner-bound method. On running times the trend is reversed: IBP is consistently the fastest, whereas CDVE slows noticeably as the number of variables increases.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figs/small-dag_mae_exact.pdf}
+    \includegraphics[width=\linewidth]{figs/small-dag_runtime.pdf}
+    \caption{Results on small random \texttt{dag} LCNs. MAE vs Exact and running time (sec).}
+    \label{fig:dag-small}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figs/dag-paper_mae_ref.pdf}
+    \includegraphics[width=\linewidth]{figs/dag-paper_runtime.pdf}
+    \caption{Results on large random \texttt{dag} LCNs. MAE vs ARIEL and running time (sec).}
+    \label{fig:dag-large}
+\end{figure}
+
+\paragraph{Results on realistic LCNs: Bayesian-network-derived instances.} The top three blocks of Table \ref{tab:real} report results on the Alarm, Credit, and Engine LCNs from \cite{marinescu2023lcn}, using Exact as the reference. These are small in proposition count but hard to solve exactly (Exact requires between $\sim$1{,}000 and $\sim$7{,}000 seconds). CDVE consistently produces the tightest bounds among the credal-network methods and is in fact competitive with ARIEL on Engine ($\text{MAE}_l = 0.45$ vs.\ $0.39$), while on Alarm and Credit ARIEL retains a clear edge because it operates directly on the original LCN rather than on its credal-network relaxation. The message-truncated CCTE$_{cm}$ is a net win over plain CCTE on Alarm and Engine --- tighter bounds \emph{and} an order-of-magnitude speedup --- so the $\varepsilon$-pruning heuristic pays off in practice.
+
+\paragraph{Results on realistic LCNs: Supreme Court scaling instances.} The bottom three blocks of Table \ref{tab:real} report results on the new Supreme Court chain-graph LCNs, using ARIEL as the reference. These instances are designed to test scalability: the dashes in the table indicate that the corresponding algorithm did not complete within the time and memory budget. Plain CCTE already times out at $n{=}12$, CCTE$_{cm}$ at $n{=}32$, and IBP at $n{=}40$; \textbf{CDVE is the only credal-network method that completes every instance}. On the largest benchmark (PScaling-n40), CDVE is roughly $2\times$ slower than ARIEL but provides inner --- certified-contained --- bounds, a qualitatively different guarantee that ARIEL does not offer.
+
+\paragraph{Overall recommendation.} Taken together, the experiments suggest a simple decision rule. CDVE is the method of choice when tight bounds matter and inner bounds are acceptable; IBP is the method of choice when speed dominates and looser outer bounds suffice; CCTE$_{cm}$ offers a useful middle ground at moderate problem sizes. Plain CCTE is primarily valuable as a credal-network oracle on small instances.
+
+
+
+\begin{table}[t]
+\centering
+\resizebox{0.8\linewidth}{!}{
+\begin{tabular}{l|l|rr|rrr}
+Instance & Algorithm & MAE$_{\text{lb}}$ & MAE$_{\text{ub}}$ & Build (sec) & Total (sec) & Ref (sec) \\
+\toprule
+      & CDVE & 0.1708 & 0.0898 & 2.35 & 3.07 & 5094.99  \\
+      & ARIEL & 0.0700  & 0.0810 & 0.00 & 3.01 & 5094.99  \\
+Alarm & CCTE & 0.1747 & 0.2222 &  2.16 &  967.10 & 5094.99  \\
+      & CCTE$_{cm}$ & 0.1624 &  0.1143 & 2.14 & 8.88 & 5094.99  \\
+    & IBP & 0.1426 &  0.3158 & 2.26 & 2.34 & 5094.99  \\
+\hline
+    & CDVE & 0.2464 & 0.1459 & 2.48 & 3.20 & 6971.15  \\
+    & ARIEL & 0.0337 & 0.0490 & 0.00 & 2.75 & 6971.15  \\
+Credit & CCTE & 0.1328 & 0.1799 & 2.32 & 19.63 & 6971.15  \\
+    & CCTE$_{cm}$ & 0.1215 & 0.0864 & 2.20 & 3.04 & 6971.15  \\
+    & IBP & 0.0919 & 0.0755 & 2.50 &  3.15 & 6971.15  \\
+\hline
+    & CDVE & 0.4513 & 0.0784 & 2.28 &  2.76 & 1059.54  \\
+    & ARIEL & 0.3922 & 0.0787 & 0.00 & 2.54 &  1059.54 \\
+Engine & CCTE & 0.4803 & 0.1482 & 2.13 & 3.04 & 1059.54  \\
+    & CCTE$_{cm}$ & 0.3579 &  0.2183 &  2.04 & 8.79 & 1059.54  \\
+    & IBP & 0.4944 & 0.1211 & 2.29 & 2.33 & 1059.54 \\
+\bottomrule
+\bottomrule
+     & CDVE & 0.1003 & 0.5013 & 2.81 & 3.90 & 5.60 \\
+MScaling-n12     & CCTE & - & - & - & - & -\\
+     & CCTE$_{cm}$ & 0.0738 & 0.2752 & 2.88 & 3.93 & 5.60  \\
+     & IBP & 0.3554 & 0.2748 & 2.86 & 2.92 & 5.60  \\
+\hline
+     & CDVE & 0.1148 & 0.2247 & 5.80 & 28.37 & 17.31  \\
+BScaling-n32     & CCTE & - & - & - & - & -\\
+     & CCTE$_{cm}$ & - & - & - & - & -\\
+     & IBP & 0.2317 & 0.2879 & 5.22 & 5.28 & 17.31  \\
+\hline
+     & CDVE & 0.1282 & 0.2631 & 6.97 &  62.63 & 31.41  \\
+PScaling-n40 & CCTE & - & - & - & - & -\\
+     & CCTE$_{cm}$ & - & - & - & - & -\\
+     & IBP & - & - & - & - & -\\
+\end{tabular}
+}
+\caption{Results on the realistic LCNs. The top three blocks (Alarm, Credit, Engine) are the Bayesian-network-derived LCNs of \cite{marinescu2023lcn}, with Exact as the reference algorithm; the bottom three blocks (MScaling-n12, BScaling-n32, PScaling-n40) are the new Supreme Court chain-graph LCNs of \cite{ogburn2020causal}, with ARIEL as the reference. Columns report MAE on the lower and upper posterior marginal bounds, build time, total time (build + inference), and reference-algorithm time (all in seconds). A dash indicates that the algorithm did not complete within the time or memory budget.}
+\label{tab:real}
+\end{table}
+
+%% ================================================================
+\section{Related Work}
+\label{sec-related}
+%% ================================================================
+
+Credal networks~\cite{cozman2000credal} extend Bayesian networks by replacing precise conditional distributions with convex sets of distributions (credal sets). Exact inference in credal networks is NP-hard even for polytrees~\cite{maua2020ijar}. Approximate algorithms include the 2U and L2U schemes \cite{l2u} for binary variables, the GL2U extension~\cite{antonucci2010} for multi-valued variables, and the ApproxLP method~\cite{antonucci2015approxlp}. Our work adapts and extends these algorithms to operate on the credal networks derived from chain graph LCN factorizations, with native support for multi-valued variables.
+
+Probabilistic logic systems such as ProbLog~\cite{problog} and DeepProbLog~\cite{manhaeve2018deepproblog} combine logic programming with precise probabilities. Markov Logic Networks~\cite{mln} attach weights to first-order logic formulas. Probabilistic Soft Logic~\cite{bach2017psl} uses continuous truth values with hinge-loss potentials. LCNs differ from all of these by allowing \emph{imprecise} probability specifications and operating in the propositional setting with few structural restrictions.
+
+Previous work on LCN inference includes exact constrained non-linear optimization~\cite{marinescu2022neurips}, the ARIEL message-passing scheme~\cite{marinescu2023lcn}, and abductive (MAP) reasoning~\cite{marinescu2024neurips}. The chain graph factorization and Markov conditions were studied in~\cite{cozman23a}. Our work introduces three new algorithms that exploit this factorization for scalable approximate inference.
+
+%% ================================================================
+\section{Conclusion}
+\label{sec-conclusion}
+%% ================================================================
+
+We revisited the problem of scalable approximate marginal inference in Logical Credal Networks by exploiting their chain graph factorization. Building on the observation that the local Markov condition decomposes global LCN inference into a collection of local credal network inference tasks, we bridged LCNs with the well-studied credal network formalism and brought a family of credal network techniques to bear on LCNs for the first time. On this basis, we developed three approximate inference algorithms that span complementary bound regimes: Credal Cluster Tree Elimination (CCTE) with $\varepsilon$-pruning and its message-truncated variant CCTE$_{cm}$, which compute outer bounds via bucket-tree elimination; Interval Belief Propagation (IBP), a fast outer-bound message-passing scheme with native support for multi-valued variables; and Coordinate Descent with Variable Elimination (CDVE), which produces inner bounds by optimizing over extreme points of the local credal sets. An extensive empirical evaluation on random LCNs, on benchmark LCNs derived from real Bayesian networks, and on a new family of causal chain graph LCNs from the Supreme Court analysis of \cite{ogburn2020causal}, shows that CDVE yields the tightest bounds among credal-network methods --- competitive with ARIEL on several instances and the only algorithm completing the largest Supreme Court benchmarks --- while IBP is consistently the fastest at the cost of looser bounds and CCTE$_{cm}$ offers a practical middle ground. The residual gap between our methods and ARIEL reflects the intrinsic cost of the chain-graph-to-credal-network relaxation ($\kr{\bX} \supseteq \cP(\bX)$) and is a reasonable price for the substantial scalability gains we observe. Together, these results significantly broaden the range of LCN instances that can be reasoned about in practice and open the door to imprecise-probability reasoning at scales previously out of reach.
+
+\paragraph{Limitations.} The factorization step requires the LCN structure to be a chain graph, which may not hold for all LCNs. The quality of IBP bounds on loopy graphs lacks formal guarantees. ApproxLP may converge to local optima. The scalability of all methods is ultimately limited by the treewidth of the underlying graph.
+
+\paragraph{Future work.} Promising directions include extending the algorithms to handle non-chain-graph structures, developing tighter convergence bounds for IBP on loopy graphs, combining multiple random restarts with ApproxLP to escape local optima, and applying these inference methods to downstream tasks such as neuro-symbolic AI and robust decision making under imprecise probabilities.
+
+
+
+\bibliography{ref}
+\bibliographystyle{unsrt}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\appendix
+
+\section{Exact and Approximate Inference in LCNs}
+
+\subsection{Exact Inference:} 
+The exact inference problem in an LCN $\cL$ with $n$ propositions consists of computing lower and upper bounds on the posterior probability of a query formula $\psi$. This is formulated as a non-linear optimization problem over a vector of variables representing the probabilities of all $2^n$ interpretations of $\cL$. The constraints ensure that these variables form a valid probability distribution, encode the probabilistic sentences in $\cL$, and enforce conditional independence assumptions induced by the local Markov condition, while the objective function linearly represents $P(\psi)$ via indicator vectors and is minimized and maximized to obtain the desired bounds \cite{marinescu2022neurips}. In practice, however, the algorithm does not scale beyond small problem instances \cite{marinescu2022neurips}.
+
+\subsection{Approximate Inference} 
+More recently, an iterative message‑passing scheme has been proposed for approximate inference in LCNs. The method, called ARIEL, operates on a factor‑graph representation of an LCN, in which variable nodes correspond to LCN propositions and factor nodes correspond to LCN constraints defined over subsets of variables. Two types of messages are exchanged along the edges of the factor graph. Variable‑to‑factor messages convey the current lower and upper probability bounds of the variables, while factor‑to‑variable messages compute updated bounds by solving a local constrained non‑linear optimization problem defined by the factor’s constraints. This computation additionally relies on an independence assumption among the neighboring variable nodes of the factor, which is encoded via quadratic equality constraints. Empirically, ARIEL has been shown to scale to larger problem instances while maintaining high‑quality lower and upper bounds \cite{marinescu2023lcn}. However, the approach is constrained by the size and complexity of the local non‑linear programs required for factor‑to‑variable updates. Moreover, ARIEL remains the only available approximation scheme for marginal inference in LCNs.
+
+\section{Detailed Description of the Algorithms}
+
+\subsection{Credal Cluster Tree Elimination}
+We present next three inference algorithms that leverage the chain graph factorization of an LCN to compute marginal probability bounds. The first, Credal Cluster Tree Elimination (CCTE), extends classical cluster (bucket) tree elimination \cite{spiegelhalter88,dechter-bucket,kask05} to credal networks by propagating credal potentials, represented as finite sets of non‑negative functions \cite{maua2020ijar}.
+
+
+\begin{definition}[potential]
+A \emph{potential} $\phi(\bY)$ over variables $\bY$ is a finite set of non-negative real-valued functions $\{f_1, f_2, \dots, f_m\}$ on the joint domain of $\bY$. The \emph{product} (or combination) of two potentials is defined by $\phi \cdot \psi = \{f \cdot g : f \in \phi, \; g \in \psi\}$, where $(f \cdot g)(\by, \bz) = f(\by) \cdot g(\bz)$ over the joint domain $\bY \cup \bZ$. The \emph{sum-marginal} is defined by $\sum_{X} \phi(\bY) = \{ \sum_{x} f(\by) : f \in \phi \}$, producing functions over $\bY \setminus \{X\}$. A \emph{pruning} operation is defined by $prune(\phi) = \{f \in \phi : \nexists\, g \in \phi \setminus \{f\} \text{ s.t.\ } g(\by) \geq f(\by)\; \forall\, \by\}$. 
+\end{definition}
+
+
+\begin{algorithm}[t]
+\caption{Credal Cluster Tree Elimination (CCTE)}
+\label{alg:cte}
+\begin{multicols}{2}
+\begin{algorithmic}[1]
+\Require LCN $\cL$, evidence $\mathbf{E} = \mathbf{e}$
+\Ensure Bounds $[\underline{P}(X_i{=}x|\be),\; \overline{P}(X_i{=}x|\be)]$ for
+        non-evidence variables $X_i$ and states $x$
+%\Statex
+\State Build credal network $\cC$ using chain graph factorization of $\cL$
+\State Build potentials from extreme points of each $\kr{Y_j\mid \mathbf{pa}(Y_j)}$ and evidence indicators
+\State Build bucket tree $\cT$: assign potentials, determine parent--child
+\Statex
+\Comment{\textsc{Collect (Upward)}}
+\For{each $X_i$ in $\cT$ (leaves to root)}
+  \State $\psi_i \gets \prod\{\text{local pots} \cup \{\lambda_{X_j} : X_j \in \mathbf{ch}(X_i)\}\}$
+  \State $\lambda_{X_i} \gets \mathrm{prune}\bigl(\sum_{X_i} \psi_i\bigr)$
+  \State Send $\lambda_{X_i}$ to parent
+\EndFor
+%\Statex
+\Comment{\textsc{Distribute (Downward)}}
+\For{each $X_i$ in $\cT$ (root to leaves)}
+  \For{each child $X_j$ of $X_i$}
+    \State $\psi \gets \prod\{\pi_{X_i},\;\text{local pots},\;
+           \{\lambda_{X_k} : X_k \in \mathbf{ch}(X_i) \setminus \{X_j\}\}\}$
+    \State $\pi_{X_j} \gets \mathrm{prune}\bigl(\sum_{X_i} \psi\bigr)$
+    \State Send $\pi_{X_j}$ to child $X_j$
+  \EndFor
+\EndFor
+%\Statex
+\Comment{\textsc{Extract Marginals}}
+\For{each variable $X_i$}
+  \State $\Phi_i \gets \prod\{\text{local pots},\;
+         \{\lambda_{X_j} : X_j \in \mathbf{ch}(X_i)\},\; \pi_{X_i}\}$
+  \State $\phi_i \gets \sum_{\mathbf{Y} \setminus \{X_i\}} \Phi_i$
+  \State $\underline{P}(X_i{=}x) \gets \min_{f \in \phi_i} f(x)/\sum_{x'} f(x')$
+  \State $\overline{P}(X_i{=}x) \gets \max_{f \in \phi_i} f(x)/\sum_{x'} f(x')$
+\EndFor
+\end{algorithmic}
+\end{multicols}
+\end{algorithm}
+
+Algorithm \ref{alg:cte} describes our credal cluster tree elimination. Given an elimination ordering $\mathbf{o} = (X_1, X_2, \dots, X_n)$ and a set of initial potentials (one per credal factor plus evidence indicators): each potential is assigned to the bucket of the first variable in $\mathbf{o}$ that appears in the potential's scope. For each bucket $X_i$, compute the \emph{message scope}: the union of scopes of all potentials in the bucket (including received messages), minus $X_i$ itself. The \textbf{parent} of $X_i$ is the next variable in $\mathbf{o}$ that appears in this message scope. The message scope is propagated to the parent's effective scope. The result is a rooted tree where the last variable in the ordering is the root.
+
+Process buckets in elimination order (leaves to root). At each bucket $X_i$:
+\begin{enumerate}
+  \item \textbf{Gather}: local potentials $+$ upward messages $\lambda_{X_j}$ from
+        all children $X_j$.
+  \item \textbf{Combine}: $\psi_i = \prod \{\text{gathered potentials}\}$.
+  \item \textbf{Marginalize}: $\lambda_{X_i} = \sum_{X_i} \psi_i$.
+  \item \textbf{Prune}: $\lambda_{X_i} \gets \mathrm{prune}(\lambda_{X_i})$.
+  \item \textbf{Send} $\lambda_{X_i}$ to the parent bucket.
+\end{enumerate}
+
+Process buckets in \emph{reverse} elimination order (root to leaves). At each
+bucket $X_i$, for each child $X_j$:
+\begin{enumerate}
+  \item \textbf{Gather}: the downward message $\pi_{X_i}$ from $X_i$'s own parent
+        $+$ local potentials in $X_i$'s bucket $+$ upward messages from all children
+        of $X_i$ \emph{except} $X_j$.
+  \item \textbf{Combine}: $\psi = \prod \{\text{gathered potentials}\}$.
+  \item \textbf{Marginalize}: $\pi_{X_j} = \sum_{X_i} \psi$ (sum out $X_i$).
+  \item \textbf{Prune}: $\pi_{X_j} \gets \mathrm{prune}(\pi_{X_j})$.
+  \item \textbf{Send} $\pi_{X_j}$ to child $X_j$.
+\end{enumerate}
+
+After the distribute pass, every bucket has received information from the rest of the network via its parent's downward message. We therefore extract all marginals: At each bucket $X_i$, the full information is:
+\[
+  \Phi_i = \underbrace{\text{local potentials}}_{\text{assigned in Step~1}}
+  \;\cdot\; \underbrace{\prod_{j \in \mathrm{children}(i)} \lambda_{X_j}}_{\text{from collect}}
+  \;\cdot\; \underbrace{\pi_{X_i}}_{\text{from distribute}}.
+\]
+Marginalize out all variables except $X_i$, then normalize each function and take component-wise min/max for the lower/upper bounds.
+
+While exact CCTE preserves tight bounds, intermediate potentials can grow exponentially. Following \cite{maua2020ijar,marinescu2026iclr}, we approximate the potentials by fixing their cardinality to a relatively small number $B$. Specifically, we group the elements of $\phi(\bY)$ into $B$ clusters based on minimizing the Manhattan distance to each cluster's centroid (i.e., minimize $\sum_{i=1}^{m} |p_i - r_i|$, where $p_i$ and $r_i$ are the $i$-th components of $p$ and $r$, respectively). Then, for each cluster we replace its components with their mean values.
+
+
+\begin{theorem}[complexity]
+The time and space complexity of CCTE is $O(n \cdot C \cdot k^{w^*})$ where $n$ is the number of variables, $k$ bounds the domain size, $w^*$ is the treewidth, and $C$ is the maximum potential cardinality (which can be exponential). With potential approximation, $C$ is bounded by $B$ \cite{marinescu2026iclr}.
+\end{theorem}
+
+
+\section{Additional Experiments}
+
+\begin{table}[t]
+\centering
+\resizebox{\linewidth}{!}{
+\begin{tabular}{llrrrrrr}
+Instance & Algorithm & MAE$_{\text{lb}}$ & MAE$_{\text{ub}}$ & Build & Run & Total & Exact \\
+\toprule
+alarm.lcn & CDVE & 0.1708 & 0.0898 & 2.35 & 0.72 & 3.07 & 5094.99  \\
+alarm.lcn & ARIEL & 0.0700  & 0.0810 & 0.00 & 3.01 & 3.01 & 5094.99  \\
+alarm.lcn & CCTE & 0.1747 & 0.2222 &  2.16 & 964.94 & 967.10 & 5094.99  \\
+alarm.lcn & CCTE$_cm$ & 0.1624 &  0.1143 & 2.14 & 6.75 & 8.88 & 5094.99  \\
+alarm.lcn & IBP & 0.1426 &  0.3158 & 2.26 & 0.08 & 2.34 & 5094.99  \\
+\hline
+asia.lcn & CDVE & 0.0000 & 0.2228 & 1.69 & 0.26 & 1.95 & 87.89  \\
+asia.lcn & ARIEL & 0.0131 & 0.2648 & 0.00 & 1.70 & 1.70 & 87.89  \\
+asia.lcn & CCTE$_e$ & 0.0555 & 0.2559 & 1.66 & 0.01 & 1.67 & 87.89  \\
+asia.lcn & CCTE$_cm$ & 0.0123 & 0.2326 & 1.65 & 3.58 & 5.22 & 87.89  \\
+asia.lcn & IBP & 0.3131 & 0.2985 & 1.69 & 0.04 & 1.73 & 87.89  \\
+\hline
+cancer.lcn & CDVE & 0.0653 & 0.0272 & 1.04 & 0.07 & 1.11 & 0.42 \\
+cancer.lcn & ARIEL & 0.0309 & 0.1301 & 0.00 & 1.44 & 1.44 & 0.42  \\
+cancer.lcn & CCTE$_e$ & 0.0653 & 0.1599 & 1.03 & 0.09 & 1.12 & 0.42  \\
+cancer.lcn & CCTE$_cm$ & 0.0545 & 0.0246 & 0.98 & 2.77 & 3.75 & 0.42  \\
+cancer.lcn & IBP & 0.2853 & 0.2090 & 1.11 & 0.02 & 1.12 & 0.42 \\
+\hline
+credit.lcn & CDVE & 0.2464 & 0.1459 & 2.48 & 0.72 & 3.20 & 6971.15  \\
+credit.lcn & ARIEL & 0.0337 & 0.0490 & 0.00 & 2.75 & 2.75 & 6971.15  \\
+credit.lcn & CCTE$_e$ & 0.1328 & 0.1799 & 2.32 & 17.31 & 19.63 & 6971.15  \\
+credit.lcn & CCTE$_cm$ & 0.1215 & 0.0864 & 2.20 & 0.83 & 3.04 & 6971.15  \\
+credit.lcn & IBP & 0.0919 & 0.0755 & 2.50 & 0.65 & 3.15 & 6971.15  \\
+\hline
+earthquake.lcn & CDVE & 0.0041 & 0.0000 & 1.01 & 0.05 & 1.06 & 0.34  \\
+earthquake.lcn & ARIEL & 0.0000 & 0.0006 & 0.00 & 0.72 & 0.72 & 0.34\\
+earthquake.lcn & CCTE$_e$ & 0.0833 & 0.1051 & 0.94 & 0.01 & 0.94 & 0.34  \\
+earthquake.lcn & CCTE$_cm$ & 0.0028 & 0.0040 & 0.90 & 0.07 & 0.97 & 0.34  \\
+earthquake.lcn & IBP & 0.3848 & 0.3817 & 1.02 & 0.02 & 1.04 & 0.34  \\
+\hline
+engine.lcn & CDVE & 0.4513 & 0.0784 & 2.28 & 0.48 & 2.76 & 1059.54  \\
+engine.lcn & ARIEL & 0.3922 & 0.0787 & 0.00 & 0.00 & 2.54 &  1059.54 \\
+engine.lcn & CCTE$_e$ & 0.4803 & 0.1482 & 2.13 & 0.92 & 3.04 & 1059.54  \\
+engine.lcn & CCTE$_cm$ & 0.3579 &  0.2183 &  2.04 & 6.75 & 8.79 & 1059.54  \\
+engine.lcn & IBP & 0.4944 & 0.1211 & 2.29 & 0.04 & 2.33 & 1059.54 \\
+\hline
+hepatitis.lcn & CDVE & 0.1955 & 0.2193 & 3.79 & 1.02 & 4.80 & 5601.91  \\
+hepatitis.lcn & ARIEL & 0.1451 & 0.1256 & 0.00 & 3.03 & 3.03 & 5601.91 \\
+hepatitis.lcn & CCTE$_cm$ & 0.7647 & 0.8967 & 3.67 & 2.81 & 6.49 & 5601.91  \\
+hepatitis.lcn & IBP & 0.2643 & 0.2917 & 3.97 & 1.20 & 5.17 & 5601.91  \\
+\hline
+suicide.lcn & CDVE & 0.2505 & 0.1036 & 2.05 & 0.53 & 2.58 & 5196.44  \\
+suicide.lcn & ARIEL & 0.2500 & 0.0998 & 0.00 & 2.97 & 2.97 & 5196.44  \\
+suicide.lcn & CCTE$_e$ & 0.2585 & 0.2346 & 2.14 & 389.13 & 391.27 & 5196.44  \\
+suicide.lcn & CCTE$_cm$ & 0.2804 & 0.1512 & 2.00 & 0.33 & 2.32 & 5196.44  \\
+suicide.lcn & IBP & 0.3549 & 0.3635 & 2.22 & 0.07 & 2.29 & 5196.44  \\
+\hline
+tank.lcn & CDVE & 0.3817 & 0.0568 & 2.55 & 0.96 & 3.50 & 5709.84  \\
+tank.lcn & ARIEL & 0.3970 & 0.1140 &  0.00 & 3.91 & 3.91 & 5709.84 \\
+tank.lcn & CCTE$_cm$ & 0.9200 & 0.9260 & 2.41 & 0.46 & 2.87 & 5709.84  \\
+tank.lcn & CCTE$_cp$ & 0.9200 & 0.9260 & 2.47 & 0.38 & 2.85 & 5709.84  \\
+tank.lcn & IBP & 0.4727 & 0.2917 & 2.69 & 0.09 & 2.78 & 5709.84  \\
+\hline
+toy.lcn & CDVE & 0.0891 & 0.0745 & 0.73 & 0.03 & 0.77 & 0.13  \\
+toy.lcn & ARIEL & 0.0000 & 0.0000 & 0.00 & 0.50 & 0.50 & 0.13  \\
+toy.lcn & CCTE$_e$ & 0.0891 & 0.0515 & 0.73 & 0.11 & 0.84 & 0.13  \\
+toy.lcn & CCTE$_{cm}$ & 0.0667 & 0.0354 & 0.67 & 0.05 & 0.72 & 0.13  \\
+toy.lcn & IBP & 0.1256 & 0.1530 & 0.80 & 0.01 & 0.82 & 0.13  \\
+\bottomrule
+\end{tabular}
+}
+\caption{Results on the realistic LCNs. MAE vs Exact and running times.}
+\label{tab:real-all}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\resizebox{\linewidth}{!}{
+\begin{tabular}{l|l|rrrrrr}
+\toprule
+Instance & Algorithm & MAE$_{\text{lb}}$ & & MAE$_{\text{ub}}$ & Build & Total & Ref  \\
+\midrule
+$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & CDVE & 0.1215 & 0.4370 & 14.27 & 28.42 & 42.69 & 12.71 \\
+\hline
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & CDVE & 0.1148 & 0.2247 & 5.80 & 22.57 & 28.37 & 17.31  \\
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & IBP & 0.2317 & 0.2879 & 5.22 & 0.06 & 5.28 & 17.31  \\
+\hline
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & CDVE & 0.1003 & 0.5013 & 2.81 & 1.09 & 3.90 & 5.60 \\
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & $\text{CCTE\_cm}$ & 0.0738 & 0.2752 & 2.88 & 1.05 & 3.93 & 5.60  \\
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & IBP & 0.3554 & 0.2748 & 2.86 & 0.06 & 2.92 & 5.60  \\
+\hline
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & CDVE & 0.0963 & 0.3972 & 1.17 & 0.10 & 1.28 & 1.64  \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & CCTE & 0.0963 & 0.3391 & 1.28 & 697.66 & 698.94 & 1.64  \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & $\text{CCTE\_cm}$ & 0.1037 & 0.3194 & 1.29 & 0.13 & 1.43 & 1.64  \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & IBP & 0.2768 & 0.2742 & 1.18 & 0.02 & 1.20 & 1.64  \\
+\hline
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & CDVE & 0.1049 & 0.4748 & 1.93 & 0.51 & 2.44 & 3.42  \\
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & $\text{CCTE\_cm}$ & 0.0810 & 0.2742 & 2.04 & 0.52 & 2.56 & 3.42  \\
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & IBP & 0.3291 &  0.2495 & 1.92 & 0.03 & 1.96 & 3.42  \\
+\hline
+$\text{paper\_scaling\_directions\_n35\_2.lcn}$ & CDVE & 0.1442 & 0.4419 & 42.55 & 209.37 & 251.92 & 27.12  \\
+\hline
+$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & CDVE & 0.1282 & 0.2631 & 6.97 & 55.66 & 62.63 & 31.41  \\
+\end{tabular}
+}
+\caption{Error metrics vs.\ ariel reference}
+\label{tab:real2-all}
+\end{table}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newpage
+\input{checklist.tex}
+
+
+\end{document}
