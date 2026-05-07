@@ -16,13 +16,6 @@ import os
 import matplotlib
 matplotlib.rcParams["font.family"] = "serif"
 matplotlib.rcParams["mathtext.fontset"] = "cm"
-matplotlib.rcParams["font.size"] = 14
-matplotlib.rcParams["axes.titlesize"] = 16
-matplotlib.rcParams["axes.labelsize"] = 15
-matplotlib.rcParams["xtick.labelsize"] = 13
-matplotlib.rcParams["ytick.labelsize"] = 13
-matplotlib.rcParams["legend.fontsize"] = 16
-matplotlib.rcParams["figure.titlesize"] = 17
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -104,7 +97,7 @@ def _set_log_xaxis(ax, sizes):
     ax.minorticks_off()
 
 
-def _plot_mae_panel(df, output_path, suptitle):
+def _plot_mae_panel(df, output_path, suptitle=None):
     """
     Two side-by-side panels: MAE lower bound (left) and upper bound (right).
     """
@@ -131,7 +124,7 @@ def _plot_mae_panel(df, output_path, suptitle):
                       (ax_ub, "Upper bound error")]:
         _set_log_xaxis(ax, sizes)
         ax.set_xlabel("Number of variables ($n$)")
-        ax.set_title(title, fontsize=16)
+        ax.set_title(title, fontsize=11)
         ax.grid(True, alpha=0.25, linewidth=0.5)
         ax.set_ylim(bottom=-0.01)
 
@@ -140,8 +133,7 @@ def _plot_mae_panel(df, output_path, suptitle):
     handles, labels = ax_lb.get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center",
                ncol=min(len(algos), 6), frameon=False,
-               bbox_to_anchor=(0.5, 1.02), fontsize=16)
-    fig.suptitle(suptitle, fontsize=17, y=1.08)
+               bbox_to_anchor=(0.5, 1.02), fontsize=13)
     fig.tight_layout(rect=[0, 0, 1, 0.91])
 
     fig.savefig(output_path, bbox_inches="tight", dpi=150)
@@ -215,7 +207,7 @@ def plot_runtime(df, output_prefix, exact_times, ref_times):
                       (ax_total, "Total time (build + run)")]:
         _set_log_xaxis(ax, sizes)
         ax.set_xlabel("Number of variables ($n$)")
-        ax.set_title(title, fontsize=16)
+        ax.set_title(title, fontsize=11)
         ax.set_yscale("log")
         ax.grid(True, alpha=0.25, which="both", linewidth=0.5)
 
@@ -225,7 +217,7 @@ def plot_runtime(df, output_prefix, exact_times, ref_times):
     handles, labels = ax_total.get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center",
                ncol=min(len(algos) + 2, 6), frameon=False,
-               bbox_to_anchor=(0.5, 1.02), fontsize=16)
+               bbox_to_anchor=(0.5, 1.02), fontsize=13)
     fig.tight_layout(rect=[0, 0, 1, 0.91])
 
     path = f"{output_prefix}_runtime.pdf"
