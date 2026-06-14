@@ -521,18 +521,18 @@ if __name__ == "__main__":
                 print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
     # Load the LCN
-    file_name = "examples/alarm.lcn"
+    file_name = "examples/new.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
     l.summary()
     print(l)
 
     # Check consistency
-    # ok = check_consistency(l)
-    # if ok:
-    #     print("CONSISTENT")
-    # else:
-    #     print("INCONSISTENT")
+    ok = check_consistency(l)
+    if ok:
+        print("CONSISTENT")
+    else:
+        print("INCONSISTENT")
 
     # Run exact marginal inference (no evidence)
     print("\n=== ExactInference (no evidence) ===")

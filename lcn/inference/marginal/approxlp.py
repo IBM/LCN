@@ -543,7 +543,7 @@ if __name__ == "__main__":
                     print(f"    P({var}={val}): [{abs(lo[val]):.6f}, {abs(hi[val]):.6f}]")
 
     # Load the LCN
-    file_name = "examples/alarm.lcn"
+    file_name = "examples/new.lcn"
     # file_name = "benchmarks/chain/chain_n20_1.lcn"
     # file_name = "benchmarks/real/alarm.lcn"
     l = LCN()
