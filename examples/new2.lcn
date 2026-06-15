@@ -1,0 +1,30 @@
+# Format is the following:
+# LCN
+# list of sentences, one per line
+# label: lower_prob <= P(phi) <= upper_prob for Type 1
+# label: lower_prob <= P(phi|psi) <= upper_prob for Type 2
+# IMPORTANT: pay attention to spaces between
+# also, the empty lines and the ones starting with # are skipped
+#
+# 7-variable example LCN from docs/scc_factor_graph.tex (SCC Factor-Graph Propagation).
+# Propositions: A, B, C, D, E, X, Y
+# Structure-graph edges: X->A, Y->B, A->B, B->C, C->D, D->B, C->E
+# The constraints c_BC, c_CD, c_DB form a directed cycle B->C->D->B,
+# so Tarjan's algorithm yields one non-trivial SCC S_BCD = {B, C, D}.
+# Condensation DAG: S_X -> S_A -> S_BCD, S_Y -> S_BCD, S_BCD -> S_E.
+#
+# Exact marginals (verified against the 128-world global NLP):
+#   P(A)=[0.42,0.94] P(B)=[0.21,0.82] P(C)=[0.3333,0.8571]
+#   P(D)=[0.1333,0.8667] P(E)=[0.50,0.70] P(X)=[0.60,0.80] P(Y)=[0.30,0.50]
+
+c_X:  0.6 <= P(X) <= 0.8
+c_Y:  0.3 <= P(Y) <= 0.5
+c_XA: 0.7 <= P(A | X) <= 0.9
+c_YB: 0.2 <= P(B | Y) <= 0.4
+c_AB: 0.5 <= P(B | A) <= 0.7
+c_BC: 0.6 <= P(C | B) <= 0.8
+c_CD: 0.4 <= P(D | C) <= 0.6
+c_DB: 0.3 <= P(B | D) <= 0.5
+c_CE: 0.8 <= P(E | C) <= 0.9
+c_nCE: 0.1 <= P(E | !C) <= 0.3
+c_E:  0.5 <= P(E) <= 0.7
