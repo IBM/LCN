@@ -19,15 +19,112 @@
 import itertools
 import time
 import numpy as np
-from pyomo.environ import *
+from pyomo.environ import (
+    ConcreteModel,
+    ConstraintList,
+    NonNegativeReals,
+    Objective,
+    Set,
+    SolverStatus,
+    TerminationCondition,
+    Var,
+    maximize,
+    minimize,
+)
 from typing import Dict, List, Tuple
 
 # Local
-from lcn.core.model import LCN, SentenceType, Formula, Sentence
-from lcn.core.independencies import Independencies
+from lcn.core.model import LCN, SentenceType, Formula
+from lcn.core.independencies import Independencies, IndependenceAssertion
 from lcn.inference.utils.factor_graph import FactorGraph, FactorNode, VariableNode, FactorGraphEdge
 from lcn.inference.utils.common import check_consistency, make_conjunction, make_ipopt
 from lcn.inference.marginal.exact import _eval_indicator, _dot
+from lcn.inference.marginal.sccp import _wrap_items
+
+
+def format_factor_box(f: FactorNode, width: int = 56) -> str:
+    """
+    Render a single factor node as a titled ASCII box listing its scope (the
+    boundary variables), and the LCN sentences it groups. The visual style
+    mirrors ``format_supernode_box`` in lcn.inference.marginal.sccp.
+
+    Args:
+        f: FactorNode
+            The factor node to render.
+        width: int
+            Target inner width of the box in characters.
+
+    Returns:
+        A multi-line string containing the box.
+    """
+    label = f.get_label()
+    scope = sorted(f.scope)
+    sentences = sorted(f.sentences.keys())
+
+    rows = [
+        ("scope", scope),
+        ("sentences", sentences),
+    ]
+    pad = max(len(h) for h, _ in rows)          # heading column width
+    avail = width - pad - 3                      # room left for the values
+    body_lines = []
+    for heading, items in rows:
+        wrapped = _wrap_items([str(i) for i in items], avail)
+        for k, chunk in enumerate(wrapped):
+            head = heading if k == 0 else ""
+            body_lines.append(f"{head:<{pad}} : {chunk}")
+
+    inner = max([len(line) for line in body_lines] + [len(label) + 4])
+    inner = max(inner, width)
+    top = f"+-- {label} " + "-" * (inner - len(label) - 3) + "+"
+    bot = "+" + "-" * (inner + 1) + "+"
+    out = [top]
+    for line in body_lines:
+        out.append(f"| {line:<{inner}}|")
+    out.append(bot)
+    return "\n".join(out)
+
+
+def format_factor_graph(fg: FactorGraph) -> str:
+    """
+    Render the factor graph being processed by ARIEL in a user-friendly form:
+    a header with node counts, the variable nodes, an aligned variable--factor
+    edge list, and a detail box per factor node (in sorted label order).
+
+    Args:
+        fg: FactorGraph
+            The factor graph to render.
+
+    Returns:
+        A multi-line string ready to print.
+    """
+    lines = []
+    lines.append("=" * 60)
+    lines.append("Factor Graph")
+    lines.append("=" * 60)
+    lines.append(f"# variable nodes: {len(fg.variable_nodes)}")
+    lines.append(f"# factor nodes  : {len(fg.factor_nodes)}")
+    lines.append("Variables: " + ", ".join(sorted(fg.variable_nodes.keys())))
+    lines.append("")
+
+    # Aligned edge list (variable -- factor), ordered by factor then variable.
+    edges = sorted(
+        ((e.factor_node.get_label(), e.variable_node.get_name()) for e in fg.edges),
+        key=lambda fv: (fv[0], fv[1]),
+    )
+    lines.append("Edges (variable -- factor):")
+    if edges:
+        wvar = max(len(v) for _, v in edges)
+        for fid, v in edges:
+            lines.append(f"  {v:<{wvar}} -- {fid}")
+    else:
+        lines.append("  (none)")
+    lines.append("")
+
+    # Detail box per factor node.
+    for fid in sorted(fg.factor_nodes.keys()):
+        lines.append(format_factor_box(fg.factor_nodes[fid]))
+    return "\n".join(lines)
 
 
 def _build_factor_cache(f: FactorNode, independencies: Independencies) -> dict:
@@ -431,11 +528,11 @@ class ArielInference:
         self.fg = FactorGraph(lcn=self.lcn)
         if debug:
             print("Factor graph")
-            print(self.fg)
+            print(format_factor_graph(self.fg))
         self.fg.add_evidence(evidence)
         if debug:
             print("Factor graph with evidence")
-            print(self.fg)
+            print(format_factor_graph(self.fg))
 
         # Pre-compute caches for each factor node (once)
         factor_caches = {}
@@ -481,7 +578,7 @@ class ArielInference:
 
         # Iterative message passing
         if verbosity > 0:
-            print(f"[ArielInference] Running marginal inference...")
+            print("[ArielInference] Running marginal inference...")
         for iter in range(n_iters):
             if verbosity > 0:
                 print(f"Iteration {iter} ...")
@@ -553,9 +650,8 @@ class ArielInference:
 
         # Build return dict in standard format: atom -> (lo_array, hi_array)
         results = {}
-        evidence_set = set(evidence.keys())
         if verbosity > 0:
-            print(f"[ArielInference] Singleton variable marginals:")
+            print("[ArielInference] Singleton variable marginals:")
         for nid in sorted(self.marginals):
             marg = self.marginals[nid]
             lo_1 = marg.lower_bound
@@ -573,6 +669,196 @@ class ArielInference:
 
         return results
 
+    def _message_independencies(self) -> Tuple[Independencies, Dict]:
+        """
+        Compute the independence assumptions that ARIEL *adds* because of the
+        factor-to-variable messages.
+
+        When ARIEL computes the message ``f -> n`` (see ``_solve_local_nlp``),
+        every other boundary variable ``m`` in ``scope(f) \\ {n}`` enters the
+        local NLP only through its singleton marginal interval (the incoming
+        v->f message); there is no joint term coupling those variables. ARIEL
+        therefore implicitly assumes the boundary variables of the factor
+        (other than the target ``n``) are mutually -- i.e. pairwise, marginally
+        -- independent. This method materializes those assumptions.
+
+        Returns:
+            A tuple (added, breakdown) where:
+              - added: an Independencies holding the deduplicated pairwise
+                marginal assertions (a |= b) over all factors/targets. Symmetric
+                pairs (a |= b) == (b |= a) are deduped by IndependenceAssertion.
+              - breakdown: dict fid -> {target -> [(a, b), ...]} recording which
+                message introduced each pairwise assumption (informational; the
+                same pair typically recurs across many messages).
+        """
+        assert self.fg is not None, "Run the inference first (build the factor graph)."
+
+        added = Independencies()
+        breakdown = {}
+        for fid, f in self.fg.factor_nodes.items():
+            scope = sorted(f.scope)
+            per_target = {}
+            for n in scope:
+                others = [m for m in scope if m != n]
+                pairs = []
+                for a, b in itertools.combinations(others, 2):
+                    pairs.append((a, b))
+                    assertion = IndependenceAssertion(a, b)
+                    if not added.contains(assertion):
+                        added.add_assertions(assertion)
+                if pairs:
+                    per_target[n] = pairs
+            if per_target:
+                breakdown[fid] = per_target
+
+        return added, breakdown
+
+    def _contrast_with_lmc(self, added: Independencies) -> Dict:
+        """
+        Three-way contrast between the independencies ARIEL adds via the
+        factor-to-variable messages and the Local Markov Condition (LMC)
+        independencies of the original LCN.
+
+        Args:
+            added: Independencies
+                The pairwise message-independencies from _message_independencies.
+
+        Returns:
+            A dict with three Independencies objects:
+              - 'enforced_from_lmc': LMC assertions whose full variable set fits
+                inside some single factor scope -- i.e. actually added to a local
+                NLP (mirrors the all_vars.issubset(scope) gate in
+                _build_factor_cache).
+              - 'dropped_from_lmc': LMC assertions NOT contained in any single
+                factor scope, hence never enforced anywhere.
+              - 'added_not_in_lmc': message-independencies not present in the LCN's
+                LMC independencies.
+        """
+        assert self.fg is not None, "Run the inference first (build the factor graph)."
+
+        lmc = self.lcn.independencies
+        scopes = [set(f.scope) for f in self.fg.factor_nodes.values()]
+
+        enforced = Independencies()
+        dropped = Independencies()
+        for indep in lmc.get_assertions():
+            if any(indep.all_vars.issubset(sc) for sc in scopes):
+                enforced.add_assertions(indep)
+            else:
+                dropped.add_assertions(indep)
+
+        added_not_in_lmc = Independencies()
+        for indep in added.get_assertions():
+            if not lmc.contains(indep):
+                added_not_in_lmc.add_assertions(indep)
+
+        return {
+            "enforced_from_lmc": enforced,
+            "dropped_from_lmc": dropped,
+            "added_not_in_lmc": added_not_in_lmc,
+        }
+
+    def analyze(self, verbosity: int = 1) -> Dict:
+        """
+        Post-hoc analysis of the independence assumptions made by ARIEL,
+        contrasted with the Local Markov Condition (LMC) of the original LCN.
+        Call this after ``run()`` (which builds the factor graph and performs
+        the message passing).
+
+        Prints, in order:
+          1. the factor graph being processed (as readable boxes + edge list);
+          2. the LMC independencies of the original LCN;
+          3. the independencies ARIEL adds via factor-to-variable messages;
+          4. a three-way contrast (LMC enforced locally / LMC dropped / added by
+             ARIEL and not in the LMC);
+          5. a post-hoc summary with category counts and the final marginals.
+
+        Args:
+            verbosity: int
+                0 = silent (return the structured result only); 1 = print the
+                sections; 2 = also print the per-message breakdown.
+
+        Returns:
+            A dict with keys: 'added' (Independencies), 'breakdown' (dict),
+            'enforced_from_lmc', 'dropped_from_lmc', 'added_not_in_lmc'
+            (Independencies). Returned so the analysis is testable without
+            parsing stdout.
+        """
+        assert self.fg is not None, \
+            "No factor graph: call run() before analyze()."
+
+        added, breakdown = self._message_independencies()
+        contrast = self._contrast_with_lmc(added)
+        lmc = self.lcn.independencies
+
+        def _emit(title, indeps):
+            assertions = indeps.get_assertions()
+            print(f"{title} ({len(assertions)}):")
+            if assertions:
+                for a in assertions:
+                    print(f"  {a}")
+            else:
+                print("  (none)")
+            print("")
+
+        if verbosity > 0:
+            print(format_factor_graph(self.fg))
+            print("")
+            print("=" * 60)
+            print("Independence analysis")
+            print("=" * 60)
+
+            _emit("Local Markov Condition (original LCN)", lmc)
+            _emit("Added by ARIEL factor-to-variable messages "
+                  "(pairwise among factor boundary variables)", added)
+
+            if verbosity > 1 and breakdown:
+                print("Per-message breakdown (factor -> target : assumed pairs):")
+                for fid in sorted(breakdown):
+                    for target in sorted(breakdown[fid]):
+                        pairs = breakdown[fid][target]
+                        pretty = ", ".join(f"({a} |= {b})" for a, b in pairs)
+                        print(f"  {fid} -> {target} : {pretty}")
+                print("")
+
+            print("-" * 60)
+            print("Three-way contrast with the LMC")
+            print("-" * 60)
+            _emit("[1] LMC enforced locally (scope fits in a factor)",
+                  contrast["enforced_from_lmc"])
+            _emit("[2] LMC dropped (scope spans factors, never enforced)",
+                  contrast["dropped_from_lmc"])
+            _emit("[3] Added by ARIEL, not in the LMC",
+                  contrast["added_not_in_lmc"])
+
+            print("-" * 60)
+            print("Post-hoc summary")
+            print("-" * 60)
+            print(f"  LMC independencies               : "
+                  f"{len(lmc.get_assertions())}")
+            print(f"  ... enforced locally             : "
+                  f"{len(contrast['enforced_from_lmc'].get_assertions())}")
+            print(f"  ... dropped (multi-factor scope) : "
+                  f"{len(contrast['dropped_from_lmc'].get_assertions())}")
+            print(f"  Added by ARIEL messages (total)  : "
+                  f"{len(added.get_assertions())}")
+            print(f"  ... not in the LMC               : "
+                  f"{len(contrast['added_not_in_lmc'].get_assertions())}")
+            if self.marginals is not None:
+                print(f"  Final marginals (feasible={self.feasible}):")
+                for nid in sorted(self.marginals):
+                    marg = self.marginals[nid]
+                    print(f"    P({nid}=1): "
+                          f"[{marg.lower_bound:.6f}, {marg.upper_bound:.6f}]")
+
+        return {
+            "added": added,
+            "breakdown": breakdown,
+            "enforced_from_lmc": contrast["enforced_from_lmc"],
+            "dropped_from_lmc": contrast["dropped_from_lmc"],
+            "added_not_in_lmc": contrast["added_not_in_lmc"],
+        }
+
 
 if __name__ == "__main__":
 
@@ -584,14 +870,16 @@ if __name__ == "__main__":
             for val in range(len(lo)):
                 print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
-    # Load the LCN
-    file_name = "examples/new2.lcn"
-    l = LCN()
-    l.from_lcn(file_name=file_name)
-    print(l)
+    # Load the LCN. We use asia.lcn here because it has a factor with three
+    # boundary variables, so the factor-to-variable messages introduce a
+    # non-trivial pairwise independence assumption (see analyze() below).
+    file_name = "examples/asia.lcn"
+    lcn_model = LCN()
+    lcn_model.from_lcn(file_name=file_name)
+    print(lcn_model)
 
     # Check consistency
-    ok = check_consistency(l)
+    ok = check_consistency(lcn_model)
     if ok:
         print("CONSISTENT")
     else:
@@ -599,6 +887,11 @@ if __name__ == "__main__":
 
     # Run ARIEL marginal inference
     print("\n=== ArielInference (no evidence) ===")
-    algo = ArielInference(lcn=l)
+    algo = ArielInference(lcn=lcn_model)
     results = algo.run(n_iters=10, threshold=0.000001, debug=False)
     print_singleton_marginals(results)
+
+    # Analyze the independence assumptions made by ARIEL and contrast them
+    # with the Local Markov Condition of the original LCN.
+    print("\n=== Independence analysis ===")
+    algo.analyze(verbosity=2)

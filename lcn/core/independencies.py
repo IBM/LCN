@@ -49,6 +49,10 @@ class Independencies(object):
 
     def __init__(self, *assertions):
         self.independencies = []
+        # Parallel membership set keyed on IndependenceAssertion's hash/eq, so
+        # `contains` is O(1) amortized instead of an O(n) scan of the list. The
+        # list is kept as the source of truth and preserves insertion order.
+        self._assertion_set = set()
         self.add_assertions(*assertions)
 
     def __str__(self):
@@ -93,7 +97,7 @@ class Independencies(object):
                 f"' in <Independencies()>' requires IndependenceAssertion as left operand, not {type(assertion)}"
             )
 
-        return assertion in self.get_assertions()
+        return assertion in self._assertion_set
 
     __contains__ = contains
 
@@ -131,16 +135,15 @@ class Independencies(object):
         """
         for assertion in assertions:
             if isinstance(assertion, IndependenceAssertion):
-                self.independencies.append(assertion)
+                obj = assertion
             else:
                 try:
-                    self.independencies.append(
-                        IndependenceAssertion(assertion[0], assertion[1], assertion[2])
-                    )
+                    obj = IndependenceAssertion(
+                        assertion[0], assertion[1], assertion[2])
                 except IndexError:
-                    self.independencies.append(
-                        IndependenceAssertion(assertion[0], assertion[1])
-                    )
+                    obj = IndependenceAssertion(assertion[0], assertion[1])
+            self.independencies.append(obj)
+            self._assertion_set.add(obj)
 
 
     def latex_string(self):

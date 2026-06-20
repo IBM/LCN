@@ -29,7 +29,13 @@ import itertools
 import time
 import networkx as nx
 import numpy as np
-from pyomo.environ import *
+from pyomo.environ import (
+    ConcreteModel,
+    ConstraintList,
+    NonNegativeReals,
+    Set,
+    Var,
+)
 from typing import Dict, List, Tuple
 
 # Local
@@ -309,7 +315,7 @@ def format_supernode_box(node: "SuperNode", width: int = 56) -> str:
             head = heading if k == 0 else ""
             body_lines.append(f"{head:<{pad}} : {chunk}")
 
-    inner = max([len(l) for l in body_lines] + [len(label) + 4])
+    inner = max([len(line) for line in body_lines] + [len(label) + 4])
     inner = max(inner, width)
     # Every rendered line is exactly (inner + 3) characters wide:
     #   body/bottom = "| " + inner + "|"  /  "+" + (inner+1)*"-" + "+"
@@ -317,8 +323,8 @@ def format_supernode_box(node: "SuperNode", width: int = 56) -> str:
     top = f"+-- {label} " + "-" * (inner - len(label) - 3) + "+"
     bot = "+" + "-" * (inner + 1) + "+"
     out = [top]
-    for l in body_lines:
-        out.append(f"| {l:<{inner}}|")
+    for line in body_lines:
+        out.append(f"| {line:<{inner}}|")
     out.append(bot)
     return "\n".join(out)
 
@@ -813,10 +819,9 @@ class SCCFactorGraphInference:
 
         t_start = time.time()
         self.feasible = True
-        evidence_set = set(evidence.keys())
 
         if verbosity > 0:
-            print(f"[SCCFactorGraph] Computing all marginals")
+            print("[SCCFactorGraph] Computing all marginals")
             print(f"[SCCFactorGraph] Evidence: {evidence}")
 
         # Build the condensation factor graph and caches
@@ -835,7 +840,7 @@ class SCCFactorGraphInference:
 
         # --- Pass 1: Collect (forward, topological order) ---
         if verbosity > 0:
-            print(f"[SCCFactorGraph] Collect pass (forward)...")
+            print("[SCCFactorGraph] Collect pass (forward)...")
         for scc_id in self.topo_order:
             children = list(self.cond_dag.successors(scc_id))
             child_atoms = self._edge_atoms(scc_id, children)
@@ -844,7 +849,7 @@ class SCCFactorGraphInference:
 
         # --- Pass 2: Distribute (backward, reverse topological order) ---
         if verbosity > 0:
-            print(f"[SCCFactorGraph] Distribute pass (backward)...")
+            print("[SCCFactorGraph] Distribute pass (backward)...")
         for scc_id in reversed(self.topo_order):
             parents = list(self.cond_dag.predecessors(scc_id))
             parent_atoms = self._edge_atoms(scc_id, parents)
@@ -857,7 +862,7 @@ class SCCFactorGraphInference:
         t_end = time.time()
 
         if verbosity > 0:
-            print(f"[SCCFactorGraph] Singleton variable marginals:")
+            print("[SCCFactorGraph] Singleton variable marginals:")
             for atom_name in sorted(self.marginals):
                 lo, hi = self.marginals[atom_name]
                 for val in range(len(lo)):
@@ -957,16 +962,16 @@ if __name__ == "__main__":
 
     # Load the LCN (the 7-variable example)
     file_name = "examples/new2.lcn"
-    l = LCN()
-    l.from_lcn(file_name=file_name)
-    print(l)
+    lcn_model = LCN()
+    lcn_model.from_lcn(file_name=file_name)
+    print(lcn_model)
 
     # Check consistency
-    ok = check_consistency(l)
+    ok = check_consistency(lcn_model)
     print("CONSISTENT" if ok else "INCONSISTENT")
 
     # Run SCC Factor-Graph Propagation (no evidence)
     print("\n=== SCCFactorGraphInference (no evidence) ===")
-    algo = SCCFactorGraphInference(lcn=l)
+    algo = SCCFactorGraphInference(lcn=lcn_model)
     results = algo.run(evidence={}, debug=False, verbosity=2)
     print_singleton_marginals(results)

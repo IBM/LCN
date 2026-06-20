@@ -36,7 +36,6 @@
 
 import time
 import numpy as np
-from pyomo.environ import SolverFactory
 from typing import Dict, List, Tuple
 
 # Local
@@ -375,7 +374,7 @@ class SCCPArielInference:
         self.feasible = True
 
         if verbosity > 0:
-            print(f"[SCCP-ARIEL] Computing all marginals")
+            print("[SCCP-ARIEL] Computing all marginals")
             print(f"[SCCP-ARIEL] Evidence: {evidence}")
 
         # Build the condensation factor graph and caches
@@ -394,7 +393,7 @@ class SCCPArielInference:
 
         # --- Pass 1: Collect (forward, topological order) ---
         if verbosity > 0:
-            print(f"[SCCP-ARIEL] Collect pass (forward)...")
+            print("[SCCP-ARIEL] Collect pass (forward)...")
         for scc_id in self.topo_order:
             children = list(self.cond_dag.successors(scc_id))
             for atom in sorted(self._edge_atoms(scc_id, children)):
@@ -402,7 +401,7 @@ class SCCPArielInference:
 
         # --- Pass 2: Distribute (backward, reverse topological order) ---
         if verbosity > 0:
-            print(f"[SCCP-ARIEL] Distribute pass (backward)...")
+            print("[SCCP-ARIEL] Distribute pass (backward)...")
         for scc_id in reversed(self.topo_order):
             parents = list(self.cond_dag.predecessors(scc_id))
             for atom in sorted(self._edge_atoms(scc_id, parents)):
@@ -414,7 +413,7 @@ class SCCPArielInference:
         t_end = time.time()
 
         if verbosity > 0:
-            print(f"[SCCP-ARIEL] Singleton variable marginals:")
+            print("[SCCP-ARIEL] Singleton variable marginals:")
             for atom_name in sorted(self.marginals):
                 lo, hi = self.marginals[atom_name]
                 for val in range(len(lo)):
@@ -513,16 +512,16 @@ if __name__ == "__main__":
 
     # Load the LCN (the 7-variable example from docs/scc_factor_graph.tex)
     file_name = "examples/new2.lcn"
-    l = LCN()
-    l.from_lcn(file_name=file_name)
-    print(l)
+    lcn_model = LCN()
+    lcn_model.from_lcn(file_name=file_name)
+    print(lcn_model)
 
     # Check consistency
-    ok = check_consistency(l)
+    ok = check_consistency(lcn_model)
     print("CONSISTENT" if ok else "INCONSISTENT")
 
     # Run SCC Propagation with the ARIEL local solver (no evidence)
     print("\n=== SCCPArielInference (no evidence) ===")
-    algo = SCCPArielInference(lcn=l)
+    algo = SCCPArielInference(lcn=lcn_model)
     results = algo.run(evidence={}, n_iters=20, threshold=1e-7, debug=False, verbosity=2)
     print_singleton_marginals(results)

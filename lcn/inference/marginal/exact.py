@@ -18,7 +18,19 @@
 import itertools
 import time
 import numpy as np
-from pyomo.environ import *
+from pyomo.environ import (
+    ConcreteModel,
+    ConstraintList,
+    NonNegativeReals,
+    Objective,
+    Set,
+    SolverStatus,
+    TerminationCondition,
+    Var,
+    maximize,
+    minimize,
+    value,
+)
 from typing import Dict, Tuple
 
 # Local
@@ -533,7 +545,7 @@ class ExactInference:
 
         if verbosity > 0:
             num_indep = len(independencies.get_assertions())
-            print(f"[ExactInference] Computing all marginals")
+            print("[ExactInference] Computing all marginals")
             print(f"[ExactInference] Evidence: {evidence}")
             print(f"[ExactInference] Local Markov Condition: {num_indep} independencies")
 
@@ -599,7 +611,7 @@ class ExactInference:
         t_end = time.time()
 
         if verbosity > 0:
-            print(f"[ExactInference] Singleton variable marginals:")
+            print("[ExactInference] Singleton variable marginals:")
             for atom_name in sorted(self.marginals):
                 lo, hi = self.marginals[atom_name]
                 for val in range(len(lo)):
@@ -623,13 +635,13 @@ if __name__ == "__main__":
 
     # Load the LCN
     file_name = "examples/new2.lcn"
-    l = LCN()
-    l.from_lcn(file_name=file_name)
-    l.summary()
-    print(l)
+    lcn_model = LCN()
+    lcn_model.from_lcn(file_name=file_name)
+    lcn_model.summary()
+    print(lcn_model)
 
     # Check consistency
-    ok = check_consistency(l)
+    ok = check_consistency(lcn_model)
     if ok:
         print("CONSISTENT")
     else:
@@ -637,7 +649,7 @@ if __name__ == "__main__":
 
     # Run exact marginal inference (no evidence)
     print("\n=== ExactInference (no evidence) ===")
-    algo = ExactInference(lcn=l)
+    algo = ExactInference(lcn=lcn_model)
     results = algo.run(evidence={}, debug=False, verbosity=2)
     print_singleton_marginals(results)
 

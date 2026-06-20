@@ -669,8 +669,9 @@ class LCN:
         return self.families
 
     def lcn_parents(
-            self, 
-            atom: str
+            self,
+            atom: str,
+            node_type: dict = None
     ) -> List:
         """
         Identify the parents of an atom in the primal graph. Given an atom X,
@@ -678,9 +679,20 @@ class LCN:
         Y to X in the primal graph such that all intermediate nodes other than
         X and Y (if any) on P are formula nodes.
 
+        This is computed with a single reverse traversal from X instead of
+        enumerating all simple paths from every candidate: walk backwards along
+        the directed edges, stepping *through* formula nodes only. Any atom node
+        reached this way is a parent (it has a Y -> formulas... -> X path, or a
+        direct Y -> X edge). Atom nodes are never expanded, so they cannot serve
+        as intermediate nodes -- matching the original "all intermediates are
+        formula nodes" condition exactly.
+
         Args:
             atom: str
                 The input atom X.
+            node_type: dict
+                Optional precomputed {node: type} map (see local_markov_condition).
+                If None, it is computed once here.
 
         Returns:
             A list of atoms that are X's parents in the primal graph.
@@ -688,33 +700,27 @@ class LCN:
 
         assert self.primal_graph is not None, f"The primal graph must exist."
 
+        if node_type is None:
+            node_type = nx.get_node_attributes(self.primal_graph, "type")
+
         X = atom
+        G = self.primal_graph
         parents = []
-        for candidate, _ in self.atoms.items():
-            if candidate == X:
-                continue # skip same node
-
-            # Retrieve all paths from `parent` to `X`
-            paths = nx.all_simple_paths(
-                G=self.primal_graph,
-                source=candidate,
-                target=X
-            )
-
-            # Check if there exists a path between `candidate` and `X` that
-            # satisfies the property: all intermediate nodes are `formula` nodes
-            for path in paths:
-                path_found = True
-                for Y in path:
-                    if Y == candidate or Y == X:
-                        continue # skip the ends of the path
-                    node_type = nx.get_node_attributes(self.primal_graph, "type")
-                    if node_type[Y] != "formula":
-                        path_found = False
-                        break
-                if path_found:
-                    parents.append(candidate)
-                    break
+        seen = {X}
+        # Frontier of nodes whose predecessors we still need to explore. We only
+        # ever expand X and formula nodes; reaching an atom records a parent.
+        stack = [X]
+        while stack:
+            node = stack.pop()
+            for pred in G.predecessors(node):
+                if pred in seen:
+                    continue
+                seen.add(pred)
+                if node_type.get(pred) == "formula":
+                    stack.append(pred)  # formula intermediate: keep walking back
+                else:
+                    if pred != X:
+                        parents.append(pred)  # atom reached: it is a parent
 
         return parents
 
@@ -740,31 +746,31 @@ class LCN:
         """
 
         X = atom
+        G = self.primal_graph
+        atoms_set = set(self.atoms.keys())
+        parents_set = set(parents)
+
+        # Single forward traversal from X: an atom Y is a descendant iff some
+        # directed path X -> ... -> Y has no intermediate node that is a parent
+        # of X. A parent node may still be a descendant *endpoint*, but it can
+        # never be an intermediate, so we record nodes we reach yet never expand
+        # *through* a parent node. This reproduces the original per-candidate
+        # all-simple-paths test in one pass.
         descendants = []
-        for candidate, _ in self.atoms.items():
-            if candidate == X:
-                continue # skip same node
-
-            # Retrieve all paths from `X` to `candidate`
-            paths = nx.all_simple_paths(
-                G=self.primal_graph,
-                source=X,
-                target=candidate
-            )
-
-            # Check if there exists a path between `X` and `candidate` that
-            # satisfies the property: none of the intermediate nodes is X's parent
-            for path in paths:
-                path_found = True
-                for Y in path:
-                    if Y == X or Y == candidate:
-                        continue  # skip the endpoints of the path
-                    if Y in parents:
-                        path_found = False
-                        break
-                if path_found:
-                    descendants.append(candidate)
-                    break
+        found = set()
+        seen = {X}
+        stack = [X]
+        while stack:
+            node = stack.pop()
+            for succ in G.successors(node):
+                if succ != X and succ in atoms_set and succ not in found:
+                    found.add(succ)
+                    descendants.append(succ)
+                # Only expand through a node that is allowed to be an
+                # intermediate, i.e. not a parent of X (X itself is the source).
+                if succ not in seen and succ not in parents_set:
+                    seen.add(succ)
+                    stack.append(succ)
 
         return descendants
 
@@ -816,8 +822,12 @@ class LCN:
         self.independencies = Independencies()
         all_atoms = sorted([a for a, _ in self.atoms.items()])
 
+        # Precompute the node->type map once; both lcn_parents and
+        # lcn_descendants would otherwise rebuild it repeatedly inside loops.
+        node_type = nx.get_node_attributes(self.primal_graph, "type")
+
         for X in all_atoms:
-            Z = self.lcn_parents(atom=X)
+            Z = self.lcn_parents(atom=X, node_type=node_type)
             D = self.lcn_descendants(atom=X, parents=Z)
             Y = self.lcn_non_parents_descendants(
                 atom=X, 
