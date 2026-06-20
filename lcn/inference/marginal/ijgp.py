@@ -30,6 +30,7 @@ from pyomo.environ import (
 # Local
 from lcn.core.model import LCN
 from lcn.inference.marginal.cve import CredalVE, Potential
+from lcn.inference.utils.common import make_ipopt
 
 
 class CredalIJGP:
@@ -705,7 +706,7 @@ class CredalIJGP:
         LPs over the compound marginal polytope.
         """
         singleton_marginals = {}
-        solver = SolverFactory('ipopt')
+        solver = make_ipopt()
 
         ipopt_log = logging.getLogger('pyomo')
         ipopt_log.setLevel(logging.ERROR)

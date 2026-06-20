@@ -35,7 +35,7 @@ from typing import Dict, List, Tuple
 # Local
 from lcn.core.model import LCN, SentenceType, Formula, Sentence
 from lcn.core.independencies import Independencies
-from lcn.inference.utils.common import check_consistency, make_conjunction
+from lcn.inference.utils.common import check_consistency, make_conjunction, make_ipopt
 from lcn.inference.marginal.exact import _eval_indicator, _dot, _solve_with_objective
 
 
@@ -239,6 +239,181 @@ class SuperNode:
         output += f"  interface: {sorted(getattr(self, 'interface_atoms', set()))}\n"
         output += f"  sentences: {list(self.sentences.keys())}\n"
         return output
+
+
+# -----------------------------------------------------------------------
+# Pretty-printing: condensation DAG and induced factorization
+# -----------------------------------------------------------------------
+
+def _scc_label(node: "SuperNode") -> str:
+    """
+    Human-readable label for a super-node, formed from its owned atoms, e.g.
+    a super-node owning {B, C, D} is labelled ``S_BCD`` and one owning {A} is
+    ``S_A``. Matches the notation used in docs/scc_factor_graph.tex.
+    """
+    return "S_" + "".join(sorted(node.owned))
+
+
+def _wrap_items(items: List[str], width: int) -> List[str]:
+    """Pack comma-separated ``items`` into lines no wider than ``width``."""
+    if not items:
+        return ["-"]
+    lines, cur = [], ""
+    for it in items:
+        piece = it if cur == "" else ", " + it
+        if cur and len(cur) + len(piece) > width:
+            lines.append(cur)
+            cur = it
+        else:
+            cur += piece
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+def format_supernode_box(node: "SuperNode", width: int = 56) -> str:
+    """
+    Render a single super-node as a titled ASCII box listing its owned atoms,
+    parent (conditioning) interface atoms, hidden internal atoms, interface
+    atoms and the LCN sentences it owns.
+
+    Args:
+        node: SuperNode
+            The super-node to render (``set_shared_atoms`` must have been called).
+        width: int
+            Target inner width of the box in characters.
+
+    Returns:
+        A multi-line string containing the box.
+    """
+    label = _scc_label(node)
+    parents = sorted(getattr(node, "external_atoms", set()))
+    internal = sorted(getattr(node, "internal_atoms", []))
+    interface = sorted(getattr(node, "interface_atoms", set()))
+    sentences = sorted(node.sentences.keys())
+
+    # Each row is (heading, list-of-items) -> possibly multiple wrapped lines
+    rows = [
+        ("owned", node.owned),
+        ("parents", parents),
+        ("internal", internal),
+        ("interface", interface),
+        ("sentences", sentences),
+    ]
+    pad = max(len(h) for h, _ in rows)          # heading column width
+    avail = width - pad - 3                      # room left for the values
+    body_lines = []
+    for heading, items in rows:
+        wrapped = _wrap_items([str(i) for i in items], avail)
+        for k, chunk in enumerate(wrapped):
+            head = heading if k == 0 else ""
+            body_lines.append(f"{head:<{pad}} : {chunk}")
+
+    inner = max([len(l) for l in body_lines] + [len(label) + 4])
+    inner = max(inner, width)
+    # Every rendered line is exactly (inner + 3) characters wide:
+    #   body/bottom = "| " + inner + "|"  /  "+" + (inner+1)*"-" + "+"
+    #   top         = "+-- " + label + " " + dashes + "+"
+    top = f"+-- {label} " + "-" * (inner - len(label) - 3) + "+"
+    bot = "+" + "-" * (inner + 1) + "+"
+    out = [top]
+    for l in body_lines:
+        out.append(f"| {l:<{inner}}|")
+    out.append(bot)
+    return "\n".join(out)
+
+
+def format_condensation_dag(
+        super_nodes: Dict[int, "SuperNode"],
+        cond_dag: "nx.DiGraph",
+        topo_order: List[int]
+) -> str:
+    """
+    Render the condensation DAG of super-nodes: the topological order, the DAG
+    edges as an aligned edge list, and a detail box per super-node.
+
+    Args:
+        super_nodes: dict
+            Mapping scc id -> SuperNode.
+        cond_dag: nx.DiGraph
+            The condensation DAG over scc ids.
+        topo_order: list
+            Super-node ids in topological order.
+
+    Returns:
+        A multi-line string ready to print.
+    """
+    label = {sid: _scc_label(super_nodes[sid]) for sid in super_nodes}
+    pos = {sid: i for i, sid in enumerate(topo_order)}
+
+    lines = []
+    lines.append("=" * 60)
+    lines.append("Condensation DAG (super-nodes)")
+    lines.append("=" * 60)
+    lines.append("Topological order: "
+                 + ", ".join(label[sid] for sid in topo_order))
+    lines.append("")
+
+    # Edge list, ordered by (source, dest) topological position, aligned.
+    edges = sorted(cond_dag.edges(),
+                   key=lambda e: (pos.get(e[0], 0), pos.get(e[1], 0)))
+    lines.append("Edges:")
+    if edges:
+        wsrc = max(len(label[u]) for u, _ in edges)
+        for u, v in edges:
+            lines.append(f"  {label[u]:<{wsrc}} -> {label[v]}")
+    else:
+        lines.append("  (none --- the DAG is a single super-node)")
+    lines.append("")
+
+    # Detail boxes in topological order
+    for sid in topo_order:
+        lines.append(format_supernode_box(super_nodes[sid]))
+    return "\n".join(lines)
+
+
+def format_factorization(
+        super_nodes: Dict[int, "SuperNode"],
+        topo_order: List[int]
+) -> str:
+    """
+    Render the joint factorization read off the condensation DAG. Each
+    super-node contributes one conditional credal factor
+    ``P(owned | parents)`` (or ``P(owned)`` for a root), and the joint is their
+    product:
+
+        P(all atoms) = P(X) * P(Y) * P(A|X) * P(B,C,D|A,Y) * P(E|C)
+
+    Args:
+        super_nodes: dict
+            Mapping scc id -> SuperNode.
+        topo_order: list
+            Super-node ids in topological order.
+
+    Returns:
+        A multi-line string ready to print.
+    """
+    def factor_str(node: "SuperNode") -> str:
+        owned = ",".join(sorted(node.owned))
+        parents = sorted(getattr(node, "external_atoms", set()))
+        if parents:
+            return f"P({owned} | {','.join(parents)})"
+        return f"P({owned})"
+
+    factors = [factor_str(super_nodes[sid]) for sid in topo_order]
+    all_atoms = sorted({a for sid in topo_order for a in super_nodes[sid].owned})
+
+    lines = []
+    lines.append("=" * 60)
+    lines.append("Factorization induced by the DAG")
+    lines.append("=" * 60)
+    lines.append(f"P({','.join(all_atoms)}) = " + " * ".join(factors))
+    lines.append("")
+    lines.append("Factors (each is a conditional credal set solved locally):")
+    for sid in topo_order:
+        node = super_nodes[sid]
+        lines.append(f"  {_scc_label(node):<8} : {factor_str(node)}")
+    return "\n".join(lines)
 
 
 def _build_supernode_cache(
@@ -558,11 +733,6 @@ class SCCFactorGraphInference:
                 self.atom_to_sccs.setdefault(atom, []).append(scc_id)
                 self.f2v[(scc_id, atom)] = SCCMessage(atom, scc_id)
 
-        if verbosity > 1:
-            print(f"[SCCFactorGraph] Super-nodes ({len(self.super_nodes)}):")
-            for scc_id in self.topo_order:
-                print("  " + str(self.super_nodes[scc_id]).replace("\n", "\n  "))
-
     # -- Message helpers ----------------------------------------------------
 
     def _v2f(self, atom: str, exclude_scc: int) -> Tuple[float, float]:
@@ -655,12 +825,13 @@ class SCCFactorGraphInference:
         if verbosity > 0:
             n_cyclic = sum(1 for n in self.super_nodes.values() if len(n.owned) > 1)
             print(f"[SCCFactorGraph] {len(self.super_nodes)} super-nodes "
-                  f"({n_cyclic} cyclic), topological order: {self.topo_order}")
+                  f"({n_cyclic} cyclic)")
+            print(format_condensation_dag(
+                self.super_nodes, self.cond_dag, self.topo_order))
+            print(format_factorization(self.super_nodes, self.topo_order))
 
-        # Shared solver instance
-        solver = SolverFactory('ipopt')
-        if not debug:
-            solver.options['print_level'] = 0
+        # Shared, correctly-configured ipopt solver instance
+        solver = make_ipopt(debug=debug)
 
         # --- Pass 1: Collect (forward, topological order) ---
         if verbosity > 0:

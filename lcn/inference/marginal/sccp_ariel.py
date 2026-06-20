@@ -41,7 +41,7 @@ from typing import Dict, List, Tuple
 
 # Local
 from lcn.core.model import LCN, SentenceType, Sentence
-from lcn.inference.utils.common import check_consistency
+from lcn.inference.utils.common import check_consistency, make_ipopt
 from lcn.inference.marginal.ariel import ArielInference
 
 # Reuse the SCC decomposition, super-node model, exact local solve and message
@@ -54,6 +54,8 @@ from lcn.inference.marginal.sccp import (
     _build_supernode_cache,
     _solve_supernode,
     SCCMessage,
+    format_condensation_dag,
+    format_factorization,
 )
 
 
@@ -258,11 +260,6 @@ class SCCPArielInference:
                 self.atom_to_sccs.setdefault(atom, []).append(scc_id)
                 self.f2v[(scc_id, atom)] = SCCMessage(atom, scc_id)
 
-        if verbosity > 1:
-            print(f"[SCCP-ARIEL] Super-nodes ({len(self.super_nodes)}):")
-            for scc_id in self.topo_order:
-                print("  " + str(self.super_nodes[scc_id]).replace("\n", "\n  "))
-
     # -- Message helpers ----------------------------------------------------
 
     def _v2f(self, atom: str, exclude_scc: int) -> Tuple[float, float]:
@@ -387,12 +384,13 @@ class SCCPArielInference:
         if verbosity > 0:
             n_cyclic = sum(1 for sid in self.super_nodes if self._is_cyclic(sid))
             print(f"[SCCP-ARIEL] {len(self.super_nodes)} super-nodes "
-                  f"({n_cyclic} cyclic -> ARIEL), topological order: {self.topo_order}")
+                  f"({n_cyclic} cyclic -> ARIEL)")
+            print(format_condensation_dag(
+                self.super_nodes, self.cond_dag, self.topo_order))
+            print(format_factorization(self.super_nodes, self.topo_order))
 
-        # Shared ipopt solver for trivial super-nodes
-        solver = SolverFactory('ipopt')
-        if not debug:
-            solver.options['print_level'] = 0
+        # Shared, correctly-configured ipopt solver for trivial super-nodes
+        solver = make_ipopt(debug=debug)
 
         # --- Pass 1: Collect (forward, topological order) ---
         if verbosity > 0:

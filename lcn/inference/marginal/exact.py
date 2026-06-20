@@ -24,12 +24,45 @@ from typing import Dict, Tuple
 # Local
 from lcn.core.model import LCN, SentenceType, Formula
 from lcn.core.independencies import Independencies
-from lcn.inference.utils.common import make_conjunction, check_consistency
+from lcn.inference.utils.common import make_conjunction, check_consistency, make_ipopt
 
-_ACCEPTABLE_TOL = 1e-9
-_MAX_ITER = 1000
-_MAX_CPU_TIME = 7200
+_TOL = 1e-8                 # primary ipopt convergence tolerance
+_ACCEPTABLE_TOL = 1e-8      # tolerance for an "acceptable" termination
+_MAX_ITER = 3000
+_MAX_CPU_TIME = 600
 _HESSIAN_APPROX = "limited-memory"
+_N_RESTARTS = 4             # random-restart budget on a failed/vacuous solve
+
+
+# The ipopt configuration is shared across the whole inference suite and lives
+# in lcn.inference.utils.common; alias it here for the internal call sites.
+_make_ipopt = make_ipopt
+
+
+def _init_p(model, N: int, rng=None) -> None:
+    """
+    Initialize the joint-distribution variables to a feasible starting point.
+
+    A fresh start is set before every solve so the result does not depend on the
+    previous solve's solution (the shared model would otherwise warm-start each
+    objective from the last one, making bounds order-dependent and wrong).
+
+    Args:
+        model: Pyomo model with ``model.p`` over ``model.ITEMS``.
+        N: int
+            Number of joint-distribution variables (interpretations).
+        rng: optional numpy Generator
+            If None, use the uniform point p[i] = 1/N. Otherwise draw a random
+            point on the probability simplex (used for restarts).
+    """
+    if rng is None:
+        for i in model.ITEMS:
+            model.p[i].value = 1.0 / N
+    else:
+        x = rng.random(N)
+        x /= x.sum()
+        for i in model.ITEMS:
+            model.p[i].value = float(x[i])
 
 
 def _eval_indicator(formula: Formula, interpretations: list) -> np.ndarray:
@@ -77,7 +110,7 @@ def _build_base_model(
     # Create the Pyomo model and variables
     model = ConcreteModel()
     model.ITEMS = Set(initialize=range(N))
-    model.p = Var(model.ITEMS, within=NonNegativeReals)
+    model.p = Var(model.ITEMS, within=NonNegativeReals, bounds=(0.0, 1.0))
     model.constr = ConstraintList()
 
     # Probability distribution constraint
@@ -167,7 +200,11 @@ def _solve_with_objective(model, obj_expr, sense, solver, debug=False):
         debug: If True, show solver output.
 
     Returns:
-        (objective_value, feasible) tuple.
+        (objective_value, feasible) tuple. A solve is considered feasible/usable
+        when ipopt reports an ``optimal``, ``locallyOptimal``, ``feasible`` or
+        ``acceptable`` termination --- ipopt's "acceptable" point is a valid
+        solution and must not be discarded as if it were infeasible. Only a
+        genuine ``infeasible`` termination or an exception yields feasible=False.
     """
     # Remove existing objective if present
     if hasattr(model, 'objective'):
@@ -178,17 +215,31 @@ def _solve_with_objective(model, obj_expr, sense, solver, debug=False):
     else:
         model.objective = Objective(expr=obj_expr, sense=maximize)
 
+    # Termination conditions that correspond to a usable solution. ipopt's
+    # "Solved to acceptable level" is surfaced as the string 'acceptable' by
+    # some Pyomo versions and folded into 'optimal' by others; accept both.
+    _usable = {
+        TerminationCondition.optimal,
+        TerminationCondition.locallyOptimal,
+        TerminationCondition.feasible,
+    }
+
     try:
         results = solver.solve(model, load_solutions=True, tee=debug)
-        if (results.solver.status == SolverStatus.ok) and \
-            (results.solver.termination_condition == TerminationCondition.optimal):
+        tc = results.solver.termination_condition
+        if tc in _usable or str(tc).lower() == 'acceptable':
             objective_value = value(model.objective)
             feasible = True
-        elif results.solver.termination_condition == TerminationCondition.infeasible:
+        elif tc == TerminationCondition.infeasible:
             objective_value = value(model.objective)
             feasible = False
         else:
-            objective_value = value(model.objective)
+            # maxIterations / maxTimeLimit / solverFailure / other: the loaded
+            # point is not trustworthy --- report None so the caller can restart.
+            if debug:
+                print(f"ipopt non-usable termination: status={results.solver.status}, "
+                      f"termination={tc}")
+            objective_value = None
             feasible = False
     except Exception as e:
         if debug:
@@ -197,6 +248,59 @@ def _solve_with_objective(model, obj_expr, sense, solver, debug=False):
         feasible = False
 
     return objective_value, feasible
+
+
+def _robust_solve(model, obj_expr, sense, solver, N, atom, debug=False):
+    """
+    Solve min/max of ``obj_expr`` robustly on the (nonconvex) marginal NLP.
+
+    Each call uses a fresh uniform start (no warm-start carryover between atoms
+    or senses). If the primary solve fails, returns None, or returns a vacuous
+    bound (max at 1, min at 0 --- typically a sign ipopt stalled at a trivial
+    stationary point), the solve is retried from several random simplex starts
+    and the best (lowest for ``min``, highest for ``max``) usable value is kept.
+
+    Args:
+        model: Pyomo model with constraints and ``model.p``.
+        obj_expr: Pyomo objective expression (the atom marginal P(atom=1)).
+        sense: 'min' or 'max'.
+        solver: configured ipopt solver (see _make_ipopt).
+        N: int, number of joint-distribution variables.
+        atom: str, the atom name (used only to seed restarts deterministically).
+        debug: bool.
+
+    Returns:
+        (best_value, feasible) tuple. feasible is False only if every attempt
+        failed; best_value is then None.
+    """
+    def _is_suspicious(v, ok):
+        if not ok or v is None:
+            return True
+        if sense == 'max' and v >= 1.0 - 1e-6:
+            return True
+        if sense == 'min' and v <= 1e-6:
+            return True
+        return False
+
+    # Primary solve from the uniform feasible point.
+    _init_p(model, N)
+    best, ok = _solve_with_objective(model, obj_expr, sense, solver, debug)
+
+    if _is_suspicious(best, ok):
+        for k in range(_N_RESTARTS):
+            # Deterministic per-(atom, sense, restart) seed -> reproducible runs.
+            seed = abs(hash((atom, sense, k))) % (2 ** 32)
+            _init_p(model, N, rng=np.random.default_rng(seed))
+            v, okk = _solve_with_objective(model, obj_expr, sense, solver, debug)
+            if okk and v is not None:
+                if best is None or not ok:
+                    best, ok = v, True
+                elif sense == 'max':
+                    best = max(best, v)
+                else:
+                    best = min(best, v)
+
+    return best, ok
 
 
 # -----------------------------------------------------------------------
@@ -258,7 +362,7 @@ def solve_exact_model(
     # Create the Pyomo model and variables
     model = ConcreteModel()
     model.ITEMS = Set(initialize=range(N))
-    model.p = Var(model.ITEMS, within=NonNegativeReals)
+    model.p = Var(model.ITEMS, within=NonNegativeReals, bounds=(0.0, 1.0))
     model.constr = ConstraintList()
 
     # Probability distribution constraint
@@ -336,9 +440,11 @@ def solve_exact_model(
     else:
         model.objective = Objective(expr=obj, sense=maximize)
 
-    # Solve the non-linear model
+    # Solve the non-linear model with the shared, correctly-configured ipopt
+    # setup; the explicit keyword arguments override the defaults for callers
+    # that need to (back-compat).
     try:
-        opt = SolverFactory('ipopt')
+        opt = _make_ipopt(debug=debug)
         opt.options['max_iter'] = max_iter
         opt.options['max_cpu_time'] = max_cpu_time
         if acceptable_tol is not None:
@@ -440,14 +546,8 @@ class ExactInference:
         if evidence_indicator is not None:
             ev_expr = _dot(evidence_indicator, model, model.ITEMS)
 
-        # Create a shared solver instance
-        solver = SolverFactory('ipopt')
-        solver.options['max_iter'] = _MAX_ITER
-        solver.options['max_cpu_time'] = _MAX_CPU_TIME
-        # solver.options['hessian_approximation'] = _HESSIAN_APPROX
-        solver.options['acceptable_tol'] = _ACCEPTABLE_TOL
-        if not debug:
-            solver.options['print_level'] = 0
+        # Create a shared, correctly-configured ipopt solver instance
+        solver = _make_ipopt(debug=debug)
 
         # Compute marginals for each atom
         self.marginals = {}
@@ -478,12 +578,13 @@ class ExactInference:
                 AE = A * evidence_indicator  # element-wise numpy multiply
                 obj_expr = _dot(AE, model, model.ITEMS) / ev_expr
 
-            # Minimize P(atom=1)
-            lo_val, feasible_lo = _solve_with_objective(
-                model, obj_expr, 'min', solver, debug)
-            # Maximize P(atom=1)
-            hi_val, feasible_hi = _solve_with_objective(
-                model, obj_expr, 'max', solver, debug)
+            # Minimize / maximize P(atom=1) robustly: fresh start per solve,
+            # with a random-restart fallback when a solve fails or stalls at a
+            # vacuous (0/1) stationary point on this nonconvex problem.
+            lo_val, feasible_lo = _robust_solve(
+                model, obj_expr, 'min', solver, N, atom_name, debug)
+            hi_val, feasible_hi = _robust_solve(
+                model, obj_expr, 'max', solver, N, atom_name, debug)
 
             if not feasible_lo or not feasible_hi:
                 self.feasible = False

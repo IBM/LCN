@@ -26,7 +26,7 @@ from typing import Dict, List, Tuple
 from lcn.core.model import LCN, SentenceType, Formula, Sentence
 from lcn.core.independencies import Independencies
 from lcn.inference.utils.factor_graph import FactorGraph, FactorNode, VariableNode, FactorGraphEdge
-from lcn.inference.utils.common import check_consistency, make_conjunction
+from lcn.inference.utils.common import check_consistency, make_conjunction, make_ipopt
 from lcn.inference.marginal.exact import _eval_indicator, _dot
 
 
@@ -442,10 +442,8 @@ class ArielInference:
         for fid, f in self.fg.factor_nodes.items():
             factor_caches[fid] = _build_factor_cache(f, independencies)
 
-        # Create a shared solver instance
-        solver = SolverFactory('ipopt')
-        if not debug:
-            solver.options['print_level'] = 0
+        # Create a shared, correctly-configured ipopt solver instance
+        solver = make_ipopt(debug=debug)
 
         # Initialize the messages
         for e in self.fg.edges:

@@ -30,7 +30,7 @@ from pyomo.environ import (
 # Local
 from lcn.core.model import LCN
 from lcn.inference.marginal.cve import CredalVE, Potential
-from lcn.inference.utils.common import check_consistency
+from lcn.inference.utils.common import check_consistency, make_ipopt
 
 
 class CredalCTE:
@@ -541,7 +541,7 @@ class CredalCTE:
             for P(atom=1).
         """
         singleton_marginals = {}
-        solver = SolverFactory('ipopt')
+        solver = make_ipopt()
 
         # Suppress ipopt output
         ipopt_log = logging.getLogger('pyomo')

@@ -30,7 +30,7 @@ from pyomo.environ import (
 
 # Local
 from lcn.core.model import LCN, SentenceType, Formula
-from lcn.inference.utils.common import make_conjunction, check_consistency
+from lcn.inference.utils.common import make_conjunction, check_consistency, make_ipopt
 from lcn.inference.marginal.exact import _eval_indicator, _dot
 
 infinity = float('inf')
@@ -365,7 +365,8 @@ class Factorization:
     def _solve_and_extract(self, model):
         """Solve a Pyomo model and return the objective value."""
         try:
-            opt = SolverFactory('ipopt')
+            # Shared ipopt configuration; explicit kwargs override the defaults.
+            opt = make_ipopt(debug=debug)
             opt.options['max_iter'] = max_iter
             opt.options['max_cpu_time'] = max_cpu_time
             if acceptable_tol is not None:

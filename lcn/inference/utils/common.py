@@ -23,6 +23,42 @@ from typing import List, Dict
 # Local
 from lcn.core.model import LCN, Formula, SentenceType
 
+
+# ipopt configuration shared across all LCN inference algorithms ------------
+_TOL = 1e-8                 # primary ipopt convergence tolerance
+_ACCEPTABLE_TOL = 1e-8      # tolerance for an "acceptable" termination
+_MAX_ITER = 3000
+_MAX_CPU_TIME = 600
+
+
+def make_ipopt(debug: bool = False):
+    """
+    Create an ipopt solver instance configured for the (nonconvex) LCN NLPs.
+
+    The LCN inference NLPs are nonconvex (conditional-probability and quadratic
+    Markov constraints), so ipopt is a *local* solver here. These options keep
+    it numerically well-behaved and make it respect variable box bounds exactly
+    (``bound_relax_factor = 0``). This is the single shared configuration used
+    by every LCN inference algorithm that relies on ipopt.
+
+    Args:
+        debug: bool
+            If True, raise the ipopt print level for diagnostics.
+
+    Returns:
+        A configured Pyomo ``SolverFactory('ipopt')`` instance.
+    """
+    s = SolverFactory('ipopt')
+    s.options['tol'] = _TOL
+    s.options['acceptable_tol'] = _ACCEPTABLE_TOL
+    s.options['max_iter'] = _MAX_ITER
+    s.options['max_cpu_time'] = _MAX_CPU_TIME
+    s.options['bound_relax_factor'] = 0.0   # honour variable bounds exactly
+    s.options['mu_strategy'] = 'adaptive'
+    s.options['print_level'] = 5 if debug else 0
+    return s
+
+
 def make_init_config(vars: List):
     return [1 if np.random.random() > 0.5 else 0 for _ in vars]
 
@@ -179,12 +215,8 @@ def check_consistency(lcn: LCN) -> bool:
     model.objective = Objective(expr=1.0, sense=maximize)
 
     try:
-        # Solve the non-linear model exactly
-        opt = SolverFactory('ipopt')
-        opt.options['max_iter'] = 100000
-        opt.options['max_cpu_time'] = 7200
-        # opt.options['acceptable_tol'] = 0.00001
-        # opt.options['hessian_approximation'] = 'limited-memory'
+        # Solve the non-linear model exactly (shared ipopt configuration)
+        opt = make_ipopt()
         results = opt.solve(model, tee=False)
         if (results.solver.status == SolverStatus.ok) and (results.solver.termination_condition == TerminationCondition.optimal):
             print(f"Solver status: {results.solver.status}")
