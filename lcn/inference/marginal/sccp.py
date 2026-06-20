@@ -785,7 +785,7 @@ if __name__ == "__main__":
                 print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
     # Load the LCN (the 7-variable example)
-    file_name = "examples/new2.lcn"
+    file_name = "examples/new3.lcn"
     l = LCN()
     l.from_lcn(file_name=file_name)
     print(l)
