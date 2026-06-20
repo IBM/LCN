@@ -39,11 +39,11 @@ import numpy as np
 from lcn.core.model import LCN
 from lcn.inference.marginal.exact import ExactInference
 from lcn.inference.marginal.ariel import ArielInference
-from lcn.inference.marginal.cve import CredalVE
-from lcn.inference.marginal.ibp import IntervalBP
-from lcn.inference.marginal.ccte import CredalCTE
-from lcn.inference.marginal.approxlp import ApproxLP
-from lcn.inference.marginal.ijgp import CredalIJGP
+from lcn.inference.marginal.cn.cve import CredalVE
+from lcn.inference.marginal.cn.ibp import IntervalBP
+from lcn.inference.marginal.cn.ccte import CredalCTE
+from lcn.inference.marginal.cn.approxlp import ApproxLP
+from lcn.inference.marginal.cn.ijgp import CredalIJGP
 
 ALGORITHMS = ["exact", "ariel", "ibp", "ijgp", "ijgp_e", "ijgp_cp", "ijgp_cm", "ccte", "ccte_e", "ccte_cp", "ccte_cm", "approxlp"]
 

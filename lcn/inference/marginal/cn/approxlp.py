@@ -31,7 +31,7 @@ from pyomo.environ import (
 
 # Local
 from lcn.core.model import LCN
-from lcn.inference.marginal.cve import CredalVE
+from lcn.inference.marginal.cn.cve import CredalVE
 from lcn.inference.utils.common import check_consistency, make_ipopt
 
 

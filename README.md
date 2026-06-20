@@ -1,6 +1,6 @@
 ![Static Badge](https://img.shields.io/badge/build-passing-brightgreen?style=flat)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
 ![Static Badge](https://img.shields.io/badge/version-1.0.0-red?style=flat)
 
 # Logical Credal Networks
@@ -32,12 +32,26 @@ over propositions `A, B` and `C`.
 
 
 ## Installation Instructions
-The LCN solver requires a `Python 3.10` environment with the corresponding dependencies. This can be done easily by cloning the git repository, creating a conda environment with Python 3.10 and installing the `LCN` package in that environment, as follows:
+The LCN solver requires `Python 3.10` or newer together with its dependencies; `Python 3.12` is the recommended version. The package is built with the [hatchling](https://hatch.pypa.io/) backend and is installable with the [uv](https://docs.astral.sh/uv/) toolchain (recommended) or with plain `pip`.
+
+### Using uv (recommended)
 
 ```
 git clone git@github.com:IBM/LCN.git
 cd LCN
-conda create -n lcn python=3.10
+uv sync
+```
+
+This creates a virtual environment and installs `lcn` together with all its dependencies from the locked `uv.lock` file. Commands can then be run inside the environment with `uv run`, for example `uv run pytest tests/`.
+
+### Using pip and conda
+
+Alternatively, create a conda environment with the recommended Python 3.12 and install the package in editable mode:
+
+```
+git clone git@github.com:IBM/LCN.git
+cd LCN
+conda create -n lcn python=3.12
 conda activate lcn
 pip install -e .
 ```
@@ -113,10 +127,11 @@ The folder `examples` contains additional LCN examples specified in the `.lcn`
 file format described above.
 
 ## Exact Marginal Inference for LCNs
-Given an LCN file and a query formula $\phi$, *marginal inference* means computing exact posterior lower and upper bounds on $P(\phi)$. An exact marginal inference algorithm is implemented by the `ExactInference` class (located in `lcn.inference.exact_marginal` module) and can be used to compute the probability bounds on the query formula. We give next a small example:
+Given an LCN file and a query formula $\phi$, *marginal inference* means computing exact posterior lower and upper bounds on $P(\phi)$. An exact marginal inference algorithm is implemented by the `ExactInference` class (located in the `lcn.inference.marginal.exact` module) and can be used to compute the probability bounds on the query formula. We give next a small example:
 
-```
-import lcn.inference.exact_marginal.ExactInference
+```python
+from lcn.core.model import LCN
+from lcn.inference.marginal.exact import ExactInference
 
 # Specify the LCN program
 file_name = "examples/asia.lcn"
@@ -129,7 +144,7 @@ l.from_lcn(file_name)
 query = "(B and !C)"
 
 # Run exact marginal inference
-algo = ExactInferece(l)
+algo = ExactInference(l)
 algo.run(query, debug=True)
 ```
 The output of the exact algorithm is shown below:
@@ -169,10 +184,11 @@ Solver status: ok
 ```
 
 ## Approximate Marginal Inference for LCNs
-For approximate marginal inferece, we can use the ARIEL message-passing scheme implemented in the `ApproximateInference` class available in the `lcn.inference.approx_marginal` module. The algorithm computes approximate lower and upper probability bounds on the posterior probability of the LCN's propositions. As before, we can use the following example:
+For approximate marginal inference, we can use the ARIEL message-passing scheme implemented in the `ArielInference` class available in the `lcn.inference.marginal.ariel` module. The algorithm computes approximate lower and upper probability bounds on the posterior probability of the LCN's propositions. As before, we can use the following example:
 
-```
-import lcn.inference.approx_marginal.ApproximateInference
+```python
+from lcn.core.model import LCN
+from lcn.inference.marginal.ariel import ArielInference
 
 # Specify the LCN program
 file_name = "examples/asia.lcn"
@@ -181,8 +197,8 @@ file_name = "examples/asia.lcn"
 l = LCN()
 l.from_lcn(file_name)
 
-# Run exact marginal inference
-algo = ApproximateInferece(l)
+# Run approximate marginal inference
+algo = ArielInference(l)
 algo.run(n_iters=10, threshold=0.000001, debug=False)
 ```
 
@@ -237,14 +253,47 @@ X: [6.919372188563531e-08, 0.9999999356848208]
 [ApproximateInference] Time elapsed: 1.4968690872192383 sec
 ```
 
+### Credal Network Inference Algorithms
+
+In addition to ARIEL, the package provides a family of approximate marginal inference algorithms that operate on the chain-graph factorization of an LCN by first compiling it into a credal network and enumerating its extreme points. These algorithms live in the `lcn.inference.marginal.cn` package:
+
+* `CredalVE` (`cn.cve`) — Credal Variable Elimination, the exact engine that builds the credal network and is the shared basis for the algorithms below.
+* `IntervalBP` (`cn.ibp`) — Interval Belief Propagation.
+* `CredalIJGP` (`cn.ijgp`) — Interval Iterative Join-Graph Propagation.
+* `CredalCTE` (`cn.ccte`) — Credal Cluster Tree Elimination.
+* `ApproxLP` (`cn.approxlp`) — ApproxLP iterative linearization.
+
+All of these algorithms first build a `CredalVE` instance and then run on top of it. For example, using Interval Belief Propagation:
+
+```python
+from lcn.core.model import LCN
+from lcn.inference.marginal.cn.cve import CredalVE
+from lcn.inference.marginal.cn.ibp import IntervalBP
+
+# Create the LCN instance from the .lcn file
+l = LCN()
+l.from_lcn("examples/asia.lcn")
+
+# Build the credal network (enumerates extreme points)
+cve = CredalVE(lcn=l)
+cve.build()
+
+# Run Interval Belief Propagation over the credal network
+algo = IntervalBP(cve=cve)
+marginals = algo.run(evidence={}, n_iters=100, threshold=1e-6)
+```
+
+These algorithms are also exposed end-to-end through the experiment driver in `experiments/run_algorithm.py`, which can run any of them on the benchmark instances under `benchmarks/`.
+
 ## MAP and Marginal MAP Inference for LCNs
 In addition to marginal inference, the LCN package implements exact and approximate algorithms for computing complete or partial most probable explanations of evidence (i.e., observed truth values of a set of propositions) in a given LCN. The algorithms are based on depth-first search, limited discrepancy search or simulated annealing. We also provide an extension called AMAP of the ARIEL scheme for computing MAP and Marginal MAP explanations.
 
 ### Exact MAP/MMAP Inference
 For exact MAP/MMAP inference, we can use the following example:
 
-```
-import lcn.inference.exact_map.ExactMAPInference
+```python
+from lcn.core.model import LCN
+from lcn.inference.map.exact_map import ExactMAPInference
 
 # Specify the LCN program
 file_name = "examples/asia.lcn"
@@ -312,8 +361,9 @@ CONSISTENT
 ### Approximate MAP/MMAP Inference
 For approximate MAP/MMAP inference, we can use the following example:
 
-```
-import lcn.inference.approx_map.ApproximateMAPInference
+```python
+from lcn.core.model import LCN
+from lcn.inference.map.approx_map import ApproximateMAPInference
 
 # Specify the LCN program
 file_name = "examples/asia.lcn"

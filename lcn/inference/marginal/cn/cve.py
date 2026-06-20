@@ -25,7 +25,7 @@ import pyagrum as gum  # noqa: N813
 
 # Local
 from lcn.core.model import LCN
-from lcn.inference.marginal.factorization import Factorization
+from lcn.inference.marginal.cn.factorization import Factorization
 from lcn.inference.utils.common import check_consistency
 
 
