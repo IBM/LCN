@@ -30,7 +30,10 @@ from pyomo.environ import (
 
 # Local
 from lcn.core.model import LCN, SentenceType, Formula
-from lcn.inference.utils.common import make_conjunction, check_consistency, make_ipopt
+from lcn.inference.utils.common import (
+    make_conjunction, check_consistency, make_ipopt,
+    lmc_constraint_groups_vec, build_truth_table
+)
 from lcn.inference.marginal.exact import _eval_indicator, _dot
 
 infinity = float('inf')
@@ -233,44 +236,26 @@ class Factorization:
                 model.constr.add(expr_qr >= lobo * expr_r)
                 model.constr.add(expr_qr <= upbo * expr_r)
 
-        # ALL LMC independence constraints whose variables are within the scope
+        # ALL LMC independence constraints whose variables are within the scope.
+        # Each assertion is encoded with the correct joint factorization over all
+        # Y configurations, built with the vectorized helper (numpy column masks
+        # over a precomputed truth table; bit-identical to the Formula path).
+        table = build_truth_table(len(scope))
+        col_of = {v: i for i, v in enumerate(scope)}
+
         for indep in self.lcn.independencies.get_assertions():
-            X = list(indep.event1)
-            T = list(indep.event2)
-            S = list(indep.event3)
-            all_vars = set(X) | set(T) | set(S)
+            all_vars = set(indep.event1) | set(indep.event2) | set(indep.event3)
             if not all_vars.issubset(scope_set):
                 continue
 
-            configs_S = [()] if len(S) == 0 else list(
-                itertools.product([0, 1], repeat=len(S)))
-            if len(S) > 0:
-                for t in T:
-                    x = X[0]
-                    lits = {x: 1, t: 1}
-                    for s_cfg in configs_S:
-                        lits.update(dict(zip(S, list(s_cfg))))
-                        Fa = make_conjunction(variables=X + S + [t], literals=lits)
-                        Fb = make_conjunction(variables=S, literals=lits)
-                        Fc = make_conjunction(variables=X + S, literals=lits)
-                        Fd = make_conjunction(variables=S + [t], literals=lits)
-                        Aa = _eval_indicator(Fa, interpretations)
-                        Ab = _eval_indicator(Fb, interpretations)
-                        Ac = _eval_indicator(Fc, interpretations)
-                        Ad = _eval_indicator(Fd, interpretations)
-                        val1 = _dot(Aa, model, model.ITEMS) * _dot(Ab, model, model.ITEMS)
-                        val2 = _dot(Ac, model, model.ITEMS) * _dot(Ad, model, model.ITEMS)
-                        model.constr.add(val1 - val2 == 0.0)
-            else:
-                for t in T:
-                    x = X[0]
-                    lits = {x: 1, t: 1}
-                    Fa = make_conjunction(variables=X + [t], literals=lits)
-                    Fb = make_conjunction(variables=X, literals=lits)
-                    Fc = make_conjunction(variables=[t], literals=lits)
-                    Aa = _eval_indicator(Fa, interpretations)
-                    Ab = _eval_indicator(Fb, interpretations)
-                    Ac = _eval_indicator(Fc, interpretations)
+            for group in lmc_constraint_groups_vec(indep, table, col_of):
+                if group[0] == 'conditional':
+                    _, Aa, Ab, Ac, Ad = group
+                    val1 = _dot(Aa, model, model.ITEMS) * _dot(Ab, model, model.ITEMS)
+                    val2 = _dot(Ac, model, model.ITEMS) * _dot(Ad, model, model.ITEMS)
+                    model.constr.add(val1 - val2 == 0.0)
+                else:
+                    _, Aa, Ab, Ac = group
                     val1 = _dot(Aa, model, model.ITEMS)
                     val2 = _dot(Ab, model, model.ITEMS) * _dot(Ac, model, model.ITEMS)
                     model.constr.add(val1 - val2 == 0.0)

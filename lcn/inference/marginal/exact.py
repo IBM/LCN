@@ -36,7 +36,11 @@ from typing import Dict, Tuple
 # Local
 from lcn.core.model import LCN, SentenceType, Formula
 from lcn.core.independencies import Independencies
-from lcn.inference.utils.common import make_conjunction, check_consistency, make_ipopt
+from lcn.inference.utils.common import (
+    make_conjunction, check_consistency, make_ipopt,
+    lmc_constraint_groups_vec, build_truth_table,
+    find_feasible_points, optimize_marginal_slsqp
+)
 
 _TOL = 1e-8                 # primary ipopt convergence tolerance
 _ACCEPTABLE_TOL = 1e-8      # tolerance for an "acceptable" termination
@@ -125,6 +129,11 @@ def _build_base_model(
     model.p = Var(model.ITEMS, within=NonNegativeReals, bounds=(0.0, 1.0))
     model.constr = ConstraintList()
 
+    # Constraint residual callables over a numpy solution vector ``p`` --- the
+    # same constraints as the Pyomo model, used by the SLSQP robustness fallback
+    # (see solve_marginal_slsqp). 'eq' must be ~0; 'ineq' must be >= 0.
+    checks = [("eq", lambda p: float(p.sum()) - 1.0)]
+
     # Probability distribution constraint
     model.constr.add(sum(model.p[i] for i in model.ITEMS) == 1.0)
 
@@ -137,6 +146,8 @@ def _build_base_model(
             expr = _dot(A, model, model.ITEMS)
             model.constr.add(expr >= lobo)
             model.constr.add(expr <= upbo)
+            checks.append(("ineq", lambda p, A=A, lobo=lobo: float(A @ p) - lobo))
+            checks.append(("ineq", lambda p, A=A, upbo=upbo: upbo - float(A @ p)))
         else:
             Aqr = _eval_indicator(s.phi_and_psi_formula, interpretations)
             Ar = _eval_indicator(s.psi_formula, interpretations)
@@ -144,44 +155,36 @@ def _build_base_model(
             expr_r = _dot(Ar, model, model.ITEMS)
             model.constr.add(expr_qr >= lobo * expr_r)
             model.constr.add(expr_qr <= upbo * expr_r)
+            checks.append(("ineq", lambda p, Aqr=Aqr, Ar=Ar, lobo=lobo: float(Aqr @ p) - lobo * float(Ar @ p)))
+            checks.append(("ineq", lambda p, Aqr=Aqr, Ar=Ar, upbo=upbo: upbo * float(Ar @ p) - float(Aqr @ p)))
 
-    # Independence constraints
+    # Independence constraints. Each LMC assertion (X |= Y | S) is encoded as
+    # the correct *joint* factorization over all configurations of the Y block
+    # (see lmc_constraint_groups_vec); a per-element decomposition would
+    # under-constrain the model when |Y| >= 2. The vectorized builder uses numpy
+    # column masks over a precomputed truth table (bit-identical to the
+    # Formula-based path) to avoid the dense ~2^|Y| * 2^n Formula.evaluate cost.
+    table = build_truth_table(len(vars_list))
+    col_of = {v: i for i, v in enumerate(vars_list)}
+
     for indep in independencies.get_assertions():
-        X, T, S = list(indep.event1), list(indep.event2), list(indep.event3)
         if verbosity > 1:
             print(f"adding constraints for independence: {indep}")
-        configs_S = [()] if len(S) == 0 else list(
-            itertools.product([0, 1], repeat=len(S)))
-        if len(S) > 0:
-            for t in T:
-                x = X[0]
-                literals = {x: 1, t: 1}
-                for s in configs_S:
-                    literals.update(dict(zip(S, list(s))))
-                    Fa = make_conjunction(variables=X + S + [t], literals=literals)
-                    Fb = make_conjunction(variables=S, literals=literals)
-                    Fc = make_conjunction(variables=X + S, literals=literals)
-                    Fd = make_conjunction(variables=S + [t], literals=literals)
-                    Aa = _eval_indicator(Fa, interpretations)
-                    Ab = _eval_indicator(Fb, interpretations)
-                    Ac = _eval_indicator(Fc, interpretations)
-                    Ad = _eval_indicator(Fd, interpretations)
-                    val1 = _dot(Aa, model, model.ITEMS) * _dot(Ab, model, model.ITEMS)
-                    val2 = _dot(Ac, model, model.ITEMS) * _dot(Ad, model, model.ITEMS)
-                    model.constr.add(val1 - val2 == 0.0)
-        else:
-            for t in T:
-                x = X[0]
-                literals = {x: 1, t: 1}
-                Fa = make_conjunction(variables=X + [t], literals=literals)
-                Fb = make_conjunction(variables=X, literals=literals)
-                Fc = make_conjunction(variables=[t], literals=literals)
-                Aa = _eval_indicator(Fa, interpretations)
-                Ab = _eval_indicator(Fb, interpretations)
-                Ac = _eval_indicator(Fc, interpretations)
+        for group in lmc_constraint_groups_vec(indep, table, col_of):
+            if group[0] == 'conditional':
+                _, Aa, Ab, Ac, Ad = group
+                val1 = _dot(Aa, model, model.ITEMS) * _dot(Ab, model, model.ITEMS)
+                val2 = _dot(Ac, model, model.ITEMS) * _dot(Ad, model, model.ITEMS)
+                model.constr.add(val1 - val2 == 0.0)
+                checks.append(("eq", lambda p, Aa=Aa, Ab=Ab, Ac=Ac, Ad=Ad:
+                               float(Aa @ p) * float(Ab @ p) - float(Ac @ p) * float(Ad @ p)))
+            else:
+                _, Aa, Ab, Ac = group
                 val1 = _dot(Aa, model, model.ITEMS)
                 val2 = _dot(Ab, model, model.ITEMS) * _dot(Ac, model, model.ITEMS)
                 model.constr.add(val1 - val2 == 0.0)
+                checks.append(("eq", lambda p, Aa=Aa, Ab=Ab, Ac=Ac:
+                               float(Aa @ p) - float(Ab @ p) * float(Ac @ p)))
 
     # Pre-compute indicator vectors for all atoms
     atom_indicators = {}
@@ -196,7 +199,7 @@ def _build_base_model(
         Fe = make_conjunction(variables=ev_vars, literals=evidence)
         evidence_indicator = _eval_indicator(Fe, interpretations)
 
-    return model, atom_indicators, evidence_indicator, interpretations, N
+    return model, atom_indicators, evidence_indicator, interpretations, N, checks
 
 
 def _solve_with_objective(model, obj_expr, sense, solver, debug=False):
@@ -262,15 +265,21 @@ def _solve_with_objective(model, obj_expr, sense, solver, debug=False):
     return objective_value, feasible
 
 
-def _robust_solve(model, obj_expr, sense, solver, N, atom, debug=False):
+def _robust_solve(model, obj_expr, sense, solver, N, atom, debug=False,
+                  checks=None, obj_vec=None, seeds_provider=None):
     """
     Solve min/max of ``obj_expr`` robustly on the (nonconvex) marginal NLP.
 
     Each call uses a fresh uniform start (no warm-start carryover between atoms
     or senses). If the primary solve fails, returns None, or returns a vacuous
     bound (max at 1, min at 0 --- typically a sign ipopt stalled at a trivial
-    stationary point), the solve is retried from several random simplex starts
-    and the best (lowest for ``min``, highest for ``max``) usable value is kept.
+    stationary point), the solve is retried from several random simplex starts.
+
+    ipopt (interior-point) is unreliable on the dense, nonconvex joint-LMC
+    equality system and can return vacuous/failed bounds even when a valid
+    optimum exists. When ``checks`` and ``obj_vec`` are supplied and the ipopt
+    result is still suspicious, an SQP feasibility/optimization fallback
+    (scipy SLSQP, see solve_marginal_slsqp) computes the bound directly.
 
     Args:
         model: Pyomo model with constraints and ``model.p``.
@@ -280,6 +289,11 @@ def _robust_solve(model, obj_expr, sense, solver, N, atom, debug=False):
         N: int, number of joint-distribution variables.
         atom: str, the atom name (used only to seed restarts deterministically).
         debug: bool.
+        checks: optional list of (kind, residual_fn) for the SLSQP fallback.
+        obj_vec: optional numpy objective vector for the SLSQP fallback.
+        seeds_provider: optional zero-arg callable returning feasible seed
+            distributions; invoked lazily only when the SLSQP fallback is
+            actually needed (so easy instances pay nothing).
 
     Returns:
         (best_value, feasible) tuple. feasible is False only if every attempt
@@ -311,6 +325,25 @@ def _robust_solve(model, obj_expr, sense, solver, N, atom, debug=False):
                     best = max(best, v)
                 else:
                     best = min(best, v)
+
+    # Two-phase SLSQP fallback when ipopt still looks stuck at a vacuous/failed
+    # point. ipopt cannot reliably navigate the dense joint-LMC system, but
+    # SLSQP launched from a feasible seed (found once by find_feasible_points and
+    # passed in via `seeds`) optimizes the linear marginal objective reliably.
+    # Only applies to the linear (no-evidence) objective; the evidence ratio
+    # objective passes obj_vec=None and stays ipopt-only.
+    if (checks is not None and obj_vec is not None
+            and seeds_provider is not None and _is_suspicious(best, ok)):
+        seeds = seeds_provider()
+        v, okk = optimize_marginal_slsqp(N, obj_vec, checks, sense, seeds) \
+            if seeds else (None, False)
+        if okk and v is not None:
+            if best is None or not ok:
+                best, ok = v, True
+            elif sense == 'max':
+                best = max(best, v)
+            else:
+                best = min(best, v)
 
     return best, ok
 
@@ -377,6 +410,10 @@ def solve_exact_model(
     model.p = Var(model.ITEMS, within=NonNegativeReals, bounds=(0.0, 1.0))
     model.constr = ConstraintList()
 
+    # Constraint residual callables (over a numpy solution vector), mirroring
+    # the Pyomo constraints, for the SLSQP robustness fallback below.
+    checks = [("eq", lambda p: float(p.sum()) - 1.0)]
+
     # Probability distribution constraint
     model.constr.add(sum(model.p[i] for i in model.ITEMS) == 1.0)
 
@@ -389,6 +426,8 @@ def solve_exact_model(
             expr = _dot(A, model, model.ITEMS)
             model.constr.add(expr >= lobo)
             model.constr.add(expr <= upbo)
+            checks.append(("ineq", lambda p, A=A, lobo=lobo: float(A @ p) - lobo))
+            checks.append(("ineq", lambda p, A=A, upbo=upbo: upbo - float(A @ p)))
         else:  # P(q|r)
             Aqr = _eval_indicator(s.phi_and_psi_formula, interpretations)
             Ar = _eval_indicator(s.psi_formula, interpretations)
@@ -396,43 +435,33 @@ def solve_exact_model(
             expr_r = _dot(Ar, model, model.ITEMS)
             model.constr.add(expr_qr >= lobo * expr_r)
             model.constr.add(expr_qr <= upbo * expr_r)
+            checks.append(("ineq", lambda p, Aqr=Aqr, Ar=Ar, lobo=lobo: float(Aqr @ p) - lobo * float(Ar @ p)))
+            checks.append(("ineq", lambda p, Aqr=Aqr, Ar=Ar, upbo=upbo: upbo * float(Ar @ p) - float(Aqr @ p)))
 
-    # Step 3: Build independence constraints using precomputed indicators
+    # Step 3: Build independence constraints. Joint encoding over all Y
+    # configurations, built with the vectorized helper (see
+    # lmc_constraint_groups_vec).
+    table = build_truth_table(len(vars_list))
+    col_of = {v: i for i, v in enumerate(vars_list)}
+
     for indep in independencies.get_assertions():
-        X, T, S = list(indep.event1), list(indep.event2), list(indep.event3)
         if verbosity > 0:
             print(f"adding constraints for independence: {indep}")
-        configs_S = [()] if len(S) == 0 else list(itertools.product([0, 1], repeat=len(S)))
-        if len(S) > 0:
-            for t in T:
-                x = X[0]
-                literals = {x: 1, t: 1}
-                for s in configs_S:
-                    literals.update(dict(zip(S, list(s))))
-                    Fa = make_conjunction(variables=X + S + [t], literals=literals)
-                    Fb = make_conjunction(variables=S, literals=literals)
-                    Fc = make_conjunction(variables=X + S, literals=literals)
-                    Fd = make_conjunction(variables=S + [t], literals=literals)
-                    Aa = _eval_indicator(Fa, interpretations)
-                    Ab = _eval_indicator(Fb, interpretations)
-                    Ac = _eval_indicator(Fc, interpretations)
-                    Ad = _eval_indicator(Fd, interpretations)
-                    val1 = _dot(Aa, model, model.ITEMS) * _dot(Ab, model, model.ITEMS)
-                    val2 = _dot(Ac, model, model.ITEMS) * _dot(Ad, model, model.ITEMS)
-                    model.constr.add(val1 - val2 == 0.0)
-        else:
-            for t in T:
-                x = X[0]
-                literals = {x: 1, t: 1}
-                Fa = make_conjunction(variables=X + [t], literals=literals)
-                Fb = make_conjunction(variables=X, literals=literals)
-                Fc = make_conjunction(variables=[t], literals=literals)
-                Aa = _eval_indicator(Fa, interpretations)
-                Ab = _eval_indicator(Fb, interpretations)
-                Ac = _eval_indicator(Fc, interpretations)
+        for group in lmc_constraint_groups_vec(indep, table, col_of):
+            if group[0] == 'conditional':
+                _, Aa, Ab, Ac, Ad = group
+                val1 = _dot(Aa, model, model.ITEMS) * _dot(Ab, model, model.ITEMS)
+                val2 = _dot(Ac, model, model.ITEMS) * _dot(Ad, model, model.ITEMS)
+                model.constr.add(val1 - val2 == 0.0)
+                checks.append(("eq", lambda p, Aa=Aa, Ab=Ab, Ac=Ac, Ad=Ad:
+                               float(Aa @ p) * float(Ab @ p) - float(Ac @ p) * float(Ad @ p)))
+            else:
+                _, Aa, Ab, Ac = group
                 val1 = _dot(Aa, model, model.ITEMS)
                 val2 = _dot(Ab, model, model.ITEMS) * _dot(Ac, model, model.ITEMS)
                 model.constr.add(val1 - val2 == 0.0)
+                checks.append(("eq", lambda p, Aa=Aa, Ab=Ab, Ac=Ac:
+                               float(Aa @ p) - float(Ab @ p) * float(Ac @ p)))
 
     # Step 4: Build objective (with evidence bug fix)
     obj_formula = Formula(label="obj", formula=query_formula)
@@ -487,6 +516,33 @@ def solve_exact_model(
             print(f"Exception during ipopt: {str(e)}")
         objective_value = None
         objective_optimal = False
+
+    # Two-phase SLSQP fallback: a single ipopt solve is unreliable on the dense
+    # joint-LMC system and frequently returns None even when the bound exists.
+    # For the no-evidence case the objective P(query) is linear in p, so we can
+    # find feasible seeds (find_feasible_points) and optimize from them
+    # (optimize_marginal_slsqp). The evidence case has a non-linear ratio
+    # objective and stays ipopt-only.
+    def _is_suspicious(v, opt):
+        if v is None:
+            return True
+        if sense == 'max' and v >= 1.0 - 1e-6:
+            return True
+        if sense == 'min' and v <= 1e-6:
+            return True
+        return False
+
+    if len(evidence) == 0 and _is_suspicious(objective_value, objective_optimal):
+        seeds = find_feasible_points(N, checks, n_points=8, restarts=80)
+        v, ok = optimize_marginal_slsqp(N, A_query, checks, sense, seeds) \
+            if seeds else (None, False)
+        if ok and v is not None:
+            if objective_value is None or not objective_optimal:
+                objective_value, objective_optimal = v, True
+            elif sense == 'max':
+                objective_value = max(objective_value, v)
+            else:
+                objective_value = min(objective_value, v)
 
     if verbosity > 0:
         print(f"[Ipopt] objective={objective_value}, optimal={objective_optimal}")
@@ -550,7 +606,7 @@ class ExactInference:
             print(f"[ExactInference] Local Markov Condition: {num_indep} independencies")
 
         # Build the base model once (constraints only, no objective)
-        model, atom_indicators, evidence_indicator, interpretations, N = \
+        model, atom_indicators, evidence_indicator, interpretations, N, checks = \
             _build_base_model(self.lcn, independencies, evidence, verbosity)
 
         # Pre-compute P(evidence) expression (reused across all atoms)
@@ -565,6 +621,23 @@ class ExactInference:
         self.marginals = {}
         self.feasible = True
         atom_names = [k for k, _ in self.lcn.atoms.items()]
+
+        # Feasible seed distributions for the SLSQP bound-optimization fallback.
+        # Computed lazily once (only if ipopt proves unreliable on this LCN) and
+        # shared across all atoms / both senses, so easy instances that ipopt
+        # already solves pay nothing.
+        _seed_cache = {"seeds": None, "done": False}
+
+        def _get_seeds():
+            if not _seed_cache["done"]:
+                _seed_cache["done"] = True
+                try:
+                    _seed_cache["seeds"] = find_feasible_points(N, checks)
+                except Exception as e:
+                    if debug:
+                        print(f"seed search failed: {e}")
+                    _seed_cache["seeds"] = []
+            return _seed_cache["seeds"]
 
         for atom_name in atom_names:
             if atom_name in evidence_set:
@@ -583,20 +656,28 @@ class ExactInference:
             A = atom_indicators[atom_name]
 
             # Build objective: P(atom) unconditionally, or
-            # P(atom AND evidence) / P(evidence) with evidence
+            # P(atom AND evidence) / P(evidence) with evidence. The SLSQP
+            # fallback handles a *linear* objective, so it is wired in only for
+            # the no-evidence case (obj_vec = A); the evidence ratio objective
+            # is nonlinear and stays ipopt-only.
             if ev_expr is None:
                 obj_expr = _dot(A, model, model.ITEMS)
+                obj_vec = A
             else:
                 AE = A * evidence_indicator  # element-wise numpy multiply
                 obj_expr = _dot(AE, model, model.ITEMS) / ev_expr
+                obj_vec = None
 
             # Minimize / maximize P(atom=1) robustly: fresh start per solve,
             # with a random-restart fallback when a solve fails or stalls at a
-            # vacuous (0/1) stationary point on this nonconvex problem.
+            # vacuous (0/1) stationary point on this nonconvex problem, then an
+            # SLSQP fallback when ipopt still cannot find the bound.
             lo_val, feasible_lo = _robust_solve(
-                model, obj_expr, 'min', solver, N, atom_name, debug)
+                model, obj_expr, 'min', solver, N, atom_name, debug,
+                checks=checks, obj_vec=obj_vec, seeds_provider=_get_seeds)
             hi_val, feasible_hi = _robust_solve(
-                model, obj_expr, 'max', solver, N, atom_name, debug)
+                model, obj_expr, 'max', solver, N, atom_name, debug,
+                checks=checks, obj_vec=obj_vec, seeds_provider=_get_seeds)
 
             if not feasible_lo or not feasible_hi:
                 self.feasible = False

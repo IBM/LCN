@@ -19,13 +19,12 @@ import time
 import random
 import numpy as np
 
-from pyomo.environ import *
 from typing import Dict, List
 from collections import deque
 
 # Local
 from lcn.core.model import LCN
-from lcn.inference.legacy.exact_marginal import ExactInferece
+from lcn.inference.marginal.exact import solve_exact_model
 from lcn.inference.utils.common import make_conjunction, check_consistency
 from lcn.inference.utils.common import make_init_config, select_neighbor, find_neighbors
 
@@ -42,18 +41,23 @@ class IntervalSolution:
         output = f"{self.config}: [{self.lower_bound}, {self.upper_bound}]"
         return output
 
-def evaluate_config(evaluator, variables: List, interpretation: List, evidence: Dict):
+def evaluate_config(lcn: LCN, variables: List, interpretation: List, evidence: Dict):
     # Create a configuration of the variables
     config = dict(zip(variables, interpretation))
     config.update(evidence)
 
-    # Evaluate current assignment
+    # Build the conjunction query over all assigned variables (evidence literals
+    # are baked into the conjunction, so no separate evidence is passed below).
     all_variables = [v for v, _ in config.items()]
     q = make_conjunction(all_variables, config)
     q = f"({q})"
-    evaluator.run(q, verbosity=0)
-    lb = evaluator.lower_bound
-    ub = evaluator.upper_bound
+
+    # Score P(q) bounds with the exact marginal engine: min for the lower bound,
+    # max for the upper bound.
+    lb, _ = solve_exact_model(lcn, q, lcn.independencies, evidence={},
+                              sense="min", verbosity=0)
+    ub, _ = solve_exact_model(lcn, q, lcn.independencies, evidence={},
+                              sense="max", verbosity=0)
     return (lb, ub)
 
 class ExactMAPInference:
@@ -135,6 +139,13 @@ class ExactMAPInference:
         self.num_query = num_query
         self.map_init = map_init
 
+        # The exact marginal engine needs the LCN's structure and LMC
+        # independencies; build them once before searching.
+        if self.lcn.independencies is None:
+            self.lcn.build_primal_graph()
+            self.lcn.build_structure_graph()
+            self.lcn.local_markov_condition()
+
         if self.algo == "dfs":
             self._run_dfs()
         elif self.algo == "lds":
@@ -170,26 +181,23 @@ class ExactMAPInference:
         print(f"[DFS] Query: {task}")
         print(f"[DFS] MAP method: {self.method}")
 
-        # Create the evaluator
-        evaluator = ExactInferece(self.lcn)
-
         # Initialize the search space
         stack = deque()
         root = (-1, [])
         stack.append(root)
         timeout = False
         start_time = time.time()
-        best_score = -np.infty
+        best_score = -np.inf
         best_config = None
         best_frontier = []
 
-        print(f"[DFS] Start search...")
+        print("[DFS] Start search...")
         while len(stack) > 0:
             n = stack.pop()
             i, a = n[0], n[1]
             if i >= len(map_vars) - 1: # new solution found
                 interpretation = a
-                score = evaluate_config(evaluator, map_vars, interpretation, self.evidence)
+                score = evaluate_config(self.lcn, map_vars, interpretation, self.evidence)
                 print(f" interpretation: {interpretation} bounds: [{score}]")
 
                 # Check for better solution
@@ -220,14 +228,14 @@ class ExactMAPInference:
             
             # Check for timeout
             if self.time_limit > 0 and time.time() - start_time >= self.time_limit:
-                print(f"[DFS] Search interrupted due to TIMEOUT.")
+                print("[DFS] Search interrupted due to TIMEOUT.")
                 timeout = True
                 break
         
         # Stop timer and report solution
         elapsed = time.time() - start_time
         if not timeout:
-            print(f"[DFS] Search terminated successfully.")
+            print("[DFS] Search terminated successfully.")
         print(f"[DFS] Time elapsed (sec): {elapsed}")
         print(f"[DFS] Search timeout: {timeout}")
         if self.method == "maximin":
@@ -279,14 +287,11 @@ class ExactMAPInference:
         print(f"[LDS] Query: {task}")
         print(f"[LDS] MAP method: {self.method}")
 
-        # Create the evaluator
-        evaluator = ExactInferece(self.lcn)
-
         # Initialize the search space
         stack = deque()
         root = (-1, [], self.max_discrepancy)
         stack.append(root)
-        best_score = -np.infty
+        best_score = -np.inf
         best_config = None
         best_frontier = []
 
@@ -321,7 +326,7 @@ class ExactMAPInference:
         while n:
             if (expand_node(n)):
                 interpretation = [map_vals[x][y] for x,y in enumerate(n[1])]
-                score = evaluate_config(evaluator, map_vars, interpretation, self.evidence)
+                score = evaluate_config(self.lcn, map_vars, interpretation, self.evidence)
 
                 print(f" interpretation: {interpretation} bounds: [{score}]")
 
@@ -349,7 +354,7 @@ class ExactMAPInference:
                 
                 # Check for timeout
                 if self.time_limit > 0 and time.time() - start_time >= self.time_limit:
-                    print(f"[LDS] Search interrupted due to TIMEOUT.")
+                    print("[LDS] Search interrupted due to TIMEOUT.")
                     timeout = True
                     break
                 
@@ -358,7 +363,7 @@ class ExactMAPInference:
         # Stop timer and report solution
         elapsed = time.time() - start_time
         if not timeout:
-            print(f"[LDS] Search terminated successfully.")
+            print("[LDS] Search terminated successfully.")
         print(f"[LDS] Time elapsed (sec): {elapsed}")
         print(f"[LDS] Search timeout: {timeout}")
         if self.method == "maximin":
@@ -409,31 +414,28 @@ class ExactMAPInference:
         print(f"[SA] Max flips per iteration: {self.max_flips}")
         print(f"[SA] Initial temperature: {self.init_temperature}")
         print(f"[SA] Cooling schedule: {self.alpha}")
-        print(f"[SA] MAP config evaluation: exact")
-
-        # Create the evaluator
-        evaluator = ExactInferece(self.lcn)
+        print("[SA] MAP config evaluation: exact")
 
         # Initialize the cache and start the timer
         cache = {}
         timeout = False
         start_time = time.time()
         np.random.seed(self.seed)
-        best_score = -np.infty
+        best_score = -np.inf
         best_config = None
         best_frontier = []
         num_flips = 0
 
         # Create a random MAP assignment and evaluate it.
         current_config = make_init_config(map_vars)
-        score = evaluate_config(evaluator, map_vars, current_config, self.evidence)
+        score = evaluate_config(self.lcn, map_vars, current_config, self.evidence)
         best_config = current_config
         if self.method == "maximin":
             best_score = score[0] # lower bound
         elif self.method == "maximax":
             best_score = score[1] # upper bound
         elif self.method == "interval":
-            raise NotImplementedError(f"SA is not implemented for intervals yet.")
+            raise NotImplementedError("SA is not implemented for intervals yet.")
         
         # Local search for a number of iterations
         for iter in range(self.num_iterations):
@@ -456,7 +458,7 @@ class ExactMAPInference:
                 if key in cache:
                     next_score = cache[key]
                 else:
-                    score = evaluate_config(evaluator, map_vars, next_config, self.evidence)
+                    score = evaluate_config(self.lcn, map_vars, next_config, self.evidence)
                     next_score = score[0] if self.method == "maximin" else score[1]
                     cache[key] = next_score
 
@@ -484,7 +486,7 @@ class ExactMAPInference:
                 # Check for timeout (during flips)
                 elapsed = time.time()
                 if self.time_limit > 0 and elapsed > self.time_limit:
-                    print(f"[SA] Search terminated due to TIMEOUT.")
+                    print("[SA] Search terminated due to TIMEOUT.")
                     timeout = True
                     break
             
@@ -495,7 +497,7 @@ class ExactMAPInference:
         # Stop timer and report solution
         elapsed = time.time() - start_time
         if not timeout:
-            print(f"[SA] Search terminated successfully.")
+            print("[SA] Search terminated successfully.")
         print(f"[SA] Time elapsed (sec): {elapsed}")
         print(f"[SA] Search timeout: {timeout}")
         if self.method == "maximin":
@@ -523,12 +525,12 @@ if __name__ == "__main__":
 
     # Load the LCN
     file_name = "examples/asia.lcn"
-    l = LCN()
-    l.from_lcn(file_name=file_name)
-    print(l)
+    lcn_model = LCN()
+    lcn_model.from_lcn(file_name=file_name)
+    print(lcn_model)
 
     # Check consistency
-    ok = check_consistency(lcn=l)
+    ok = check_consistency(lcn=lcn_model)
     if ok:
         print("CONSISTENT")
     else:
@@ -539,7 +541,7 @@ if __name__ == "__main__":
 
     # Run exact MAP inference
     algo = ExactMAPInference(
-        lcn=l, 
+        lcn=lcn_model,
         method="maximin", 
         eps=0., 
         max_discrepancy=3, 
@@ -548,5 +550,5 @@ if __name__ == "__main__":
     )
     algo.run(algo="dfs", query=query, evidence=evidence)
 
-    print(f"Done.")
+    print("Done.")
 

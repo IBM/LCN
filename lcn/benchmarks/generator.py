@@ -15,12 +15,16 @@
 
 # Random LCN generator with support for multiple graph topologies
 
+import contextlib
+import io
 import numpy as np
 import networkx as nx
 from typing import List
 
 from lcn.core.model import LCN, Sentence, Atom
-from lcn.inference.utils.common import check_consistency
+from lcn.inference.utils.common import (
+    check_consistency, check_consistency_product_witness
+)
 
 
 # Binary connectors supported by the LCN parser
@@ -50,6 +54,8 @@ class Generator:
         max_retries: int = 100,
         max_component_size: int = 3,
         max_parents: int = 2,
+        consistency_restarts: int = 40,
+        consistency_mode: str = "product",
         verbosity: int = 1,
     ) -> List[LCN]:
         """
@@ -80,6 +86,8 @@ class Generator:
         assert num_vars >= 3, "Need at least 3 variables."
         assert max_component_size >= 1, "max_component_size must be >= 1."
         assert max_parents >= 1, "max_parents must be >= 1."
+        assert consistency_mode in ("product", "full"), \
+            f"Unknown consistency_mode '{consistency_mode}'. Use 'product' or 'full'."
 
         if num_sentences is None:
             num_sentences = num_vars
@@ -91,8 +99,16 @@ class Generator:
             if total_attempts > num_instances * max_retries:
                 if verbosity > 0:
                     print(f"[Generator] Gave up after {total_attempts} attempts. "
-                          f"Generated {len(instances)}/{num_instances} instances.")
+                          f"Generated {len(instances)}/{num_instances} "
+                          f"consistent instances.")
                 break
+
+            # Heartbeat: consistency checking for n=10 can be slow, so show
+            # progress periodically rather than appearing to hang.
+            if verbosity > 0 and total_attempts % 25 == 0:
+                print(f"[Generator] {graph_type} n={num_vars}: "
+                      f"{len(instances)}/{num_instances} consistent so far "
+                      f"after {total_attempts} attempts...")
 
             if graph_type == "random":
                 lcn = self._build_random_lcn(num_vars, num_sentences,
@@ -103,7 +119,8 @@ class Generator:
                                                       max_parents)
                 lcn = self._build_lcn(scopes, components, num_vars, epsilon,
                                       max_vars_per_sentence, num_extras)
-            if self._check_and_build(lcn):
+            if self._check_and_build(lcn, consistency_restarts, verbosity,
+                                     consistency_mode):
                 instances.append(lcn)
                 if verbosity > 0:
                     print(f"[Generator] {graph_type} instance "
@@ -503,16 +520,48 @@ class Generator:
 
         return lcn
 
-    def _check_and_build(self, lcn: LCN) -> bool:
-        """Build the LCN structure and check consistency. Returns True if consistent."""
+    def _check_and_build(self, lcn: LCN, consistency_restarts: int = 40,
+                         verbosity: int = 1,
+                         consistency_mode: str = "product") -> bool:
+        """Check consistency of an instance. Returns True if consistent.
+
+        Instances with n <= 10 atoms are verified; larger instances skip the
+        check (exact consistency is infeasible at that size) and are accepted.
+        Any failure during the check is treated as inconsistent (reject), so an
+        inconsistent instance can never be silently accepted.
+
+        Two modes (``consistency_mode``):
+        - ``"product"`` (default): the fast SOUND product-distribution witness
+          (``check_consistency_product_witness``). It searches per-atom marginals
+          only (n vars) and relies on the fact that any product distribution
+          satisfies every Local Markov Condition independence automatically, so
+          it does NOT build the primal/structure graph or the LMC here. ~0.2s at
+          n=10 vs ~minutes for the full check. Conservative (rejects
+          consistent-but-non-product instances), which rejection sampling
+          absorbs.
+        - ``"full"``: the exact joint-LMC oracle (``check_consistency``), which
+          builds the graphs + LMC. Slower (~minutes at n=10) but accepts any
+          consistent instance.
+
+        ``consistency_restarts`` caps the restart budget of the chosen search.
+        """
         try:
-            if len(lcn.atoms) < 10:
-                lcn.build_primal_graph()
-                lcn.build_structure_graph()
-                lcn.local_markov_condition()
-                return check_consistency(lcn)
-            else:
-                return True  # skip consistency check for large instances to save time
+            if len(lcn.atoms) > 10:
+                return True  # skip consistency check for large instances
+            if consistency_mode == "product":
+                # No graph/LMC build needed: the product witness satisfies the
+                # LMC by construction.
+                return check_consistency_product_witness(
+                    lcn, restarts=consistency_restarts)
+            # Full joint-LMC oracle.
+            lcn.build_primal_graph()
+            lcn.build_structure_graph()
+            lcn.local_markov_condition()
+            # check_consistency emits diagnostics; silence them unless verbose.
+            if verbosity > 1:
+                return check_consistency(lcn, max_slsqp_restarts=consistency_restarts)
+            with contextlib.redirect_stdout(io.StringIO()):
+                return check_consistency(lcn, max_slsqp_restarts=consistency_restarts)
         except Exception:
             return False
 

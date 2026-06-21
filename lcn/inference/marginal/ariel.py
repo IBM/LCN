@@ -37,7 +37,9 @@ from typing import Dict, List, Tuple
 from lcn.core.model import LCN, SentenceType, Formula
 from lcn.core.independencies import Independencies, IndependenceAssertion
 from lcn.inference.utils.factor_graph import FactorGraph, FactorNode, VariableNode, FactorGraphEdge
-from lcn.inference.utils.common import check_consistency, make_conjunction, make_ipopt
+from lcn.inference.utils.common import (
+    check_consistency, make_ipopt, lmc_constraint_groups_vec, build_truth_table
+)
 from lcn.inference.marginal.exact import _eval_indicator, _dot
 from lcn.inference.marginal.sccp import _wrap_items
 
@@ -164,43 +166,21 @@ def _build_factor_cache(f: FactorNode, independencies: Independencies) -> dict:
         variable_indicators[v] = _eval_indicator(
             Formula(label=v, formula=v), interpretations)
 
-    # Cache independence constraint indicators
+    # Cache independence constraint indicators. Each in-scope LMC assertion is
+    # expanded with the correct joint encoding over all Y configurations, built
+    # with the vectorized helper (numpy column masks over a precomputed truth
+    # table; bit-identical to the Formula path). The consumer (_solve_local_nlp)
+    # applies each group as a single quadratic equality.
+    table = build_truth_table(len(vars_list))
+    col_of = {v: i for i, v in enumerate(vars_list)}
+
     scope_set = set(f.scope)
     independence_groups = []
     for indep in independencies.get_assertions():
-        X, T, S = list(indep.event1), list(indep.event2), list(indep.event3)
-        all_vars = set(X) | set(T) | set(S)
+        all_vars = set(indep.event1) | set(indep.event2) | set(indep.event3)
         if not all_vars.issubset(scope_set):
             continue
-
-        configs_S = [()] if len(S) == 0 else list(
-            itertools.product([0, 1], repeat=len(S)))
-        if len(S) > 0:
-            for t in T:
-                x = X[0]
-                literals = {x: 1, t: 1}
-                for s in configs_S:
-                    literals.update(dict(zip(S, list(s))))
-                    Fa = make_conjunction(variables=X + S + [t], literals=literals)
-                    Fb = make_conjunction(variables=S, literals=literals)
-                    Fc = make_conjunction(variables=X + S, literals=literals)
-                    Fd = make_conjunction(variables=S + [t], literals=literals)
-                    Aa = _eval_indicator(Fa, interpretations)
-                    Ab = _eval_indicator(Fb, interpretations)
-                    Ac = _eval_indicator(Fc, interpretations)
-                    Ad = _eval_indicator(Fd, interpretations)
-                    independence_groups.append(('conditional', Aa, Ab, Ac, Ad))
-        else:
-            for t in T:
-                x = X[0]
-                literals = {x: 1, t: 1}
-                Fa = make_conjunction(variables=X + [t], literals=literals)
-                Fb = make_conjunction(variables=X, literals=literals)
-                Fc = make_conjunction(variables=[t], literals=literals)
-                Aa = _eval_indicator(Fa, interpretations)
-                Ab = _eval_indicator(Fb, interpretations)
-                Ac = _eval_indicator(Fc, interpretations)
-                independence_groups.append(('marginal', Aa, Ab, Ac))
+        independence_groups.extend(lmc_constraint_groups_vec(indep, table, col_of))
 
     return {
         'vars_list': vars_list,
@@ -873,7 +853,7 @@ if __name__ == "__main__":
     # Load the LCN. We use asia.lcn here because it has a factor with three
     # boundary variables, so the factor-to-variable messages introduce a
     # non-trivial pairwise independence assumption (see analyze() below).
-    file_name = "examples/asia.lcn"
+    file_name = "examples/alarm.lcn"
     lcn_model = LCN()
     lcn_model.from_lcn(file_name=file_name)
     print(lcn_model)
