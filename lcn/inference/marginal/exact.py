@@ -571,7 +571,8 @@ class ExactInference:
             self,
             evidence: dict = {},
             debug: bool = False,
-            verbosity: int = 2
+            verbosity: int = 2,
+            mode: str = "exact"
     ) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
         """
         Run exact inference to compute marginals for ALL singleton variables.
@@ -587,6 +588,11 @@ class ExactInference:
                 A flag indicating that ipopt is run in debugging mode.
             verbosity: int
                 Verbosity level (0 is silent).
+            mode: str
+                ipopt solver mode (see make_ipopt): ``"exact"`` (default) drives
+                each bound to high accuracy; ``"fast"`` stops ipopt at the first
+                acceptable point, trading accuracy for speed. The SLSQP fallback
+                still backstops suspicious/failed solves in both modes.
 
         Returns:
             Dict mapping variable name to (lower_bounds, upper_bounds)
@@ -615,7 +621,7 @@ class ExactInference:
             ev_expr = _dot(evidence_indicator, model, model.ITEMS)
 
         # Create a shared, correctly-configured ipopt solver instance
-        solver = _make_ipopt(debug=debug)
+        solver = _make_ipopt(debug=debug, mode=mode)
 
         # Compute marginals for each atom
         self.marginals = {}

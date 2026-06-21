@@ -30,8 +30,18 @@ _ACCEPTABLE_TOL = 1e-8      # tolerance for an "acceptable" termination
 _MAX_ITER = 3000
 _MAX_CPU_TIME = 600
 
+# "fast" feasibility mode: loosen the *acceptable* termination criteria and stop
+# at the first acceptable iterate, so ipopt returns a feasible-ish point quickly
+# instead of driving to full optimality. ipopt has no pure-feasibility switch;
+# the acceptable_* family + acceptable_iter is the documented early-stop lever
+# (see https://coin-or.github.io/Ipopt/OPTIONS.html).
+_FAST_ACCEPTABLE_TOL = 1e-4
+_FAST_ACCEPTABLE_CONSTR_VIOL_TOL = 1e-4
+_FAST_MAX_ITER = 500
+_FAST_MAX_CPU_TIME = 60
 
-def make_ipopt(debug: bool = False):
+
+def make_ipopt(debug: bool = False, mode: str = "exact"):
     """
     Create an ipopt solver instance configured for the (nonconvex) LCN NLPs.
 
@@ -41,21 +51,49 @@ def make_ipopt(debug: bool = False):
     (``bound_relax_factor = 0``). This is the single shared configuration used
     by every LCN inference algorithm that relies on ipopt.
 
+    Two modes:
+      - ``"exact"`` (default): drive to high accuracy (tight tol / acceptable_tol,
+        adaptive barrier, exact Hessian, generous budgets). Use this whenever a
+        reported probability bound is computed.
+      - ``"fast"``: loosen the *acceptable* termination thresholds and set
+        ``acceptable_iter = 1`` so ipopt stops at the first acceptable point, plus
+        a cheaper per-iteration setup (monotone barrier, limited-memory Hessian)
+        and smaller budgets. Use this only where a quick feasible-ish point is
+        enough (e.g. a constant-objective feasibility solve whose result is
+        re-verified independently). Note: ``linear_solver`` is left at the build
+        default (MUMPS here) -- it is not a useful speed lever on this install.
+
     Args:
         debug: bool
             If True, raise the ipopt print level for diagnostics.
+        mode: str
+            ``"exact"`` (default) or ``"fast"``.
 
     Returns:
         A configured Pyomo ``SolverFactory('ipopt')`` instance.
     """
     s = SolverFactory('ipopt')
-    s.options['tol'] = _TOL
-    s.options['acceptable_tol'] = _ACCEPTABLE_TOL
-    s.options['max_iter'] = _MAX_ITER
-    s.options['max_cpu_time'] = _MAX_CPU_TIME
-    s.options['bound_relax_factor'] = 0.0   # honour variable bounds exactly
-    s.options['mu_strategy'] = 'adaptive'
+    # Load-bearing in BOTH modes: honour variable box bounds exactly.
+    s.options['bound_relax_factor'] = 0.0
     s.options['print_level'] = 5 if debug else 0
+
+    if mode == "exact":
+        s.options['tol'] = _TOL
+        s.options['acceptable_tol'] = _ACCEPTABLE_TOL
+        s.options['max_iter'] = _MAX_ITER
+        s.options['max_cpu_time'] = _MAX_CPU_TIME
+        s.options['mu_strategy'] = 'adaptive'
+    elif mode == "fast":
+        s.options['tol'] = _TOL  # keep tight primary target; stop early via acceptable_*
+        s.options['acceptable_tol'] = _FAST_ACCEPTABLE_TOL
+        s.options['acceptable_constr_viol_tol'] = _FAST_ACCEPTABLE_CONSTR_VIOL_TOL
+        s.options['acceptable_iter'] = 1
+        s.options['max_iter'] = _FAST_MAX_ITER
+        s.options['max_cpu_time'] = _FAST_MAX_CPU_TIME
+        s.options['mu_strategy'] = 'monotone'
+        s.options['hessian_approximation'] = 'limited-memory'
+    else:
+        raise ValueError(f"unknown ipopt mode: {mode!r}")
     return s
 
 
@@ -608,8 +646,10 @@ def check_consistency(lcn: LCN, max_slsqp_restarts: int = 300) -> bool:
     # consistent (a feasible distribution can require many restarts to land on).
     # Try ipopt from a few starts first (cheap when it works), then verify the
     # returned point against `checks` directly rather than trusting only its
-    # termination flag.
-    opt = make_ipopt()
+    # termination flag. Use the "fast" mode: this is a constant-objective
+    # feasibility solve and any returned point is re-verified below at 1e-6, so a
+    # looser termination cannot produce a wrong verdict -- it just returns sooner.
+    opt = make_ipopt(mode="fast")
     rng = np.random.default_rng(0)
     consistent = False
     for k in range(8):
