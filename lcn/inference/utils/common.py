@@ -16,6 +16,7 @@
 # Exact and Approximate marginal inference algorithms for LCNs
 
 import itertools
+import logging
 import numpy as np
 from pyomo.environ import *
 from typing import List, Dict
@@ -652,20 +653,29 @@ def check_consistency(lcn: LCN, max_slsqp_restarts: int = 300) -> bool:
     opt = make_ipopt(mode="fast")
     rng = np.random.default_rng(0)
     consistent = False
-    for k in range(8):
-        start = np.full(N, 1.0 / N) if k == 0 else rng.random(N)
-        start = start / start.sum()
-        for i in model.ITEMS:
-            model.p[i].value = float(start[i])
-        try:
-            opt.solve(model, tee=False)
-            pv = np.array([value(model.p[i]) for i in model.ITEMS], dtype=float)
-        except Exception as e:
-            print(f"Exception during ipopt (restart {k}): {str(e)}")
-            continue
-        if not np.any(np.isnan(pv)) and _checks_feasible(pv, checks, 1e-6):
-            consistent = True
-            break
+    # Silence Pyomo's routine "Loading a SolverResults object with a warning
+    # status" messages: a non-optimal ipopt termination is expected here (the
+    # point is re-verified against `checks` and an SLSQP fallback follows).
+    pyomo_logger = logging.getLogger('pyomo')
+    _prev_level = pyomo_logger.level
+    pyomo_logger.setLevel(logging.ERROR)
+    try:
+        for k in range(8):
+            start = np.full(N, 1.0 / N) if k == 0 else rng.random(N)
+            start = start / start.sum()
+            for i in model.ITEMS:
+                model.p[i].value = float(start[i])
+            try:
+                opt.solve(model, tee=False)
+                pv = np.array([value(model.p[i]) for i in model.ITEMS], dtype=float)
+            except Exception as e:
+                print(f"Exception during ipopt (restart {k}): {str(e)}")
+                continue
+            if not np.any(np.isnan(pv)) and _checks_feasible(pv, checks, 1e-6):
+                consistent = True
+                break
+    finally:
+        pyomo_logger.setLevel(_prev_level)
 
     # Fallback: ipopt is unreliable at *finding feasibility* in this dense
     # nonconvex equality system and can miss a feasible point that exists. Use
