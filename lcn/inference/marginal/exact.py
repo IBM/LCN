@@ -44,9 +44,6 @@ from lcn.inference.utils.common import (
     eval_indicator, dot
 )
 
-_TOL = 1e-8                 # primary ipopt convergence tolerance
-_ACCEPTABLE_TOL = 1e-8      # tolerance for an "acceptable" termination
-_HESSIAN_APPROX = "limited-memory"
 _N_RESTARTS = 4             # random-restart budget on a failed/vacuous solve
 
 
