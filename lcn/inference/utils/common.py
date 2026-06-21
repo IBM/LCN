@@ -38,8 +38,8 @@ from lcn.core.model import LCN, Formula, SentenceType
 # ipopt configuration shared across all LCN inference algorithms ------------
 _TOL = 1e-8                 # primary ipopt convergence tolerance
 _ACCEPTABLE_TOL = 1e-8      # tolerance for an "acceptable" termination
-_MAX_ITER = 3000
-_MAX_CPU_TIME = 600
+_MAX_ITER = 100000
+_MAX_CPU_TIME = 3600
 
 # "fast" feasibility mode: loosen the *acceptable* termination criteria and stop
 # at the first acceptable iterate, so ipopt returns a feasible-ish point quickly
