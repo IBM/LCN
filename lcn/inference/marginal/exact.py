@@ -764,11 +764,8 @@ if __name__ == "__main__":
     print(lcn_model)
 
     # Check consistency
+    print(f"\n=== Consistency check for {file_name} ===")
     ok = check_consistency(lcn_model)
-    if ok:
-        print("CONSISTENT")
-    else:
-        print("INCONSISTENT")
 
     # Run exact marginal inference (no evidence)
     print("\n=== ExactInference (no evidence) ===")
