@@ -40,7 +40,7 @@ from lcn.inference.utils.factor_graph import FactorGraph, FactorNode, VariableNo
 from lcn.inference.utils.common import (
     check_consistency, make_ipopt, lmc_constraint_groups_vec, build_truth_table
 )
-from lcn.inference.marginal.exact import _eval_indicator, _dot
+from lcn.inference.utils.common import eval_indicator, dot
 from lcn.inference.marginal.sccp import _wrap_items
 
 
@@ -151,19 +151,19 @@ def _build_factor_cache(f: FactorNode, independencies: Independencies) -> dict:
     sentence_indicators = {}
     for sid, s in f.sentences.items():
         if s.type == SentenceType.Type1:
-            A = _eval_indicator(s.phi_formula, interpretations)
+            A = eval_indicator(s.phi_formula, interpretations)
             sentence_indicators[sid] = ('type1', s.get_lower_bound(),
                                         s.get_upper_bound(), A)
         else:
-            Aqr = _eval_indicator(s.phi_and_psi_formula, interpretations)
-            Ar = _eval_indicator(s.psi_formula, interpretations)
+            Aqr = eval_indicator(s.phi_and_psi_formula, interpretations)
+            Ar = eval_indicator(s.psi_formula, interpretations)
             sentence_indicators[sid] = ('type2', s.get_lower_bound(),
                                         s.get_upper_bound(), Aqr, Ar)
 
     # Cache variable indicators (for each variable in scope)
     variable_indicators = {}
     for v in vars_list:
-        variable_indicators[v] = _eval_indicator(
+        variable_indicators[v] = eval_indicator(
             Formula(label=v, formula=v), interpretations)
 
     # Cache independence constraint indicators. Each in-scope LMC assertion is
@@ -251,20 +251,20 @@ def _solve_local_nlp(
     for sid, indicators in sentence_indicators.items():
         if indicators[0] == 'type1':
             _, lobo, upbo, A = indicators
-            expr = _dot(A, model, model.ITEMS)
+            expr = dot(A, model, model.ITEMS)
             model.constr.add(expr >= lobo)
             model.constr.add(expr <= upbo)
         else:
             _, lobo, upbo, Aqr, Ar = indicators
-            expr_qr = _dot(Aqr, model, model.ITEMS)
-            expr_r = _dot(Ar, model, model.ITEMS)
+            expr_qr = dot(Aqr, model, model.ITEMS)
+            expr_r = dot(Ar, model, model.ITEMS)
             model.constr.add(expr_qr >= lobo * expr_r)
             model.constr.add(expr_qr <= upbo * expr_r)
 
     # Incoming variable-to-factor message constraints (with Lagrange relaxation)
     for m in neighbors:
         A = variable_indicators[m]
-        expr = _dot(A, model, model.ITEMS)
+        expr = dot(A, model, model.ITEMS)
         msg = incoming[m]
         slack = sum(model.v[j] for j in model.AUX)
         model.constr.add(expr + slack >= msg.lower_bound)
@@ -274,23 +274,23 @@ def _solve_local_nlp(
     for group in independence_groups:
         if group[0] == 'conditional':
             _, Aa, Ab, Ac, Ad = group
-            val1 = _dot(Aa, model, model.ITEMS) * _dot(Ab, model, model.ITEMS)
-            val2 = _dot(Ac, model, model.ITEMS) * _dot(Ad, model, model.ITEMS)
+            val1 = dot(Aa, model, model.ITEMS) * dot(Ab, model, model.ITEMS)
+            val2 = dot(Ac, model, model.ITEMS) * dot(Ad, model, model.ITEMS)
             model.constr.add(val1 - val2 == 0.0)
         else:
             _, Aa, Ab, Ac = group
-            val1 = _dot(Aa, model, model.ITEMS)
-            val2 = _dot(Ab, model, model.ITEMS) * _dot(Ac, model, model.ITEMS)
+            val1 = dot(Aa, model, model.ITEMS)
+            val2 = dot(Ab, model, model.ITEMS) * dot(Ac, model, model.ITEMS)
             model.constr.add(val1 - val2 == 0.0)
 
     # Objective: P(n) with penalty on slack variables
     A_obj = variable_indicators[n.name]
     penalty = 1000.0
     if sense == 'min':
-        obj = _dot(A_obj, model, model.ITEMS) + penalty * sum(model.v[j] for j in model.AUX)
+        obj = dot(A_obj, model, model.ITEMS) + penalty * sum(model.v[j] for j in model.AUX)
         model.objective = Objective(expr=obj, sense=minimize)
     else:
-        obj = _dot(A_obj, model, model.ITEMS) - penalty * sum(model.v[j] for j in model.AUX)
+        obj = dot(A_obj, model, model.ITEMS) - penalty * sum(model.v[j] for j in model.AUX)
         model.objective = Objective(expr=obj, sense=maximize)
 
     try:

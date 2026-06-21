@@ -22,19 +22,18 @@ from pyomo.environ import (
     Set, NonNegativeReals,
     Var, ConstraintList,
     Objective, minimize, maximize,
-    SolverFactory,
     SolverStatus,
     value,
     TerminationCondition
 )
 
 # Local
-from lcn.core.model import LCN, SentenceType, Formula
+from lcn.core.model import LCN, SentenceType
 from lcn.inference.utils.common import (
-    make_conjunction, check_consistency, make_ipopt,
+    make_conjunction, make_ipopt,
     lmc_constraint_groups_vec, build_truth_table
 )
-from lcn.inference.marginal.exact import _eval_indicator, _dot
+from lcn.inference.utils.common import eval_indicator, dot
 
 infinity = float('inf')
 max_iter = 1000
@@ -69,7 +68,7 @@ class Factorization:
         for sid in sentences:
             s = self.lcn.sentences.get(sid)
             if s.type == SentenceType.Type1:  # P(phi)
-                A = _eval_indicator(s.phi_formula, interpretations)
+                A = eval_indicator(s.phi_formula, interpretations)
                 lobo = s.get_lower_bound()
                 upbo = s.get_upper_bound()
                 # sum(A*p) >= lobo  =>  -sum(A*p) <= -lobo
@@ -77,8 +76,8 @@ class Factorization:
                 # sum(A*p) <= upbo
                 constraint_rows.append((A, upbo))
             else:  # Type 2 sentence P(phi | psi)
-                Aqr = _eval_indicator(s.phi_and_psi_formula, interpretations)
-                Ar = _eval_indicator(s.psi_formula, interpretations)
+                Aqr = eval_indicator(s.phi_and_psi_formula, interpretations)
+                Ar = eval_indicator(s.psi_formula, interpretations)
                 lobo = s.get_lower_bound()
                 upbo = s.get_upper_bound()
                 # sum((Aqr - lobo*Ar)*p) >= 0  =>  sum((lobo*Ar - Aqr)*p) <= 0
@@ -88,7 +87,7 @@ class Factorization:
 
         # Build objective numerator vector
         Fq = make_conjunction(variables=scope, literals=literals)
-        A = _eval_indicator(Fq, interpretations)
+        A = eval_indicator(Fq, interpretations)
 
         if len(parents) == 0:
             # No parents: linear objective, standard LP
@@ -96,7 +95,7 @@ class Factorization:
         else:
             # With parents: fractional objective, use Charnes-Cooper
             Fe = make_conjunction(variables=parents, literals=literals)
-            E = _eval_indicator(Fe, interpretations)
+            E = eval_indicator(Fe, interpretations)
             AE = A * E  # element-wise numpy multiply
 
             # c = numerator coefficients, d = 0
@@ -126,19 +125,19 @@ class Factorization:
         for sid in sentences:
             s = self.lcn.sentences.get(sid)
             if s.type == SentenceType.Type1:
-                A = _eval_indicator(s.phi_formula, interpretations)
+                A = eval_indicator(s.phi_formula, interpretations)
                 lobo = s.get_lower_bound()
                 upbo = s.get_upper_bound()
-                expr = _dot(A, model, model.ITEMS)
+                expr = dot(A, model, model.ITEMS)
                 model.constr.add(expr >= lobo)
                 model.constr.add(expr <= upbo)
             else:
-                Aqr = _eval_indicator(s.phi_and_psi_formula, interpretations)
-                Ar = _eval_indicator(s.psi_formula, interpretations)
+                Aqr = eval_indicator(s.phi_and_psi_formula, interpretations)
+                Ar = eval_indicator(s.psi_formula, interpretations)
                 lobo = s.get_lower_bound()
                 upbo = s.get_upper_bound()
-                expr_qr = _dot(Aqr, model, model.ITEMS)
-                expr_r = _dot(Ar, model, model.ITEMS)
+                expr_qr = dot(Aqr, model, model.ITEMS)
+                expr_r = dot(Ar, model, model.ITEMS)
                 model.constr.add(expr_qr >= lobo * expr_r)
                 model.constr.add(expr_qr <= upbo * expr_r)
 
@@ -154,21 +153,21 @@ class Factorization:
                 Fa = make_conjunction(variables=[xi, xj], literals=lits_both)
                 Fb = make_conjunction(variables=[xi], literals=lits_xi)
                 Fc = make_conjunction(variables=[xj], literals=lits_xj)
-                Aa = _eval_indicator(Fa, interpretations)
-                Ab = _eval_indicator(Fb, interpretations)
-                Ac = _eval_indicator(Fc, interpretations)
-                expr_joint = _dot(Aa, model, model.ITEMS)
-                expr_xi = _dot(Ab, model, model.ITEMS)
-                expr_xj = _dot(Ac, model, model.ITEMS)
+                Aa = eval_indicator(Fa, interpretations)
+                Ab = eval_indicator(Fb, interpretations)
+                Ac = eval_indicator(Fc, interpretations)
+                expr_joint = dot(Aa, model, model.ITEMS)
+                expr_xi = dot(Ab, model, model.ITEMS)
+                expr_xj = dot(Ac, model, model.ITEMS)
                 model.constr.add(expr_joint == expr_xi * expr_xj)
 
         # Objective
         Fq = make_conjunction(variables=scope, literals=literals)
-        A = _eval_indicator(Fq, interpretations)
+        A = eval_indicator(Fq, interpretations)
 
         if len(parents) == 0:
             # No parents: linear objective
-            obj_expr = _dot(A, model, model.ITEMS)
+            obj_expr = dot(A, model, model.ITEMS)
             if sense == 'min':
                 model.objective = Objective(expr=obj_expr, sense=minimize)
             else:
@@ -177,11 +176,11 @@ class Factorization:
             # With parents: fractional objective via auxiliary variable
             # obj = P(child_match AND parent_match) / P(parent_match)
             Fe = make_conjunction(variables=parents, literals=literals)
-            E = _eval_indicator(Fe, interpretations)
+            E = eval_indicator(Fe, interpretations)
             AE = A * E
 
-            AE_expr = _dot(AE, model, model.ITEMS)
-            E_expr = _dot(E, model, model.ITEMS)
+            AE_expr = dot(AE, model, model.ITEMS)
+            E_expr = dot(E, model, model.ITEMS)
 
             model.obj_var = Var(within=NonNegativeReals)
             model.constr.add(model.obj_var * E_expr == AE_expr)
@@ -220,19 +219,19 @@ class Factorization:
             if not s_atoms.issubset(scope_set):
                 continue
             if s.type == SentenceType.Type1:
-                A = _eval_indicator(s.phi_formula, interpretations)
+                A = eval_indicator(s.phi_formula, interpretations)
                 lobo = s.get_lower_bound()
                 upbo = s.get_upper_bound()
-                expr = _dot(A, model, model.ITEMS)
+                expr = dot(A, model, model.ITEMS)
                 model.constr.add(expr >= lobo)
                 model.constr.add(expr <= upbo)
             else:
-                Aqr = _eval_indicator(s.phi_and_psi_formula, interpretations)
-                Ar = _eval_indicator(s.psi_formula, interpretations)
+                Aqr = eval_indicator(s.phi_and_psi_formula, interpretations)
+                Ar = eval_indicator(s.psi_formula, interpretations)
                 lobo = s.get_lower_bound()
                 upbo = s.get_upper_bound()
-                expr_qr = _dot(Aqr, model, model.ITEMS)
-                expr_r = _dot(Ar, model, model.ITEMS)
+                expr_qr = dot(Aqr, model, model.ITEMS)
+                expr_r = dot(Ar, model, model.ITEMS)
                 model.constr.add(expr_qr >= lobo * expr_r)
                 model.constr.add(expr_qr <= upbo * expr_r)
 
@@ -251,32 +250,32 @@ class Factorization:
             for group in lmc_constraint_groups_vec(indep, table, col_of):
                 if group[0] == 'conditional':
                     _, Aa, Ab, Ac, Ad = group
-                    val1 = _dot(Aa, model, model.ITEMS) * _dot(Ab, model, model.ITEMS)
-                    val2 = _dot(Ac, model, model.ITEMS) * _dot(Ad, model, model.ITEMS)
+                    val1 = dot(Aa, model, model.ITEMS) * dot(Ab, model, model.ITEMS)
+                    val2 = dot(Ac, model, model.ITEMS) * dot(Ad, model, model.ITEMS)
                     model.constr.add(val1 - val2 == 0.0)
                 else:
                     _, Aa, Ab, Ac = group
-                    val1 = _dot(Aa, model, model.ITEMS)
-                    val2 = _dot(Ab, model, model.ITEMS) * _dot(Ac, model, model.ITEMS)
+                    val1 = dot(Aa, model, model.ITEMS)
+                    val2 = dot(Ab, model, model.ITEMS) * dot(Ac, model, model.ITEMS)
                     model.constr.add(val1 - val2 == 0.0)
 
         # Objective
         Fq = make_conjunction(variables=scope, literals=literals)
-        A = _eval_indicator(Fq, interpretations)
+        A = eval_indicator(Fq, interpretations)
 
         if len(parents) == 0:
-            obj_expr = _dot(A, model, model.ITEMS)
+            obj_expr = dot(A, model, model.ITEMS)
             if sense == 'min':
                 model.objective = Objective(expr=obj_expr, sense=minimize)
             else:
                 model.objective = Objective(expr=obj_expr, sense=maximize)
         else:
             Fe = make_conjunction(variables=parents, literals=literals)
-            E = _eval_indicator(Fe, interpretations)
+            E = eval_indicator(Fe, interpretations)
             AE = A * E
 
-            AE_expr = _dot(AE, model, model.ITEMS)
-            E_expr = _dot(E, model, model.ITEMS)
+            AE_expr = dot(AE, model, model.ITEMS)
+            E_expr = dot(E, model, model.ITEMS)
 
             model.obj_var = Var(within=NonNegativeReals)
             model.constr.add(model.obj_var * E_expr == AE_expr)
@@ -295,9 +294,9 @@ class Factorization:
         model.constr = ConstraintList()
 
         for row_coeffs, row_rhs in constraint_rows:
-            model.constr.add(_dot(row_coeffs, model, model.ITEMS) <= row_rhs)
+            model.constr.add(dot(row_coeffs, model, model.ITEMS) <= row_rhs)
 
-        obj_expr = _dot(c, model, model.ITEMS)
+        obj_expr = dot(c, model, model.ITEMS)
         if sense == 'min':
             model.objective = Objective(expr=obj_expr, sense=minimize)
         else:
@@ -461,33 +460,26 @@ if __name__ == "__main__":
     # file_name = "examples/alarm.lcn"
     # file_name = "benchmarks/chain/chain_n20_1.lcn"
     file_name = "examples/smokers.lcn"
-    l = LCN()
-    l.from_lcn(file_name=file_name)
-    print(l)
-
-    # Check consistency
-    # ok = check_consistency(l)
-    # if ok:
-    #     print("CONSISTENT")
-    # else:
-    #     print("INCONSISTENT")
+    lcn_model = LCN()
+    lcn_model.from_lcn(file_name=file_name)
+    print(lcn_model)
 
     # Factorize
-    l.build_primal_graph(formula_labels=True)
-    l.build_structure_graph()
+    lcn_model.build_primal_graph(formula_labels=True)
+    lcn_model.build_structure_graph()
 
     # check if the LCN is a chain graph
-    ok = l.is_chain_graph()
+    ok = lcn_model.is_chain_graph()
     print(f"Is the LCN a chain graph? {ok}")
 
     # get the families of each node in the chain graph
-    families = l.process_chain_graph()
+    families = lcn_model.process_chain_graph()
     print("Families of each node:")
     for family in families:
         node = family["child"]
         print(f"{node}: {family}")
 
-    fact = Factorization(l)
+    fact = Factorization(lcn_model)
     factors = fact.build()
 
     for factor in factors:

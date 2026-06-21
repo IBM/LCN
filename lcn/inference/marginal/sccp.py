@@ -42,7 +42,8 @@ from typing import Dict, List, Tuple
 from lcn.core.model import LCN, SentenceType, Formula, Sentence
 from lcn.core.independencies import Independencies
 from lcn.inference.utils.common import check_consistency, make_conjunction, make_ipopt
-from lcn.inference.marginal.exact import _eval_indicator, _dot, _solve_with_objective
+from lcn.inference.marginal.exact import _solve_with_objective
+from lcn.inference.utils.common import eval_indicator, dot
 
 
 # -----------------------------------------------------------------------
@@ -447,19 +448,19 @@ def _build_supernode_cache(
     sentence_indicators = {}
     for sid, s in node.sentences.items():
         if s.type == SentenceType.Type1:
-            A = _eval_indicator(s.phi_formula, interpretations)
+            A = eval_indicator(s.phi_formula, interpretations)
             sentence_indicators[sid] = ('type1', s.get_lower_bound(),
                                         s.get_upper_bound(), A)
         else:
-            Aqr = _eval_indicator(s.phi_and_psi_formula, interpretations)
-            Ar = _eval_indicator(s.psi_formula, interpretations)
+            Aqr = eval_indicator(s.phi_and_psi_formula, interpretations)
+            Ar = eval_indicator(s.psi_formula, interpretations)
             sentence_indicators[sid] = ('type2', s.get_lower_bound(),
                                         s.get_upper_bound(), Aqr, Ar)
 
     # Cache variable indicators for every atom in the joint scope
     variable_indicators = {}
     for v in vars_list:
-        variable_indicators[v] = _eval_indicator(
+        variable_indicators[v] = eval_indicator(
             Formula(label=v, formula=v), interpretations)
 
     # Cache independence (LMC) constraint indicators local to the joint scope
@@ -482,10 +483,10 @@ def _build_supernode_cache(
                     Fb = make_conjunction(variables=S, literals=literals)
                     Fc = make_conjunction(variables=X + S, literals=literals)
                     Fd = make_conjunction(variables=S + [t], literals=literals)
-                    Aa = _eval_indicator(Fa, interpretations)
-                    Ab = _eval_indicator(Fb, interpretations)
-                    Ac = _eval_indicator(Fc, interpretations)
-                    Ad = _eval_indicator(Fd, interpretations)
+                    Aa = eval_indicator(Fa, interpretations)
+                    Ab = eval_indicator(Fb, interpretations)
+                    Ac = eval_indicator(Fc, interpretations)
+                    Ad = eval_indicator(Fd, interpretations)
                     independence_groups.append(('conditional', Aa, Ab, Ac, Ad))
         else:
             for t in T:
@@ -494,9 +495,9 @@ def _build_supernode_cache(
                 Fa = make_conjunction(variables=X + [t], literals=literals)
                 Fb = make_conjunction(variables=X, literals=literals)
                 Fc = make_conjunction(variables=[t], literals=literals)
-                Aa = _eval_indicator(Fa, interpretations)
-                Ab = _eval_indicator(Fb, interpretations)
-                Ac = _eval_indicator(Fc, interpretations)
+                Aa = eval_indicator(Fa, interpretations)
+                Ab = eval_indicator(Fb, interpretations)
+                Ac = eval_indicator(Fc, interpretations)
                 independence_groups.append(('marginal', Aa, Ab, Ac))
 
     return {
@@ -563,13 +564,13 @@ def _solve_supernode(
     for sid, indicators in sentence_indicators.items():
         if indicators[0] == 'type1':
             _, lobo, upbo, A = indicators
-            expr = _dot(A, model, model.ITEMS)
+            expr = dot(A, model, model.ITEMS)
             model.constr.add(expr >= lobo)
             model.constr.add(expr <= upbo)
         else:
             _, lobo, upbo, Aqr, Ar = indicators
-            expr_qr = _dot(Aqr, model, model.ITEMS)
-            expr_r = _dot(Ar, model, model.ITEMS)
+            expr_qr = dot(Aqr, model, model.ITEMS)
+            expr_r = dot(Ar, model, model.ITEMS)
             model.constr.add(expr_qr >= lobo * expr_r)
             model.constr.add(expr_qr <= upbo * expr_r)
 
@@ -578,7 +579,7 @@ def _solve_supernode(
     for atom, (lo, hi) in incoming.items():
         if atom not in variable_indicators:
             continue
-        expr = _dot(variable_indicators[atom], model, model.ITEMS)
+        expr = dot(variable_indicators[atom], model, model.ITEMS)
         model.constr.add(expr >= lo)
         model.constr.add(expr <= hi)
 
@@ -586,18 +587,18 @@ def _solve_supernode(
     for group in independence_groups:
         if group[0] == 'conditional':
             _, Aa, Ab, Ac, Ad = group
-            val1 = _dot(Aa, model, model.ITEMS) * _dot(Ab, model, model.ITEMS)
-            val2 = _dot(Ac, model, model.ITEMS) * _dot(Ad, model, model.ITEMS)
+            val1 = dot(Aa, model, model.ITEMS) * dot(Ab, model, model.ITEMS)
+            val2 = dot(Ac, model, model.ITEMS) * dot(Ad, model, model.ITEMS)
             model.constr.add(val1 - val2 == 0.0)
         else:
             _, Aa, Ab, Ac = group
-            val1 = _dot(Aa, model, model.ITEMS)
-            val2 = _dot(Ab, model, model.ITEMS) * _dot(Ac, model, model.ITEMS)
+            val1 = dot(Aa, model, model.ITEMS)
+            val2 = dot(Ab, model, model.ITEMS) * dot(Ac, model, model.ITEMS)
             model.constr.add(val1 - val2 == 0.0)
 
     # Objective: min/max P(target_atom = 1)
     A_obj = variable_indicators[target_atom]
-    obj_expr = _dot(A_obj, model, model.ITEMS)
+    obj_expr = dot(A_obj, model, model.ITEMS)
     return _solve_with_objective(model, obj_expr, sense, solver, debug)
 
 

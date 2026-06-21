@@ -26,7 +26,6 @@ from pyomo.environ import (
     NonNegativeReals,
     Objective,
     Set,
-    SolverStatus,
     TerminationCondition,
     Var,
     maximize,
@@ -41,13 +40,12 @@ from lcn.core.independencies import Independencies
 from lcn.inference.utils.common import (
     make_conjunction, check_consistency, make_ipopt,
     lmc_constraint_groups_vec, build_truth_table,
-    find_feasible_points, optimize_marginal_slsqp
+    find_feasible_points, optimize_marginal_slsqp,
+    eval_indicator, dot
 )
 
 _TOL = 1e-8                 # primary ipopt convergence tolerance
 _ACCEPTABLE_TOL = 1e-8      # tolerance for an "acceptable" termination
-_MAX_ITER = 3000
-_MAX_CPU_TIME = 600
 _HESSIAN_APPROX = "limited-memory"
 _N_RESTARTS = 4             # random-restart budget on a failed/vacuous solve
 
@@ -81,17 +79,6 @@ def _init_p(model, N: int, rng=None) -> None:
         x /= x.sum()
         for i in model.ITEMS:
             model.p[i].value = float(x[i])
-
-
-def _eval_indicator(formula: Formula, interpretations: list) -> np.ndarray:
-    """Evaluate formula on all interpretations, return binary numpy vector."""
-    return np.array([1.0 if formula.evaluate(table=interp) else 0.0
-                     for interp in interpretations])
-
-
-def _dot(vec: np.ndarray, model, items):
-    """Build Pyomo linear expression: vec @ model.p"""
-    return sum(float(vec[i]) * model.p[i] for i in items)
 
 
 def _build_base_model(
@@ -144,17 +131,17 @@ def _build_base_model(
         lobo = s.get_lower_bound()
         upbo = s.get_upper_bound()
         if s.type == SentenceType.Type1:
-            A = _eval_indicator(s.phi_formula, interpretations)
-            expr = _dot(A, model, model.ITEMS)
+            A = eval_indicator(s.phi_formula, interpretations)
+            expr = dot(A, model, model.ITEMS)
             model.constr.add(expr >= lobo)
             model.constr.add(expr <= upbo)
             checks.append(("ineq", lambda p, A=A, lobo=lobo: float(A @ p) - lobo))
             checks.append(("ineq", lambda p, A=A, upbo=upbo: upbo - float(A @ p)))
         else:
-            Aqr = _eval_indicator(s.phi_and_psi_formula, interpretations)
-            Ar = _eval_indicator(s.psi_formula, interpretations)
-            expr_qr = _dot(Aqr, model, model.ITEMS)
-            expr_r = _dot(Ar, model, model.ITEMS)
+            Aqr = eval_indicator(s.phi_and_psi_formula, interpretations)
+            Ar = eval_indicator(s.psi_formula, interpretations)
+            expr_qr = dot(Aqr, model, model.ITEMS)
+            expr_r = dot(Ar, model, model.ITEMS)
             model.constr.add(expr_qr >= lobo * expr_r)
             model.constr.add(expr_qr <= upbo * expr_r)
             checks.append(("ineq", lambda p, Aqr=Aqr, Ar=Ar, lobo=lobo: float(Aqr @ p) - lobo * float(Ar @ p)))
@@ -175,15 +162,15 @@ def _build_base_model(
         for group in lmc_constraint_groups_vec(indep, table, col_of):
             if group[0] == 'conditional':
                 _, Aa, Ab, Ac, Ad = group
-                val1 = _dot(Aa, model, model.ITEMS) * _dot(Ab, model, model.ITEMS)
-                val2 = _dot(Ac, model, model.ITEMS) * _dot(Ad, model, model.ITEMS)
+                val1 = dot(Aa, model, model.ITEMS) * dot(Ab, model, model.ITEMS)
+                val2 = dot(Ac, model, model.ITEMS) * dot(Ad, model, model.ITEMS)
                 model.constr.add(val1 - val2 == 0.0)
                 checks.append(("eq", lambda p, Aa=Aa, Ab=Ab, Ac=Ac, Ad=Ad:
                                float(Aa @ p) * float(Ab @ p) - float(Ac @ p) * float(Ad @ p)))
             else:
                 _, Aa, Ab, Ac = group
-                val1 = _dot(Aa, model, model.ITEMS)
-                val2 = _dot(Ab, model, model.ITEMS) * _dot(Ac, model, model.ITEMS)
+                val1 = dot(Aa, model, model.ITEMS)
+                val2 = dot(Ab, model, model.ITEMS) * dot(Ac, model, model.ITEMS)
                 model.constr.add(val1 - val2 == 0.0)
                 checks.append(("eq", lambda p, Aa=Aa, Ab=Ab, Ac=Ac:
                                float(Aa @ p) - float(Ab @ p) * float(Ac @ p)))
@@ -191,7 +178,7 @@ def _build_base_model(
     # Pre-compute indicator vectors for all atoms
     atom_indicators = {}
     for atom_name in vars_list:
-        atom_indicators[atom_name] = _eval_indicator(
+        atom_indicators[atom_name] = eval_indicator(
             Formula(label=atom_name, formula=atom_name), interpretations)
 
     # Pre-compute evidence indicator (once)
@@ -199,7 +186,7 @@ def _build_base_model(
     if len(evidence) > 0:
         ev_vars = [k for k in evidence.keys()]
         Fe = make_conjunction(variables=ev_vars, literals=evidence)
-        evidence_indicator = _eval_indicator(Fe, interpretations)
+        evidence_indicator = eval_indicator(Fe, interpretations)
 
     return model, atom_indicators, evidence_indicator, interpretations, N, checks
 
@@ -354,207 +341,6 @@ def _robust_solve(model, obj_expr, sense, solver, N, atom, debug=False,
 
 
 # -----------------------------------------------------------------------
-# Legacy function kept for backward compatibility
-# -----------------------------------------------------------------------
-
-def solve_exact_model(
-        lcn: LCN,
-        query_formula: str,
-        independencies: Independencies,
-        evidence: dict = {},
-        sense: str = 'min',
-        debug: bool = False,
-        verbosity: int = 1,
-        max_iter: int = 10000,
-        max_cpu_time: int = 7200,
-        acceptable_tol: float = None,
-        hessian_approximation: str = None
-) -> Tuple:
-    """
-    Compute exact lower/upper bounds on the probability of the query formula
-    by solving the corresponding non-linear constraint program (for the input
-    LCN and independencies given by the Local Markov Condition).
-
-    Args:
-        lcn: LCN
-            The input LCN model.
-        query_formula: str
-            A string representing the query formula.
-        independencies: Independencies
-            The independencies given by the Local Markov Condition.
-        evidence: dict
-            A dict containing the observed evidence variables.
-        sense: str
-            The sense of the optimization problem. It is either `min` or `max`.
-        debug: bool
-            A flag indicating the debugging mode.
-        verbosity: int
-            Verbosity level (0 is silent).
-        max_iter: int
-            Maximum number of iterations used by the ipopt solver (default 10000).
-        max_cpu_time: int
-            Maximum CPU time in seconds used by the ipopt solver (default 7200 sec).
-        acceptable_tol: float
-            Acceptable tolerance value used by the ipopt solver (default 0.00001).
-        hessian_approximation: str
-            The Hessian approximation used by the ipopt solver (default 'limited-memory').
-
-    Returns:
-        A tuple representing the objective value and a flag indicating its optimality.
-    """
-
-    # Step 1: Precompute interpretation table and indicator vectors
-    vars_list = [k for k, _ in lcn.atoms.items()]
-    items_tuples = list(itertools.product([0, 1], repeat=len(vars_list)))
-    interpretations = [dict(zip(vars_list, t)) for t in items_tuples]
-    N = len(interpretations)
-
-    # Create the Pyomo model and variables
-    model = ConcreteModel()
-    model.ITEMS = Set(initialize=range(N))
-    model.p = Var(model.ITEMS, within=NonNegativeReals, bounds=(0.0, 1.0))
-    model.constr = ConstraintList()
-
-    # Constraint residual callables (over a numpy solution vector), mirroring
-    # the Pyomo constraints, for the SLSQP robustness fallback below.
-    checks = [("eq", lambda p: float(p.sum()) - 1.0)]
-
-    # Probability distribution constraint
-    model.constr.add(sum(model.p[i] for i in model.ITEMS) == 1.0)
-
-    # Step 2: Build sentence constraints using precomputed indicators
-    for sid, s in lcn.sentences.items():
-        lobo = s.get_lower_bound()
-        upbo = s.get_upper_bound()
-        if s.type == SentenceType.Type1:  # P(q)
-            A = _eval_indicator(s.phi_formula, interpretations)
-            expr = _dot(A, model, model.ITEMS)
-            model.constr.add(expr >= lobo)
-            model.constr.add(expr <= upbo)
-            checks.append(("ineq", lambda p, A=A, lobo=lobo: float(A @ p) - lobo))
-            checks.append(("ineq", lambda p, A=A, upbo=upbo: upbo - float(A @ p)))
-        else:  # P(q|r)
-            Aqr = _eval_indicator(s.phi_and_psi_formula, interpretations)
-            Ar = _eval_indicator(s.psi_formula, interpretations)
-            expr_qr = _dot(Aqr, model, model.ITEMS)
-            expr_r = _dot(Ar, model, model.ITEMS)
-            model.constr.add(expr_qr >= lobo * expr_r)
-            model.constr.add(expr_qr <= upbo * expr_r)
-            checks.append(("ineq", lambda p, Aqr=Aqr, Ar=Ar, lobo=lobo: float(Aqr @ p) - lobo * float(Ar @ p)))
-            checks.append(("ineq", lambda p, Aqr=Aqr, Ar=Ar, upbo=upbo: upbo * float(Ar @ p) - float(Aqr @ p)))
-
-    # Step 3: Build independence constraints. Joint encoding over all Y
-    # configurations, built with the vectorized helper (see
-    # lmc_constraint_groups_vec).
-    table = build_truth_table(len(vars_list))
-    col_of = {v: i for i, v in enumerate(vars_list)}
-
-    for indep in independencies.get_assertions():
-        if verbosity > 0:
-            print(f"adding constraints for independence: {indep}")
-        for group in lmc_constraint_groups_vec(indep, table, col_of):
-            if group[0] == 'conditional':
-                _, Aa, Ab, Ac, Ad = group
-                val1 = _dot(Aa, model, model.ITEMS) * _dot(Ab, model, model.ITEMS)
-                val2 = _dot(Ac, model, model.ITEMS) * _dot(Ad, model, model.ITEMS)
-                model.constr.add(val1 - val2 == 0.0)
-                checks.append(("eq", lambda p, Aa=Aa, Ab=Ab, Ac=Ac, Ad=Ad:
-                               float(Aa @ p) * float(Ab @ p) - float(Ac @ p) * float(Ad @ p)))
-            else:
-                _, Aa, Ab, Ac = group
-                val1 = _dot(Aa, model, model.ITEMS)
-                val2 = _dot(Ab, model, model.ITEMS) * _dot(Ac, model, model.ITEMS)
-                model.constr.add(val1 - val2 == 0.0)
-                checks.append(("eq", lambda p, Aa=Aa, Ab=Ab, Ac=Ac:
-                               float(Aa @ p) - float(Ab @ p) * float(Ac @ p)))
-
-    # Step 4: Build objective (with evidence bug fix)
-    obj_formula = Formula(label="obj", formula=query_formula)
-    A_query = _eval_indicator(obj_formula, interpretations)
-
-    if len(evidence) == 0:
-        obj = _dot(A_query, model, model.ITEMS)
-    else:
-        ev = [k for k, _ in evidence.items()]
-        Fe = make_conjunction(variables=ev, literals=evidence)
-        E = _eval_indicator(Fe, interpretations)
-        AE = A_query * E  # element-wise numpy multiply (fixes == vs = bug)
-        obj = _dot(AE, model, model.ITEMS) / _dot(E, model, model.ITEMS)
-
-    if sense == 'min':
-        model.objective = Objective(expr=obj, sense=minimize)
-    else:
-        model.objective = Objective(expr=obj, sense=maximize)
-
-    # Solve the non-linear model with the shared, correctly-configured ipopt
-    # setup; the explicit keyword arguments override the defaults for callers
-    # that need to (back-compat).
-    try:
-        opt = _make_ipopt(debug=debug)
-        opt.options['max_iter'] = max_iter
-        opt.options['max_cpu_time'] = max_cpu_time
-        if acceptable_tol is not None:
-            opt.options['acceptable_tol'] = acceptable_tol
-        if hessian_approximation is not None:
-            opt.options['hessian_approximation'] = hessian_approximation
-        tee_flag = True if debug else False
-        results = opt.solve(model, tee=tee_flag)
-        if (results.solver.status == SolverStatus.ok) and \
-            (results.solver.termination_condition == TerminationCondition.optimal):
-            if verbosity > 0:
-                print(f"Solver status: {results.solver.status}")
-            objective_value = value(model.objective)
-            objective_optimal = True
-        elif (results.solver.termination_condition == TerminationCondition.infeasible):
-            if verbosity > 0:
-                print(f"Solver status: {results.solver.status}")
-            objective_value = value(model.objective)
-            objective_optimal = False
-        else:
-            if verbosity > 0:
-                print(f"Solver status: {results.solver.status}")
-            objective_value = value(model.objective)
-            objective_optimal = False
-
-    except Exception as e:
-        if verbosity > 0:
-            print(f"Exception during ipopt: {str(e)}")
-        objective_value = None
-        objective_optimal = False
-
-    # Two-phase SLSQP fallback: a single ipopt solve is unreliable on the dense
-    # joint-LMC system and frequently returns None even when the bound exists.
-    # For the no-evidence case the objective P(query) is linear in p, so we can
-    # find feasible seeds (find_feasible_points) and optimize from them
-    # (optimize_marginal_slsqp). The evidence case has a non-linear ratio
-    # objective and stays ipopt-only.
-    def _is_suspicious(v, opt):
-        if v is None:
-            return True
-        if sense == 'max' and v >= 1.0 - 1e-6:
-            return True
-        if sense == 'min' and v <= 1e-6:
-            return True
-        return False
-
-    if len(evidence) == 0 and _is_suspicious(objective_value, objective_optimal):
-        seeds = find_feasible_points(N, checks, n_points=8, restarts=80)
-        v, ok = optimize_marginal_slsqp(N, A_query, checks, sense, seeds) \
-            if seeds else (None, False)
-        if ok and v is not None:
-            if objective_value is None or not objective_optimal:
-                objective_value, objective_optimal = v, True
-            elif sense == 'max':
-                objective_value = max(objective_value, v)
-            else:
-                objective_value = min(objective_value, v)
-
-    if verbosity > 0:
-        print(f"[Ipopt] objective={objective_value}, optimal={objective_optimal}")
-    return objective_value, objective_optimal
-
-
-# -----------------------------------------------------------------------
 # ExactInference class
 # -----------------------------------------------------------------------
 
@@ -623,7 +409,7 @@ class ExactInference:
         # Pre-compute P(evidence) expression (reused across all atoms)
         ev_expr = None
         if evidence_indicator is not None:
-            ev_expr = _dot(evidence_indicator, model, model.ITEMS)
+            ev_expr = dot(evidence_indicator, model, model.ITEMS)
 
         # Create a shared, correctly-configured ipopt solver instance
         solver = _make_ipopt(debug=debug, mode=mode)
@@ -688,11 +474,11 @@ class ExactInference:
                 # for the no-evidence case (obj_vec = A); the evidence ratio
                 # objective is nonlinear and stays ipopt-only.
                 if ev_expr is None:
-                    obj_expr = _dot(A, model, model.ITEMS)
+                    obj_expr = dot(A, model, model.ITEMS)
                     obj_vec = A
                 else:
                     AE = A * evidence_indicator  # element-wise numpy multiply
-                    obj_expr = _dot(AE, model, model.ITEMS) / ev_expr
+                    obj_expr = dot(AE, model, model.ITEMS) / ev_expr
                     obj_vec = None
 
                 # Minimize / maximize P(atom=1) robustly: fresh start per solve,
@@ -770,7 +556,7 @@ if __name__ == "__main__":
     # Run exact marginal inference (no evidence)
     print("\n=== ExactInference (no evidence) ===")
     algo = ExactInference(lcn=lcn_model)
-    results = algo.run(evidence={}, debug=False, verbosity=2)
+    results = algo.run(evidence={}, debug=False, verbosity=2, mode="exact")
     print_singleton_marginals(results)
 
     # Run exact marginal inference (with evidence)

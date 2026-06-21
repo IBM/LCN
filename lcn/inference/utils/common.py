@@ -212,6 +212,22 @@ def lmc_constraint_groups(indep, eval_fn) -> List[tuple]:
     return groups
 
 
+def eval_indicator(formula: Formula, interpretations: list) -> np.ndarray:
+    """Evaluate formula on all interpretations, return a binary numpy vector.
+
+    Shared utility used by every Pyomo-based inference engine (exact marginal,
+    ariel, sccp, factorization, and the MAP scripts) to turn a Formula into its
+    0/1 indicator over the joint interpretation table.
+    """
+    return np.array([1.0 if formula.evaluate(table=interp) else 0.0
+                     for interp in interpretations])
+
+
+def dot(vec: np.ndarray, model, items):
+    """Build the Pyomo linear expression ``vec @ model.p`` over ``items``."""
+    return sum(float(vec[i]) * model.p[i] for i in items)
+
+
 def build_truth_table(num_vars: int) -> np.ndarray:
     """
     Build the truth table of all 2^num_vars interpretations.
@@ -469,21 +485,15 @@ def check_consistency_product_witness(lcn: LCN, restarts: int = 40,
     interpretations = [dict(zip(vars, row)) for row in table]
     table_one = (table == 1)
 
-    def _ind(formula):
-        """0/1 indicator of `formula` over all interpretations (local; avoids
-        importing exact._eval_indicator and the resulting circular import)."""
-        return np.array([1.0 if formula.evaluate(table=interp) else 0.0
-                         for interp in interpretations])
-
     # Precompute sentence indicator vectors once (~n sentences).
     sentences = []
     for _, s in lcn.sentences.items():
         lo, hi = s.get_lower_bound(), s.get_upper_bound()
         if s.type == SentenceType.Type1:
-            sentences.append(("t1", _ind(s.phi_formula), lo, hi))
+            sentences.append(("t1", eval_indicator(s.phi_formula, interpretations), lo, hi))
         else:
-            sentences.append(("t2", _ind(s.phi_and_psi_formula),
-                              _ind(s.psi_formula), lo, hi))
+            sentences.append(("t2", eval_indicator(s.phi_and_psi_formula, interpretations),
+                              eval_indicator(s.psi_formula, interpretations), lo, hi))
 
     def _make_p(q):
         # p[j] = prod_i (q_i if world j has atom i true else 1 - q_i)
