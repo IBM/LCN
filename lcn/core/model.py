@@ -77,7 +77,7 @@ class Formula:
         """
 
         assert table is not None and len(table) > 0, \
-            f"The truth values of the formula's atoms must be provided."
+            "The truth values of the formula's atoms must be provided."
         
         return evaluate_formula(i=self.input_formula, table=table)
 
@@ -99,7 +99,7 @@ class Formula:
             True if the formula is atomic, otherwise False.
         """
         if len(self.atoms) == 1 and \
-            self.evaluate(table={self.atoms['V1']: 1}) == True:
+            self.evaluate(table={self.atoms['V1']: 1}) is True:
             return True
         else:
             return False
@@ -221,7 +221,7 @@ class Sentence:
                 The new lower probability bound.
         """
         assert (lower >= 0.0 and lower <= 1.0), \
-            f"Invalid lower probability bound. Must be between 0 and 1."
+            "Invalid lower probability bound. Must be between 0 and 1."
         self.lower_prob = lower
 
     def set_upper_bound(
@@ -236,7 +236,7 @@ class Sentence:
                 The new upper probability bound.
         """
         assert (upper >= 0.0 and upper <= 1.0), \
-            f"Invalid upper probability bound. Must be between 0 and 1."
+            "Invalid upper probability bound. Must be between 0 and 1."
         self.upper_prob = upper
 
     def validate(self):
@@ -407,6 +407,89 @@ class LCN:
             s = self.sentences[label]
             tau_str = f" ; tau={s.tau}" if s.type == SentenceType.Type2 or not s.tau else ""
             print(f"  {s}{tau_str}")
+
+    def print_primal_graph(self):
+        """
+        Print a human-readable description of the LCN's primal graph: its atom
+        and formula nodes, and its directed edges. Builds the primal graph first
+        if it has not been constructed yet (see ``build_primal_graph``).
+        """
+        if self.primal_graph is None:
+            self.build_primal_graph()
+
+        G = self.primal_graph
+        node_type = nx.get_node_attributes(G, "type")
+        atom_nodes = sorted(n for n in G.nodes() if node_type.get(n) == "atom")
+        formula_nodes = sorted(
+            n for n in G.nodes() if node_type.get(n) == "formula")
+
+        print("[Primal graph]")
+        print(f"  {G.number_of_nodes()} nodes "
+              f"({len(atom_nodes)} atoms, {len(formula_nodes)} formulas), "
+              f"{G.number_of_edges()} directed edges")
+        print(f"  Atom nodes: {', '.join(atom_nodes) if atom_nodes else '(none)'}")
+        print(f"  Formula nodes: "
+              f"{', '.join(formula_nodes) if formula_nodes else '(none)'}")
+        print("  Directed edges:")
+        edges = sorted((str(u), str(v)) for u, v in G.edges())
+        if edges:
+            for u, v in edges:
+                print(f"    {u} -> {v}")
+        else:
+            print("    (none)")
+
+    def print_structure(self):
+        """
+        Print a human-readable description of the LCN's structure graph (the
+        mixed graph over atoms, with directed and undirected edges). Builds the
+        structure graph first if it has not been constructed yet (see
+        ``build_structure_graph``).
+        """
+        if self.structure_graph is None:
+            if self.primal_graph is None:
+                self.build_primal_graph()
+            self.build_structure_graph()
+
+        G = self.structure_graph
+        nodes = sorted(str(n) for n in G.get_nodes())
+
+        print("[LCN structure]")
+        print(f"  {G.number_of_nodes()} nodes, "
+              f"{G.number_of_directed_edges()} directed edges, "
+              f"{G.number_of_undirected_edges()} undirected edges")
+        print(f"  Nodes: {', '.join(nodes) if nodes else '(none)'}")
+        print("  Directed edges:")
+        directed = sorted((str(u), str(v)) for u, v in G.directed_edges())
+        if directed:
+            for u, v in directed:
+                print(f"    {u} -> {v}")
+        else:
+            print("    (none)")
+        print("  Undirected edges:")
+        # Undirected edges are symmetric; de-duplicate (u, v)/(v, u) by sorting.
+        undirected = sorted(
+            tuple(sorted((str(u), str(v)))) for u, v in G.undirected_edges())
+        undirected = sorted(set(undirected))
+        if undirected:
+            for u, v in undirected:
+                print(f"    {u} -- {v}")
+        else:
+            print("    (none)")
+
+    def show_graphs(self, primal: bool = True, structure: bool = True):
+        """
+        Print the LCN's graphs. By default shows both the primal graph and the
+        structure graph; pass ``primal=False`` or ``structure=False`` to show
+        only one. Each graph is built on demand if not already constructed.
+
+        Args:
+            primal: Print the primal graph (default True).
+            structure: Print the structure graph (default True).
+        """
+        if primal:
+            self.print_primal_graph()
+        if structure:
+            self.print_structure()
 
     def build_primal_graph(
             self, 
@@ -592,7 +675,7 @@ class LCN:
         sg = self.structure_graph.copy()
         cliques = sg.get_undirected_cliques()
 
-        print(f"Simplifying the structure by replacing the undirected cliques")
+        print("Simplifying the structure by replacing the undirected cliques")
         for clique in cliques:
             clique_set = set(clique)
             meta_node = "-".join(sorted(clique)) #tuple(sorted(clique))
@@ -698,7 +781,7 @@ class LCN:
             A list of atoms that are X's parents in the primal graph.
         """
 
-        assert self.primal_graph is not None, f"The primal graph must exist."
+        assert self.primal_graph is not None, "The primal graph must exist."
 
         if node_type is None:
             node_type = nx.get_node_attributes(self.primal_graph, "type")
@@ -839,7 +922,7 @@ class LCN:
             # Check for non-empty set Y
             if len(Y) > 0:
                 assertion = IndependenceAssertion(X, Y, Z)
-                if self.independencies.contains(assertion) == False:
+                if not self.independencies.contains(assertion):
                     self.independencies.add_assertions([X, Y, Z])
         
         return self.independencies
@@ -854,7 +937,7 @@ class LCN:
             given the variables Z. If Z is the empty set, then variables X and
             Y are marginally independent.
         """
-        raise NotImplementedError(f"The Global Markov Condition is not available.")
+        raise NotImplementedError("The Global Markov Condition is not available.")
 
     def from_uai(
             self, 
@@ -891,7 +974,9 @@ class LCN:
                 fi = read_tokens(f)
                 fi.__next__()
                 num_vars = int(fi.__next__())
-                domains = [int(fi.__next__()) for _ in range(num_vars)]
+                # Consume the per-variable domain sizes (advance the token
+                # stream); the values are unused since LCN atoms are binary.
+                _ = [int(fi.__next__()) for _ in range(num_vars)]
                 num_funs = int(fi.__next__())
                 atom2var = {}
                 var2atom = {}
@@ -949,12 +1034,12 @@ class LCN:
                 f.close()
                 self.add_sentences(sentences)
                 print(f"Parsed UAI format with {num_vars} variables and {num_funs} sentences.")
-                print(f"Build the LCN's primal graph.")
+                print("Build the LCN's primal graph.")
                 self.build_primal_graph()
-                print(f"Build the LCN's structure graph.")
+                print("Build the LCN's structure graph.")
                 self.build_structure_graph()
                 if lmc:
-                    print(f"Build the LCN's independence assumptions (LMC).")
+                    print("Build the LCN's independence assumptions (LMC).")
                     self.local_markov_condition()
                 return True
             
@@ -974,7 +1059,7 @@ class LCN:
                 Full path to the output file.
         """
         with open(file_name, "w") as f:
-            f.write(f"# Saved LCN instance\n\n")
+            f.write("# Saved LCN instance\n\n")
             for sid, s in self.sentences.items():
                 f.write(f"{str(s)}\n")
             f.close()
@@ -1033,7 +1118,7 @@ class LCN:
             # Get the sentence and check its syntax
             sentence = tokens[1].strip()
             if not sentence.startswith("P(") or sentence[-1] != ')':
-                raise ValueError(f"Syntax error: a sentence must be given as P(...)")
+                raise ValueError("Syntax error: a sentence must be given as P(...)")
             count = sentence.count("|")
             if count == 0: # Type 1 sentence
                 phi_str = sentence[2:-1].strip()
@@ -1046,7 +1131,7 @@ class LCN:
                 psi_str = sentence[pos+1:-1]
                 psi_str = psi_str.strip()
             else:
-                raise ValueError(f"Syntax error: symbol | can only occur at most one time.")
+                raise ValueError("Syntax error: symbol | can only occur at most one time.")
 
             return Sentence(
                 label=label[:-1],
@@ -1070,12 +1155,12 @@ class LCN:
             f.close()
             self.add_sentences(sentences)
             print(f"Parsed LCN format with {len(sentences)} sentences.")
-            print(f"Build the LCN's primal graph.")
+            print("Build the LCN's primal graph.")
             self.build_primal_graph()
-            print(f"Build the LCN's structure graph.")
+            print("Build the LCN's structure graph.")
             self.build_structure_graph()
             if lmc:
-                print(f"Build the LCN's independence assumptions (LMC).")
+                print("Build the LCN's independence assumptions (LMC).")
                 self.local_markov_condition()
 
             return True
@@ -1087,32 +1172,35 @@ class LCN:
 if __name__ == "__main__":
 
     # Load an LCN from a file
-    file_name = "/Users/radu/git/IBM/LCN/examples/alarm.lcn"
-    l = LCN()
-    l.from_lcn(file_name=file_name)
+    file_name = "examples/alarm.lcn"
+    lcn_model = LCN()
+    lcn_model.from_lcn(file_name=file_name)
 
     # Print the LCN content
-    print(l)
+    print(lcn_model)
+
+    # Print the primal graph and the structure graph
+    lcn_model.show_graphs()
 
     # Build the parents and descendants for each atom
-    atoms = sorted([a for a, _ in l.atoms.items()])
+    atoms = sorted([a for a, _ in lcn_model.atoms.items()])
     parents = {}
     descendants = {}
     for X in atoms:
-        p_list = l.lcn_parents(atom=X)
-        d_list = l.lcn_descendants(atom=X, parents=p_list)
+        p_list = lcn_model.lcn_parents(atom=X)
+        d_list = lcn_model.lcn_descendants(atom=X, parents=p_list)
         parents[X] = p_list
         descendants[X] = d_list
-    
+
     # Print the results
     print("[Parents and Descendants]")
     for X in atoms:
         print(f"    Parents of {X}: {parents[X]}")
         print(f"Descendants of {X}: {descendants[X]}")
-    
+
     # Local Markov Condition
     print("[Local Markov Condition: independencies]")
-    for indep in l.independencies.get_assertions():
+    for indep in lcn_model.independencies.get_assertions():
         print(f"{indep}")
 
     print("Done.")
