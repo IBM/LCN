@@ -18,8 +18,7 @@
 import contextlib
 import io
 import numpy as np
-import networkx as nx
-from typing import List
+from typing import List, Optional
 
 from lcn.core.model import LCN, Sentence, Atom
 from lcn.inference.utils.common import (
@@ -29,6 +28,13 @@ from lcn.inference.utils.common import (
 
 # Binary connectors supported by the LCN parser
 _CONNECTORS = ["and", "or", "xor"]
+
+# An LCN instance is predicted "easy" for the global (SCIP) solver when the
+# total number of bilinear LMC equality constraints it induces stays small.
+# Each Local Markov assertion (X _||_ Y | S) contributes 2^(|Y|+|S|) bilinear
+# equalities to the global model (see estimate_difficulty); below this many the
+# spatial branch-and-bound certifies all marginals quickly.
+EASY_TOTAL_CAP = 256
 
 
 class Generator:
@@ -56,6 +62,13 @@ class Generator:
         max_parents: int = 2,
         consistency_restarts: int = 40,
         consistency_mode: str = "product",
+        strategy: str = "linear",
+        coverage: float = 1.0,
+        core: int = 3,
+        difficulty_cap: int = 64,
+        base_topology: str = "polytree",
+        verify_time_limit: float = 5.0,
+        verify_gap_tol: float = 0.0,
         verbosity: int = 1,
     ) -> List[LCN]:
         """
@@ -63,7 +76,9 @@ class Generator:
 
         Args:
             num_vars: Number of variables in each LCN.
-            graph_type: Graph topology — "random", "dag", "polytree", or "chain".
+            graph_type: Graph topology — "random", "dag", "polytree", "chain",
+                or "easy" (instances designed to be quick for the SCIP global
+                solver to certify; see the strategy/coverage args below).
             num_instances: Number of consistent instances to generate.
             num_sentences: Number of sentences per instance (only used when
                 graph_type="random"). Defaults to num_vars if not specified.
@@ -75,19 +90,59 @@ class Generator:
                 (only used when graph_type="chain").
             max_parents: Maximum number of parents per child node
                 (only used when graph_type="dag" or "polytree").
+            strategy: For graph_type="easy", how to make instances easy:
+                "linear" (default) conditions each atom on its predecessors so
+                most/all Local Markov assertions vanish (coverage controls how
+                many); "sparse" produces a small, bounded number of small
+                assertions independent of n (the regime of
+                examples/linear5a.lcn; controlled by core); "bounded" generates
+                a base_topology candidate and rejects it unless its induced
+                bilinear load stays under difficulty_cap; "verified" additionally
+                runs SCIP and keeps only instances whose marginals all certify
+                within verify_time_limit.
+            coverage: For strategy="linear", fraction of predecessors each atom
+                conditions on. 1.0 (default) = full coverage => zero independence
+                assertions => a pure-LP global model (the reliably-easy regime).
+                NOTE: difficulty is essentially a cliff, not a gradient -- any
+                coverage < 1.0 leaves at least one atom with a large
+                non-parent-non-descendant set Y (or a large conditioning set S),
+                which re-introduces a ~2^9-term bilinear assertion at n=10 and is
+                about as hard as a raw chain. Lower coverage is exposed for
+                experimentation, but keep it at 1.0 for guaranteed-easy
+                instances; use strategy="sparse" for a few small assertions or
+                strategy="verified" to SCIP-filter anything else.
+            core: For strategy="sparse", the size of the leading sparse-spine
+                region. The first ``core`` atoms condition only on their
+                immediate predecessor while later atoms use full coverage,
+                yielding ~core-2 assertions each of size <= 2^(core-1),
+                independent of n. Keep it small (3-5); core <= 2 degenerates to
+                full coverage (zero assertions).
+            difficulty_cap: For strategy="bounded", the maximum allowed single
+                assertion size 2^(|Y|+|S|) (a parallel total cap of
+                EASY_TOTAL_CAP applies to the sum).
+            base_topology: For strategy="bounded", the topology of the candidate
+                to filter ("dag", "polytree", or "chain").
+            verify_time_limit: For strategy="verified", the per-solve SCIP wall
+                limit (seconds) under which every marginal must certify.
+            verify_gap_tol: For strategy="verified", the SCIP gap tolerance.
             verbosity: Verbosity level (0 = silent).
 
         Returns:
             A list of consistent LCN instances.
         """
-        assert graph_type in ("random", "dag", "polytree", "chain"), \
+        assert graph_type in ("random", "dag", "polytree", "chain", "easy"), \
             f"Unknown graph_type '{graph_type}'. " \
-            f"Use 'random', 'dag', 'polytree', or 'chain'."
+            f"Use 'random', 'dag', 'polytree', 'chain', or 'easy'."
         assert num_vars >= 3, "Need at least 3 variables."
         assert max_component_size >= 1, "max_component_size must be >= 1."
         assert max_parents >= 1, "max_parents must be >= 1."
         assert consistency_mode in ("product", "full"), \
             f"Unknown consistency_mode '{consistency_mode}'. Use 'product' or 'full'."
+        assert strategy in ("linear", "sparse", "bounded", "verified"), \
+            f"Unknown strategy '{strategy}'. " \
+            f"Use 'linear', 'sparse', 'bounded', or 'verified'."
+        assert 0.0 <= coverage <= 1.0, "coverage must be in [0, 1]."
+        assert core >= 2, "core must be >= 2."
 
         if num_sentences is None:
             num_sentences = num_vars
@@ -113,6 +168,16 @@ class Generator:
             if graph_type == "random":
                 lcn = self._build_random_lcn(num_vars, num_sentences,
                                              max_vars_per_sentence, epsilon)
+            elif graph_type == "easy":
+                lcn = self._build_easy_lcn(
+                    num_vars, strategy, coverage, difficulty_cap, base_topology,
+                    epsilon, max_vars_per_sentence, num_extras,
+                    max_component_size, max_parents, core,
+                    verify_time_limit, verify_gap_tol)
+                if lcn is None:
+                    # "bounded"/"verified" rejected this candidate; fall through
+                    # to the retry loop (counts against max_retries).
+                    continue
             else:
                 scopes, components = self._make_graph(num_vars, graph_type,
                                                       max_component_size,
@@ -131,6 +196,185 @@ class Generator:
                 print(f"[Generator] Attempt {total_attempts}: inconsistent, retrying.")
 
         return instances
+
+    def generate_easy(
+        self,
+        num_vars: int,
+        num_instances: int = 1,
+        strategy: str = "linear",
+        coverage: float = 1.0,
+        **kwargs,
+    ) -> List[LCN]:
+        """
+        Convenience wrapper for ``generate(graph_type="easy", ...)``.
+
+        Produces consistent LCN instances designed to be quick for the SCIP
+        global solver to certify. See ``generate`` for the strategy/coverage
+        semantics and the remaining keyword arguments.
+        """
+        return self.generate(num_vars=num_vars, graph_type="easy",
+                             num_instances=num_instances, strategy=strategy,
+                             coverage=coverage, **kwargs)
+
+    # ------------------------------------------------------------------
+    # Easy-instance generation (low SCIP global-solve difficulty)
+    # ------------------------------------------------------------------
+
+    def _graph_full_cover(self, n: int, coverage: float = 1.0):
+        """
+        Scopes where each atom conditions on its nearest predecessors.
+
+        With ``coverage == 1.0`` every atom x_i conditions on ALL earlier atoms
+        x_0..x_{i-1}; then for every atom its parents (all earlier) and
+        descendants (all later) cover the rest of the graph, so the Local Markov
+        non-parent-non-descendant set Y is empty and NO independence assertions
+        are emitted -- the global model becomes a pure LP that SCIP certifies
+        immediately. Lower coverage conditions on only the k nearest
+        predecessors; this is NOT reliably easier (the un-conditioned earlier
+        atoms fall into Y, re-creating large bilinear assertions -- see the
+        coverage note in ``generate``), and is exposed only for experimentation.
+
+        Returns ``(scopes, [])`` matching the ``_make_graph`` contract: each
+        scope is ``[parents..., child]`` (or ``[var]`` for the root).
+        """
+        scopes = [[0]]  # root: Type 1 marginal P(x0)
+        for i in range(1, n):
+            k = max(1, round(coverage * i))
+            k = min(k, i)
+            parents = list(range(i - k, i))  # the k nearest predecessors
+            scopes.append(parents + [i])
+        return scopes, []
+
+    def _graph_sparse_linear(self, n: int, core: int = 3):
+        """
+        Scopes that induce a SMALL, BOUNDED number of small LMC assertions,
+        independent of n (the regime of ``examples/linear5a.lcn``).
+
+        Construction: the first ``core`` atoms form a sparse spine -- each x_i
+        (1 <= i < core) conditions only on its immediate predecessor x_{i-1} --
+        while every atom from index ``core`` on conditions on ALL earlier atoms
+        (full coverage). Intuition:
+
+          * The full-coverage tail has parents = all-earlier and descendants =
+            all-later, so those atoms emit no assertion (Y = empty).
+          * Each sparse early atom x_i skips predecessors x_0..x_{i-2}; one of
+            them becomes its single non-parent-non-descendant Y, producing an
+            assertion (x_i _||_ Y | x_{i-1}) whose conditioning set lives in the
+            low-index region, so |Y|+|S| <= core. The number of assertions is
+            ~core-2 and the largest is ~2^(core-1) -- both bounded by ``core``,
+            NOT by n.
+
+        With ``core <= 2`` this degenerates to full coverage (zero assertions);
+        ``core = 3`` gives one tiny assertion, ``core = 4`` gives two, etc. Keep
+        ``core`` small (3-5) for genuinely easy instances. Returns
+        ``(scopes, [])`` matching the ``_make_graph`` contract.
+        """
+        core = max(2, min(core, n))
+        scopes = [[0]]  # root: Type 1 marginal P(x0)
+        for i in range(1, n):
+            if i < core:
+                parents = [i - 1]              # sparse spine in the early region
+            else:
+                parents = list(range(0, i))    # full coverage afterwards
+            scopes.append(parents + [i])
+        return scopes, []
+
+    def _make_conjunction_formula(self, var_ids: List[int]) -> str:
+        """
+        Build a conjunction ``x_a and x_b and ...`` over the given variables
+        (each possibly negated via ``_make_literal``). Unlike
+        ``_make_random_formula`` this uses ALL given variables and only the
+        ``and`` connector, so the conditioning set is exactly ``var_ids`` -- the
+        property the full-coverage Y=empty argument relies on.
+        """
+        lits = [self._make_literal(v) for v in var_ids]
+        if len(lits) == 1:
+            return lits[0]
+        return "(" + " and ".join(lits) + ")"
+
+    def _build_easy_from_scopes(self, scopes, num_vars: int, epsilon: float,
+                                max_vars: int, num_extras: int) -> LCN:
+        """
+        Build an LCN from ``[parents..., child]`` scopes, mirroring ``_build_lcn``
+        but using a full ``and``-conjunction of the parents as the conditioning
+        formula (so the intended predecessors are exactly the structural
+        parents). Conditional sentences keep the ``Sentence`` default
+        ``tau=True`` -- required for the predecessor->parent derivation, and thus
+        for the Y=empty property -- so ``tau`` is never overridden here.
+        """
+        lcn = LCN()
+        lcn.add_atoms([Atom(f"x{i}") for i in range(num_vars)])
+
+        sid = 0
+        for scope in scopes:
+            if len(scope) == 1:
+                phi = self._make_random_formula([scope[0]], max_vars)
+                psi = None
+            else:
+                child = scope[-1]
+                parents = scope[:-1]
+                phi = self._make_random_formula([child], max_vars)
+                psi = self._make_conjunction_formula(parents)
+            lo, hi = self._make_bounds(epsilon)
+            lcn.add_sentence(Sentence(label=f"s{sid}", phi=phi, psi=psi,
+                                      lower=lo, upper=hi))
+            sid += 1
+
+        # Extra marginal sentences P(x_i) (kept identical to _build_lcn).
+        all_vars = list(range(num_vars))
+        extras_added = 0
+        attempts = 0
+        while extras_added < num_extras and attempts < num_extras * 10:
+            attempts += 1
+            var = all_vars[self.rng.randint(num_vars)]
+            phi = self._make_random_formula([var], max_vars)
+            lo, hi = self._make_bounds(epsilon)
+            lcn.add_sentence(Sentence(label=f"s{sid}", phi=phi, psi=None,
+                                      lower=lo, upper=hi))
+            sid += 1
+            extras_added += 1
+
+        return lcn
+
+    def _build_easy_lcn(self, num_vars, strategy, coverage, difficulty_cap,
+                        base_topology, epsilon, max_vars, num_extras,
+                        max_component_size, max_parents, core,
+                        verify_time_limit, verify_gap_tol) -> Optional[LCN]:
+        """
+        Build a single easy-instance candidate. Returns None when a "bounded" or
+        "verified" candidate fails its filter (the caller's retry loop handles
+        it); "linear"/"sparse" candidates are constructively easy and always
+        returned.
+        """
+        if strategy == "linear":
+            scopes, _ = self._graph_full_cover(num_vars, coverage)
+            return self._build_easy_from_scopes(scopes, num_vars, epsilon,
+                                                max_vars, num_extras)
+
+        if strategy == "sparse":
+            scopes, _ = self._graph_sparse_linear(num_vars, core)
+            return self._build_easy_from_scopes(scopes, num_vars, epsilon,
+                                                max_vars, num_extras)
+
+        if strategy == "bounded":
+            scopes, components = self._make_graph(num_vars, base_topology,
+                                                  max_component_size, max_parents)
+            lcn = self._build_lcn(scopes, components, num_vars, epsilon,
+                                  max_vars, num_extras)
+            d = estimate_difficulty(lcn)
+            if d["max_single"] > difficulty_cap or d["total_bilinear"] > EASY_TOTAL_CAP:
+                return None
+            return lcn
+
+        # strategy == "verified": build a linear candidate, keep only if SCIP
+        # certifies every marginal within the budget.
+        scopes, _ = self._graph_full_cover(num_vars, coverage)
+        lcn = self._build_easy_from_scopes(scopes, num_vars, epsilon,
+                                           max_vars, num_extras)
+        if is_globally_easy(lcn, time_limit=verify_time_limit,
+                            gap_tol=verify_gap_tol):
+            return lcn
+        return None
 
     # ------------------------------------------------------------------
     # Graph topology generators
@@ -579,6 +823,78 @@ class Generator:
         lcn.save_lcn(file_name)
 
 
+# ----------------------------------------------------------------------
+# Difficulty analysis (global-solver hardness of an LCN instance)
+# ----------------------------------------------------------------------
+
+def estimate_difficulty(lcn: LCN) -> dict:
+    """
+    Estimate how hard an LCN is for the global (SCIP) marginal solver.
+
+    The global model adds, for each Local Markov assertion (X _||_ Y | S),
+    exactly ``2 ** (|Y| + |S|)`` bilinear equality constraints -- the only
+    source of nonconvexity, and the dominant driver of SCIP's branch-and-bound
+    cost. This sums those counts over all assertions.
+
+    Builds the primal/structure graphs and the Local Markov Condition as a side
+    effect (quietly; those builders print progress). Safe to call on a freshly
+    parsed LCN.
+
+    Returns a dict with:
+        num_assertions: number of Local Markov independence assertions.
+        total_bilinear: sum over assertions of 2^(|Y|+|S|) (the model load).
+        max_single:     the largest single 2^(|Y|+|S|) (0 if no assertions).
+        predicted:      "easy" if total_bilinear <= EASY_TOTAL_CAP else "hard".
+    """
+    with contextlib.redirect_stdout(io.StringIO()):
+        lcn.build_primal_graph()
+        lcn.build_structure_graph()
+        lcn.local_markov_condition()
+
+    per = [2 ** (len(a.event2) + len(a.event3))
+           for a in lcn.independencies.get_assertions()]
+    total = sum(per)
+    return {
+        "num_assertions": len(per),
+        "total_bilinear": total,
+        "max_single": max(per, default=0),
+        "predicted": "easy" if total <= EASY_TOTAL_CAP else "hard",
+    }
+
+
+def is_globally_easy(lcn: LCN, time_limit: float = 5.0, gap_tol: float = 0.0,
+                     den_floor: float = 1e-6) -> bool:
+    """
+    Ground-truth easy check: run the SCIP global solver and report whether every
+    singleton marginal certifies (proven optimal) within ``time_limit`` seconds
+    per solve.
+
+    Requires the optional SCIP CLI on PATH; if SCIP is unavailable this returns
+    False (the instance cannot be *certified* easy without the global solver)
+    rather than raising, so callers degrade gracefully.
+    """
+    # Imported lazily so the generator does not pull in the inference stack (or
+    # require SCIP) unless this check is actually used.
+    from lcn.inference.marginal.exact import ExactInference
+
+    with contextlib.redirect_stdout(io.StringIO()):
+        lcn.build_primal_graph()
+        lcn.build_structure_graph()
+        lcn.local_markov_condition()
+        algo = ExactInference(lcn=lcn)
+        try:
+            algo.run(evidence={}, solver="global", verbosity=0,
+                     progress_bar=False, time_limit=time_limit,
+                     gap_tol=gap_tol, den_floor=den_floor)
+        except RuntimeError:
+            return False  # SCIP binary not found
+
+    if not algo.feasible or not algo.status:
+        return False
+    return all(rec['min'][2] == "confirmed" and rec['max'][2] == "confirmed"
+               for rec in algo.status.values())
+
+
 if __name__ == "__main__":
 
     gen = Generator(seed=42)
@@ -602,3 +918,20 @@ if __name__ == "__main__":
             fname = f"/tmp/lcn_{graph_type}_{i+1}.lcn"
             gen.save(lcn, fname)
             print(f"Saved to {fname}")
+
+    # Easy instances (designed for fast SCIP global certification).
+    print(f"\n{'='*60}")
+    print("Generating EASY LCNs")
+    print(f"{'='*60}")
+    for strategy, kw in [("linear", {"coverage": 1.0}),
+                         ("sparse", {"core": 3})]:
+        print(f"--- strategy={strategy} {kw} ---")
+        for n in [5, 8, 10]:
+            easy = gen.generate_easy(num_vars=n, num_instances=1,
+                                     strategy=strategy, epsilon=0.4,
+                                     verbosity=0, **kw)
+            for lcn in easy:
+                d = estimate_difficulty(lcn)
+                print(f"  {strategy} n={n}: assertions={d['num_assertions']} "
+                      f"total_bilinear={d['total_bilinear']} "
+                      f"max_single={d['max_single']} predicted={d['predicted']}")
