@@ -17,6 +17,7 @@
 
 import itertools
 import logging
+import math
 import time
 import numpy as np
 from tqdm import tqdm
@@ -26,6 +27,7 @@ from pyomo.environ import (
     NonNegativeReals,
     Objective,
     Set,
+    SolverFactory,
     TerminationCondition,
     Var,
     maximize,
@@ -46,10 +48,81 @@ from lcn.inference.utils.common import (
 
 _N_RESTARTS = 4             # random-restart budget on a failed/vacuous solve
 
+# "lightning" speed preset: clamp the per-solve time limit to this many seconds
+# (and, for the local solver, drop to the fast ipopt config). A quick, best-effort
+# pass -- bounds may be loose (local) or returned as "unconfirmed" (global).
+LIGHTNING_TIME_LIMIT = 10.0
+
 
 # The ipopt configuration is shared across the whole inference suite and lives
 # in lcn.inference.utils.common; alias it here for the internal call sites.
 _make_ipopt = make_ipopt
+
+
+# Termination conditions that mean SCIP proved optimality. A time/iteration limit
+# that still produced an incumbent yields a valid-but-unproven bound; that case is
+# detected from the optimality gap, not enumerated here.
+_OPTIMAL = {
+    TerminationCondition.optimal,
+    TerminationCondition.locallyOptimal,
+    TerminationCondition.globallyOptimal,
+    TerminationCondition.feasible,
+}
+
+
+def make_scip(time_limit: float = 3600.0, gap_tol: float = 0.0):
+    """
+    Return a configured SCIP solver, or raise a clear error if SCIP is missing.
+
+    Args:
+        time_limit: per-solve wall-clock limit in seconds (SCIP ``limits/time``);
+            default 3600 (one hour).
+        gap_tol: relative optimality gap to stop at (SCIP ``limits/gap``); 0 means
+            prove global optimality.
+    """
+    solver = SolverFactory('scip')
+    if not solver.available(exception_flag=False):
+        raise RuntimeError(
+            "SCIP solver not found. Install the SCIP CLI binary and ensure it is "
+            "on PATH (macOS: `brew install scip`). Pyomo drives it via the "
+            "AMPL/NL interface, like ipopt.")
+    solver.options['limits/time'] = float(time_limit)
+    if gap_tol is not None:
+        solver.options['limits/gap'] = float(gap_tol)
+    return solver
+
+
+def _read_gap(results):
+    """Best-effort optimality gap from a Pyomo results object (or None)."""
+    gap = getattr(results.solver, 'gap', None)
+    try:
+        if gap is not None and not (isinstance(gap, float) and math.isnan(gap)):
+            return float(gap)
+    except (TypeError, ValueError):
+        pass
+    return None
+
+
+def _n(v):
+    return f"{v:.6f}" if v is not None else "  n/a   "
+
+
+def _fmt(v, gap, status, secs):
+    g = f"gap={gap:.2g}" if gap is not None else "gap=?"
+    return f"{_n(v)} [{g}, {status}, {secs:.1f}s]"
+
+
+def _point_mass(ev_val: int) -> Tuple[np.ndarray, np.ndarray]:
+    """Marginal of an evidence variable: a point mass at its observed value.
+
+    Returns the ``(lower, upper)`` pair (both [P(=0), P(=1)]) used for an atom
+    fixed by evidence -- identical for the local and global backends.
+    """
+    lo_arr = np.zeros(2)
+    hi_arr = np.zeros(2)
+    lo_arr[ev_val] = 1.0
+    hi_arr[ev_val] = 1.0
+    return lo_arr, hi_arr
 
 
 def _init_p(model, N: int, rng=None) -> None:
@@ -188,7 +261,7 @@ def _build_base_model(
     return model, atom_indicators, evidence_indicator, interpretations, N, checks
 
 
-def _solve_with_objective(model, obj_expr, sense, solver, debug=False):
+def _solve_with_objective(model, obj_expr, sense, solver, debug=False, tee=None):
     """
     Attach an objective to the model, solve, and return the result.
     Removes any existing objective before adding the new one.
@@ -198,7 +271,10 @@ def _solve_with_objective(model, obj_expr, sense, solver, debug=False):
         obj_expr: Pyomo expression for the objective.
         sense: 'min' or 'max'.
         solver: Reusable SolverFactory instance.
-        debug: If True, show solver output.
+        debug: If True, show diagnostics (exception prints below).
+        tee: If True, stream the solver's search log to stdout. When None
+            (default), falls back to ``debug`` -- this keeps existing 5-argument
+            positional callers (e.g. sccp.py) behaving exactly as before.
 
     Returns:
         (objective_value, feasible) tuple. A solve is considered feasible/usable
@@ -207,6 +283,9 @@ def _solve_with_objective(model, obj_expr, sense, solver, debug=False):
         solution and must not be discarded as if it were infeasible. Only a
         genuine ``infeasible`` termination or an exception yields feasible=False.
     """
+    if tee is None:
+        tee = debug
+
     # Remove existing objective if present
     if hasattr(model, 'objective'):
         model.del_component('objective')
@@ -226,7 +305,7 @@ def _solve_with_objective(model, obj_expr, sense, solver, debug=False):
     }
 
     try:
-        results = solver.solve(model, load_solutions=True, tee=debug)
+        results = solver.solve(model, load_solutions=True, tee=tee)
         tc = results.solver.termination_condition
         if tc in _usable or str(tc).lower() == 'acceptable':
             objective_value = value(model.objective)
@@ -253,7 +332,7 @@ def _solve_with_objective(model, obj_expr, sense, solver, debug=False):
 
 def _robust_solve(model, obj_expr, sense, solver, N, atom, debug=False,
                   checks=None, obj_vec=None, seeds_provider=None,
-                  use_slsqp_fallback=True):
+                  use_slsqp_fallback=True, tee=None):
     """
     Solve min/max of ``obj_expr`` robustly on the (nonconvex) marginal NLP.
 
@@ -284,6 +363,8 @@ def _robust_solve(model, obj_expr, sense, solver, N, atom, debug=False,
         use_slsqp_fallback: bool, when False the SLSQP fallback is disabled and
             the bound comes from ipopt (primary + random restarts) only. The
             seeds_provider is then never invoked (no feasible-seed search).
+        tee: optional bool forwarded to ipopt to stream its search log (used at
+            verbosity 2). None defers to ``debug``.
 
     Returns:
         (best_value, feasible, used_fallback) tuple. feasible is False only if
@@ -301,14 +382,14 @@ def _robust_solve(model, obj_expr, sense, solver, N, atom, debug=False,
 
     # Primary solve from the uniform feasible point.
     _init_p(model, N)
-    best, ok = _solve_with_objective(model, obj_expr, sense, solver, debug)
+    best, ok = _solve_with_objective(model, obj_expr, sense, solver, debug, tee)
 
     if _is_suspicious(best, ok):
         for k in range(_N_RESTARTS):
             # Deterministic per-(atom, sense, restart) seed -> reproducible runs.
             seed = abs(hash((atom, sense, k))) % (2 ** 32)
             _init_p(model, N, rng=np.random.default_rng(seed))
-            v, okk = _solve_with_objective(model, obj_expr, sense, solver, debug)
+            v, okk = _solve_with_objective(model, obj_expr, sense, solver, debug, tee)
             if okk and v is not None:
                 if best is None or not ok:
                     best, ok = v, True
@@ -349,6 +430,21 @@ class ExactInference:
     """
     The exact marginal inference algorithm for LCNs.
     See [Marinescu et al. Logical Credal Networks. NeurIPS 2022]
+
+    Computes lower/upper marginal bounds for every singleton variable by solving,
+    for each atom, a min and a max of P(atom=1) over the joint distributions
+    consistent with the LCN. Two solver backends are available, selected by the
+    ``solver`` argument of ``run``:
+
+      * ``"local"`` (default): ipopt with a two-phase SLSQP fallback. Fast, but a
+        *local* method on this nonconvex bilinear-LMC NLP -- bounds may be loose.
+      * ``"global"``: SCIP (spatial branch-and-bound). Either certifies the global
+        optimum or, on a time-out, returns the best bound found so far together
+        with the optimality gap. Requires the optional SCIP CLI on PATH.
+
+    After ``run`` with ``solver="global"``, ``self.status`` holds the per-atom SCIP
+    verdict; it stays ``None`` for the local solver. ``self.solver_used`` records
+    which backend ran.
     """
 
     def __init__(
@@ -358,74 +454,148 @@ class ExactInference:
         self.lcn = lcn
         self.marginals = None
         self.feasible = None
+        # Per-atom global-solver verdict {atom: {'min': (value, gap, status,
+        # secs), 'max': (...)}}; populated only by the "global" (SCIP) solver.
+        self.status = None
+        # Which backend the last run() used ("local" or "global").
+        self.solver_used = None
 
     def run(
             self,
             evidence: dict = {},
             debug: bool = False,
             verbosity: int = 2,
-            mode: str = "exact",
-            use_slsqp_fallback: bool = True
+            solver: str = "local",
+            mode: str = "slow",
+            use_slsqp_fallback: bool = True,
+            time_limit: float = 3600.0,
+            lightning: bool = False,
+            progress_bar: bool = True,
+            gap_tol: float = 0.0,
+            den_floor: float = 1e-6,
     ) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
         """
         Run exact inference to compute marginals for ALL singleton variables.
 
-        Builds the constraint model once, then solves min/max for each atom
-        by swapping the objective. Evidence is handled via conditional
-        probability in the objective: P(atom AND e) / P(e).
+        For each non-evidence atom, minimizes and maximizes P(atom=1) (linear,
+        no evidence) or P(atom=1 | evidence) (fractional). Evidence atoms are
+        returned as point masses.
 
         Args:
-            evidence: dict
-                A dictionary containing the observed evidence variables.
+            evidence: dict {variable: value} of observed variables.
             debug: bool
-                A flag indicating that ipopt is run in debugging mode.
+                Show solver diagnostics and keep Pyomo's warning logs.
             verbosity: int
-                Verbosity level (0 is silent).
+                0 silent; >0 prints the LMC + a results table; ``2`` additionally
+                streams the solver's per-solve search log to stdout and (because
+                that would interleave with the bar) suppresses the progress bar.
+            solver: str
+                Which backend to use: ``"local"`` (default; ipopt + SLSQP
+                fallback) or ``"global"`` (SCIP spatial branch-and-bound, the
+                optional SCIP CLI must be on PATH).
             mode: str
-                ipopt solver mode (see make_ipopt): ``"exact"`` (default) drives
-                each bound to high accuracy; ``"fast"`` stops ipopt at the first
-                acceptable point, trading accuracy for speed. The SLSQP fallback
-                still backstops suspicious/failed solves in both modes.
+                Local solver only. ipopt accuracy config: ``"slow"`` (default,
+                high accuracy) or ``"fast"`` (stops at the first acceptable point,
+                trading accuracy for speed). Ignored by the global solver.
             use_slsqp_fallback: bool
-                When True (default) a two-phase SLSQP fallback backstops ipopt
-                on suspicious/failed solves, giving reliable bounds on the dense
-                nonconvex joint-LMC system. Set False to use ipopt alone
-                (primary + random restarts) -- faster, and useful for
-                benchmarking/ablating pure-ipopt behavior, but bounds may be
-                looser or infeasible on harder instances.
+                Local solver only. When True (default) a two-phase SLSQP fallback
+                backstops ipopt on suspicious/failed solves. Set False to use
+                ipopt alone (primary + random restarts).
+            time_limit: float
+                Per-solve time limit in seconds (default 3600 = one hour),
+                applied to BOTH backends. For the local solver this is ipopt CPU
+                time (``max_cpu_time``, with a best-effort wall cap); for the
+                global solver it is SCIP wall time (``limits/time``).
+            lightning: bool
+                Speed preset. Clamps ``time_limit`` to a few seconds; for the
+                local solver it also forces ``mode="fast"`` and disables the SLSQP
+                fallback (unless the caller explicitly set it True); for the
+                global solver it relaxes ``gap_tol`` to 0.1 when left at 0. A
+                quick best-effort pass -- bounds may be loose / unconfirmed.
+            progress_bar: bool
+                Show the tqdm atom progress bar (default True). Forced off at
+                verbosity 2 (see above) and at verbosity 0.
+            gap_tol: float
+                Global solver only. Relative optimality gap SCIP stops at; 0 =
+                prove optimality. A bound is ``confirmed`` only when the achieved
+                gap is <= gap_tol, else ``unconfirmed``.
+            den_floor: float
+                Global solver only. Floor on P(evidence) for the fractional
+                objective, keeping the ratio well-defined. 0/None disables it.
 
         Returns:
-            Dict mapping variable name to (lower_bounds, upper_bounds)
-            numpy arrays.
+            Dict mapping variable name to (lower_bounds, upper_bounds) numpy
+            arrays, each [P(=0), P(=1)]. Per-atom global-solver verdicts (if any)
+            are in ``self.status``.
         """
         assert self.lcn is not None, "Make sure the LCN model exists."
         assert self.lcn.independencies is not None, "Make sure the LMC is applied."
 
+        solver = solver.lower()
+        if solver not in ("local", "global"):
+            raise ValueError(f"unknown solver: {solver!r} (use 'local' or 'global')")
+        if mode not in ("slow", "fast"):
+            raise ValueError(f"unknown mode: {mode!r} (use 'slow' or 'fast')")
+
+        # Lightning preset: clamp the time budget and (local) drop to fast ipopt.
+        if lightning:
+            time_limit = min(time_limit, LIGHTNING_TIME_LIMIT)
+            if solver == "local":
+                mode = "fast"
+                if use_slsqp_fallback:  # only auto-disable the default-on case
+                    use_slsqp_fallback = False
+            elif gap_tol == 0.0:
+                gap_tol = 0.1
+
+        # Verbosity 2 streams the solver log; the bar would interleave with it.
+        effective_pbar = progress_bar and verbosity != 2
+
+        self.solver_used = solver
+        independencies = self.lcn.independencies
+        if verbosity > 0:
+            print(f"[ExactInference] Computing all marginals (solver={solver})")
+            print(f"[ExactInference] Evidence: {evidence}")
+            print(f"[ExactInference] Local Markov Condition: "
+                  f"{len(independencies.get_assertions())} independencies")
+
+        if solver == "global":
+            return self._run_global(evidence, debug, verbosity, time_limit,
+                                    gap_tol, den_floor, effective_pbar)
+        return self._run_local(evidence, debug, verbosity, mode,
+                               use_slsqp_fallback, time_limit, effective_pbar)
+
+    # ------------------------------------------------------------------
+    # Local backend: ipopt + SLSQP fallback (one reused model)
+    # ------------------------------------------------------------------
+    def _run_local(self, evidence, debug, verbosity, mode, use_slsqp_fallback,
+                   time_limit, effective_pbar):
         t_start = time.time()
         independencies = self.lcn.independencies
         evidence_set = set(evidence.keys())
 
-        if verbosity > 0:
-            num_indep = len(independencies.get_assertions())
-            print("[ExactInference] Computing all marginals")
-            print(f"[ExactInference] Evidence: {evidence}")
-            print(f"[ExactInference] Local Markov Condition: {num_indep} independencies")
-
-        # Build the base model once (constraints only, no objective)
+        # Build the base model once (constraints only, no objective).
         model, atom_indicators, evidence_indicator, interpretations, N, checks = \
             _build_base_model(self.lcn, independencies, evidence, verbosity)
 
-        # Pre-compute P(evidence) expression (reused across all atoms)
+        # Pre-compute P(evidence) expression (reused across all atoms).
         ev_expr = None
         if evidence_indicator is not None:
             ev_expr = dot(evidence_indicator, model, model.ITEMS)
 
-        # Create a shared, correctly-configured ipopt solver instance
-        solver = _make_ipopt(debug=debug, mode=mode)
+        # Shared ipopt solver. Translate the public mode ("slow"/"fast") to the
+        # shared make_ipopt vocabulary ("exact"/"fast"), then bound its runtime by
+        # the caller's time_limit (ipopt CPU time, plus a best-effort wall cap).
+        ipopt_mode = "exact" if mode == "slow" else "fast"
+        solver = _make_ipopt(debug=debug, mode=ipopt_mode)
+        solver.options['max_cpu_time'] = float(time_limit)
+        solver.options['max_wall_time'] = float(time_limit)  # ignored if unsupported
 
-        # Compute marginals for each atom
+        # Stream ipopt's log at verbosity 2 (or under debug).
+        tee = bool(debug) or (verbosity == 2)
+
         self.marginals = {}
         self.feasible = True
+        self.status = None  # local solver has no per-atom gap/status concept
         atom_names = [k for k, _ in self.lcn.atoms.items()]
         solve_atoms = [a for a in atom_names if a not in evidence_set]
 
@@ -462,17 +632,11 @@ class ExactInference:
         n_fallback = 0
         n_infeasible = 0
         pbar = tqdm(total=len(solve_atoms), desc="[ExactInference] atoms",
-                    disable=(verbosity == 0))
+                    disable=(not effective_pbar))
         try:
             for atom_name in atom_names:
                 if atom_name in evidence_set:
-                    # Evidence variable: point distribution
-                    ev_val = evidence[atom_name]
-                    lo_arr = np.zeros(2)
-                    hi_arr = np.zeros(2)
-                    lo_arr[ev_val] = 1.0
-                    hi_arr[ev_val] = 1.0
-                    self.marginals[atom_name] = (lo_arr, hi_arr)
+                    self.marginals[atom_name] = _point_mass(evidence[atom_name])
                     continue
 
                 A = atom_indicators[atom_name]
@@ -497,11 +661,11 @@ class ExactInference:
                 lo_val, feasible_lo, fb_lo = _robust_solve(
                     model, obj_expr, 'min', solver, N, atom_name, debug,
                     checks=checks, obj_vec=obj_vec, seeds_provider=_get_seeds,
-                    use_slsqp_fallback=use_slsqp_fallback)
+                    use_slsqp_fallback=use_slsqp_fallback, tee=tee)
                 hi_val, feasible_hi, fb_hi = _robust_solve(
                     model, obj_expr, 'max', solver, N, atom_name, debug,
                     checks=checks, obj_vec=obj_vec, seeds_provider=_get_seeds,
-                    use_slsqp_fallback=use_slsqp_fallback)
+                    use_slsqp_fallback=use_slsqp_fallback, tee=tee)
 
                 if not feasible_lo or not feasible_hi:
                     self.feasible = False
@@ -542,6 +706,250 @@ class ExactInference:
 
         return self.marginals
 
+    # ------------------------------------------------------------------
+    # Global backend: SCIP (fresh model per solve, certified bounds)
+    # ------------------------------------------------------------------
+    def _build_scip_model(self, interpretations):
+        """
+        Build a fresh Pyomo model with the simplex, sentence-bound and bilinear
+        LMC constraints (no objective). A fresh model is built per solve so the
+        objective swap never inherits a stale incumbent; cheap at small n.
+        """
+        vars_list = [k for k, _ in self.lcn.atoms.items()]
+        N = len(interpretations)
+
+        model = ConcreteModel()
+        model.ITEMS = Set(initialize=range(N))
+        model.p = Var(model.ITEMS, within=NonNegativeReals, bounds=(0.0, 1.0))
+        model.constr = ConstraintList()
+
+        # Probability distribution.
+        model.constr.add(sum(model.p[i] for i in model.ITEMS) == 1.0)
+
+        # Sentence-bound constraints.
+        for _, s in self.lcn.sentences.items():
+            lobo = s.get_lower_bound()
+            upbo = s.get_upper_bound()
+            if s.type == SentenceType.Type1:
+                A = eval_indicator(s.phi_formula, interpretations)
+                expr = dot(A, model, model.ITEMS)
+                model.constr.add(expr >= lobo)
+                model.constr.add(expr <= upbo)
+            else:
+                Aqr = eval_indicator(s.phi_and_psi_formula, interpretations)
+                Ar = eval_indicator(s.psi_formula, interpretations)
+                expr_qr = dot(Aqr, model, model.ITEMS)
+                expr_r = dot(Ar, model, model.ITEMS)
+                model.constr.add(expr_qr >= lobo * expr_r)
+                model.constr.add(expr_qr <= upbo * expr_r)
+
+        # LMC independence constraints (bilinear equalities) -- the nonconvex part.
+        table = build_truth_table(len(vars_list))
+        col_of = {v: i for i, v in enumerate(vars_list)}
+        for indep in self.lcn.independencies.get_assertions():
+            for group in lmc_constraint_groups_vec(indep, table, col_of):
+                if group[0] == 'conditional':
+                    _, Aa, Ab, Ac, Ad = group
+                    model.constr.add(
+                        dot(Aa, model, model.ITEMS) * dot(Ab, model, model.ITEMS)
+                        - dot(Ac, model, model.ITEMS) * dot(Ad, model, model.ITEMS)
+                        == 0.0)
+                else:
+                    _, Aa, Ab, Ac = group
+                    model.constr.add(
+                        dot(Aa, model, model.ITEMS)
+                        - dot(Ab, model, model.ITEMS) * dot(Ac, model, model.ITEMS)
+                        == 0.0)
+
+        return model
+
+    def _scip_solve(self, interpretations, A, evidence_indicator, sense, solver,
+                    gap_tol, den_floor, tee=False):
+        """
+        Globally optimize the marginal of one atom with SCIP.
+
+        Linear objective when ``evidence_indicator`` is None (P(atom=1) = A@p);
+        otherwise the fractional objective P(atom=1, e)/P(e) = (A*E)@p / (E@p),
+        with an optional denominator floor P(e) >= den_floor.
+
+        Returns ``(value_or_None, gap_or_None, status, seconds)`` where status is
+        ``"confirmed"`` (proven global optimum), ``"unconfirmed"`` (best feasible
+        bound found, gap > tol / time limit hit) or ``"unsolved"`` (no incumbent).
+        Never raises on a timeout.
+        """
+        model = self._build_scip_model(interpretations)
+
+        if evidence_indicator is None:
+            obj_expr = dot(A, model, model.ITEMS)
+        else:
+            AE = A * evidence_indicator  # element-wise numpy multiply
+            den = dot(evidence_indicator, model, model.ITEMS)
+            if den_floor is not None and den_floor > 0.0:
+                model.constr.add(den >= den_floor)
+            obj_expr = dot(AE, model, model.ITEMS) / den
+
+        model.objective = Objective(
+            expr=obj_expr, sense=(minimize if sense == 'min' else maximize))
+
+        t0 = time.time()
+        results = solver.solve(model, load_solutions=False, tee=tee)
+        elapsed = time.time() - t0
+
+        tc = results.solver.termination_condition
+        gap = _read_gap(results)
+
+        # Robust incumbent read: the SCIPAMPL/NL interface always reports one
+        # "solution" slot even on a pure timeout (no variable values), so
+        # len(results.solution) is not a reliable signal. Attempt the load and
+        # read with exception=False (returns None on uninitialized vars instead
+        # of logging an error and raising); None means "no incumbent".
+        obj_val = None
+        try:
+            model.solutions.load_from(results)
+            v = value(model.objective, exception=False)
+            obj_val = float(v) if v is not None else None
+        except Exception:
+            obj_val = None
+
+        if obj_val is None:
+            return None, gap, "unsolved", elapsed
+
+        confirmed = (tc in _OPTIMAL) or (gap is not None and gap <= gap_tol + 1e-12)
+        status = "confirmed" if confirmed else "unconfirmed"
+        return obj_val, gap, status, elapsed
+
+    def _run_global(self, evidence, debug, verbosity, time_limit, gap_tol,
+                    den_floor, effective_pbar):
+        t_start = time.time()
+        evidence_set = set(evidence.keys())
+        solver = make_scip(time_limit=time_limit, gap_tol=gap_tol)
+
+        if verbosity > 0:
+            for indep in self.lcn.independencies.get_assertions():
+                print(f"  {indep}")
+            print(f"[ExactInference] Per-solve time limit: {time_limit:.0f}s, "
+                  f"gap tolerance: {gap_tol}")
+
+        # Interpretation table (shared across all solves).
+        vars_list = [k for k, _ in self.lcn.atoms.items()]
+        items = list(itertools.product([0, 1], repeat=len(vars_list)))
+        interpretations = [dict(zip(vars_list, t)) for t in items]
+
+        # Pre-compute atom indicators and the evidence indicator (once).
+        atom_indicators = {
+            v: eval_indicator(Formula(label=v, formula=v), interpretations)
+            for v in vars_list}
+        evidence_indicator = None
+        if len(evidence) > 0:
+            Fe = make_conjunction(variables=list(evidence.keys()), literals=evidence)
+            evidence_indicator = eval_indicator(Fe, interpretations)
+
+        self.marginals = {}
+        self.status = {}
+        self.feasible = True
+        solve_atoms = [a for a in vars_list if a not in evidence_set]
+
+        # Suppress Pyomo's routine warning-status spam (expected on time-outs --
+        # we report gap/status ourselves). Restore afterwards.
+        pyomo_logger = logging.getLogger('pyomo')
+        prev_level = pyomo_logger.level
+        if not debug:
+            pyomo_logger.setLevel(logging.ERROR)
+
+        # Stream SCIP's search log at verbosity 2.
+        tee = (verbosity == 2)
+
+        n_confirmed = n_unconfirmed = n_unsolved = 0
+        pbar = tqdm(total=len(solve_atoms), desc="[ExactInference] atoms",
+                    disable=(not effective_pbar))
+        try:
+            for atom_name in vars_list:
+                if atom_name in evidence_set:
+                    self.marginals[atom_name] = _point_mass(evidence[atom_name])
+                    continue
+
+                A = atom_indicators[atom_name]
+                if tee:
+                    print(f"\n[ExactInference] === SCIP search: "
+                          f"minimize P({atom_name}=1) ===")
+                lo = self._scip_solve(interpretations, A, evidence_indicator,
+                                      'min', solver, gap_tol, den_floor, tee=tee)
+                if tee:
+                    print(f"\n[ExactInference] === SCIP search: "
+                          f"maximize P({atom_name}=1) ===")
+                hi = self._scip_solve(interpretations, A, evidence_indicator,
+                                      'max', solver, gap_tol, den_floor, tee=tee)
+                self.status[atom_name] = {'min': lo, 'max': hi}
+
+                lo_val, _, lo_status, _ = lo
+                hi_val, _, hi_status, _ = hi
+
+                # Vacuous fallbacks when a side is unsolved (no incumbent).
+                lo_1 = min(max(lo_val, 0.0), 1.0) if lo_val is not None else 0.0
+                hi_1 = min(max(hi_val, 0.0), 1.0) if hi_val is not None else 1.0
+                if lo_status == "unsolved" or hi_status == "unsolved":
+                    self.feasible = False
+
+                lo_arr = np.array([1.0 - hi_1, lo_1])
+                hi_arr = np.array([1.0 - lo_1, hi_1])
+                self.marginals[atom_name] = (lo_arr, hi_arr)
+
+                for st in (lo_status, hi_status):
+                    if st == "confirmed":
+                        n_confirmed += 1
+                    elif st == "unconfirmed":
+                        n_unconfirmed += 1
+                    else:
+                        n_unsolved += 1
+
+                pbar.set_postfix_str(
+                    f"{atom_name}=[{lo_1:.3f},{hi_1:.3f}] "
+                    f"conf={n_confirmed} unconf={n_unconfirmed} "
+                    f"unsolved={n_unsolved}")
+                pbar.update(1)
+        finally:
+            pbar.close()
+            pyomo_logger.setLevel(prev_level)
+
+        t_end = time.time()
+
+        if verbosity > 0:
+            self._print_global_report(t_end - t_start,
+                                      n_confirmed, n_unconfirmed, n_unsolved)
+
+        return self.marginals
+
+    def _print_global_report(self, elapsed, n_conf, n_unconf, n_unsolved):
+        """Print the per-atom bound/gap/status table and a summary line."""
+        print("[ExactInference] Singleton variable marginals "
+              "(P=1 bound | gap | status):")
+        for atom_name in sorted(self.status):
+            (lo_v, lo_g, lo_s, lo_t) = self.status[atom_name]['min']
+            (hi_v, hi_g, hi_s, hi_t) = self.status[atom_name]['max']
+            print(f"  {atom_name}: "
+                  f"min={_fmt(lo_v, lo_g, lo_s, lo_t)}  "
+                  f"max={_fmt(hi_v, hi_g, hi_s, hi_t)}")
+        print(f"[ExactInference] Feasible: {self.feasible}")
+        print(f"[ExactInference] Solves: confirmed optimal={n_conf} | "
+              f"unconfirmed (best-so-far)={n_unconf} | unsolved={n_unsolved}")
+        if n_unconf or n_unsolved:
+            print("[ExactInference] Note: unconfirmed/unsolved bounds are "
+                  "NOT proven optimal -- raise time_limit to certify.")
+        print(f"[ExactInference] Time elapsed: {elapsed:.4f} sec")
+
+
+class ExactInferenceSCIP(ExactInference):
+    """
+    Back-compat shim: ``ExactInferenceSCIP(lcn).run(...)`` is equivalent to
+    ``ExactInference(lcn).run(solver="global", ...)``. The SCIP global solver now
+    lives in ``ExactInference``; this subclass preserves the old global-by-default
+    entry point for any code still referencing the former exact_scip.py class.
+    """
+
+    def run(self, *args, **kwargs):
+        kwargs.setdefault("solver", "global")
+        return super().run(*args, **kwargs)
+
 
 if __name__ == "__main__":
 
@@ -554,24 +962,35 @@ if __name__ == "__main__":
                 print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
     # Load the LCN
-    file_name = "examples/alarm.lcn"
+    file_name = "examples/linear5a.lcn"
     lcn_model = LCN()
     lcn_model.from_lcn(file_name=file_name)
     lcn_model.summary()
+    lcn_model.show_graphs()
     print(lcn_model)
 
     # Check consistency
     print(f"\n=== Consistency check for {file_name} ===")
     ok = check_consistency(lcn_model)
 
-    # Run exact marginal inference (no evidence)
-    print("\n=== ExactInference (no evidence) ===")
+    # Run exact marginal inference with the LOCAL solver (ipopt + SLSQP), no evidence.
+    print("\n=== ExactInference (local, no evidence) ===")
     algo = ExactInference(lcn=lcn_model)
-    results = algo.run(evidence={}, debug=False, verbosity=2, mode="exact")
+    results = algo.run(evidence={}, debug=False, verbosity=0, solver="local", mode="slow")
+    print_singleton_marginals(results)
+
+    # Run exact marginal inference with the GLOBAL solver (SCIP), no evidence. A
+    # short per-solve time limit + loose gap tolerance keep the demo responsive
+    # (some alarm atoms are hard for SCIP and would otherwise run to the limit);
+    # the library default is a 3600s (1h) limit and gap_tol=0 (prove optimality).
+    print("\n=== ExactInference (global / SCIP, no evidence) ===")
+    algo2 = ExactInference(lcn=lcn_model)
+    results = algo2.run(evidence={}, debug=False, verbosity=0, solver="global",
+                        time_limit=10, gap_tol=0.0, progress_bar=True)
     print_singleton_marginals(results)
 
     # Run exact marginal inference (with evidence)
     # print("\n=== ExactInference (B=0, E=0) ===")
-    # algo2 = ExactInference(lcn=l)
-    # results = algo2.run(evidence={"B": 0, "E": 0}, debug=False)
+    # algo3 = ExactInference(lcn=lcn_model)
+    # results = algo3.run(evidence={"B": 0, "E": 0}, debug=False)
     # print_singleton_marginals(results)
