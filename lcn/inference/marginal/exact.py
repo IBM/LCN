@@ -1052,7 +1052,7 @@ if __name__ == "__main__":
     # Run exact marginal inference with the LOCAL solver (ipopt + SLSQP), no evidence.
     print("\n=== ExactInference (local, no evidence) ===")
     algo = ExactInference(lcn=lcn_model)
-    results = algo.run(evidence={"B": 1}, debug=False, verbosity=0, solver="local", mode="slow")
+    results = algo.run(evidence={}, debug=False, verbosity=1, solver="local", mode="slow")
     print_singleton_marginals(results)
 
     # Run exact marginal inference with the GLOBAL solver (SCIP), no evidence. A
@@ -1061,7 +1061,7 @@ if __name__ == "__main__":
     # the library default is a 3600s (1h) limit and gap_tol=0 (prove optimality).
     print("\n=== ExactInference (global / SCIP, no evidence) ===")
     algo2 = ExactInference(lcn=lcn_model)
-    results = algo2.run(evidence={"B": 1}, debug=False, verbosity=0, solver="global",
+    results = algo2.run(evidence={}, debug=False, verbosity=1, solver="global",
                         time_limit=10, gap_tol=0.0, progress_bar=True)
     print_singleton_marginals(results)
 
