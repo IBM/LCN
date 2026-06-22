@@ -577,6 +577,92 @@ def optimize_marginal_slsqp(N, obj_vec, checks, sense, seeds, feas_tol=1e-6,
     return (best, best is not None)
 
 
+def optimize_marginal_ratio_slsqp(N, num_vec, den_vec, checks, sense, seeds,
+                                  feas_tol=1e-6, den_floor=1e-9,
+                                  diversify=True):
+    """
+    Optimize a *fractional* objective ``(num_vec @ p) / (den_vec @ p)`` over the
+    2^N simplex subject to ``checks``, starting SLSQP from each feasible seed and
+    keeping the best feasible result. This is the conditional-probability analogue
+    of :func:`optimize_marginal_slsqp`: it computes a bound on
+    ``P(child, parents) / P(parents)`` for the "linear" factorization's parent
+    case directly on the simplex ``p`` (rather than the Charnes-Cooper ``(y, t)``
+    space), so the existing simplex-based seed machinery applies unchanged.
+
+    Points where the denominator falls below ``den_floor`` are rejected: the
+    conditional is undefined there and SLSQP would otherwise chase a spurious
+    extreme. As with the linear variant, every accepted optimum is re-checked
+    against the real constraints, so the bound can only tighten toward the true
+    extreme, never become infeasible.
+
+    Args:
+        N: int
+            Number of world-probability variables.
+        num_vec: numpy array of length N
+            Numerator coefficients (indicator of child AND parents match).
+        den_vec: numpy array of length N
+            Denominator coefficients (indicator of parents match).
+        checks: list of (kind, callable(p)->float)
+            Constraint residuals (see find_feasible_points).
+        sense: str
+            ``'min'`` or ``'max'``.
+        seeds: list of numpy arrays
+            Feasible warm-start points.
+        feas_tol: float
+            Feasibility tolerance for accepting a returned point.
+        den_floor: float
+            Minimum denominator value; points below are treated as infeasible.
+        diversify: bool
+            When True (default), generate extra feasible seeds biased toward the
+            numerator extreme and union them with ``seeds`` before optimizing.
+
+    Returns:
+        (best_value, feasible) where feasible is True iff some seed produced a
+        feasible optimum with a well-defined (above-floor) denominator.
+    """
+    from scipy.optimize import minimize as _sp_minimize
+
+    num_vec = np.asarray(num_vec, dtype=float)
+    den_vec = np.asarray(den_vec, dtype=float)
+    sign = 1.0 if sense == "min" else -1.0
+
+    # Augment seeds with feasible points biased toward the numerator extreme; the
+    # numerator is the dominant lever on the ratio when the denominator is bounded
+    # away from zero, so this helps the local search reach far/corner extremes.
+    if diversify:
+        seeds = list(seeds) + find_biased_feasible_points(
+            N, checks, num_vec, sense)
+
+    cons = [{"type": "eq", "fun": lambda p: float(p.sum()) - 1.0}]
+    for kind, fn in checks:
+        if kind == "eq":
+            cons.append({"type": "eq", "fun": (lambda p, fn=fn: fn(p))})
+        else:
+            cons.append({"type": "ineq", "fun": (lambda p, fn=fn: fn(p))})
+
+    def _ratio(p):
+        den = float(den_vec @ p)
+        if den < den_floor:
+            # Penalize: drive the search away from the undefined region.
+            return sign * 1e6
+        return sign * (float(num_vec @ p) / den)
+
+    best = None
+    for s in seeds:
+        res = _sp_minimize(_ratio, np.asarray(s, dtype=float), method="SLSQP",
+                           bounds=[(0.0, 1.0)] * N, constraints=cons,
+                           options={"maxiter": 800, "ftol": 1e-12})
+        p = np.asarray(res.x, dtype=float)
+        den = float(den_vec @ p)
+        if den >= den_floor and _checks_feasible(p, checks, feas_tol):
+            val = float(num_vec @ p) / den
+            if best is None:
+                best = val
+            else:
+                best = min(best, val) if sense == "min" else max(best, val)
+    return (best, best is not None)
+
+
 def check_consistency_product_witness(lcn: LCN, restarts: int = 40,
                                       seed: int = 0, tol: float = 1e-7) -> bool:
     """

@@ -39,7 +39,7 @@ import numpy as np
 from lcn.core.model import LCN
 from lcn.inference.marginal.exact import ExactInference
 from lcn.inference.marginal.ariel import ArielInference
-from lcn.inference.marginal.cn.cve import CredalVE
+from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
 from lcn.inference.marginal.cn.ibp import IntervalBP
 from lcn.inference.marginal.cn.ccte import CredalCTE
 from lcn.inference.marginal.cn.approxlp import ApproxLP
@@ -51,21 +51,22 @@ ALGORITHMS = ["exact", "ariel", "ibp", "ijgp", "ijgp_e", "ijgp_cp", "ijgp_cm", "
 _CVE_ALGORITHMS = {"ibp", "ijgp", "ijgp_e", "ijgp_cp", "ijgp_cm", "ccte", "ccte_e", "ccte_cp", "ccte_cm", "approxlp"}
 
 
-def _compute_induced_width(cve):
-    """Compute the induced width (treewidth upper bound) from a built CredalVE.
+def _compute_induced_width(cnv):
+    """Compute the induced width (treewidth upper bound) from a built
+    CredalNetworkVertices.
 
     Replays the min-fill elimination on the interaction graph built from
     the potential scopes.  The induced width is the maximum number of
     neighbours a variable has at the moment it is eliminated.
     """
-    bn = cve.bn_min
+    bn = cnv.bn_min
     cards = {}
     for nid in bn.nodes():
         cards[bn.variable(nid).name()] = bn.variable(nid).domainSize()
 
     # Collect scopes from the extreme-point potentials
     scopes = []
-    for node_name in cve.extreme_points:
+    for node_name in cnv.extreme_points:
         nid = bn.idFromName(node_name)
         parent_ids = sorted(bn.parents(nid))
         parent_names = [bn.variable(pid).name() for pid in parent_ids]
@@ -250,22 +251,28 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             result["run_time"] = round(t_end - t_start, 4)
 
         elif algorithm in _CVE_ALGORITHMS:
-            # Build factorization (CredalVE) — timed separately
-            t_build_start = time.time()
+            # Build the credal network vertices (chain-graph factorization +
+            # interval local credal sets + extreme-point enumeration). The
+            # whole pipeline is timed by CredalNetworkVertices.from_lcn via
+            # perf_counter; build_time is reported in the experiments.
             fact_method = kwargs.get("factorization_method", "linear")
-            cve = CredalVE(lcn=l)
-            cve.build(verbosity=verbosity,
-                      factorization_method=fact_method)
-            t_build_end = time.time()
-            result["build_time"] = round(t_build_end - t_build_start, 4)
-            result["induced_width"] = _compute_induced_width(cve)
+            n_jobs = kwargs.get("n_jobs", 1)
+            cn_solver = kwargs.get("solver", "ipopt")
+            cn_time_limit = kwargs.get("solver_time_limit", None)
+            cn_gap_tol = kwargs.get("gap_tol", 0.0)
+            cnv = CredalNetworkVertices.from_lcn(
+                l, method=fact_method, solver=cn_solver,
+                time_limit=cn_time_limit, gap_tol=cn_gap_tol,
+                n_jobs=n_jobs, verbosity=verbosity)
+            result["build_time"] = round(cnv.build_time, 4)
+            result["induced_width"] = _compute_induced_width(cnv)
 
             # Run the algorithm — timed separately
             t_run_start = time.time()
             if algorithm == "ibp":
                 n_iters = kwargs.get("n_iters", 100)
                 threshold = kwargs.get("threshold", 1e-6)
-                algo = IntervalBP(cve=cve)
+                algo = IntervalBP(cnv=cnv)
                 raw = algo.run(
                     evidence=evidence, n_iters=n_iters,
                     threshold=threshold, method="interval",
@@ -275,7 +282,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 n_iters = kwargs.get("n_iters", 100)
                 threshold = kwargs.get("threshold", 1e-6)
                 epsilon = None
-                algo = CredalIJGP(cve=cve)
+                algo = CredalIJGP(cnv=cnv)
                 raw = algo.run(
                     evidence=evidence, i_bound=i_bound,
                     n_iters=n_iters, threshold=threshold,
@@ -285,7 +292,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 n_iters = kwargs.get("n_iters", 100)
                 threshold = kwargs.get("threshold", 1e-6)
                 epsilon = kwargs.get("epsilon", None)
-                algo = CredalIJGP(cve=cve)
+                algo = CredalIJGP(cnv=cnv)
                 raw = algo.run(
                     evidence=evidence, i_bound=i_bound,
                     n_iters=n_iters, threshold=threshold,
@@ -297,7 +304,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 epsilon = kwargs.get("epsilon", None)
                 n_clusters = kwargs.get("n_clusters", 10)
                 cluster_rep = kwargs.get("cluster_representative", "plub")
-                algo = CredalIJGP(cve=cve)
+                algo = CredalIJGP(cnv=cnv)
                 raw = algo.run(
                     evidence=evidence, i_bound=i_bound,
                     n_iters=n_iters, threshold=threshold,
@@ -311,7 +318,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 epsilon = kwargs.get("epsilon", None)
                 n_clusters = kwargs.get("n_clusters", 10)
                 cluster_rep = kwargs.get("cluster_representative", "mean")
-                algo = CredalIJGP(cve=cve)
+                algo = CredalIJGP(cnv=cnv)
                 raw = algo.run(
                     evidence=evidence, i_bound=i_bound,
                     n_iters=n_iters, threshold=threshold,
@@ -320,14 +327,14 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                     verbosity=verbosity)
             elif algorithm == "ccte":
                 epsilon = None
-                algo = CredalCTE(cve=cve)
+                algo = CredalCTE(cnv=cnv)
                 raw = algo.run(
                     evidence=evidence, epsilon=epsilon,
                     verbosity=verbosity)
             elif algorithm == "ccte_e":
                 epsilon = kwargs.get("epsilon", None)
                 assert epsilon is not None, "epsilon must be provided for ccte_e"
-                algo = CredalCTE(cve=cve)
+                algo = CredalCTE(cnv=cnv)
                 raw = algo.run(
                     evidence=evidence, epsilon=epsilon,
                     verbosity=verbosity)
@@ -335,7 +342,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 epsilon = kwargs.get("epsilon", None)
                 n_clusters = kwargs.get("n_clusters", 10)
                 cluster_rep = kwargs.get("cluster_representative", "plub")
-                algo = CredalCTE(cve=cve)
+                algo = CredalCTE(cnv=cnv)
                 raw = algo.run(
                     evidence=evidence, epsilon=epsilon,
                     n_clusters=n_clusters,
@@ -345,7 +352,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 epsilon = kwargs.get("epsilon", None)
                 n_clusters = kwargs.get("n_clusters", 10)
                 cluster_rep = kwargs.get("cluster_representative", "mean")
-                algo = CredalCTE(cve=cve)
+                algo = CredalCTE(cnv=cnv)
                 raw = algo.run(
                     evidence=evidence, epsilon=epsilon,
                     n_clusters=n_clusters,
@@ -353,7 +360,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                     verbosity=verbosity)
             elif algorithm == "approxlp":
                 n_iters = kwargs.get("n_iters", 50)
-                algo = ApproxLP(cve=cve)
+                algo = ApproxLP(cnv=cnv)
                 raw = algo.run(
                     evidence=evidence, n_iters=n_iters,
                     verbosity=verbosity)
@@ -401,8 +408,12 @@ def main():
         help="Cluster representative for ijgp_c: plub or mean (default: plub)")
     parser.add_argument(
         "--factorization-method", type=str, default="linear",
-        choices=["linear", "nlp", "exact"],
-        help="Factorization method: linear (LP), nlp (pairwise parent independence), or exact (all LMC independencies) (default: linear)")
+        choices=["linear", "nlp"],
+        help="Factorization method: linear (LP) or nlp (pairwise parent independence) (default: linear)")
+    parser.add_argument(
+        "--solver", type=str, default="ipopt",
+        choices=["ipopt", "scip"],
+        help="Local credal-set solver backend: ipopt (local, default) or scip (global) (default: ipopt)")
     parser.add_argument(
         "--time-limit", type=float, default=None,
         help="Time limit in seconds per instance (default: unlimited)")
@@ -426,6 +437,8 @@ def main():
         kwargs["cluster_representative"] = args.cluster_representative
     if args.factorization_method != "linear":
         kwargs["factorization_method"] = args.factorization_method
+    if args.solver != "ipopt":
+        kwargs["solver"] = args.solver
     result = run_single(
         args.instance, args.algorithm,
         evidence=evidence, verbosity=args.verbosity,

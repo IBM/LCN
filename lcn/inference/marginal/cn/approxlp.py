@@ -31,7 +31,8 @@ from pyomo.environ import (
 
 # Local
 from lcn.core.model import LCN
-from lcn.inference.marginal.cn.cve import CredalVE
+from lcn.inference.marginal.cn.potentials import min_fill_order
+from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
 from lcn.inference.utils.common import check_consistency, make_ipopt
 
 
@@ -45,15 +46,15 @@ class ApproxLP:
     the best extreme point for that variable. This produces inner bounds
     (the returned interval is contained within the true interval).
 
-    Operates on a CredalVE instance that has already been built.
+    Operates on a CredalNetworkVertices instance that has already been built.
     """
 
-    def __init__(self, cve: CredalVE):
-        assert cve.extreme_points is not None, \
-            "CredalVE must have build() called before passing to ApproxLP."
-        assert cve.bn_min is not None
+    def __init__(self, cnv: CredalNetworkVertices):
+        assert cnv.extreme_points is not None, \
+            "CredalNetworkVertices must be built before passing to ApproxLP."
+        assert cnv.bn_min is not None
 
-        self.cve = cve
+        self.cnv = cnv
         self.marginals = None
         self.singleton_marginals = None
 
@@ -67,14 +68,14 @@ class ApproxLP:
         Returns (cards, factors) where each factor has keys:
         'node', 'scope', 'parents', 'vertices'.
         """
-        bn = self.cve.bn_min
+        bn = self.cnv.bn_min
         cards = {}
         for nid in bn.nodes():
             name = bn.variable(nid).name()
             cards[name] = bn.variable(nid).domainSize()
 
         factors = []
-        for node_name, configs in self.cve.extreme_points.items():
+        for node_name, configs in self.cnv.extreme_points.items():
             nid = bn.idFromName(node_name)
             parent_ids = sorted(bn.parents(nid))
             parent_names = [bn.variable(pid).name() for pid in parent_ids]
@@ -134,7 +135,7 @@ class ApproxLP:
 
         Returns P(query=x) as a numpy array (unnormalized joint over query).
         """
-        bn = self.cve.bn_min
+        bn = self.cnv.bn_min
         node_names = [bn.variable(n).name() for n in bn.nodes()]
 
         # Build a single joint factor for each node using the fixed dist
@@ -187,7 +188,7 @@ class ApproxLP:
 
         # Compute min-fill elimination order excluding the query variable
         scopes = [list(scope) for scope, _ in factor_list]
-        elim_order = CredalVE._min_fill_order(scopes, exclude={query})
+        elim_order = min_fill_order(scopes, exclude={query})
 
         for var in elim_order:
             # Collect factors mentioning var
@@ -355,7 +356,7 @@ class ApproxLP:
         t_start = time.time()
 
         cards, factors = self._build_factors()
-        bn = self.cve.bn_min
+        bn = self.cnv.bn_min
         node_names = [bn.variable(n).name() for n in bn.nodes()]
         evidence_set = set(evidence.keys())
 
@@ -557,12 +558,11 @@ if __name__ == "__main__":
     # else:
     #     print("INCONSISTENT")
 
-    # Build the CredalVE (needed for extreme points)
-    cve = CredalVE(lcn=l)
-    cve.build(verbosity=1, factorization_method="linear")
+    # Build the credal network vertices (needed for extreme points)
+    cnv = CredalNetworkVertices.from_lcn(l, method="linear", verbosity=1)
 
     # Create ApproxLP solver
-    alp = ApproxLP(cve=cve)
+    alp = ApproxLP(cnv=cnv)
 
     # All marginals (no evidence)
     print("\n=== ApproxLP (no evidence) ===")

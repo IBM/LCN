@@ -28,7 +28,7 @@ from pyomo.environ import (
 
 # Local
 from lcn.core.model import LCN
-from lcn.inference.marginal.cn.cve import CredalVE
+from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
 from lcn.inference.utils.common import check_consistency, make_ipopt
 
 
@@ -38,22 +38,22 @@ class IntervalBP:
     credal networks. Supports multi-valued variables natively via
     interval-vector messages (ApproxLP-style).
 
-    Operates on a CredalVE instance that has already been built (i.e.,
-    build() has been called to produce extreme points and the underlying
-    pyAgrum BayesNet/CredalNet).
+    Operates on a CredalNetworkVertices instance that has already been built
+    (i.e., the extreme points and the underlying pyAgrum BayesNet/CredalNet
+    have been produced).
     """
 
-    def __init__(self, cve: CredalVE):
+    def __init__(self, cnv: CredalNetworkVertices):
         """
         Args:
-            cve: CredalVE
-                A CredalVE instance with build() already called.
+            cnv: CredalNetworkVertices
+                A built CredalNetworkVertices (extreme points enumerated).
         """
-        assert cve.extreme_points is not None, \
-            "CredalVE must have build() called before passing to IBP."
-        assert cve.bn_min is not None
+        assert cnv.extreme_points is not None, \
+            "CredalNetworkVertices must be built before passing to IBP."
+        assert cnv.bn_min is not None
 
-        self.cve = cve
+        self.cnv = cnv
         self.marginals = None
         self.singleton_marginals = None
 
@@ -66,14 +66,14 @@ class IntervalBP:
         'vertices' is a dict mapping parent_config_tuple to a list of
         vertex arrays (each vertex is a 1-D array of length card[node]).
         """
-        bn = self.cve.bn_min
+        bn = self.cnv.bn_min
         cards = {}
         for nid in bn.nodes():
             name = bn.variable(nid).name()
             cards[name] = bn.variable(nid).domainSize()
 
         factors = []
-        for node_name, configs in self.cve.extreme_points.items():
+        for node_name, configs in self.cnv.extreme_points.items():
             nid = bn.idFromName(node_name)
             parent_ids = sorted(bn.parents(nid))
             parent_names = [bn.variable(pid).name() for pid in parent_ids]
@@ -136,7 +136,7 @@ class IntervalBP:
         t_start = time.time()
 
         cards, factors = self._build_factors()
-        bn = self.cve.bn_min
+        bn = self.cnv.bn_min
         node_names = [bn.variable(n).name() for n in bn.nodes()]
 
         # Build adjacency: var -> list of factor indices
@@ -352,7 +352,7 @@ class IntervalBP:
         t_start = time.time()
 
         cards, factors = self._build_factors()
-        bn = self.cve.bn_min
+        bn = self.cnv.bn_min
         node_names = [bn.variable(n).name() for n in bn.nodes()]
 
         evidence_set = set(evidence.keys())
@@ -623,12 +623,11 @@ if __name__ == "__main__":
     l.from_lcn(file_name=file_name)
     print(l)
 
-    # Build the CredalVE (needed for extreme points)
-    cve = CredalVE(lcn=l)
-    cve.build(verbosity=0)
+    # Build the credal network vertices (needed for extreme points)
+    cnv = CredalNetworkVertices.from_lcn(l, method="linear", verbosity=0)
 
     # Create the IBP solver
-    ibp = IntervalBP(cve=cve)
+    ibp = IntervalBP(cnv=cnv)
 
     # Run interval BP (all marginals, no evidence)
     print("\n=== Interval Belief Propagation (no evidence) ===")

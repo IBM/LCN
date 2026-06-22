@@ -105,8 +105,12 @@ Parallel usage — each combination gets its own output file:
         help="Cluster representative for ijgp_c: plub or mean (default: plub)")
     parser.add_argument(
         "--factorization-method", type=str, default="linear",
-        choices=["linear", "nlp", "exact"],
-        help="Factorization method: linear, nlp, or exact (default: linear)")
+        choices=["linear", "nlp"],
+        help="Factorization method: linear or nlp (default: linear)")
+    parser.add_argument(
+        "--solver", type=str, default="ipopt",
+        choices=["ipopt", "scip"],
+        help="Local credal-set solver backend: ipopt (local, default) or scip (global)")
     parser.add_argument(
         "--evidence", type=str, default="{}",
         help="evidence as JSON string (default: {})")
@@ -176,6 +180,8 @@ Parallel usage — each combination gets its own output file:
                     kwargs["ibound"] = args.ibound
                 if args.factorization_method != "linear":
                     kwargs["factorization_method"] = args.factorization_method
+                if args.solver != "ipopt":
+                    kwargs["solver"] = args.solver
 
                 result = run_single(
                     instance, algo, evidence=evidence,

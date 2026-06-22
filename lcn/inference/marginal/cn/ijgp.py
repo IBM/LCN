@@ -29,7 +29,8 @@ from pyomo.environ import (
 
 # Local
 from lcn.core.model import LCN
-from lcn.inference.marginal.cn.cve import CredalVE, Potential
+from lcn.inference.marginal.cn.potentials import Potential, min_fill_order
+from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
 from lcn.inference.utils.common import make_ipopt
 
 
@@ -48,15 +49,15 @@ class CredalIJGP:
         - Mauá, Cozman (2020). Thirty years of credal networks.
     """
 
-    def __init__(self, cve: CredalVE):
+    def __init__(self, cnv: CredalNetworkVertices):
         """
         Args:
-            cve: A CredalVE instance with build() already called.
+            cnv: A built CredalNetworkVertices (extreme points enumerated).
         """
-        assert cve.extreme_points is not None, \
-            "CredalVE must have build() called before passing to IJGP."
-        assert cve.bn_min is not None
-        self.cve = cve
+        assert cnv.extreme_points is not None, \
+            "CredalNetworkVertices must be built before passing to IJGP."
+        assert cnv.bn_min is not None
+        self.cnv = cnv
         self.marginals = None
         self.singleton_marginals = None
 
@@ -112,7 +113,7 @@ class CredalIJGP:
                 return _bp(pot)
 
         # Build card dictionary
-        bn = self.cve.bn_min
+        bn = self.cnv.bn_min
         node_names = [bn.variable(n).name() for n in bn.nodes()]
         cards = {}
         for nid in bn.nodes():
@@ -123,7 +124,7 @@ class CredalIJGP:
 
         # Step 2: Compute elimination ordering (min-fill)
         scopes = [p.scope for p in potentials]
-        elim_order = CredalVE._min_fill_order(scopes, exclude=set())
+        elim_order = min_fill_order(scopes, exclude=set())
 
         if verbosity > 0:
             eps_str = f", epsilon={epsilon}" if epsilon else ""
@@ -234,14 +235,14 @@ class CredalIJGP:
 
     def _build_potentials(self, evidence: dict) -> List[Potential]:
         """Build initial potentials from extreme points and evidence."""
-        bn = self.cve.bn_min
+        bn = self.cnv.bn_min
         node_names = [bn.variable(n).name() for n in bn.nodes()]
         cards = {}
         for nid in bn.nodes():
             cards[bn.variable(nid).name()] = bn.variable(nid).domainSize()
 
         potentials = []
-        for node_name, configs in self.cve.extreme_points.items():
+        for node_name, configs in self.cnv.extreme_points.items():
             nid = bn.idFromName(node_name)
             parent_ids = sorted(bn.parents(nid))
             parent_names = [bn.variable(pid).name() for pid in parent_ids]
@@ -781,12 +782,11 @@ if __name__ == "__main__":
     l.from_lcn(file_name=file_name)
     print(l)
 
-    # Build the CredalVE (needed for extreme points)
-    cve = CredalVE(lcn=l)
-    cve.build(verbosity=1, factorization_method="nlp")
+    # Build the credal network vertices (needed for extreme points)
+    cnv = CredalNetworkVertices.from_lcn(l, method="nlp", verbosity=1)
 
     # Create the IJGP solver
-    ijgp = CredalIJGP(cve=cve)
+    ijgp = CredalIJGP(cnv=cnv)
 
     # Run IJGP with i_bound=2
     print("\n=== Interval IJGP (i_bound=2, no evidence) ===")

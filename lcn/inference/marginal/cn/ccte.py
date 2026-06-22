@@ -29,7 +29,8 @@ from pyomo.environ import (
 
 # Local
 from lcn.core.model import LCN
-from lcn.inference.marginal.cn.cve import CredalVE, Potential
+from lcn.inference.marginal.cn.potentials import Potential, min_fill_order
+from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
 from lcn.inference.utils.common import check_consistency, make_ipopt
 
 
@@ -45,15 +46,15 @@ class CredalCTE:
         - Mauá, Cozman (2020). Thirty years of credal networks.
     """
 
-    def __init__(self, cve: CredalVE):
+    def __init__(self, cnv: CredalNetworkVertices):
         """
         Args:
-            cve: A CredalVE instance with build() already called.
+            cnv: A built CredalNetworkVertices (extreme points enumerated).
         """
-        assert cve.extreme_points is not None, \
-            "CredalVE must have build() called before passing to CTE."
-        assert cve.bn_min is not None
-        self.cve = cve
+        assert cnv.extreme_points is not None, \
+            "CredalNetworkVertices must be built before passing to CTE."
+        assert cnv.bn_min is not None
+        self.cnv = cnv
         self.marginals = None
 
     # ------------------------------------------------------------------
@@ -103,7 +104,7 @@ class CredalCTE:
                 return _bp(pot)
 
         # Step 1: Build potentials from extreme points + evidence
-        bn = self.cve.bn_min
+        bn = self.cnv.bn_min
         node_names = [bn.variable(n).name() for n in bn.nodes()]
         cards = {}
         for nid in bn.nodes():
@@ -113,7 +114,7 @@ class CredalCTE:
 
         # Step 2: Compute elimination ordering (min-fill heuristic)
         scopes = [p.scope for p in potentials]
-        elim_order = CredalVE._min_fill_order(scopes, exclude=set())
+        elim_order = min_fill_order(scopes, exclude=set())
 
         if verbosity > 0:
             eps_str = f", epsilon={epsilon}" if epsilon else ""
@@ -192,14 +193,14 @@ class CredalCTE:
 
     def _build_potentials(self, evidence: dict) -> List[Potential]:
         """Build initial potentials from extreme points and evidence."""
-        bn = self.cve.bn_min
+        bn = self.cnv.bn_min
         node_names = [bn.variable(n).name() for n in bn.nodes()]
         cards = {}
         for nid in bn.nodes():
             cards[bn.variable(nid).name()] = bn.variable(nid).domainSize()
 
         potentials = []
-        for node_name, configs in self.cve.extreme_points.items():
+        for node_name, configs in self.cnv.extreme_points.items():
             nid = bn.idFromName(node_name)
             parent_ids = sorted(bn.parents(nid))
             parent_names = [bn.variable(pid).name() for pid in parent_ids]
@@ -354,13 +355,13 @@ class CredalCTE:
 
             if not bucket_pots:
                 # Empty bucket — create trivial potential
-                cards = self.cve.bn_min
+                cards = self.cnv.bn_min
                 nid = cards.idFromName(var)
                 k = cards.variable(nid).domainSize()
                 cards_dict = {}
-                for n in self.cve.bn_min.nodes():
-                    cards_dict[self.cve.bn_min.variable(n).name()] = \
-                        self.cve.bn_min.variable(n).domainSize()
+                for n in self.cnv.bn_min.nodes():
+                    cards_dict[self.cnv.bn_min.variable(n).name()] = \
+                        self.cnv.bn_min.variable(n).domainSize()
                 trivial = Potential([var], cards_dict,
                                     [np.ones(k)])
                 bucket_pots = [trivial]
@@ -425,11 +426,11 @@ class CredalCTE:
                 if not pots_to_combine:
                     # Nothing to send — create a trivial potential
                     cards_dict = {}
-                    for n in self.cve.bn_min.nodes():
-                        cards_dict[self.cve.bn_min.variable(n).name()] = \
-                            self.cve.bn_min.variable(n).domainSize()
-                    nid = self.cve.bn_min.idFromName(var)
-                    k = self.cve.bn_min.variable(nid).domainSize()
+                    for n in self.cnv.bn_min.nodes():
+                        cards_dict[self.cnv.bn_min.variable(n).name()] = \
+                            self.cnv.bn_min.variable(n).domainSize()
+                    nid = self.cnv.bn_min.idFromName(var)
+                    k = self.cnv.bn_min.variable(nid).domainSize()
                     msg = Potential([var], cards_dict, [np.ones(k)])
                     msg = msg.marginalize(var)
                     comb_size = 1
@@ -643,12 +644,11 @@ if __name__ == "__main__":
     # else:
     #     print("INCONSISTENT")
 
-    # Build the CredalVE (needed for extreme points)
-    cve = CredalVE(lcn=l)
-    cve.build(verbosity=0)
+    # Build the credal network vertices (needed for extreme points)
+    cnv = CredalNetworkVertices.from_lcn(l, method="linear", verbosity=0)
 
     # Create the CTE solver
-    cte = CredalCTE(cve=cve)
+    cte = CredalCTE(cnv=cnv)
 
     # Exact all-marginals (no evidence)
     print("\n=== All marginals (exact, no evidence) ===")
