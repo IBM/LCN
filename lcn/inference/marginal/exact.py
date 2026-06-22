@@ -125,6 +125,39 @@ def _point_mass(ev_val: int) -> Tuple[np.ndarray, np.ndarray]:
     return lo_arr, hi_arr
 
 
+# A P(atom=1) bound is "vacuous" when it is the whole unit interval [0, 1]: the
+# solver returned no information about the atom. A solve that lands here is
+# either a genuine [0,1] marginal or (far more often) a sign the solver could
+# not pin the bound -- when EVERY non-evidence atom is vacuous, the model is
+# almost certainly infeasible (e.g. inconsistent evidence).
+_VACUOUS_EPS = 1e-6
+
+
+def _is_vacuous(lo_1: float, hi_1: float, eps: float = _VACUOUS_EPS) -> bool:
+    """True if the P(atom=1) bound spans the entire [0, 1] interval."""
+    return lo_1 <= eps and hi_1 >= 1.0 - eps
+
+
+def _degenerate_warning(evidence: dict, reason: str) -> str:
+    """Build the all-vacuous / all-infeasible diagnostic message.
+
+    ``reason`` is a short phrase describing what was observed (e.g. "all
+    marginals are vacuous [0,1]"). When evidence is present the message points
+    at it as the likely culprit, since inconsistent evidence is the most common
+    cause of a uniformly degenerate result.
+    """
+    msg = f"[ExactInference] WARNING: {reason} -- the result is uninformative."
+    if evidence:
+        msg += (f"\n[ExactInference] The evidence {evidence} is most likely "
+                f"INCONSISTENT with the LCN (no distribution satisfies the "
+                f"constraints together with this evidence). Check the evidence "
+                f"or run check_consistency on the model.")
+    else:
+        msg += ("\n[ExactInference] The LCN is most likely INCONSISTENT "
+                "(over-constrained); run check_consistency on the model.")
+    return msg
+
+
 def _init_p(model, N: int, rng=None) -> None:
     """
     Initialize the joint-distribution variables to a feasible starting point.
@@ -454,6 +487,11 @@ class ExactInference:
         self.lcn = lcn
         self.marginals = None
         self.feasible = None
+        # True when the run produced a uniformly uninformative result -- every
+        # non-evidence marginal is the vacuous [0,1] bound, or every solve was
+        # infeasible/unsolved. A strong signal that the LCN (or the LCN together
+        # with the supplied evidence) is inconsistent. None until run().
+        self.degenerate = None
         # Per-atom global-solver verdict {atom: {'min': (value, gap, status,
         # secs), 'max': (...)}}; populated only by the "global" (SCIP) solver.
         self.status = None
@@ -526,7 +564,11 @@ class ExactInference:
         Returns:
             Dict mapping variable name to (lower_bounds, upper_bounds) numpy
             arrays, each [P(=0), P(=1)]. Per-atom global-solver verdicts (if any)
-            are in ``self.status``.
+            are in ``self.status``. ``self.degenerate`` is set True when the
+            whole result is uninformative -- every non-evidence marginal is the
+            vacuous [0,1] bound or every solve was infeasible/unsolved -- which
+            almost always signals an inconsistent model or (with evidence)
+            inconsistent evidence; a warning is also printed when verbosity > 0.
         """
         assert self.lcn is not None, "Make sure the LCN model exists."
         assert self.lcn.independencies is not None, "Make sure the LMC is applied."
@@ -631,6 +673,7 @@ class ExactInference:
         # loops such as MAP search).
         n_fallback = 0
         n_infeasible = 0
+        n_vacuous = 0
         pbar = tqdm(total=len(solve_atoms), desc="[ExactInference] atoms",
                     disable=(not effective_pbar))
         try:
@@ -675,6 +718,8 @@ class ExactInference:
 
                 lo_1 = max(abs(lo_val), 0.0) if feasible_lo else 0.0
                 hi_1 = min(abs(hi_val), 1.0) if feasible_hi else 1.0
+                if _is_vacuous(lo_1, hi_1):
+                    n_vacuous += 1
 
                 lo_arr = np.array([1.0 - hi_1, lo_1])
                 hi_arr = np.array([1.0 - lo_1, hi_1])
@@ -691,6 +736,13 @@ class ExactInference:
 
         t_end = time.time()
 
+        # Degenerate result: every non-evidence atom came back vacuous [0,1], or
+        # every solve was infeasible. With evidence this almost always means the
+        # evidence is inconsistent with the LCN; without it, the LCN itself is.
+        n_solved = len(solve_atoms)
+        self.degenerate = n_solved > 0 and (
+            n_vacuous == n_solved or n_infeasible == n_solved)
+
         if verbosity > 0:
             print("[ExactInference] Singleton variable marginals:")
             for atom_name in sorted(self.marginals):
@@ -699,9 +751,14 @@ class ExactInference:
                     print(f"  P({atom_name}={val}): "
                           f"[{lo[val]:.6f}, {hi[val]:.6f}]")
             print(f"[ExactInference] Feasible: {self.feasible}")
-            print(f"[ExactInference] Atoms solved: {len(solve_atoms)} | "
+            print(f"[ExactInference] Atoms solved: {n_solved} | "
                   f"SLSQP fallback used: {n_fallback} | "
-                  f"infeasible: {n_infeasible}")
+                  f"infeasible: {n_infeasible} | vacuous: {n_vacuous}")
+            if self.degenerate:
+                reason = ("all marginals are vacuous [0,1]"
+                          if n_infeasible < n_solved
+                          else "all solves were infeasible")
+                print(_degenerate_warning(evidence, reason))
             print(f"[ExactInference] Time elapsed: {t_end - t_start:.4f} sec")
 
         return self.marginals
@@ -860,6 +917,8 @@ class ExactInference:
         tee = (verbosity == 2)
 
         n_confirmed = n_unconfirmed = n_unsolved = 0
+        n_vacuous = 0
+        n_atoms_unsolved = 0
         pbar = tqdm(total=len(solve_atoms), desc="[ExactInference] atoms",
                     disable=(not effective_pbar))
         try:
@@ -889,6 +948,9 @@ class ExactInference:
                 hi_1 = min(max(hi_val, 0.0), 1.0) if hi_val is not None else 1.0
                 if lo_status == "unsolved" or hi_status == "unsolved":
                     self.feasible = False
+                    n_atoms_unsolved += 1
+                if _is_vacuous(lo_1, hi_1):
+                    n_vacuous += 1
 
                 lo_arr = np.array([1.0 - hi_1, lo_1])
                 hi_arr = np.array([1.0 - lo_1, hi_1])
@@ -913,13 +975,22 @@ class ExactInference:
 
         t_end = time.time()
 
+        # Degenerate result: every non-evidence atom is vacuous [0,1], or every
+        # atom had at least one unsolved side. With evidence this almost always
+        # means the evidence is inconsistent with the LCN; without it, the LCN.
+        n_solved = len(solve_atoms)
+        self.degenerate = n_solved > 0 and (
+            n_vacuous == n_solved or n_atoms_unsolved == n_solved)
+
         if verbosity > 0:
-            self._print_global_report(t_end - t_start,
-                                      n_confirmed, n_unconfirmed, n_unsolved)
+            self._print_global_report(evidence, t_end - t_start, n_confirmed,
+                                      n_unconfirmed, n_unsolved,
+                                      n_vacuous, n_atoms_unsolved, n_solved)
 
         return self.marginals
 
-    def _print_global_report(self, elapsed, n_conf, n_unconf, n_unsolved):
+    def _print_global_report(self, evidence, elapsed, n_conf, n_unconf,
+                             n_unsolved, n_vacuous, n_atoms_unsolved, n_solved):
         """Print the per-atom bound/gap/status table and a summary line."""
         print("[ExactInference] Singleton variable marginals "
               "(P=1 bound | gap | status):")
@@ -935,6 +1006,11 @@ class ExactInference:
         if n_unconf or n_unsolved:
             print("[ExactInference] Note: unconfirmed/unsolved bounds are "
                   "NOT proven optimal -- raise time_limit to certify.")
+        if self.degenerate:
+            reason = ("all marginals are vacuous [0,1]"
+                      if n_atoms_unsolved < n_solved
+                      else "all solves were unsolved (no incumbent)")
+            print(_degenerate_warning(evidence, reason))
         print(f"[ExactInference] Time elapsed: {elapsed:.4f} sec")
 
 
@@ -962,7 +1038,7 @@ if __name__ == "__main__":
                 print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
     # Load the LCN
-    file_name = "examples/linear5a.lcn"
+    file_name = "examples/alarm.lcn"
     lcn_model = LCN()
     lcn_model.from_lcn(file_name=file_name)
     lcn_model.summary()
@@ -976,7 +1052,7 @@ if __name__ == "__main__":
     # Run exact marginal inference with the LOCAL solver (ipopt + SLSQP), no evidence.
     print("\n=== ExactInference (local, no evidence) ===")
     algo = ExactInference(lcn=lcn_model)
-    results = algo.run(evidence={}, debug=False, verbosity=0, solver="local", mode="slow")
+    results = algo.run(evidence={"B": 1}, debug=False, verbosity=0, solver="local", mode="slow")
     print_singleton_marginals(results)
 
     # Run exact marginal inference with the GLOBAL solver (SCIP), no evidence. A
@@ -985,7 +1061,7 @@ if __name__ == "__main__":
     # the library default is a 3600s (1h) limit and gap_tol=0 (prove optimality).
     print("\n=== ExactInference (global / SCIP, no evidence) ===")
     algo2 = ExactInference(lcn=lcn_model)
-    results = algo2.run(evidence={}, debug=False, verbosity=0, solver="global",
+    results = algo2.run(evidence={"B": 1}, debug=False, verbosity=0, solver="global",
                         time_limit=10, gap_tol=0.0, progress_bar=True)
     print_singleton_marginals(results)
 
