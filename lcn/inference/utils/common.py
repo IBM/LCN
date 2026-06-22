@@ -328,7 +328,8 @@ def _checks_feasible(p, checks, tol):
 
 
 def find_feasible_points(N, checks, n_points=12, restarts=200, seed=0,
-                         tol=1e-6):
+                         tol=1e-6, spread=True, spread_per_point=4,
+                         spread_sigma=0.4):
     """
     Find feasible distributions over the 2^N world-probability simplex that
     satisfy a list of constraint residuals, via an SLSQP *feasibility* search
@@ -339,6 +340,17 @@ def find_feasible_points(N, checks, n_points=12, restarts=200, seed=0,
     returned here serve both as a consistency certificate and as warm-start
     seeds for the bound-optimization phase (``optimize_marginal_slsqp``).
 
+    On a nonconvex bilinear-LMC manifold the plain violation-minimizing search
+    tends to converge to ONE central basin: every collected point can be nearly
+    identical (e.g. all with ``P(atom)=0.5``). A clustered seed set caps the
+    downstream local bound optimization. When ``spread`` is True (default) the
+    collected points are therefore diversified by a perturb-and-reproject pass:
+    each point is jittered with Gaussian noise and re-projected onto the feasible
+    manifold, yielding feasible seeds spread across the region. This widens the
+    bounds the local SLSQP can reach for atoms whose extreme is interior; far
+    corner extremes are additionally covered by the objective-biased seeds in
+    ``optimize_marginal_slsqp`` / ``find_biased_feasible_points``.
+
     Args:
         N: int
             Number of world-probability variables.
@@ -346,13 +358,19 @@ def find_feasible_points(N, checks, n_points=12, restarts=200, seed=0,
             Constraint residuals; ``'eq'`` must be ~0, ``'ineq'`` must be >= 0.
             (The simplex sum-to-one is added internally.)
         n_points: int
-            Stop once this many distinct feasible points have been collected.
+            Stop the initial search once this many feasible points are collected.
         restarts: int
             Maximum number of SLSQP restarts (the first is the uniform point).
         seed: int
             RNG seed for reproducible restarts.
         tol: float
             Feasibility tolerance for accepting a point.
+        spread: bool
+            When True, append perturb-and-reproject diversified seeds.
+        spread_per_point: int
+            Number of jittered re-projections attempted per collected point.
+        spread_sigma: float
+            Std-dev of the Gaussian jitter applied before re-projection.
 
     Returns:
         A list of feasible solution vectors (numpy arrays); empty if none found.
@@ -380,10 +398,107 @@ def find_feasible_points(N, checks, n_points=12, restarts=200, seed=0,
             points.append(p)
             if len(points) >= n_points:
                 break
+
+    # Diversify: jitter each feasible point and re-project to feasibility, so the
+    # seed set spreads across the manifold instead of clustering in one basin.
+    if spread and points:
+        spread_pts = []
+        for base in points:
+            for _ in range(spread_per_point):
+                x0 = np.abs(base + rng.normal(0.0, spread_sigma, N))
+                s = x0.sum()
+                x0 = x0 / s if s > 0 else np.full(N, 1.0 / N)
+                res = _sp_minimize(_sq_violation, x0, method="SLSQP",
+                                   bounds=[(0.0, 1.0)] * N, constraints=simplex,
+                                   options={"maxiter": 800, "ftol": 1e-16})
+                q = np.asarray(res.x, dtype=float)
+                if _checks_feasible(q, checks, tol):
+                    spread_pts.append(q)
+        points.extend(spread_pts)
     return points
 
 
-def optimize_marginal_slsqp(N, obj_vec, checks, sense, seeds, feas_tol=1e-6):
+def find_biased_feasible_points(N, checks, obj_vec, sense, n_points=1,
+                                restarts=2, seed=0, tol=1e-6, bias=0.5):
+    """
+    Find feasible distributions *biased toward an objective extreme*, for use as
+    warm-start seeds in ``optimize_marginal_slsqp``.
+
+    Identical to ``find_feasible_points`` except the SLSQP search minimizes the
+    total squared constraint violation **minus** a reward term pulling
+    ``obj_vec @ p`` toward its extreme (large for ``sense='max'``, small for
+    ``'min'``). This steers the feasibility search out of the single central
+    basin that the unbiased search funnels into, landing seeds near the true
+    objective extreme.
+
+    Why this is needed: ``find_feasible_points`` only minimizes violation, so on
+    a nonconvex bilinear-LMC equality manifold all its random starts can converge
+    to one interior feasible point (e.g. every seed has ``P(atom)=0.5``). SLSQP is
+    a local solver, so the downstream bound optimization then cannot reach the
+    true extreme. Biasing the *search* toward the objective fixes this at the
+    source while still only accepting genuinely feasible points.
+
+    Args:
+        N: int
+            Number of world-probability variables.
+        checks: list of (kind, callable(p)->float)
+            Constraint residuals; ``'eq'`` must be ~0, ``'ineq'`` must be >= 0.
+        obj_vec: numpy array of length N
+            Linear objective coefficients (the marginal indicator).
+        sense: str
+            ``'min'`` or ``'max'`` --- the extreme to bias the search toward.
+        n_points: int
+            Stop once this many distinct feasible points have been collected.
+        restarts: int
+            Maximum number of SLSQP restarts (kept very small: the bias makes the
+            uniform start reach the extreme on the first try in practice, and the
+            search stops as soon as ``n_points`` feasible seeds are collected).
+        seed: int
+            RNG seed for reproducible restarts.
+        tol: float
+            Feasibility tolerance for *accepting* a point (the accept test is the
+            unbiased ``_checks_feasible``; the bias only steers the search).
+        bias: float
+            Strength of the objective-pull term. Large enough to escape the
+            central basin, small relative to the violation penalty so feasibility
+            still dominates.
+
+    Returns:
+        A list of feasible solution vectors (numpy arrays); empty if none found.
+    """
+    from scipy.optimize import minimize as _sp_minimize
+
+    obj_vec = np.asarray(obj_vec, dtype=float)
+    sign = 1.0 if sense == "max" else -1.0
+
+    def _biased(p):
+        tot = 0.0
+        for kind, fn in checks:
+            g = fn(p)
+            tot += g * g if kind == "eq" else max(0.0, -g) ** 2
+        # Subtract a reward for moving the objective toward its extreme, so a
+        # lower _biased value corresponds to (feasible AND closer to the extreme).
+        return tot - sign * bias * float(obj_vec @ p)
+
+    simplex = [{"type": "eq", "fun": lambda p: float(p.sum()) - 1.0}]
+    rng = np.random.default_rng(seed)
+    points = []
+    for k in range(restarts):
+        x0 = (np.full(N, 1.0 / N) if k == 0 else rng.random(N))
+        x0 = x0 / x0.sum()
+        res = _sp_minimize(_biased, x0, method="SLSQP",
+                           bounds=[(0.0, 1.0)] * N, constraints=simplex,
+                           options={"maxiter": 800, "ftol": 1e-16})
+        p = np.asarray(res.x, dtype=float)
+        if _checks_feasible(p, checks, tol):
+            points.append(p)
+            if len(points) >= n_points:
+                break
+    return points
+
+
+def optimize_marginal_slsqp(N, obj_vec, checks, sense, seeds, feas_tol=1e-6,
+                            diversify=True):
     """
     Optimize a linear objective ``obj_vec @ p`` over the 2^N simplex subject to
     ``checks``, starting SLSQP from each feasible seed in ``seeds`` and keeping
@@ -391,6 +506,19 @@ def optimize_marginal_slsqp(N, obj_vec, checks, sense, seeds, feas_tol=1e-6):
     SLSQP reliably stays in the feasible region when launched *from* a feasible
     point (unlike from a random start), so good seeds (from
     ``find_feasible_points``) are essential.
+
+    Because SLSQP is a *local* solver on the nonconvex bilinear-LMC manifold, a
+    seed set clustered in one basin caps the achievable bound (e.g. all seeds at
+    ``P(atom)=0.5`` make the search report ~0.5 as the extreme even when the true
+    bound is 0 or 1). Two complementary seed-diversification mechanisms address
+    this: (1) the supplied ``seeds`` should already be spread across the manifold
+    (``find_feasible_points(..., spread=True)``), which covers atoms whose extreme
+    is *interior*; (2) when ``diversify`` is True this function additionally
+    generates objective-biased feasible seeds (``find_biased_feasible_points``)
+    that sit near the requested extreme, covering *far corner* extremes (e.g.
+    P(atom)=0/1) that a jitter radius would not reach. Both only ever add seeds:
+    every accepted optimum is re-checked against the real constraints, so the
+    bound can only tighten toward the true extreme, never become infeasible.
 
     Args:
         N: int
@@ -405,6 +533,10 @@ def optimize_marginal_slsqp(N, obj_vec, checks, sense, seeds, feas_tol=1e-6):
             Feasible warm-start points.
         feas_tol: float
             Feasibility tolerance for accepting a returned point.
+        diversify: bool
+            When True (default), generate extra objective-biased feasible seeds
+            and union them with ``seeds`` before optimizing. Set False to use
+            only the supplied seeds.
 
     Returns:
         (best_value, feasible) where feasible is True iff some seed produced a
@@ -414,6 +546,13 @@ def optimize_marginal_slsqp(N, obj_vec, checks, sense, seeds, feas_tol=1e-6):
 
     obj_vec = np.asarray(obj_vec, dtype=float)
     sign = 1.0 if sense == "min" else -1.0
+
+    # Augment the (possibly central-basin-clustered) seeds with feasible points
+    # biased toward the requested objective extreme, so the local SLSQP search
+    # can actually reach it. See find_biased_feasible_points.
+    if diversify:
+        seeds = list(seeds) + find_biased_feasible_points(
+            N, checks, obj_vec, sense)
 
     cons = [{"type": "eq", "fun": lambda p: float(p.sum()) - 1.0}]
     for kind, fn in checks:

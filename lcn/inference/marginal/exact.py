@@ -252,7 +252,8 @@ def _solve_with_objective(model, obj_expr, sense, solver, debug=False):
 
 
 def _robust_solve(model, obj_expr, sense, solver, N, atom, debug=False,
-                  checks=None, obj_vec=None, seeds_provider=None):
+                  checks=None, obj_vec=None, seeds_provider=None,
+                  use_slsqp_fallback=True):
     """
     Solve min/max of ``obj_expr`` robustly on the (nonconvex) marginal NLP.
 
@@ -280,6 +281,9 @@ def _robust_solve(model, obj_expr, sense, solver, N, atom, debug=False,
         seeds_provider: optional zero-arg callable returning feasible seed
             distributions; invoked lazily only when the SLSQP fallback is
             actually needed (so easy instances pay nothing).
+        use_slsqp_fallback: bool, when False the SLSQP fallback is disabled and
+            the bound comes from ipopt (primary + random restarts) only. The
+            seeds_provider is then never invoked (no feasible-seed search).
 
     Returns:
         (best_value, feasible, used_fallback) tuple. feasible is False only if
@@ -320,7 +324,7 @@ def _robust_solve(model, obj_expr, sense, solver, N, atom, debug=False,
     # Only applies to the linear (no-evidence) objective; the evidence ratio
     # objective passes obj_vec=None and stays ipopt-only.
     used_fallback = False
-    if (checks is not None and obj_vec is not None
+    if (use_slsqp_fallback and checks is not None and obj_vec is not None
             and seeds_provider is not None and _is_suspicious(best, ok)):
         seeds = seeds_provider()
         v, okk = optimize_marginal_slsqp(N, obj_vec, checks, sense, seeds) \
@@ -360,7 +364,8 @@ class ExactInference:
             evidence: dict = {},
             debug: bool = False,
             verbosity: int = 2,
-            mode: str = "exact"
+            mode: str = "exact",
+            use_slsqp_fallback: bool = True
     ) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
         """
         Run exact inference to compute marginals for ALL singleton variables.
@@ -381,6 +386,13 @@ class ExactInference:
                 each bound to high accuracy; ``"fast"`` stops ipopt at the first
                 acceptable point, trading accuracy for speed. The SLSQP fallback
                 still backstops suspicious/failed solves in both modes.
+            use_slsqp_fallback: bool
+                When True (default) a two-phase SLSQP fallback backstops ipopt
+                on suspicious/failed solves, giving reliable bounds on the dense
+                nonconvex joint-LMC system. Set False to use ipopt alone
+                (primary + random restarts) -- faster, and useful for
+                benchmarking/ablating pure-ipopt behavior, but bounds may be
+                looser or infeasible on harder instances.
 
         Returns:
             Dict mapping variable name to (lower_bounds, upper_bounds)
@@ -484,10 +496,12 @@ class ExactInference:
                 # then an SLSQP fallback when ipopt still cannot find the bound.
                 lo_val, feasible_lo, fb_lo = _robust_solve(
                     model, obj_expr, 'min', solver, N, atom_name, debug,
-                    checks=checks, obj_vec=obj_vec, seeds_provider=_get_seeds)
+                    checks=checks, obj_vec=obj_vec, seeds_provider=_get_seeds,
+                    use_slsqp_fallback=use_slsqp_fallback)
                 hi_val, feasible_hi, fb_hi = _robust_solve(
                     model, obj_expr, 'max', solver, N, atom_name, debug,
-                    checks=checks, obj_vec=obj_vec, seeds_provider=_get_seeds)
+                    checks=checks, obj_vec=obj_vec, seeds_provider=_get_seeds,
+                    use_slsqp_fallback=use_slsqp_fallback)
 
                 if not feasible_lo or not feasible_hi:
                     self.feasible = False

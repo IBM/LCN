@@ -65,7 +65,8 @@ def solve_exact_model(
         max_iter: int = 10000,
         max_cpu_time: int = 7200,
         acceptable_tol: float = None,
-        hessian_approximation: str = None
+        hessian_approximation: str = None,
+        use_slsqp_fallback: bool = True
 ) -> Tuple:
     """
     Compute exact lower/upper bounds on the probability of the query formula
@@ -95,6 +96,12 @@ def solve_exact_model(
             Acceptable tolerance value used by the ipopt solver (default 0.00001).
         hessian_approximation: str
             The Hessian approximation used by the ipopt solver (default 'limited-memory').
+        use_slsqp_fallback: bool
+            When True (default) a two-phase SLSQP fallback backstops ipopt on
+            suspicious/failed solves (no-evidence case only), giving reliable
+            bounds on the dense nonconvex joint-LMC system. Set False to use
+            ipopt alone -- faster, useful for benchmarking/ablation, but the
+            bound may be missing or looser on harder instances.
 
     Returns:
         A tuple representing the objective value and a flag indicating its optimality.
@@ -234,7 +241,8 @@ def solve_exact_model(
             return True
         return False
 
-    if len(evidence) == 0 and _is_suspicious(objective_value, objective_optimal):
+    if (use_slsqp_fallback and len(evidence) == 0
+            and _is_suspicious(objective_value, objective_optimal)):
         seeds = find_feasible_points(N, checks, n_points=8, restarts=80)
         v, ok = optimize_marginal_slsqp(N, A_query, checks, sense, seeds) \
             if seeds else (None, False)

@@ -27,6 +27,8 @@ pytest tests/test_mixed_graph.py::TestClassName::test_method -v
 
 **External dependency:** The `ipopt` nonlinear solver is required at runtime. Install via `brew install ipopt` (macOS) or build from source via `coinbrew` (Linux). The local install is `ipopt 3.14.19` with **MUMPS only** (no HSL/pardiso/spral), so `linear_solver` is not a tuning lever.
 
+**Optional solver:** `scip` (`brew install scip`, local install 10.0.2) is an optional *global* solver used **only** by the verifier `lcn/inference/marginal/verify_scip.py`, which Pyomo drives via its AMPL/NL interface (`SolverFactory('scip')`). It is not needed by the core inference engines. Being a spatial branch-and-bound global solver on a nonconvex bilinear problem, it certifies some marginals fast (e.g. alarm C/D) but may hit the per-solve time limit on harder atoms — the verifier reports `CERTIFIED`/`PARTIAL`/`UNSOLVED` with the optimality gap.
+
 **Lint:** `uvx ruff check <path>` (ruff is not a declared dependency; run via `uvx`).
 
 ## Architecture
