@@ -486,6 +486,9 @@ class ExactInference:
     ):
         self.lcn = lcn
         self.marginals = None
+        # Last query bounds, set by run_query(); None until then.
+        self.lower_bound = None
+        self.upper_bound = None
         self.feasible = None
         # True when the run produced a uniformly uninformative result -- every
         # non-evidence marginal is the vacuous [0,1] bound, or every solve was
@@ -605,6 +608,291 @@ class ExactInference:
                                     gap_tol, den_floor, effective_pbar)
         return self._run_local(evidence, debug, verbosity, mode,
                                use_slsqp_fallback, time_limit, effective_pbar)
+
+    # ==================================================================
+    # Query inference: bounds on an arbitrary propositional formula
+    # ==================================================================
+    def _parse_query(self, query: str) -> Formula:
+        """
+        Parse a query string into a Formula and validate that every atom it
+        references is a variable of the LCN.
+
+        Raises ValueError on a malformed formula (from the Formula parser) or
+        when the query mentions an unknown atom.
+        """
+        if not isinstance(query, str) or len(query.strip()) == 0:
+            raise ValueError("query must be a non-empty propositional formula string.")
+        q_formula = Formula(label="query", formula=query)  # raises on malformed input
+        unknown = [a for a in q_formula.atoms.values() if a not in self.lcn.atoms]
+        if unknown:
+            raise ValueError(
+                f"query references unknown atom(s) {sorted(unknown)}; "
+                f"the LCN's variables are {sorted(self.lcn.atoms.keys())}.")
+        return q_formula
+
+    def _query_determined(self, q_formula: Formula, evidence: dict):
+        """
+        Return the exact value of P(query | evidence) when it is fixed by logic
+        alone, else None.
+
+        The query indicator is evaluated over every interpretation; restricted to
+        the rows consistent with the evidence, if it is uniformly 1 the
+        conditional probability is exactly 1.0, if uniformly 0 it is 0.0
+        (independent of the feasible distribution). When the restricted rows are a
+        mix of 0/1 the value depends on the distribution and None is returned so
+        the caller runs the optimizer. With no evidence the same test collapses to
+        "is the query a tautology / contradiction over all interpretations".
+        """
+        vars_list = [k for k, _ in self.lcn.atoms.items()]
+        items = list(itertools.product([0, 1], repeat=len(vars_list)))
+        interpretations = [dict(zip(vars_list, t)) for t in items]
+        A_q = eval_indicator(q_formula, interpretations)
+        if len(evidence) > 0:
+            Fe = make_conjunction(variables=list(evidence.keys()), literals=evidence)
+            mask = eval_indicator(Fe, interpretations).astype(bool)
+            restricted = A_q[mask]
+        else:
+            restricted = A_q
+        if restricted.size == 0 or restricted.min() != restricted.max():
+            return None
+        return float(restricted[0])
+
+    def run_query(
+            self,
+            query: str,
+            evidence: dict = {},
+            debug: bool = False,
+            verbosity: int = 1,
+            solver: str = "local",
+            mode: str = "slow",
+            use_slsqp_fallback: bool = True,
+            time_limit: float = 3600.0,
+            lightning: bool = False,
+            gap_tol: float = 0.0,
+            den_floor: float = 1e-6,
+    ) -> Tuple[float, float]:
+        """
+        Compute exact posterior lower/upper bounds on a query formula.
+
+        Without evidence this returns bounds on ``P(query)``; with evidence it
+        returns bounds on ``P(query | evidence)``. ``query`` is a propositional
+        logic formula string over the LCN's variables (same syntax as the .lcn
+        sentences, e.g. ``"B and !C"`` or ``"A or B"``).
+
+        The query indicator is a linear functional of the joint distribution, so
+        this reuses the same constrained model and min/max solving machinery as
+        ``run`` -- only the objective points at the query instead of a singleton
+        atom. The two solver backends mirror ``run``:
+
+          * ``"local"`` (default): ipopt + two-phase SLSQP fallback (the
+            unconditional objective is linear, so the fallback applies; the
+            evidence-conditioned objective is fractional and stays ipopt-only).
+          * ``"global"``: SCIP spatial branch-and-bound (certified bounds / gap).
+
+        Args:
+            query: str
+                The query formula (a propositional logic string).
+            evidence: dict
+                {variable: value} of observed variables. When non-empty the
+                bounds are on the conditional probability P(query | evidence).
+            debug, verbosity, solver, mode, use_slsqp_fallback, time_limit,
+            lightning, gap_tol, den_floor:
+                Same meaning as in ``run`` (see that method's docstring). There
+                is no progress bar -- a single query is one min + one max solve.
+
+        Returns:
+            A ``(lower, upper)`` tuple of floats. The same values are stored on
+            ``self.lower_bound`` / ``self.upper_bound``; ``self.feasible`` records
+            whether both solves were feasible. For ``solver="global"``,
+            ``self.status`` holds ``{'min': (...), 'max': (...)}`` SCIP verdicts
+            (``None`` for the local backend). ``self.solver_used`` records the
+            backend.
+        """
+        assert self.lcn is not None, "Make sure the LCN model exists."
+        assert self.lcn.independencies is not None, "Make sure the LMC is applied."
+
+        solver = solver.lower()
+        if solver not in ("local", "global"):
+            raise ValueError(f"unknown solver: {solver!r} (use 'local' or 'global')")
+        if mode not in ("slow", "fast"):
+            raise ValueError(f"unknown mode: {mode!r} (use 'slow' or 'fast')")
+
+        q_formula = self._parse_query(query)
+
+        # Lightning preset: same clamping as run().
+        if lightning:
+            time_limit = min(time_limit, LIGHTNING_TIME_LIMIT)
+            if solver == "local":
+                mode = "fast"
+                if use_slsqp_fallback:
+                    use_slsqp_fallback = False
+            elif gap_tol == 0.0:
+                gap_tol = 0.1
+
+        self.solver_used = solver
+        self.status = None
+        independencies = self.lcn.independencies
+        if verbosity > 0:
+            kind = f"P({query} | {evidence})" if evidence else f"P({query})"
+            print(f"[ExactInference] Query {kind} (solver={solver})")
+            print(f"[ExactInference] Local Markov Condition: "
+                  f"{len(independencies.get_assertions())} independencies")
+
+        # Logically-determined short-circuit: if the query is constant over every
+        # interpretation consistent with the evidence (always true / always false),
+        # then P(query | evidence) is exactly 1.0 / 0.0 regardless of the feasible
+        # distribution -- no solve needed. This also cleanly handles trivial cases
+        # (e.g. the query atom is itself an evidence variable) that the
+        # fractional NLP path can otherwise stall on.
+        det = self._query_determined(q_formula, evidence)
+        if det is not None:
+            self.feasible = True
+            self.lower_bound = self.upper_bound = det
+            if verbosity > 0:
+                print("[ExactInference] Query is logically determined by the "
+                      "evidence (no solve needed).")
+                self._print_query_report(evidence, 0.0)
+            return det, det
+
+        if solver == "global":
+            return self._query_global(q_formula, evidence, debug, verbosity,
+                                      time_limit, gap_tol, den_floor)
+        return self._query_local(q_formula, evidence, debug, verbosity, mode,
+                                 use_slsqp_fallback, time_limit)
+
+    def _query_local(self, q_formula, evidence, debug, verbosity, mode,
+                     use_slsqp_fallback, time_limit) -> Tuple[float, float]:
+        """Local (ipopt + SLSQP) bounds on the query. See run_query."""
+        t_start = time.time()
+        independencies = self.lcn.independencies
+
+        # Reuse the shared constrained model + SLSQP residual checks + indicators.
+        model, _atom_indicators, evidence_indicator, interpretations, N, checks = \
+            _build_base_model(self.lcn, independencies, evidence, verbosity)
+
+        # The query indicator is just another linear functional over the joint.
+        A_q = eval_indicator(q_formula, interpretations)
+
+        # Objective: P(query) (linear) or P(query, e) / P(e) (fractional).
+        if evidence_indicator is None:
+            obj_expr = dot(A_q, model, model.ITEMS)
+            obj_vec = A_q
+        else:
+            ev_expr = dot(evidence_indicator, model, model.ITEMS)
+            AE = A_q * evidence_indicator  # element-wise numpy multiply
+            obj_expr = dot(AE, model, model.ITEMS) / ev_expr
+            obj_vec = None  # fractional -> SLSQP fallback not applicable
+
+        ipopt_mode = "exact" if mode == "slow" else "fast"
+        solver = _make_ipopt(debug=debug, mode=ipopt_mode)
+        solver.options['max_cpu_time'] = float(time_limit)
+        solver.options['max_wall_time'] = float(time_limit)  # ignored if unsupported
+        tee = bool(debug) or (verbosity == 2)
+
+        # Lazy feasible seeds for the SLSQP fallback (computed once, only if
+        # ipopt proves unreliable on this instance).
+        _seed_cache = {"seeds": None, "done": False}
+
+        def _get_seeds():
+            if not _seed_cache["done"]:
+                _seed_cache["done"] = True
+                try:
+                    _seed_cache["seeds"] = find_feasible_points(N, checks)
+                except Exception as e:
+                    if debug:
+                        print(f"seed search failed: {e}")
+                    _seed_cache["seeds"] = []
+            return _seed_cache["seeds"]
+
+        pyomo_logger = logging.getLogger('pyomo')
+        prev_level = pyomo_logger.level
+        if not debug:
+            pyomo_logger.setLevel(logging.ERROR)
+        try:
+            lo_val, feasible_lo, _ = _robust_solve(
+                model, obj_expr, 'min', solver, N, "query", debug,
+                checks=checks, obj_vec=obj_vec, seeds_provider=_get_seeds,
+                use_slsqp_fallback=use_slsqp_fallback, tee=tee)
+            hi_val, feasible_hi, _ = _robust_solve(
+                model, obj_expr, 'max', solver, N, "query", debug,
+                checks=checks, obj_vec=obj_vec, seeds_provider=_get_seeds,
+                use_slsqp_fallback=use_slsqp_fallback, tee=tee)
+        finally:
+            pyomo_logger.setLevel(prev_level)
+
+        self.feasible = bool(feasible_lo and feasible_hi)
+        lower = max(min(lo_val, 1.0), 0.0) if feasible_lo else 0.0
+        upper = min(max(hi_val, 0.0), 1.0) if feasible_hi else 1.0
+        self.lower_bound = lower
+        self.upper_bound = upper
+
+        if verbosity > 0:
+            self._print_query_report(evidence, time.time() - t_start)
+        return lower, upper
+
+    def _query_global(self, q_formula, evidence, debug, verbosity, time_limit,
+                      gap_tol, den_floor) -> Tuple[float, float]:
+        """Global (SCIP) bounds on the query. See run_query."""
+        t_start = time.time()
+        solver = make_scip(time_limit=time_limit, gap_tol=gap_tol)
+
+        if verbosity > 0:
+            for indep in self.lcn.independencies.get_assertions():
+                print(f"  {indep}")
+            print(f"[ExactInference] Per-solve time limit: {time_limit:.0f}s, "
+                  f"gap tolerance: {gap_tol}")
+
+        # Interpretation table + query/evidence indicators (built once).
+        vars_list = [k for k, _ in self.lcn.atoms.items()]
+        items = list(itertools.product([0, 1], repeat=len(vars_list)))
+        interpretations = [dict(zip(vars_list, t)) for t in items]
+        A_q = eval_indicator(q_formula, interpretations)
+        evidence_indicator = None
+        if len(evidence) > 0:
+            Fe = make_conjunction(variables=list(evidence.keys()), literals=evidence)
+            evidence_indicator = eval_indicator(Fe, interpretations)
+
+        pyomo_logger = logging.getLogger('pyomo')
+        prev_level = pyomo_logger.level
+        if not debug:
+            pyomo_logger.setLevel(logging.ERROR)
+        tee = (verbosity == 2)
+        try:
+            lo = self._scip_solve(interpretations, A_q, evidence_indicator,
+                                  'min', solver, gap_tol, den_floor, tee=tee)
+            hi = self._scip_solve(interpretations, A_q, evidence_indicator,
+                                  'max', solver, gap_tol, den_floor, tee=tee)
+        finally:
+            pyomo_logger.setLevel(prev_level)
+
+        self.status = {'min': lo, 'max': hi}
+        lo_val, _, lo_status, _ = lo
+        hi_val, _, hi_status, _ = hi
+        self.feasible = (lo_status != "unsolved" and hi_status != "unsolved")
+        lower = min(max(lo_val, 0.0), 1.0) if lo_val is not None else 0.0
+        upper = min(max(hi_val, 0.0), 1.0) if hi_val is not None else 1.0
+        self.lower_bound = lower
+        self.upper_bound = upper
+
+        if verbosity > 0:
+            (lv, lg, ls, lt) = lo
+            (hv, hg, hs, ht) = hi
+            print("[ExactInference] Query bound (value | gap | status):")
+            print(f"  min={_fmt(lv, lg, ls, lt)}")
+            print(f"  max={_fmt(hv, hg, hs, ht)}")
+            self._print_query_report(evidence, time.time() - t_start)
+        return lower, upper
+
+    def _print_query_report(self, evidence, elapsed):
+        """Common verbose footer for run_query (both backends)."""
+        print(f"[ExactInference] Result: "
+              f"[{self.lower_bound:.6f}, {self.upper_bound:.6f}]")
+        print(f"[ExactInference] Feasible: {self.feasible}")
+        if _is_vacuous(self.lower_bound, self.upper_bound):
+            print("[ExactInference] WARNING: the query bound is vacuous [0,1] -- "
+                  "uninformative. The model (or, with evidence, the evidence) may "
+                  "be inconsistent; run check_consistency on the model.")
+        print(f"[ExactInference] Time elapsed: {elapsed:.4f} sec")
 
     # ------------------------------------------------------------------
     # Local backend: ipopt + SLSQP fallback (one reused model)
@@ -1065,8 +1353,20 @@ if __name__ == "__main__":
                         time_limit=10, gap_tol=0.0, progress_bar=True)
     print_singleton_marginals(results)
 
+    # Query inference: bounds on an arbitrary propositional formula (local solver).
+    print("\n=== ExactInference.run_query (local, no evidence) ===")
+    algo3 = ExactInference(lcn=lcn_model)
+    lb, ub = algo3.run_query("B and !C", verbosity=1, solver="local")
+    print(f"P(B and !C) in [{lb:.6f}, {ub:.6f}]")
+
+    # Conditional query: bounds on P(query | evidence).
+    print("\n=== ExactInference.run_query (local, evidence B=1) ===")
+    algo4 = ExactInference(lcn=lcn_model)
+    lb, ub = algo4.run_query("D", evidence={"B": 1}, verbosity=1, solver="local")
+    print(f"P(D | B=1) in [{lb:.6f}, {ub:.6f}]")
+
     # Run exact marginal inference (with evidence)
     # print("\n=== ExactInference (B=0, E=0) ===")
-    # algo3 = ExactInference(lcn=lcn_model)
-    # results = algo3.run(evidence={"B": 0, "E": 0}, debug=False)
+    # algo5 = ExactInference(lcn=lcn_model)
+    # results = algo5.run(evidence={"B": 0, "E": 0}, debug=False)
     # print_singleton_marginals(results)

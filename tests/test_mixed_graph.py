@@ -572,43 +572,43 @@ class TestConversion:
 
 class TestIntegration:
 
-    @pytest.fixture
-    def asia_structure_graph(self):
+    @staticmethod
+    def _structure_graph(name):
         from lcn.core.model import LCN
         lcn_model = LCN()
         examples_dir = os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "examples"
         )
-        lcn_model.from_lcn(os.path.join(examples_dir, "asia.lcn"))
+        lcn_model.from_lcn(os.path.join(examples_dir, name))
         return lcn_model.build_structure_graph()
 
+    @pytest.fixture
+    def asia_structure_graph(self):
+        return self._structure_graph("asia.lcn")
+
     def test_convert_structure_graph(self, asia_structure_graph):
-        """from_networkx handles the structure graph produced by
-        build_structure_graph()."""
+        """build_structure_graph() returns a MixedGraph over the LCN's atoms."""
         G = asia_structure_graph
-        assert isinstance(G, nx.DiGraph)
+        assert isinstance(G, MixedGraph)
+        # The asia model has 5 atoms (B, C, D, S, X).
+        assert G.number_of_nodes() == 5
+        for n in ("B", "C", "D", "S", "X"):
+            assert G.has_node(n)
 
-        mg = MixedGraph.from_networkx(G)
-        assert mg.number_of_nodes() == G.number_of_nodes()
+    def test_structure_graph_edge_types(self):
+        """Directed and undirected edges are both present and categorized.
 
-        # Every node in the original should be in the mixed graph
-        for n in G.nodes():
-            assert mg.has_node(n)
-
-    def test_structure_graph_edge_types(self, asia_structure_graph):
-        """Directed and undirected edges are correctly categorized."""
-        G = asia_structure_graph
-        mg = MixedGraph.from_networkx(G)
-
-        # The structure graph should have both directed and undirected edges
-        assert mg.number_of_directed_edges() > 0
-        assert mg.number_of_undirected_edges() > 0
+        The asia structure graph is purely directed, so this uses smokers.lcn,
+        whose structure graph has edges of both kinds.
+        """
+        G = self._structure_graph("smokers.lcn")
+        assert G.number_of_directed_edges() > 0
+        assert G.number_of_undirected_edges() > 0
 
     def test_structure_graph_connectivity(self, asia_structure_graph):
         G = asia_structure_graph
-        mg = MixedGraph.from_networkx(G)
         # The asia model should be connected
-        assert mg.is_connected()
+        assert G.is_connected()
 
 
 # ======================================================================
@@ -683,14 +683,3 @@ class TestProtocol:
         assert g != "not a graph"
 
 
-# ======================================================================
-# 9. Old MixedGraph in utils.py is still importable
-# ======================================================================
-
-class TestOldMixedGraph:
-
-    def test_old_mixed_graph_importable(self):
-        from lcn.utils import MixedGraph as OldMixedGraph
-        g = OldMixedGraph()
-        g.add_node("A")
-        assert "A" in g.node
