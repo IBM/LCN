@@ -1,0 +1,405 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
+\newtheorem{example}{Example}
+
+\title{Tighter Approximation Schemes for\\Chain-Graph Logical Credal Networks}
+\author{IBM Research}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+A chain-graph Logical Credal Network (LCN) admits a factorization that captures its
+Local Markov Condition (LMC) independence assumptions. The current \texttt{cn/} pipeline
+exploits this by compiling the LCN into a \emph{credal network}: a directed graph whose
+local credal sets $K(\mathrm{child}\mid\mathrm{parents})$ are interval-valued and computed
+per family, then performing posterior inference (Credal Variable Elimination) over the
+\emph{strong extension} of that credal network. The strong extension is generally a
+\emph{proper superset} of the LCN's distribution set, so the computed posterior marginal
+bounds are looser than the exact LCN bounds. This note dissects the two distinct sources
+of this looseness on a running example (the \texttt{alarm} network), proposes five
+approximation schemes that produce tighter outer approximations---hence tighter posterior
+bounds---illustrates each on the example, explains how the existing inference algorithms
+(Credal VE, Interval BP, ApproxLP, Credal CTE, Credal IJGP) all inherit the tightening,
+and gives a validation strategy based on certified local solves and the existing LMC
+factorization verifier.
+\end{abstract}
+
+\section{Background and notation}
+
+Let an LCN over propositional atoms $\mathbf{V}=\{V_1,\dots,V_n\}$ define a set of joint
+distributions
+\[
+  \mathcal{D}_{\mathrm{LCN}} \;=\; \bigl\{\, P \in \Delta(2^{\mathbf{V}}) \;:\; P \text{ satisfies every sentence } s \,\bigr\},
+\]
+where each sentence $s$ is a Type-1 constraint $\ell \le P(\varphi) \le u$ or a Type-2
+constraint $\ell \le P(\varphi\mid\psi) \le u$. When the LCN's structure graph is a chain
+graph, the joint factorizes over the families (child $+$ parents) of the simplified
+structure graph,
+\begin{equation}\label{eq:factor}
+  P(\mathbf{V}) \;=\; \prod_{v} P\!\bigl(\mathrm{ch}_v \mid \mathrm{pa}_v\bigr),
+\end{equation}
+and this factorization reproduces exactly the LMC independencies
+(cf.\ \texttt{docs/ISIPTA2025\_LCNs.pdf} Sec.~3, \texttt{docs/LCN\_IJAR\_Revised.pdf}).
+
+The \texttt{cn/} pipeline realizes \eqref{eq:factor} in three stages, each of which is
+implemented in a distinct module:
+\begin{enumerate}
+  \item \textbf{Symbolic factorization} (\texttt{cn/factorization.py}): enumerate the
+    families and record, per family, the child, parents, flattened atom scope and the
+    LCN sentences \emph{attached} to that family.
+  \item \textbf{Local credal sets} (\texttt{cn/local\_credal\_sets.py}): for each family
+    and each interpretation of its scope, solve a (fractional) optimization problem to
+    obtain the lower/upper bound $[\underline{p},\overline{p}]$ of the conditional
+    $P(\mathrm{ch}_v=c \mid \mathrm{pa}_v=\pi)$. The default \texttt{method="linear"}
+    treats each family \emph{in isolation}; \texttt{method="nlp"} additionally imposes
+    \emph{pairwise} marginal independence between the parents.
+  \item \textbf{Inference over the strong extension} (\texttt{cn/vertices.py},
+    \texttt{cn/cve.py}): enumerate the extreme points of each local credal set and run
+    Credal Variable Elimination, which optimizes over the strong extension---each local
+    credal set, for each parent configuration, contributes a freely and independently
+    chosen extreme point.
+\end{enumerate}
+
+\section{Running example: the \texttt{alarm} network}\label{sec:example}
+
+We use \texttt{examples/alarm.lcn} throughout. It has five atoms $\{A,B,C,D,E\}$ and five
+sentences:
+\begin{verbatim}
+  s1: 0.1  <= P(B)               <= 0.2
+  s2: 0.05 <= P(E)               <= 0.1
+  s3: 0.6  <= P(A | (B or E))    <= 0.9
+  s4: 0.5  <= P(not(C xor D) | A) <= 0.7   ; True
+  s5: 0.05 <= P(A)               <= 0.1
+\end{verbatim}
+Its structure is a chain graph. The simplified structure graph has the compound node
+$C\!-\!D$ (because $s4$ ties $C$ and $D$ together through $C \oplus D$), so the families
+and the LMC independencies the pipeline derives are:
+\begin{center}
+\begin{tabular}{lll}
+  \toprule
+  Family & Attached sentences & \\
+  \midrule
+  $P(A \mid B,E)$   & $s1,s2,s3,s5$ & \\
+  $P(B)$            & $s1$ & \\
+  $P(E)$            & $s2$ & \\
+  $P(C\!-\!D \mid A)$ & $s4,s5$ & \\
+  \bottomrule
+\end{tabular}
+\qquad
+\begin{tabular}{l}
+  \toprule
+  LMC independencies \\
+  \midrule
+  $(B \perp E)$ \\
+  $(C \perp B,E \mid D,A)$ \\
+  $(D \perp B,E \mid C,A)$ \\
+  \bottomrule
+\end{tabular}
+\end{center}
+The factorization is $P(A\mid B,E)\,P(C\!-\!D\mid A)\,P(B)\,P(E)$.
+
+\paragraph{Local credal sets computed today (\texttt{method="linear"}).}
+Solving each family in isolation gives the conditionals below (lower/upper, rounded). Note
+the many vacuous $[0,1]$ entries---these are exactly where gap A bites.
+\begin{center}
+\begin{tabular}{llcll}
+  \toprule
+  \multicolumn{2}{l}{$P(A\mid B,E)$} & & \multicolumn{2}{l}{$P(C\!-\!D\mid A)$} \\
+  \cmidrule(r){1-2}\cmidrule(l){4-5}
+  $A{=}0,B{=}0,E{=}0$ & $[0.956,\,1.0]$   & & $C{=}0,D{=}0,A{=}1$ & $[0,\,0.7]$ \\
+  $A{=}1,B{=}0,E{=}0$ & $[0,\,0.044]$     & & $C{=}0,D{=}1,A{=}1$ & $[0,\,0.5]$ \\
+  $A{=}0,B{=}0,E{=}1$ & $[0,\,1.0]$       & & $C{=}1,D{=}0,A{=}1$ & $[0,\,0.5]$ \\
+  $A{=}1,B{=}0,E{=}1$ & $[0,\,1.0]$       & & $C{=}1,D{=}1,A{=}1$ & $[0,\,0.7]$ \\
+  $\cdots$ (rows with $B{=}1$ or $E{=}1$) & $[0,\,1.0]$ & & $\cdots$ ($A{=}0$ rows) & $[0,\,1.0]$ \\
+  \bottomrule
+\end{tabular}
+\end{center}
+Two phenomena stand out and recur in the discussion below:
+\begin{itemize}
+  \item \textbf{$s3$ only constrains the $(B\!\lor\!E)$ corner.} $s3$ bounds
+    $P(A\mid B\lor E)$, i.e.\ the conditional given the \emph{disjunction}. It says nothing
+    directly about $P(A\mid B{=}0,E{=}1)$ or $P(A\mid B{=}1,E{=}0)$ individually, so those
+    parent configurations come back vacuous $[0,1]$---even though, jointly with $s5$
+    ($P(A)\in[0.05,0.1]$) and the marginals $s1,s2$, the LCN pins them far tighter.
+  \item \textbf{$s4$ constrains a sum, not a single state.} $s4$ bounds
+    $P(\lnot(C\oplus D)\mid A){=}P(C{=}D\mid A)$, i.e.\ the sum of the two diagonal states
+    $P(C{=}0,D{=}0\mid A)+P(C{=}1,D{=}1\mid A)$. The isolated family LP can therefore push
+    any single state to its extreme (hence $[0,0.7]$ / $[0,0.5]$), and for $A{=}0$ there is
+    no constraint at all, giving $[0,1]$.
+\end{itemize}
+This is the concrete object the schemes of Section~\ref{sec:designs} tighten.
+
+\section{Two sources of looseness}\label{sec:sources}
+
+Write $\widetilde{\mathcal{D}}$ for the joint credal set actually optimized by CVE. We
+have $\mathcal{D}_{\mathrm{LCN}} \subseteq \widetilde{\mathcal{D}}$, and the inclusion is
+typically strict for \emph{two independent reasons}.
+
+\subsection{(A) Local-set widening}
+
+For family $v$ the pipeline computes
+\[
+  K_v^{\mathrm{local}}
+  = \Bigl\{\, P(\mathrm{ch}_v\mid\mathrm{pa}_v) \;:\; \text{the sentences \emph{attached to family }} v \text{ hold} \Bigr\},
+\]
+because \texttt{\_linear\_rows\_and\_obj} loads only \texttt{family["sentences"]}. The true
+projection of the LCN onto that family is
+\[
+  K_v^{\mathrm{true}}
+  = \Bigl\{\, P(\mathrm{ch}_v\mid\mathrm{pa}_v) \;:\; \exists\, P\in\mathcal{D}_{\mathrm{LCN}} \text{ inducing this conditional} \Bigr\},
+\]
+and $K_v^{\mathrm{true}} \subseteq K_v^{\mathrm{local}}$, often strictly: sentences attached
+to \emph{other} families and the LMC equalities further constrain the conditional but are
+discarded. \texttt{method="nlp"} repairs only one slice of this gap (pairwise parent
+marginal independence) and is still loose for $\ge 3$ parents and for any constraint that
+spans families.
+
+\smallskip\noindent\emph{On the example.} The $[0,1]$ entries of $P(A\mid B{=}0,E{=}1)$ and
+of $P(C\!-\!D\mid A{=}0)$ are pure gap-A artifacts: $s5$ ($P(A)\le0.1$) and the parent
+marginals $s1,s2$ are not seen when family $A$ is solved against only its attached rows,
+and family $C\!-\!D$ never sees that $A$ is rare. The true projections are far narrower.
+
+\subsection{(B) Strong-extension widening}
+
+Even with $K_v = K_v^{\mathrm{true}}$ exactly, the strong extension
+\[
+  \mathcal{D}_{\mathrm{SE}}
+  = \Bigl\{\, \textstyle\prod_v P_v \;:\; P_v \in K_v \text{ chosen independently per parent-config} \Bigr\}
+\]
+allows every (node, parent-configuration) slot to pick its extreme point freely. The
+LCN's non-local sentences \emph{couple} choices across families that $\mathcal{D}_{\mathrm{SE}}$
+decouples, so $\mathcal{D}_{\mathrm{LCN}} \subsetneq \mathcal{D}_{\mathrm{SE}}$ in general.
+This is the credal set whose product structure \texttt{verify\_lmc\_factorization.py}
+already reconstructs (its \texttt{\_JointReconstructor} takes one extreme point per
+(node, parent-config) slot and forms the product joint).
+
+\smallskip\noindent\emph{On the example.} Gap B shows up in the $C\!-\!D$ family. The
+strong extension lets the four states of $P(C\!-\!D\mid A{=}1)$ be chosen so that
+$P(C{=}0,D{=}0\mid A{=}1)$ takes its max $0.7$ \emph{and} $P(C{=}1,D{=}1\mid A{=}1)$ takes
+\emph{its} max $0.7$ in the same joint---a vertex combination whose diagonal sum is $1.4$,
+violating $s4$'s upper bound of $0.7$. The LCN forbids that distribution; the strong
+extension admits it. No tightening of the \emph{intervals} removes it, because the
+constraint couples two states of the same factor.
+
+\smallskip
+Either gap alone suffices to make posteriors loose; a tight scheme must close the one that
+dominates on the instance at hand.
+
+\section{Proposed schemes}\label{sec:designs}
+
+\paragraph{D1 --- Constraint back-propagation into local sets (attacks A; drop-in).}
+When solving family $v$, replace the constraint source from ``sentences attached to $v$''
+with ``every LCN sentence $s$ whose atom scope satisfies $\mathrm{atoms}(s)\subseteq
+\mathrm{scope}(v)$,'' and additionally append the LMC bilinear equalities
+(\texttt{lmc\_constraint\_groups\_vec} in \texttt{utils/common.py}) restricted to
+$\mathrm{scope}(v)$. Families that thereby acquire bilinear constraints are solved on the
+existing hardened ipopt/SCIP \texttt{nlp} path. Closes the part of gap A expressible within
+a single family scope; cannot capture constraints spanning atoms in different families.
+Near-zero structural change.
+
+\smallskip\noindent\emph{On the example.} Family $A$'s scope is $\{A,B,E\}$, so $s1,s2,s5$
+all satisfy $\mathrm{atoms}(s)\subseteq\mathrm{scope}$ and would now be loaded together with
+$s3$. The disjunctive $s3$ plus $s5$ ($P(A)\le0.1$) plus the parent marginals collapse the
+vacuous $[0,1]$ rows of $P(A\mid B,E)$ to genuine sub-intervals. Family $C\!-\!D$ now sees
+$s5$, tightening the $A{=}0$ rows. The diagonal-sum coupling of $s4$ is \emph{within} the
+$C\!-\!D$ family scope, so this single change also removes the gap-B vertex combination of
+Section~\ref{sec:sources} from that local set.
+
+\paragraph{D2 --- Scope merging with a tightness dial (attacks A, partially B).}
+Introduce a budget $k$. Merge adjacent families whose combined scope size is $\le k$ into a
+single \emph{super-family} and compute one joint local credal set over the merged scope
+(a larger fractional LP / NLP). At $k=$ full scope this is exact inference; at $k=$
+single-family it is today's behavior. Provides an anytime tightness-vs-cost knob, with
+per-super-family cost $2^k$. Implemented as a merging pass over \texttt{lcn.families} before
+\texttt{ChainGraphFactorization.build}, reusing the existing per-family solver on the larger
+scope; \texttt{estimate\_difficulty} can choose $k$ adaptively.
+
+\smallskip\noindent\emph{On the example.} Merging families $A$ and $C\!-\!D$ (they share the
+edge $A\!\to\!C\!-\!D$) into a super-family over $\{A,B,E,C,D\}$ makes $s3,s4,s5$ act jointly:
+the bound on $P(C{=}D\mid A)$ is now solved in a model that also knows $P(A)\le0.1$ and the
+$A\mid B,E$ structure, so the $C\!-\!D$ conditionals tighten beyond what D1 achieves in
+isolation. Here $k{=}5$ is the full scope, i.e.\ exact; a budget $k{=}3$ would merge only
+where cheap.
+
+\paragraph{D3 --- Joint-LP certification of each local bound (attacks A; exact, certified).}
+For each (family, interpretation, sense), solve the bound for the family conditional
+$P(\mathrm{ch}_v\mid\mathrm{pa}_v)$ against the \emph{full} LCN feasible region: all LCN
+sentences and all LMC equalities over the $2^n$ joint, with a fractional objective local to
+the family. This yields $K_v^{\mathrm{true}}$ exactly. Solved with SCIP (the existing
+\texttt{solver="scip"} global path) so the bounds carry a global optimality certificate.
+Cost is $2^n$ variables per solve; viable for small $n$ or, more usefully, as the
+\emph{certifier} of the cheaper schemes (it is essentially \texttt{ExactInference} run per
+conditional).
+
+\paragraph{D4 --- Region-restricted (extensive) credal network (attacks B; structural).}
+Replace the free per-parent-config vertex choice with a \emph{coupled} one. Variants:
+\emph{(4a)} detect sentences that couple multiple families and add constraints in
+\texttt{cve.py}'s bucket elimination forbidding vertex combinations that violate them;
+\emph{(4b)} introduce a shared latent ``regime'' parent to each coupled family so the local
+credal sets become conditional on a common selector, restoring the cross-family correlation
+the LCN imposes. Touches the CVE elimination, not the local solves.
+
+\smallskip\noindent\emph{On the example.} D4 directly kills the $s4$ violation of
+Section~\ref{sec:sources}: the four extreme points of $P(C\!-\!D\mid A{=}1)$ may no longer
+be combined into a joint whose diagonal sum exceeds $0.7$. Under variant 4a, CVE's bucket
+for $C\!-\!D$ carries the side constraint
+$P(C{=}0,D{=}0\mid A{=}1)+P(C{=}1,D{=}1\mid A{=}1)\le0.7$ across the vertex choice,
+restoring the coupling that the free product had dropped.
+
+\paragraph{D5 --- Constraint-aware CVE (attacks A and B; the tight target).}
+Keep the chain-graph structure for the elimination order and bucket scopes, but at each
+bucket combination optimize the bucket potential subject to the original LCN sentences
+\emph{projected onto the bucket scope}, rather than over the free strong-extension vertices.
+This is a sequence of small NLPs threaded through variable elimination---a credal VE that
+respects the global constraints at every step and never materializes the loose strong
+extension. In the limit it equals exact inference but its cost is bounded by the largest
+bucket (treewidth), not $2^n$.
+
+\smallskip\noindent\emph{On the example.} Eliminating $B,E$ first produces a bucket over
+$\{A\}$ whose potential is optimized subject to $s1,s2,s3,s5$ jointly (closing gap A for
+$A$); eliminating $C,D$ uses a bucket over $\{A\}$ optimized subject to $s4$ as a coupled
+sum (closing gap B for $C\!-\!D$). The query marginal $P(A)$ is then read off the final
+$\{A\}$ bucket. No step ever forms the loose product, and no bucket exceeds three atoms.
+
+\begin{table}[t]
+  \centering
+  \begin{tabular}{llccc}
+    \toprule
+    Scheme & Source closed & Tightness & Cost & Effort \\
+    \midrule
+    D1 back-propagate in-scope constraints & A (partial) & $+$       & $\approx 0$       & low \\
+    D2 scope merging (dial $k$)            & A $(+\,$B$)$ & dial      & $2^k$             & low--med \\
+    D3 joint-LP certified locals           & A (exact)    & $++$      & $2^n$/solve       & med \\
+    D4 region-restricted CVE               & B            & $+$       & med               & med \\
+    D5 constraint-aware CVE                & A $+$ B       & $+{+}{+}$ ($\to$exact) & treewidth & high \\
+    \bottomrule
+  \end{tabular}
+  \caption{Summary of the proposed schemes against the two looseness sources of
+    Section~\ref{sec:sources}.}
+\end{table}
+
+\section{Leverage by the other inference algorithms}\label{sec:algorithms}
+
+The \texttt{cn/} package ships five inference algorithms beyond CVE. Crucially, \emph{all of
+them consume the same object}: a built \texttt{CredalNetworkVertices}, i.e.\ the directed
+structure plus the enumerated extreme points of the local credal sets
+(\texttt{cnv.extreme\_points}). They differ only in how they propagate those vertices:
+
+\begin{center}
+\begin{tabular}{lll}
+  \toprule
+  Algorithm & Propagation & Bound character vs.\ the strong extension \\
+  \midrule
+  Credal VE (\texttt{cve.py})    & bucket elimination          & exact (the strong-extension interval) \\
+  Credal CTE (\texttt{ccte.py})  & two-pass bucket tree        & exact ($\epsilon{=}0$); outer if $\epsilon{>}0$ \\
+  ApproxLP (\texttt{approxlp.py})& per-variable LP over vertices & \emph{inner} (subset of the true interval) \\
+  Interval BP (\texttt{ibp.py})  & loopy interval messages     & \emph{outer} (\texttt{interval}); inner (\texttt{variational}) \\
+  Credal IJGP (\texttt{ijgp.py})  & join-graph, $i$-bound       & outer-style; tunable by $i$-bound \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+The essential observation is that every one of these algorithms brackets the
+\emph{strong-extension} interval $[\underline{q}_{\mathrm{SE}},\overline{q}_{\mathrm{SE}}]$,
+not the LCN interval $[\underline{q}_{\mathrm{LCN}},\overline{q}_{\mathrm{LCN}}]$. Since
+\[
+  [\underline{q}_{\mathrm{LCN}},\overline{q}_{\mathrm{LCN}}]
+  \;\subseteq\;
+  [\underline{q}_{\mathrm{SE}},\overline{q}_{\mathrm{SE}}],
+\]
+shrinking the strong extension toward $\mathcal{D}_{\mathrm{LCN}}$ pulls every algorithm's
+output inward. This splits the schemes into two leverage classes.
+
+\paragraph{Class 1 --- input-level tightening (D1, D2, D3): free for all five algorithms.}
+D1/D2/D3 change only what \texttt{CredalNetworkVertices.from\_lcn} produces---tighter local
+intervals, hence tighter enumerated vertices. Because the algorithms read those vertices
+without assuming how they were obtained, \emph{no algorithm code changes}. The effects
+compose with each algorithm's own character:
+\begin{itemize}
+  \item \textbf{CVE / CCTE} (exact over the strong extension): their interval is exactly
+    $[\underline{q}_{\mathrm{SE}},\overline{q}_{\mathrm{SE}}]$, so a tighter strong
+    extension is reported verbatim---the cleanest beneficiary.
+  \item \textbf{ApproxLP} (inner): its interval sits \emph{inside} the strong-extension
+    interval. Tighter vertices raise its lower bound and lower its upper bound too, but the
+    inner gap remains; pairing ApproxLP (inner) with CVE (outer) on the \emph{same} tightened
+    vertices brackets the LCN truth from both sides.
+  \item \textbf{Interval BP} (outer): tighter local messages mean tighter fixed-point
+    intervals; the loopy outer slack is unchanged but starts from a narrower base.
+  \item \textbf{IJGP}: tighter cluster potentials propagate through the join graph; the
+    $i$-bound still trades cost for tightness independently.
+\end{itemize}
+On the example, replacing the vacuous $[0,1]$ rows (D1) with genuine sub-intervals narrows
+the vertex sets fed to \emph{all five}, so e.g.\ a query $P(A)$ tightens for CVE, ApproxLP,
+IBP, CTE and IJGP simultaneously, with one build-stage change.
+
+\paragraph{Class 2 --- propagation-level coupling (D4, D5): per-algorithm work.}
+D4/D5 do not merely narrow intervals; they remove vertex \emph{combinations} (D4) or avoid
+forming the product altogether (D5). This is a change to the propagation, so each algorithm
+needs its own adaptation:
+\begin{itemize}
+  \item \textbf{CVE / CCTE}: add the cross-vertex side constraints (D4) to the bucket /
+    cluster combination step. This is the most natural fit---both already optimize over
+    vertex tuples per bucket, so a coupling constraint slots in directly. D5 is essentially
+    a constraint-aware rewrite of CVE's bucket optimization.
+  \item \textbf{ApproxLP}: its per-variable LP already optimizes over a vertex polytope;
+    D4's coupling constraints can be added as extra LP rows, keeping the inner-bound
+    guarantee while shrinking the polytope.
+  \item \textbf{Interval BP / IJGP}: message passing does not carry global cross-factor
+    constraints naturally. The practical route is to let D4's coupling be absorbed at the
+    \emph{build} stage where possible (so it reduces to Class 1 for these two), and accept
+    that the residual coupling D4 cannot localize is simply not captured by loopy / join-graph
+    propagation---these remain the loosest of the family, by design.
+\end{itemize}
+
+\paragraph{Practical recommendation.}
+Because Class 1 is free for all algorithms, apply D1 (and D2 where affordable) at the build
+stage \emph{first}; every downstream algorithm benefits without modification. Reserve the
+per-algorithm D4/D5 work for CVE/CCTE (and ApproxLP), which can absorb the coupling exactly,
+and treat IBP/IJGP as fast outer approximations that ride on the Class-1 tightening.
+
+\section{Validation strategy}\label{sec:validation}
+
+Tightening must be checked against ground truth on two fronts, matching the two gaps.
+
+\paragraph{Local-set tightness (gap A) via D3.}
+D3 is itself the certifier: for any candidate local credal set produced by D1 or D2,
+compare its interval $[\underline{p},\overline{p}]$ for each (family, interpretation)
+against the D3 certified-global interval $[\underline{p}^\star,\overline{p}^\star]$
+obtained from the SCIP joint-LP. A correct outer approximation requires
+$[\underline{p}^\star,\overline{p}^\star]\subseteq[\underline{p},\overline{p}]$, and the
+width difference quantifies the residual local looseness D1/D2 leave behind. Because D3
+uses the global \texttt{solver="scip"} path, these reference intervals are certified, not
+merely local optima---unlike \texttt{ExactInference}, which is only a local solver and is
+not a reliable oracle.
+
+\paragraph{Extension tightness (gap B) via \texttt{verify\_lmc\_factorization.py}.}
+The factorization verifier reconstructs each product joint from a choice of local extreme
+points and evaluates the LMC residual
+\[
+  P(x,y,s)\,P(s) - P(x,s)\,P(y,s) \;\approx\; 0
+\]
+for every assertion (its \texttt{lmc\_constraint\_groups\_vec} residuals). A residual that
+stays $\le\texttt{tol}$ after a tightening change confirms the scheme has not broken the
+independence structure while shrinking the set; a non-trivial residual that the LCN does
+\emph{not} permit localizes a strong-extension (gap B) violation that D4/D5 must address.
+This check is solver-free and deterministic, so it is a stable regression gate.
+
+\paragraph{End-to-end.}
+On small instances, posterior marginals from CVE under each scheme are compared to the
+D3-style full-joint bounds for the query atom (the same certified global solve, with the
+query as objective). The recommended sequence is D1, then D2 with D3 as the per-instance
+certifier of gap A; D4/D5 are pursued only once the D3 comparison shows the residual gap is
+genuinely the strong-extension gap B rather than remaining local looseness.
+
+\end{document}
