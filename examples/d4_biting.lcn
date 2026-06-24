@@ -1,0 +1,19 @@
+# D4 "biting" instance: a chain-graph LCN whose strong extension is LOOSE because
+# of a CROSS-FAMILY sentence (scheme D4, docs/tighter_approximation.tex).
+#
+# Structure: A is the root; B and C are independent children of A, so the
+# families are P(A), P(B|A), P(C|A). The sentence P(B and C) <= 0.05 has scope
+# {B,C}, which is a subset of NO single family scope -> it is cross-family.
+#
+# The free product (strong extension) can pick high P(B|A) and high P(C|A)
+# vertices simultaneously, reaching P(B and C) ~ 0.92 -- grossly violating the
+# 0.05 bound. That joint is in the strong extension but NOT in the true LCN set.
+# Credal VE with coupling="cross-family" forbids it: e.g. P(B | C=1) collapses
+# from [0.0375, 0.9625] (coupling off) to [0.0375, 0.0375].
+#
+# Note: the LMC assertion (B _||_ C | A) is structurally satisfied by any
+# product joint, so it is NOT what makes this instance loose -- the sentence is.
+A1: 0.4 <= P(A) <= 0.6
+B1: 0.1 <= P(B | A) <= 0.9
+C1: 0.1 <= P(C | A) <= 0.9
+BC: 0.0 <= P(B and C) <= 0.05

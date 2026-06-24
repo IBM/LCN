@@ -29,6 +29,7 @@ from pyomo.environ import (
 
 # Local
 from lcn.core.model import LCN
+from lcn.inference.marginal.cn.coupling import CouplingConstraints
 from lcn.inference.marginal.cn.potentials import Potential, min_fill_order
 from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
 from lcn.inference.utils.common import check_consistency, make_ipopt
@@ -65,6 +66,7 @@ class CredalCTE:
             epsilon: float = None,
             n_clusters: int = 0,
             cluster_representative: str = "plub",
+            coupling: str = "off",
             verbosity: int = 1) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
         """
         Compute lower and upper bounds on the marginal of EVERY variable
@@ -78,16 +80,37 @@ class CredalCTE:
             cluster_representative: How to compute cluster representatives.
                 "plub" — Pareto Least Upper Bound (componentwise max).
                 "mean" — cluster centroid (componentwise mean).
+            coupling: Scheme D4 (docs/tighter_approximation.tex). "off"
+                (default) propagates the free strong extension (byte-identical
+                to today). "cross-family" drops, inside every message-pruning
+                step, any function whose assembled joint violates a cross-family
+                LCN sentence or LMC assertion; the elimination order is augmented
+                with the constrained node sets so those atoms co-occur.
             verbosity: 0=silent, 1=summary, 2=detailed.
 
         Returns:
             Dict mapping variable name to (lower_bounds, upper_bounds)
             numpy arrays. Includes both compound and singleton marginals.
         """
+        assert coupling in ("off", "cross-family"), \
+            f"Unknown coupling '{coupling}'. Use 'off' or 'cross-family'."
 
         t_start = time.time()
 
-        # Choose pruning function
+        # Scheme D4: cross-family coupling constraints (None when disabled).
+        node_atoms = self.cnv.cn.node_atoms
+        constraints = None
+        if coupling == "cross-family":
+            cc = CouplingConstraints.from_lcn(
+                self.cnv.lcn, self.cnv.cn.factorization.factors)
+            constraints = cc if len(cc) > 0 else None
+            if verbosity > 0:
+                print(f"[CredalCTE] D4 coupling: {len(cc)} cross-family "
+                      f"constraint(s)")
+
+        # Choose pruning function. With D4 enabled, the coupling filter is
+        # folded in FIRST (drop infeasible functions, then prune dominated),
+        # so it covers the collect/distribute/extract passes in one place.
         if epsilon is not None and epsilon > 0:
             def prune_fn(pot):
                 return pot.epsilon_prune(epsilon)
@@ -103,6 +126,11 @@ class CredalCTE:
                 pot = pot.cluster_prune(_nc, representative=_cr)
                 return _bp(pot)
 
+        if constraints is not None:
+            _inner_prune = prune_fn
+            def prune_fn(pot, _c=constraints, _na=node_atoms, _ip=_inner_prune):
+                return _ip(pot.filter_infeasible(_c, _na))
+
         # Step 1: Build potentials from extreme points + evidence
         bn = self.cnv.bn_min
         node_names = [bn.variable(n).name() for n in bn.nodes()]
@@ -112,7 +140,17 @@ class CredalCTE:
 
         potentials = self._build_potentials(evidence)
 
-        # Step 2: Compute elimination ordering (min-fill heuristic)
+        # Step 2: Compute elimination ordering (min-fill heuristic).
+        #
+        # NOTE: unlike CVE, CCTE is a two-pass ALL-marginals scheme whose
+        # message pruning is an outer approximation and is order-sensitive.
+        # Forcing the constrained atoms into a common bucket (as CVE does) can
+        # change separator scopes and LOOSEN unrelated marginals relative to the
+        # natural order, which would break the D4 ⊆ off guarantee. So we keep the
+        # natural min-fill order: the coupling filter (folded into prune_fn) then
+        # fires only in buckets/messages whose scope already covers a
+        # constraint's atoms -- always sound (removing functions only tightens),
+        # though weaker than CVE where the order is augmented.
         scopes = [p.scope for p in potentials]
         elim_order = min_fill_order(scopes, exclude=set())
 

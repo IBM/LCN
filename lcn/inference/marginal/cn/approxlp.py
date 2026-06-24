@@ -31,6 +31,7 @@ from pyomo.environ import (
 
 # Local
 from lcn.core.model import LCN
+from lcn.inference.marginal.cn.coupling import CouplingConstraints
 from lcn.inference.marginal.cn.potentials import min_fill_order
 from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
 from lcn.inference.utils.common import check_consistency, make_ipopt
@@ -260,13 +261,56 @@ class ApproxLP:
     # Coordinate descent
     # ------------------------------------------------------------------
 
+    def _joint_feasible(self, dist, factors, cards, constraints):
+        """
+        Scheme D4: True if the full joint reconstructed from the current vertex
+        choices `dist` satisfies every cross-family coupling constraint. The
+        joint is the product of the per-node factors over ALL nodes, so its
+        scope covers every constraint (the checkability gate always passes).
+        Returns True immediately when coupling is disabled.
+        """
+        if constraints is None:
+            return True
+        # Build the product joint over all nodes (one multi-axis array) by
+        # combining each node's fixed-vertex factor.
+        scope = None
+        joint = None
+        for fac in factors:
+            node = fac['node']
+            parents = fac['parents']
+            f_scope = [node] + parents
+            shape = tuple(cards[v] for v in f_scope)
+            arr = np.zeros(shape)
+            all_pcs = ([()] if len(parents) == 0
+                       else list(itertools.product(
+                           *[range(cards[pn]) for pn in parents])))
+            for pc in all_pcs:
+                p_dist = dist.get((node, pc))
+                if p_dist is None:
+                    p_dist = np.ones(cards[node]) / cards[node]
+                for child_val in range(cards[node]):
+                    idx = [slice(None)] * len(f_scope)
+                    idx[0] = child_val
+                    for pi, pn in enumerate(parents):
+                        idx[1 + pi] = pc[pi]
+                    arr[tuple(idx)] = p_dist[child_val]
+            if scope is None:
+                scope, joint = f_scope, arr
+            else:
+                scope, joint = self._combine_arrays(scope, joint, f_scope, arr,
+                                                    cards)
+        node_atoms = self.cnv.cn.node_atoms
+        return constraints.is_feasible(joint, scope, node_atoms, cards)
+
     def _coordinate_descent(self, factors, cards, query, evidence,
-                            sense, n_iters, verbosity):
+                            sense, n_iters, verbosity, constraints=None):
         """
         Run coordinate descent over extreme points to optimize P(query|evidence).
 
         Args:
             sense: "min" or "max"
+            constraints: optional D4 CouplingConstraints; when set, vertex picks
+                that make the full reconstructed joint infeasible are rejected.
         Returns:
             (objective_value, final_distribution_over_query)
         """
@@ -298,6 +342,11 @@ class ApproxLP:
 
                     for v in verts:
                         dist[(node, pc)] = v
+                        # Scheme D4: reject a pick that makes the full joint
+                        # violate a cross-family constraint.
+                        if not self._joint_feasible(dist, factors, cards,
+                                                    constraints):
+                            continue
                         q_arr = self._eval_objective(
                             dist, factors, cards, query, evidence)
                         total = np.sum(q_arr)
@@ -335,6 +384,7 @@ class ApproxLP:
 
     def run(self, evidence: dict = {},
             n_iters: int = 50,
+            coupling: str = "off",
             verbosity: int = 1) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
         """
         Compute lower and upper bounds on the marginal of EVERY
@@ -347,18 +397,44 @@ class ApproxLP:
         Args:
             evidence: {variable_name: value} for observed variables.
             n_iters: Maximum coordinate descent iterations.
+            coupling: Scheme D4 (docs/tighter_approximation.tex). "off"
+                (default) selects vertices freely over the strong extension
+                (byte-identical to today). "cross-family" rejects any vertex
+                pick that makes the fully reconstructed joint violate a
+                cross-family LCN sentence or LMC assertion.
+                EXPERIMENTAL: ApproxLP is an inner, greedy coordinate-descent
+                method and is the loosest fit for D4 (see the design note). The
+                reject-pick keeps every visited distribution inside the coupled
+                feasible region, but when the center initialization itself
+                violates a constraint, coordinate descent can find no feasible
+                improving move and remain stuck at the init (e.g. reporting a
+                degenerate point such as [0.5, 0.5]). A coupled ApproxLP bound is
+                therefore NOT a certified inner bound of the coupled set; for a
+                trustworthy coupled bracket use coupled CVE (outer) instead.
             verbosity: 0=silent, 1=summary, 2=detailed.
 
         Returns:
             Dict mapping variable name to (lower_bounds, upper_bounds)
             numpy arrays. Includes both compound and singleton marginals.
         """
+        assert coupling in ("off", "cross-family"), \
+            f"Unknown coupling '{coupling}'. Use 'off' or 'cross-family'."
         t_start = time.time()
 
         cards, factors = self._build_factors()
         bn = self.cnv.bn_min
         node_names = [bn.variable(n).name() for n in bn.nodes()]
         evidence_set = set(evidence.keys())
+
+        # Scheme D4: cross-family coupling constraints (None when disabled).
+        constraints = None
+        if coupling == "cross-family":
+            cc = CouplingConstraints.from_lcn(
+                self.cnv.lcn, self.cnv.cn.factorization.factors)
+            constraints = cc if len(cc) > 0 else None
+            if verbosity > 0:
+                print(f"[ApproxLP] D4 coupling: {len(cc)} cross-family "
+                      f"constraint(s)")
 
         if verbosity > 0:
             print(f"[ApproxLP] Computing all marginals")
@@ -383,11 +459,13 @@ class ApproxLP:
 
             # Minimize for lower bound
             lo_obj, lo_probs = self._coordinate_descent(
-                factors, cards, query, evidence, "min", n_iters, verbosity)
+                factors, cards, query, evidence, "min", n_iters, verbosity,
+                constraints)
 
             # Maximize for upper bound
             hi_obj, hi_probs = self._coordinate_descent(
-                factors, cards, query, evidence, "max", n_iters, verbosity)
+                factors, cards, query, evidence, "max", n_iters, verbosity,
+                constraints)
 
             # Assemble per-state bounds from the two runs
             k = cards[query]

@@ -181,6 +181,30 @@ class Potential:
             new_functions = [self.functions[0]]
         return Potential(self.scope, self.cards, new_functions)
 
+    def filter_infeasible(self, constraints, node_atoms) -> 'Potential':
+        """
+        Scheme D4: drop functions that violate a cross-family coupling
+        constraint (a `coupling.CouplingConstraints`). Each surviving function
+        is a candidate joint over this potential's scope; a constraint is only
+        applied once the scope carries all of its atoms (the checkability gate
+        inside ``constraints.is_feasible``), so calling this after any
+        elimination step is sound -- it can only remove genuinely-infeasible
+        functions, never widen the bound.
+
+        Never returns an empty potential: if every function would be dropped
+        (which would signal an inconsistent credal net rather than a valid
+        prune), the first function is kept so elimination can proceed.
+        """
+        if constraints is None or len(constraints) == 0 or len(self.functions) <= 1:
+            return self
+        kept = [f for f in self.functions
+                if constraints.is_feasible(f, self.scope, node_atoms, self.cards)]
+        if not kept:
+            kept = [self.functions[0]]
+        if len(kept) == len(self.functions):
+            return self
+        return Potential(self.scope, self.cards, kept)
+
     def cluster_prune(self, n_clusters: int,
                       max_iters: int = 10,
                       representative: str = "plub") -> 'Potential':

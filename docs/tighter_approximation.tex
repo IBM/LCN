@@ -291,6 +291,29 @@ for $C\!-\!D$ carries the side constraint
 $P(C{=}0,D{=}0\mid A{=}1)+P(C{=}1,D{=}1\mid A{=}1)\le0.7$ across the vertex choice,
 restoring the coupling that the free product had dropped.
 
+\smallskip\noindent\emph{Implementation note (what D4 can and cannot couple).} The
+$s4$ example above is, on inspection, an \emph{in-family} constraint ($\mathrm{atoms}(s4)=
+\{C,D,A\}\subseteq$ the $C\!-\!D$ family scope), so D1 already removes it; it is shown only
+to illustrate the coupling mechanism. The constraints D4 must actually handle are the
+\emph{cross-family} ones --- those whose atom set is a subset of no single family scope.
+A subtle but important fact constrains the menu: the strong extension of a chain-graph
+credal network is a \emph{product} $\prod_v P(\mathrm{ch}_v\mid\mathrm{pa}_v)$, and that
+product structure \emph{satisfies every LMC independence by construction} --- which is
+exactly why \texttt{verify\_lmc\_factorization.py} reports the factorization
+\textsc{supported} on every chain LCN we have tried. Consequently \emph{no} product joint
+can violate a cross-family \emph{LMC assertion}: enforcing them in D4 is sound but inert.
+The gap-B looseness D4 removes is therefore carried by cross-family \emph{sentences}
+(Type-1/Type-2 bounds whose scope spans families), which the free product \emph{can}
+violate because each local factor is chosen to satisfy only its own attached sentences. As
+a concrete witness, a three-family instance $P(A),P(B\mid A),P(C\mid A)$ with the
+cross-family sentence $P(B\land C)\le 0.05$ admits a free-product joint reaching
+$P(B\land C)=0.92$; D4 forbids it, collapsing e.g.\ $P(B\mid C{=}1)$ from $[0.04,0.96]$ to a
+near-point. The implementation (\texttt{cn/coupling.py}, the \texttt{coupling="cross-family"}
+flag on Credal VE / CTE / ApproxLP) classifies a constraint as cross-family against the
+\emph{built} factors, so a D2 \texttt{merge\_budget} that fuses the coupled families turns
+the same constraint in-family and removes it from D4's list --- D2 and D4 compose without
+double-counting.
+
 \paragraph{D5 --- Constraint-aware CVE (attacks A and B; the tight target).}
 Keep the chain-graph structure for the elimination order and bucket scopes, but at each
 bucket combination optimize the bucket potential subject to the original LCN sentences

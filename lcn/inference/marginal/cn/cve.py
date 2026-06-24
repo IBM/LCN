@@ -27,6 +27,7 @@ import numpy as np
 
 # Local
 from lcn.core.model import LCN
+from lcn.inference.marginal.cn.coupling import CouplingConstraints
 from lcn.inference.marginal.cn.potentials import Potential, min_fill_order
 from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
 from lcn.inference.utils.common import check_consistency
@@ -51,9 +52,26 @@ class CredalVE:
         assert cnv.bn_min is not None
         self.cnv = cnv
 
+    def _build_coupling(self, coupling: str, verbosity: int):
+        """
+        Build the D4 cross-family coupling constraints from the credal network's
+        source LCN and its (possibly merged) symbolic factorization. Returns
+        (constraints, node_atoms): constraints is a CouplingConstraints (or None
+        when coupling=="off" or there is no cross-family residual), node_atoms is
+        the {node -> atoms} map the feasibility checks need.
+        """
+        node_atoms = self.cnv.cn.node_atoms
+        if coupling == "off":
+            return None, node_atoms
+        cc = CouplingConstraints.from_lcn(
+            self.cnv.lcn, self.cnv.cn.factorization.factors)
+        if verbosity > 0:
+            print(f"[CredalVE] D4 coupling: {len(cc)} cross-family constraint(s)")
+        return (cc if len(cc) > 0 else None), node_atoms
+
     def run(self, query: str, evidence: dict = {},
             elim_heuristic: str = "topological", epsilon: float = None,
-            verbosity: int = 1):
+            coupling: str = "off", verbosity: int = 1):
         """
         Compute lower and upper bounds on P(query_var | evidence) using
         bucket-based variable elimination over the credal network's
@@ -71,12 +89,25 @@ class CredalVE:
                 If not None, use epsilon-approximate pruning instead of
                 exact pruning. Larger values prune more aggressively,
                 producing wider (outer) bounds but faster computation.
+            coupling: str
+                Scheme D4 (docs/tighter_approximation.tex). "off" (default)
+                optimizes over the free strong extension (today's behavior,
+                byte-identical). "cross-family" forbids vertex combinations
+                whose assembled joint violates a cross-family LCN sentence or
+                LMC assertion (one that fits inside no single family scope),
+                tightening the bounds toward the true LCN set. Enabling it
+                forces the "min-fill" elimination ordering augmented with the
+                constrained node sets, so the constrained atoms co-occur in a
+                common bucket (otherwise the constraint scope is never
+                assembled and the coupling stays inert).
             verbosity: int
                 Verbosity level (0 is silent).
         """
+        assert coupling in ("off", "cross-family"), \
+            f"Unknown coupling '{coupling}'. Use 'off' or 'cross-family'."
         if epsilon is not None:
             return self.run_approx(query, evidence, epsilon,
-                                   elim_heuristic, verbosity)
+                                   elim_heuristic, coupling, verbosity)
 
         assert elim_heuristic in ("topological", "min-fill"), \
             f"Unknown heuristic '{elim_heuristic}'. Use 'topological' or 'min-fill'."
@@ -96,6 +127,11 @@ class CredalVE:
         for nid in bn.nodes():
             name = bn.variable(nid).name()
             cards[name] = bn.variable(nid).domainSize()
+
+        # Scheme D4: build the cross-family coupling constraints (or None when
+        # disabled). node_atoms maps each node to its atoms (for the joint
+        # marginalization inside the feasibility checks).
+        constraints, node_atoms = self._build_coupling(coupling, verbosity)
 
         # Step 1: Build initial potentials from extreme points
         potentials = []
@@ -168,8 +204,14 @@ class CredalVE:
             indicator[ev_val] = 1.0
             potentials.append(Potential([ev_var], cards, [indicator]))
 
-        # Step 3: Determine elimination ordering
-        if elim_heuristic == "topological":
+        # Step 3: Determine elimination ordering. With D4 coupling enabled we
+        # force the min-fill heuristic and add each constraint's node set as an
+        # extra scope, so the constrained nodes co-occur in a common bucket
+        # (otherwise the constraint scope is never assembled and D4 stays inert).
+        use_heuristic = elim_heuristic
+        if constraints is not None and elim_heuristic == "topological":
+            use_heuristic = "min-fill"
+        if use_heuristic == "topological":
             topo = list(bn.topologicalOrder())
             topo_names = [bn.variable(nid).name() for nid in topo]
             elim_order = [v for v in topo_names
@@ -179,12 +221,14 @@ class CredalVE:
             elim_order += [v for v in topo_names if v in evidence]
         else:  # min-fill
             scopes = [p.scope for p in potentials]
+            if constraints is not None:
+                scopes = scopes + constraints.constraint_node_sets(node_atoms)
             elim_order = min_fill_order(scopes, exclude={query})
 
         if verbosity > 0:
             print(f"[CredalVE] Query: {query}")
             print(f"[CredalVE] Evidence: {evidence}")
-            print(f"[CredalVE] Elimination order ({elim_heuristic}): {elim_order}")
+            print(f"[CredalVE] Elimination order ({use_heuristic}): {elim_order}")
             total_funcs = sum(len(p.functions) for p in potentials)
             print(f"[CredalVE] Initial potentials: {len(potentials)}, "
                   f"total functions: {total_funcs}")
@@ -203,6 +247,15 @@ class CredalVE:
             combined = bucket[0]
             for p in bucket[1:]:
                 combined = combined.combine(p)
+
+            # Scheme D4: drop functions whose assembled joint violates a
+            # cross-family constraint. This must happen on `combined` (which
+            # still carries the full bucket scope) BEFORE `var` is summed out:
+            # once the bucket scope covers a constraint's atoms the check fires,
+            # and after marginalization those atoms are gone. The check is a
+            # no-op for any constraint the bucket scope does not yet cover.
+            if constraints is not None:
+                combined = combined.filter_infeasible(constraints, node_atoms)
 
             # Marginalize out the variable
             result = combined.marginalize(var)
@@ -262,7 +315,7 @@ class CredalVE:
 
     def run_approx(self, query: str, evidence: dict,
                    epsilon: float, elim_heuristic: str = "topological",
-                   verbosity: int = 1):
+                   coupling: str = "off", verbosity: int = 1):
         """
         Epsilon-approximate credal variable elimination. Same algorithm as
         run() but uses epsilon-approximate pruning at each elimination step,
@@ -283,6 +336,8 @@ class CredalVE:
                 aggressively (fewer functions kept, faster, wider bounds).
             elim_heuristic: str
                 Elimination ordering heuristic: "topological" or "min-fill".
+            coupling: str
+                Scheme D4: "off" (default) or "cross-family". See run().
             verbosity: int
                 Verbosity level (0 is silent).
         """
@@ -292,6 +347,8 @@ class CredalVE:
         assert epsilon >= 0, "Epsilon must be non-negative."
         assert elim_heuristic in ("topological", "min-fill"), \
             f"Unknown heuristic '{elim_heuristic}'. Use 'topological' or 'min-fill'."
+        assert coupling in ("off", "cross-family"), \
+            f"Unknown coupling '{coupling}'. Use 'off' or 'cross-family'."
 
         t_start = time.time()
 
@@ -305,6 +362,11 @@ class CredalVE:
         for nid in bn.nodes():
             name = bn.variable(nid).name()
             cards[name] = bn.variable(nid).domainSize()
+
+        # Scheme D4: build the cross-family coupling constraints (or None when
+        # disabled). node_atoms maps each node to its atoms (for the joint
+        # marginalization inside the feasibility checks).
+        constraints, node_atoms = self._build_coupling(coupling, verbosity)
 
         # Step 1: Build initial potentials from extreme points
         # (identical to run())
@@ -370,8 +432,11 @@ class CredalVE:
             indicator[ev_val] = 1.0
             potentials.append(Potential([ev_var], cards, [indicator]))
 
-        # Step 3: Determine elimination ordering
-        if elim_heuristic == "topological":
+        # Step 3: Determine elimination ordering (D4: force augmented min-fill).
+        use_heuristic = elim_heuristic
+        if constraints is not None and elim_heuristic == "topological":
+            use_heuristic = "min-fill"
+        if use_heuristic == "topological":
             topo = list(bn.topologicalOrder())
             topo_names = [bn.variable(nid).name() for nid in topo]
             elim_order = [v for v in topo_names
@@ -379,12 +444,14 @@ class CredalVE:
             elim_order += [v for v in topo_names if v in evidence]
         else:
             scopes = [p.scope for p in potentials]
+            if constraints is not None:
+                scopes = scopes + constraints.constraint_node_sets(node_atoms)
             elim_order = min_fill_order(scopes, exclude={query})
 
         if verbosity > 0:
             print(f"[CredalVE-approx] Query: {query}, epsilon: {epsilon}")
             print(f"[CredalVE-approx] Evidence: {evidence}")
-            print(f"[CredalVE-approx] Elimination order ({elim_heuristic}): "
+            print(f"[CredalVE-approx] Elimination order ({use_heuristic}): "
                   f"{elim_order}")
             total_funcs = sum(len(p.functions) for p in potentials)
             print(f"[CredalVE-approx] Initial potentials: {len(potentials)}, "
@@ -402,6 +469,10 @@ class CredalVE:
             combined = bucket[0]
             for p in bucket[1:]:
                 combined = combined.combine(p)
+
+            # Scheme D4: filter on the full bucket scope before marginalizing.
+            if constraints is not None:
+                combined = combined.filter_infeasible(constraints, node_atoms)
 
             result = combined.marginalize(var)
 

@@ -1,0 +1,13 @@
+# D4 "inert" companion to d4_biting.lcn: the SAME three-family structure
+# (A; B|A; C|A) but WITHOUT the cross-family sentence.
+#
+# Its only cross-family constraint is the LMC assertion (B _||_ C | A), which
+# every product joint satisfies by construction. So Credal VE with
+# coupling="cross-family" gives exactly the same bounds as coupling="off" here:
+# D4 is sound but inert when no cross-family SENTENCE is present.
+#
+# Useful as the negative control for D4 (and it mirrors examples/alarm.lcn,
+# whose only cross-family constraints are likewise inert LMC assertions).
+A1: 0.4 <= P(A) <= 0.6
+B1: 0.1 <= P(B | A) <= 0.9
+C1: 0.1 <= P(C | A) <= 0.9
