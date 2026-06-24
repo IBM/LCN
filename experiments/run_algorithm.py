@@ -260,10 +260,11 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             cn_solver = kwargs.get("solver", "ipopt")
             cn_time_limit = kwargs.get("solver_time_limit", None)
             cn_gap_tol = kwargs.get("gap_tol", 0.0)
+            merge_budget = kwargs.get("merge_budget", 1)
             cnv = CredalNetworkVertices.from_lcn(
                 l, method=fact_method, solver=cn_solver,
                 time_limit=cn_time_limit, gap_tol=cn_gap_tol,
-                n_jobs=n_jobs, verbosity=verbosity)
+                n_jobs=n_jobs, merge_budget=merge_budget, verbosity=verbosity)
             result["build_time"] = round(cnv.build_time, 4)
             result["induced_width"] = _compute_induced_width(cnv)
 
@@ -408,8 +409,12 @@ def main():
         help="Cluster representative for ijgp_c: plub or mean (default: plub)")
     parser.add_argument(
         "--factorization-method", type=str, default="linear",
-        choices=["linear", "nlp"],
-        help="Factorization method: linear (LP) or nlp (pairwise parent independence) (default: linear)")
+        choices=["linear", "linear-tight"],
+        help="Factorization method: linear (LP) or linear-tight (LP + scope-restricted LMC equalities) (default: linear)")
+    parser.add_argument(
+        "--merge-budget", type=int, default=1,
+        help="D2 scope-merge budget: max flattened scope of a merged super-family "
+             "(1 = no merging; >= total atoms = exact). Default: 1.")
     parser.add_argument(
         "--solver", type=str, default="ipopt",
         choices=["ipopt", "scip"],
@@ -437,6 +442,8 @@ def main():
         kwargs["cluster_representative"] = args.cluster_representative
     if args.factorization_method != "linear":
         kwargs["factorization_method"] = args.factorization_method
+    if args.merge_budget != 1:
+        kwargs["merge_budget"] = args.merge_budget
     if args.solver != "ipopt":
         kwargs["solver"] = args.solver
     result = run_single(

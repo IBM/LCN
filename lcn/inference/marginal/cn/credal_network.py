@@ -105,6 +105,7 @@ class CredalNetwork:
     def from_lcn(cls, lcn: LCN, method: str = "linear",
                  solver: str = "ipopt", time_limit: float = None,
                  gap_tol: float = 0.0, n_jobs: int = 1,
+                 merge_budget: int = 1,
                  verbosity: int = 1) -> "CredalNetwork":
         """
         Build a CredalNetwork from an LCN: derive the chain-graph structure,
@@ -115,8 +116,10 @@ class CredalNetwork:
             lcn: LCN
                 The source model.
             method: str
-                Factorization method: "linear" (LP / fractional LP) or
-                "nlp" (pairwise-independence NLP).
+                Factorization method: "linear" (in-scope-sentence LP /
+                fractional LP) or "linear-tight" (scheme D1: additionally
+                imposes the scope-restricted Local Markov Condition equalities,
+                a bilinear program).
             solver: str
                 Solver backend for the per-family solves: "ipopt" (default,
                 hardened local solver) or "scip" (global solver; requires the
@@ -129,14 +132,21 @@ class CredalNetwork:
                 Number of worker processes for the per-family solves. 1 (the
                 default) solves serially. Each family is one task; the result
                 is order-preserving and identical to the serial computation.
+            merge_budget: int
+                Scheme D2: maximum flattened scope of a merged super-family. 1
+                (the default) performs no merging (the factors are the LCN
+                families); a larger budget merges adjacent families whose
+                combined scope is at most this size, so cross-family constraints
+                tighten the local credal sets. See
+                ``ChainGraphFactorization.build``.
             verbosity: int
                 Verbosity level (0 is silent).
 
         Returns:
             A CredalNetwork holding the interval factors.
         """
-        assert method in ("linear", "nlp"), \
-            f"Unknown method '{method}'. Use 'linear' or 'nlp'."
+        assert method in ("linear", "linear-tight"), \
+            f"Unknown method '{method}'. Use 'linear' or 'linear-tight'."
         assert solver in ("ipopt", "scip"), \
             f"Unknown solver '{solver}'. Use 'ipopt' or 'scip'."
 
@@ -151,9 +161,11 @@ class CredalNetwork:
         if lcn.families is None:
             lcn.process_chain_graph()
 
-        # Step 2: Build the symbolic chain-graph factorization
+        # Step 2: Build the symbolic chain-graph factorization (optionally
+        # merging adjacent families per the D2 merge_budget).
         factorization = ChainGraphFactorization(lcn)
-        symbolic_factors = factorization.build(verbosity=verbosity)
+        symbolic_factors = factorization.build(
+            verbosity=verbosity, merge_budget=merge_budget)
 
         if verbosity > 0:
             print(f"[CredalNetwork] Chain-graph factorization produced "
@@ -179,8 +191,12 @@ class CredalNetwork:
                 for sf in symbolic_factors
             ]
 
-        # Step 4: Collect node info from the simplified structure graph
-        node_names = list(lcn.simplified_structure_graph.get_nodes())
+        # Step 4: Collect node info from the (possibly merged) symbolic factors,
+        # NOT from the simplified structure graph -- under a merge_budget > 1 the
+        # factor children are merged super-nodes that the structure graph does
+        # not contain. With merge_budget == 1 the factor children are exactly the
+        # structure-graph nodes, so this is identical to the unmerged behavior.
+        node_names = [sf["child"] for sf in symbolic_factors]
         node_atoms = {}
         node_card = {}
         for name in node_names:

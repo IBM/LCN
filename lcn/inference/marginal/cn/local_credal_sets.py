@@ -25,16 +25,25 @@
 # Two factorization methods are supported:
 #   - "linear": treat each family in isolation. With no parents this is a plain
 #     LP; with parents it is a linear-fractional program P(child,parents) /
-#     P(parents), solved exactly via the Charnes-Cooper transformation.
-#   - "nlp": additionally impose pairwise marginal independence between parents,
-#     which makes the program nonconvex (bilinear).
+#     P(parents), solved exactly via the Charnes-Cooper transformation. Note
+#     that the family already carries every LCN sentence whose atom scope lies
+#     inside the family scope (process_chain_graph collects these), so "linear"
+#     is the in-scope-sentence LP; what it omits are the LMC independence
+#     equalities, which couple states the per-family LP cannot see.
+#   - "linear-tight" (scheme D1 of docs/tighter_approximation.tex): the "linear"
+#     program PLUS the Local Markov Condition bilinear equalities for every LMC
+#     assertion whose full atom set is contained in the family scope. Those
+#     equalities make the program nonconvex (bilinear), so it is solved on the
+#     hardened ipopt path or, under solver="scip", to certified global optimality
+#     (scheme D3). Families with no in-scope LMC assertion fall back to the fast
+#     pure-"linear" path, so "linear-tight" == "linear" there.
 #
 # Two solver backends are supported:
-#   - "ipopt" (default): a local NLP solver. Because the "nlp" program (and the
-#     nonconvex corners of the "linear" fractional program) can trap a local
-#     solver at a wrong/vacuous point, the ipopt path is *hardened* with the
-#     same multi-restart + vacuous-bound detection + SLSQP-fallback strategy as
-#     `ExactInference._robust_solve` (lcn/inference/marginal/exact.py).
+#   - "ipopt" (default): a local NLP solver. Because the "linear-tight" program
+#     (and the nonconvex corners of the "linear" fractional program) can trap a
+#     local solver at a wrong/vacuous point, the ipopt path is *hardened* with
+#     the same multi-restart + vacuous-bound detection + SLSQP-fallback strategy
+#     as `ExactInference._robust_solve` (lcn/inference/marginal/exact.py).
 #   - "scip": SCIP's spatial branch-and-bound global solver (Pyomo AMPL/NL
 #     interface), which solves the fractional / bilinear programs to certified
 #     global optimality. SCIP is fed the raw fractional objective directly (no
@@ -61,6 +70,7 @@ from lcn.inference.utils.common import (
     eval_indicator, dot,
     find_feasible_points,
     optimize_marginal_slsqp, optimize_marginal_ratio_slsqp,
+    build_truth_table, lmc_constraint_groups_vec,
 )
 
 # Number of random restarts for the hardened ipopt path before giving up.
@@ -96,9 +106,9 @@ class LocalCredalSetSolver:
     """
     Solves the per-interpretation optimization problems that define the local
     credal sets of a chain-graph factorization. One solver instance is bound to
-    an :class:`LCN`, a factorization ``method`` ("linear" or "nlp") and a
-    ``solver`` backend ("ipopt" or "scip"); its :meth:`solve` method returns the
-    min/max bound for a single factor interpretation.
+    an :class:`LCN`, a factorization ``method`` ("linear" or "linear-tight") and
+    a ``solver`` backend ("ipopt" or "scip"); its :meth:`solve` method returns
+    the min/max bound for a single factor interpretation.
 
     The instance holds only the LCN and small config, so it can be pickled and
     shipped to worker processes for parallel per-family solving.
@@ -107,8 +117,8 @@ class LocalCredalSetSolver:
     def __init__(self, lcn: LCN, method: str = "linear", solver: str = "ipopt",
                  time_limit: float = None, gap_tol: float = 0.0,
                  verbosity: int = 1):
-        assert method in ("linear", "nlp"), \
-            f"Unknown method '{method}'. Use 'linear' or 'nlp'."
+        assert method in ("linear", "linear-tight"), \
+            f"Unknown method '{method}'. Use 'linear' or 'linear-tight'."
         assert solver in ("ipopt", "scip"), \
             f"Unknown solver '{solver}'. Use 'ipopt' or 'scip'."
         self.lcn = lcn
@@ -137,8 +147,8 @@ class LocalCredalSetSolver:
         if self.method == "linear":
             return self._solve_linear(
                 scope, literals, child, parents, sentences, sense)
-        else:
-            return self._solve_nlp(
+        else:  # "linear-tight"
+            return self._solve_linear_tight(
                 scope, literals, child, parents, sentences, sense)
 
     # ------------------------------------------------------------------
@@ -211,11 +221,45 @@ class LocalCredalSetSolver:
             return self._robust_fractional_lp(N, AE, E, constraint_rows, sense)
 
     # ------------------------------------------------------------------
-    # NLP factorization (pairwise parent independence, bilinear)
+    # Tight factorization (D1: in-scope sentences + scope-restricted LMC,
+    # bilinear)
     # ------------------------------------------------------------------
 
-    def _build_nlp_model(self, scope, literals, parents, sentences, sense):
-        """Build the nonconvex NLP model for one interpretation."""
+    def _inscope_lmc_assertions(self, scope):
+        """
+        The LMC independence assertions (X |= Y | S) whose *entire* atom set is
+        contained in ``scope``. lmc_constraint_groups_vec references every atom
+        of X, Y and S through the family-scope truth table, so an assertion can
+        only be encoded locally if all of its atoms are columns of that table.
+        Assertions spanning families are skipped here -- that residual is what
+        schemes D2/D3 close.
+
+        The Local Markov Condition is computed lazily and memoized on the LCN
+        (so repeated family solves reuse it). Under n_jobs>1 each worker holds
+        its own pickled LCN copy and computes it independently; the result is
+        deterministic, so this needs no shared state.
+        """
+        if self.lcn.primal_graph is None:
+            self.lcn.build_primal_graph()
+        if self.lcn.independencies is None:
+            self.lcn.local_markov_condition()
+        scope_set = set(scope)
+        return [a for a in self.lcn.independencies.get_assertions()
+                if a.all_vars.issubset(scope_set)]
+
+    def _build_linear_tight_model(self, scope, literals, parents, sentences,
+                                  assertions, sense):
+        """
+        Build the nonconvex (bilinear) "linear-tight" model for one factor
+        interpretation: the same simplex + in-scope sentence rows as "linear",
+        PLUS the Local Markov Condition equalities of every in-scope assertion.
+
+        The LMC rows are bit-identical to ExactInference's joint encoding
+        (exact.py): for each assertion (X |= Y | S), and each group produced by
+        lmc_constraint_groups_vec over the family-scope truth table, add either
+        the conditional equality P(x,y,s)P(s) = P(x,s)P(y,s) or, when S is empty,
+        the marginal equality P(x,y) = P(x)P(y).
+        """
         items_tuples = list(itertools.product([0, 1], repeat=len(scope)))
         interpretations = [dict(zip(scope, t)) for t in items_tuples]
         N = len(interpretations)
@@ -228,7 +272,8 @@ class LocalCredalSetSolver:
         # Probability simplex: sum(p) = 1
         model.constr.add(sum(model.p[i] for i in model.ITEMS) == 1.0)
 
-        # Sentence constraints
+        # Sentence constraints (every sentence whose scope is in the family scope
+        # -- process_chain_graph already collected these into `sentences`).
         for sid in sentences:
             s = self.lcn.sentences.get(sid)
             if s.type == SentenceType.Type1:
@@ -248,21 +293,24 @@ class LocalCredalSetSolver:
                 model.constr.add(expr_qr >= lobo * expr_r)
                 model.constr.add(expr_qr <= upbo * expr_r)
 
-        # Pairwise marginal independence between parent variables:
-        # P(xi=1, xj=1) = P(xi=1) * P(xj=1) (parents flattened).
-        for i in range(len(parents)):
-            for j in range(i + 1, len(parents)):
-                xi, xj = parents[i], parents[j]
-                Fa = make_conjunction(variables=[xi, xj], literals={xi: 1, xj: 1})
-                Fb = make_conjunction(variables=[xi], literals={xi: 1})
-                Fc = make_conjunction(variables=[xj], literals={xj: 1})
-                Aa = eval_indicator(Fa, interpretations)
-                Ab = eval_indicator(Fb, interpretations)
-                Ac = eval_indicator(Fc, interpretations)
-                expr_joint = dot(Aa, model, model.ITEMS)
-                expr_xi = dot(Ab, model, model.ITEMS)
-                expr_xj = dot(Ac, model, model.ITEMS)
-                model.constr.add(expr_joint == expr_xi * expr_xj)
+        # Local Markov Condition equalities, restricted to the family scope.
+        # The truth table / col_of use the SAME scope ordering as the
+        # interpretations above, so the indicator vectors index model.p directly.
+        if assertions:
+            table = build_truth_table(len(scope))
+            col_of = {v: i for i, v in enumerate(scope)}
+            for indep in assertions:
+                for group in lmc_constraint_groups_vec(indep, table, col_of):
+                    if group[0] == 'conditional':
+                        _, Aa, Ab, Ac, Ad = group
+                        val1 = dot(Aa, model, model.ITEMS) * dot(Ab, model, model.ITEMS)
+                        val2 = dot(Ac, model, model.ITEMS) * dot(Ad, model, model.ITEMS)
+                        model.constr.add(val1 - val2 == 0.0)
+                    else:
+                        _, Aa, Ab, Ac = group
+                        val1 = dot(Aa, model, model.ITEMS)
+                        val2 = dot(Ab, model, model.ITEMS) * dot(Ac, model, model.ITEMS)
+                        model.constr.add(val1 - val2 == 0.0)
 
         # Objective
         Fq = make_conjunction(variables=scope, literals=literals)
@@ -292,15 +340,23 @@ class LocalCredalSetSolver:
             expr=obj_expr, sense=(minimize if sense == 'min' else maximize))
         return model, N
 
-    def _solve_nlp(self, scope, literals, child, parents, sentences, sense):
-        model, N = self._build_nlp_model(
-            scope, literals, parents, sentences, sense)
+    def _solve_linear_tight(self, scope, literals, child, parents, sentences, sense):
+        # When no LMC assertion fits inside the family scope, the enriched
+        # program reduces to the pure "linear" program -- solve it on the fast
+        # LP / Charnes-Cooper path (so linear-tight == linear for that family).
+        assertions = self._inscope_lmc_assertions(scope)
+        if not assertions:
+            return self._solve_linear(
+                scope, literals, child, parents, sentences, sense)
+
+        model, N = self._build_linear_tight_model(
+            scope, literals, parents, sentences, assertions, sense)
         if self.solver == "scip":
             return self._scip_extract(model, sense)
-        # ipopt: multi-restart only (no simplex-expressible checks for the
-        # bilinear independence constraints, so no SLSQP fallback — matching
-        # ExactInference's obj_vec=None handling for ratio objectives).
-        return self._ipopt_multistart(model, N, sense, key=("nlp", sense))
+        # ipopt: multi-restart only (the bilinear LMC equalities are not
+        # simplex-expressible as the SLSQP-fallback `checks`, so no SLSQP
+        # fallback -- matching ExactInference's obj_vec=None ratio handling).
+        return self._ipopt_multistart(model, N, sense, key=("linear-tight", sense))
 
     # ------------------------------------------------------------------
     # Hardened ipopt: linear LP (parentless)

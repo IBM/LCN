@@ -119,6 +119,7 @@ class CredalNetworkVertices:
     def from_lcn(cls, lcn: LCN, method: str = "linear",
                  solver: str = "ipopt", time_limit: float = None,
                  gap_tol: float = 0.0, n_jobs: int = 1,
+                 merge_budget: int = 1,
                  verbosity: int = 1) -> "CredalNetworkVertices":
         """
         Build the full pipeline from an LCN: CredalNetwork (chain-graph
@@ -131,7 +132,7 @@ class CredalNetworkVertices:
             lcn: LCN
                 The source model.
             method: str
-                Factorization method ("linear" or "nlp").
+                Factorization method ("linear" or "linear-tight").
             solver: str
                 Solver backend for the per-family solves: "ipopt" (default) or
                 "scip" (global; requires the SCIP CLI on PATH).
@@ -141,13 +142,17 @@ class CredalNetworkVertices:
                 SCIP relative optimality gap (ignored by ipopt).
             n_jobs: int
                 Worker processes for the per-family interval solves.
+            merge_budget: int
+                Scheme D2: maximum flattened scope of a merged super-family
+                (1 = no merging; see CredalNetwork.from_lcn).
             verbosity: int
                 Verbosity level (0 is silent).
         """
         t0 = time.perf_counter()
         cn = CredalNetwork.from_lcn(
             lcn, method=method, solver=solver, time_limit=time_limit,
-            gap_tol=gap_tol, n_jobs=n_jobs, verbosity=verbosity)
+            gap_tol=gap_tol, n_jobs=n_jobs, merge_budget=merge_budget,
+            verbosity=verbosity)
         cnv = cls(cn)
         cnv._build(verbosity=verbosity)
         cnv.build_time = time.perf_counter() - t0
@@ -188,10 +193,14 @@ class CredalNetworkVertices:
             node_ids_min[name] = nid_min
             node_ids_max[name] = nid_max
 
-        # Add arcs from parents to children (matching the simplified structure)
-        for family in cn.lcn.families:
-            child = family["child"]
-            for parent in family["parents"]:
+        # Add arcs from parents to children. Use the built factors (not
+        # cn.lcn.families) so the arcs match the possibly-merged factor
+        # structure; at merge_budget == 1 the factor children/parents are
+        # exactly the LCN families, so this is identical to the unmerged arcs.
+        for factor in cn.factors:
+            sample_entry = factor[0]
+            child = sample_entry["child"]
+            for parent in sample_entry["parents"]:
                 self.bn_min.addArc(node_ids_min[parent], node_ids_min[child])
                 self.bn_max.addArc(node_ids_max[parent], node_ids_max[child])
 

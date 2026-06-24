@@ -24,7 +24,14 @@
 # `CredalNetwork` (via `local_credal_sets.LocalCredalSetSolver`).
 
 # Local
+import networkx as nx
+
 from lcn.core.model import LCN
+
+
+def _flatten(node: str) -> list:
+    """Split a (possibly compound "A-B") node name into its atoms."""
+    return node.split("-") if "-" in node else [node]
 
 
 class ChainGraphFactorization:
@@ -41,7 +48,7 @@ class ChainGraphFactorization:
         self.lcn = lcn
         self.factors = []
 
-    def build(self, verbosity: int = 0):
+    def build(self, verbosity: int = 0, merge_budget: int = 1):
         """
         Build the symbolic factors P(child | parents), one per family.
 
@@ -57,6 +64,15 @@ class ChainGraphFactorization:
         Args:
             verbosity: int
                 Verbosity level (0 is silent).
+            merge_budget: int
+                Scheme D2 (docs/tighter_approximation.tex): the maximum flattened
+                scope size of a merged super-family. ``1`` (the default) performs
+                no merging -- the factors are exactly the LCN families. With a
+                larger budget, adjacent families whose combined flattened scope is
+                at most ``merge_budget`` are merged into a single joint factor, so
+                cross-family LCN constraints act jointly (tighter local credal
+                sets). A budget at least the total atom count collapses everything
+                into one family, i.e. exact inference.
 
         Returns:
             A list of symbolic factor descriptors (one per family).
@@ -66,8 +82,14 @@ class ChainGraphFactorization:
         assert self.lcn.simplified_structure_graph is not None
         assert self.lcn.families is not None
 
+        if merge_budget is not None and merge_budget > 1:
+            families = self._merge_families(
+                self.lcn.families, merge_budget, verbosity)
+        else:
+            families = self.lcn.families
+
         self.factors = []
-        for family in self.lcn.families:
+        for family in families:
             child = family["child"]
             parents = family["parents"]
             sentences = family["sentences"]
@@ -99,6 +121,126 @@ class ChainGraphFactorization:
             })
 
         return self.factors
+
+    def _merge_families(self, families: list, merge_budget: int,
+                        verbosity: int = 0) -> list:
+        """
+        Scheme D2: greedily merge adjacent chain-graph families into joint
+        super-families whose flattened scope is at most ``merge_budget``.
+
+        The merge is a sequence of arc contractions on the family DAG (one node
+        per family, an arc ``u -> v`` when ``child(u)`` is a parent of ``v``).
+        Each contraction folds two families into one whose child node is the
+        "-"-joined union of their child atoms, whose parents are the external
+        parents only (parents not produced inside the group), and whose attached
+        sentences are recomputed as every LCN sentence with scope inside the
+        merged scope -- exactly the rule ``process_chain_graph`` uses, so a
+        merged scope (a superset of each member scope) can only *gain* sentences.
+
+        Contractions that would create a cycle are skipped, so the result stays
+        a DAG. ``self.lcn.families`` is never mutated. Returns a list of family
+        dicts of the same shape ``{child, parents, sentences}`` that ``build``
+        consumes; with ``merge_budget <= 1`` this method is not called and the
+        original families are used verbatim.
+        """
+        # Family DAG: node per family child-name; arc child(u) -> v when child(u)
+        # is a parent of v. Each node carries its current child-atom set, its
+        # external parent node-names, and the flattened scope.
+        groups = {}
+        for fam in families:
+            child = fam["child"]
+            groups[child] = {
+                "child_atoms": set(_flatten(child)),
+                "parents": set(fam["parents"]),
+            }
+
+        def scope_atoms(node_key):
+            g = groups[node_key]
+            atoms = set(g["child_atoms"])
+            for p in g["parents"]:
+                atoms.update(_flatten(p))
+            return atoms
+
+        # Build the arc set (parent-node -> child-node) over the *current* keys.
+        def build_arcs():
+            arcs = []
+            for v, g in groups.items():
+                for p in g["parents"]:
+                    if p in groups:  # p names another family's child node
+                        arcs.append((p, v))
+            return arcs
+
+        # Greedy contraction. Process candidate arcs in a deterministic order
+        # (sorted by the pair of node names) so the result is reproducible across
+        # serial and parallel builds.
+        changed = True
+        while changed:
+            changed = False
+            for u, v in sorted(build_arcs()):
+                if u not in groups or v not in groups or u == v:
+                    continue
+                merged_atoms = scope_atoms(u) | scope_atoms(v)
+                if len(merged_atoms) > merge_budget:
+                    continue
+                # Tentatively contract u into v and check the result stays a DAG.
+                new_child_atoms = groups[u]["child_atoms"] | groups[v]["child_atoms"]
+                new_key = "-".join(sorted(new_child_atoms))
+                # External parents: parents of u or v that are not now-internal
+                # child nodes of the merged group.
+                internal = {u, v, new_key}
+                new_parents = set()
+                for src in (u, v):
+                    for p in groups[src]["parents"]:
+                        if p not in internal and p not in new_child_atoms:
+                            new_parents.add(p)
+
+                # Rewire: any other family that had u or v as a parent now points
+                # at new_key instead.
+                trial = {k: {"child_atoms": set(val["child_atoms"]),
+                             "parents": set(val["parents"])}
+                         for k, val in groups.items() if k not in (u, v)}
+                trial[new_key] = {"child_atoms": new_child_atoms,
+                                  "parents": new_parents}
+                for k, val in trial.items():
+                    if k == new_key:
+                        continue
+                    if u in val["parents"] or v in val["parents"]:
+                        val["parents"].discard(u)
+                        val["parents"].discard(v)
+                        val["parents"].add(new_key)
+
+                # Acyclicity check on the trial family DAG.
+                dg = nx.DiGraph()
+                dg.add_nodes_from(trial.keys())
+                for k, val in trial.items():
+                    for p in val["parents"]:
+                        if p in trial:
+                            dg.add_edge(p, k)
+                if not nx.is_directed_acyclic_graph(dg):
+                    continue
+
+                groups = trial
+                changed = True
+                if verbosity > 0:
+                    print(f"[D2] merged {u} + {v} -> {new_key} "
+                          f"(scope size {len(merged_atoms)})")
+                break  # restart the scan after a structural change
+
+        # Emit family dicts; recompute attached sentences over the merged scope.
+        merged_families = []
+        for key in sorted(groups.keys()):
+            g = groups[key]
+            scope = scope_atoms(key)
+            sentences = []
+            for sid, s in self.lcn.sentences.items():
+                if set(s.get_atoms().keys()).issubset(scope):
+                    sentences.append(sid)
+            merged_families.append({
+                "child": key,
+                "parents": sorted(g["parents"]),
+                "sentences": sentences,
+            })
+        return merged_families
 
 
 if __name__ == "__main__":

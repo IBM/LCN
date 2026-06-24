@@ -269,7 +269,7 @@ def _iter_choices(keys, max_joints, seed):
 # ----------------------------------------------------------------------
 def verify(lcn, method="linear", solver="ipopt", tol=1e-7,
            max_joints=20000, seed=12345, time_limit=None, gap_tol=0.0,
-           verbosity=1, progress_bar=True):
+           merge_budget=1, verbosity=1, progress_bar=True):
     """
     Verify that the chain-graph credal network built from `lcn` supports every
     LMC independence of `lcn`.
@@ -313,7 +313,8 @@ def verify(lcn, method="linear", solver="ipopt", tol=1e-7,
     t_build = time.time()
     cnv = CredalNetworkVertices.from_lcn(
         lcn, method=method, solver=solver, time_limit=time_limit,
-        gap_tol=gap_tol, verbosity=(verbosity - 1 if verbosity > 1 else 0))
+        gap_tol=gap_tol, merge_budget=merge_budget,
+        verbosity=(verbosity - 1 if verbosity > 1 else 0))
     build_time = time.time() - t_build
     n_vertices = sum(len(v) for cfgs in cnv.extreme_points.values()
                      for v in cfgs.values())
@@ -444,7 +445,8 @@ def main():
                     "LCN's LMC independencies.")
     parser.add_argument("--file", default="examples/alarm.lcn",
                         help="Path to the .lcn file (default examples/alarm.lcn).")
-    parser.add_argument("--method", choices=["linear", "nlp"], default="linear",
+    parser.add_argument("--method", choices=["linear", "linear-tight"],
+                        default="linear",
                         help="Factorization method for the local credal sets.")
     parser.add_argument("--solver", choices=["ipopt", "scip"], default="ipopt",
                         help="Backend for the per-family interval solves.")
@@ -462,6 +464,9 @@ def main():
     parser.add_argument("--gap", type=float, default=0.0,
                         help="SCIP relative gap for the upstream build "
                              "(ignored by ipopt).")
+    parser.add_argument("--merge-budget", type=int, default=1,
+                        help="D2 scope-merge budget for the upstream build "
+                             "(1 = no merging; default 1).")
     parser.add_argument("--verbosity", type=int, default=1,
                         help="0 silent, 1 report + progress bar, 2 also stream "
                              "the credal-network build (suppresses the bar).")
@@ -478,6 +483,7 @@ def main():
     result = verify(lcn, method=args.method, solver=args.solver, tol=args.tol,
                     max_joints=args.max_joints, seed=args.seed,
                     time_limit=args.time_limit, gap_tol=args.gap,
+                    merge_budget=args.merge_budget,
                     verbosity=args.verbosity,
                     progress_bar=not args.no_progress_bar)
 

@@ -783,7 +783,7 @@ if __name__ == "__main__":
     print(l)
 
     # Build the credal network vertices (needed for extreme points)
-    cnv = CredalNetworkVertices.from_lcn(l, method="nlp", verbosity=1)
+    cnv = CredalNetworkVertices.from_lcn(l, method="linear", verbosity=1)
 
     # Create the IJGP solver
     ijgp = CredalIJGP(cnv=cnv)

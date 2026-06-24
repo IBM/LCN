@@ -61,15 +61,44 @@ implemented in a distinct module:
   \item \textbf{Local credal sets} (\texttt{cn/local\_credal\_sets.py}): for each family
     and each interpretation of its scope, solve a (fractional) optimization problem to
     obtain the lower/upper bound $[\underline{p},\overline{p}]$ of the conditional
-    $P(\mathrm{ch}_v=c \mid \mathrm{pa}_v=\pi)$. The default \texttt{method="linear"}
-    treats each family \emph{in isolation}; \texttt{method="nlp"} additionally imposes
-    \emph{pairwise} marginal independence between the parents.
+    $P(\mathrm{ch}_v=c \mid \mathrm{pa}_v=\pi)$. The method axis carries exactly two
+    settings (Section~\ref{sec:api}): \texttt{method="linear"} (the baseline) treats each
+    family \emph{in isolation}, and \texttt{method="linear-tight"} solves the same family
+    against every in-scope LCN sentence plus the scope-restricted LMC equalities (scheme
+    D1 of Section~\ref{sec:designs}).
   \item \textbf{Inference over the strong extension} (\texttt{cn/vertices.py},
     \texttt{cn/cve.py}): enumerate the extreme points of each local credal set and run
     Credal Variable Elimination, which optimizes over the strong extension---each local
     credal set, for each parent configuration, contributes a freely and independently
     chosen extreme point.
 \end{enumerate}
+
+\subsection{Build API: two methods, two orthogonal knobs}\label{sec:api}
+
+The schemes below are exposed through the existing build entry points
+(\texttt{CredalNetwork.from\_lcn}, \texttt{CredalNetworkVertices.from\_lcn}) without
+multiplying flags. The previous \texttt{method="nlp"} option (which added only
+\emph{pairwise} parent marginal independence) is \textbf{removed}: it is a strict
+half-measure for source~A, dominated by D1 below, and its bilinear program added solver
+fragility for little tightening. The surface is therefore:
+\begin{itemize}
+  \item \texttt{method} $\in\{$\texttt{"linear"}, \texttt{"linear-tight"}$\}$. \texttt{"linear"}
+    is today's per-family-in-isolation baseline (unchanged). \texttt{"linear-tight"} is
+    scheme~D1: each family is solved against every LCN sentence whose atom scope lies inside
+    the family scope, plus the scope-restricted LMC bilinear equalities.
+  \item \texttt{solver} $\in\{$\texttt{"ipopt"}, \texttt{"scip"}$\}$ (already present). On
+    \texttt{"linear-tight"}, \texttt{solver="scip"} \emph{is} scheme~D3: it solves the
+    enriched local program to certified global optimality; \texttt{"ipopt"} is the fast,
+    hardened (multi-restart $+$ SLSQP-fallback) variant of the same program.
+  \item \texttt{merge\_budget} $k$ (new): scheme~D2. A pre-factorization pass merges adjacent
+    families whose combined scope is $\le k$ before \texttt{ChainGraphFactorization.build};
+    $k{=}1$ is no merge (today), $k{=}$ full scope is exact. Orthogonal to \texttt{method}
+    and \texttt{solver}.
+\end{itemize}
+Thus D1 is the \emph{core} of \texttt{"linear-tight"}, while D2 ($k$) and D3 (\texttt{solver})
+are independent cost-vs-tightness dials rather than separate method names. (This \texttt{cn/}
+factorization \texttt{method} is unrelated to the identically named parameters of
+\texttt{ibp.py} and \texttt{map/exact\_map.py}.)
 
 \section{Running example: the \texttt{alarm} network}\label{sec:example}
 
@@ -198,15 +227,19 @@ dominates on the instance at hand.
 
 \section{Proposed schemes}\label{sec:designs}
 
-\paragraph{D1 --- Constraint back-propagation into local sets (attacks A; drop-in).}
+\paragraph{D1 --- Constraint back-propagation into local sets (attacks A; the new \texttt{"linear-tight"} method).}
 When solving family $v$, replace the constraint source from ``sentences attached to $v$''
 with ``every LCN sentence $s$ whose atom scope satisfies $\mathrm{atoms}(s)\subseteq
 \mathrm{scope}(v)$,'' and additionally append the LMC bilinear equalities
 (\texttt{lmc\_constraint\_groups\_vec} in \texttt{utils/common.py}) restricted to
-$\mathrm{scope}(v)$. Families that thereby acquire bilinear constraints are solved on the
-existing hardened ipopt/SCIP \texttt{nlp} path. Closes the part of gap A expressible within
-a single family scope; cannot capture constraints spanning atoms in different families.
-Near-zero structural change.
+$\mathrm{scope}(v)$. This is exactly \texttt{method="linear-tight"}: when the enriched
+constraint set is purely linear the family stays an LP / Charnes--Cooper fractional LP,
+and when it acquires LMC bilinear equalities it is solved on the existing hardened ipopt
+(or, under \texttt{solver="scip"}, certified-global) path that the removed \texttt{"nlp"}
+option used to drive. Closes the part of gap A expressible within a single family scope;
+cannot capture constraints spanning atoms in different families. Near-zero structural
+change---only \texttt{\_linear\_rows\_and\_obj}'s sentence selection and a scope-restricted
+LMC row builder.
 
 \smallskip\noindent\emph{On the example.} Family $A$'s scope is $\{A,B,E\}$, so $s1,s2,s5$
 all satisfy $\mathrm{atoms}(s)\subseteq\mathrm{scope}$ and would now be loaded together with
@@ -216,8 +249,8 @@ $s5$, tightening the $A{=}0$ rows. The diagonal-sum coupling of $s4$ is \emph{wi
 $C\!-\!D$ family scope, so this single change also removes the gap-B vertex combination of
 Section~\ref{sec:sources} from that local set.
 
-\paragraph{D2 --- Scope merging with a tightness dial (attacks A, partially B).}
-Introduce a budget $k$. Merge adjacent families whose combined scope size is $\le k$ into a
+\paragraph{D2 --- Scope merging with a tightness dial (attacks A, partially B; the \texttt{merge\_budget} knob).}
+Introduce a budget $k$ (\texttt{merge\_budget}). Merge adjacent families whose combined scope size is $\le k$ into a
 single \emph{super-family} and compute one joint local credal set over the merged scope
 (a larger fractional LP / NLP). At $k=$ full scope this is exact inference; at $k=$
 single-family it is today's behavior. Provides an anytime tightness-vs-cost knob, with
@@ -232,12 +265,13 @@ $A\mid B,E$ structure, so the $C\!-\!D$ conditionals tighten beyond what D1 achi
 isolation. Here $k{=}5$ is the full scope, i.e.\ exact; a budget $k{=}3$ would merge only
 where cheap.
 
-\paragraph{D3 --- Joint-LP certification of each local bound (attacks A; exact, certified).}
+\paragraph{D3 --- Joint-LP certification of each local bound (attacks A; exact, certified; the \texttt{solver="scip"} path).}
 For each (family, interpretation, sense), solve the bound for the family conditional
 $P(\mathrm{ch}_v\mid\mathrm{pa}_v)$ against the \emph{full} LCN feasible region: all LCN
 sentences and all LMC equalities over the $2^n$ joint, with a fractional objective local to
-the family. This yields $K_v^{\mathrm{true}}$ exactly. Solved with SCIP (the existing
-\texttt{solver="scip"} global path) so the bounds carry a global optimality certificate.
+the family. This yields $K_v^{\mathrm{true}}$ exactly. It is reached by combining
+\texttt{method="linear-tight"} with \texttt{solver="scip"} (the existing global path) so the
+bounds carry a global optimality certificate.
 Cost is $2^n$ variables per solve; viable for small $n$ or, more usefully, as the
 \emph{certifier} of the cheaper schemes (it is essentially \texttt{ExactInference} run per
 conditional).
