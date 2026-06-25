@@ -31,7 +31,8 @@ from pyomo.environ import (
 
 # Local
 from lcn.core.model import LCN
-from lcn.inference.marginal.cn.coupling import CouplingConstraints
+from lcn.inference.marginal.cn.coupling import (
+    CouplingConstraints, warn_conditional_coupling)
 from lcn.inference.marginal.cn.potentials import min_fill_order
 from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
 from lcn.inference.utils.common import check_consistency, make_ipopt
@@ -435,6 +436,7 @@ class ApproxLP:
             if verbosity > 0:
                 print(f"[ApproxLP] D4 coupling: {len(cc)} cross-family "
                       f"constraint(s)")
+            warn_conditional_coupling(evidence, "ApproxLP", verbosity)
 
         if verbosity > 0:
             print(f"[ApproxLP] Computing all marginals")

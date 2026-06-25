@@ -27,7 +27,8 @@ import numpy as np
 
 # Local
 from lcn.core.model import LCN
-from lcn.inference.marginal.cn.coupling import CouplingConstraints
+from lcn.inference.marginal.cn.coupling import (
+    CouplingConstraints, warn_conditional_coupling)
 from lcn.inference.marginal.cn.junction_nlp import build_and_solve_jt_nlp
 from lcn.inference.marginal.cn.potentials import Potential, min_fill_order
 from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
@@ -166,6 +167,8 @@ class CredalVE:
         if epsilon is not None:
             return self.run_approx(query, evidence, epsilon,
                                    elim_heuristic, coupling, verbosity)
+        if coupling == "cross-family":
+            warn_conditional_coupling(evidence, "CredalVE", verbosity)
 
         assert elim_heuristic in ("topological", "min-fill"), \
             f"Unknown heuristic '{elim_heuristic}'. Use 'topological' or 'min-fill'."
@@ -407,6 +410,8 @@ class CredalVE:
             f"Unknown heuristic '{elim_heuristic}'. Use 'topological' or 'min-fill'."
         assert coupling in ("off", "cross-family"), \
             f"Unknown coupling '{coupling}'. Use 'off' or 'cross-family'."
+        if coupling == "cross-family":
+            warn_conditional_coupling(evidence, "CredalVE-approx", verbosity)
 
         t_start = time.time()
 
