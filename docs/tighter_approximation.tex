@@ -329,6 +329,39 @@ $A$); eliminating $C,D$ uses a bucket over $\{A\}$ optimized subject to $s4$ as 
 sum (closing gap B for $C\!-\!D$). The query marginal $P(A)$ is then read off the final
 $\{A\}$ bucket. No step ever forms the loose product, and no bucket exceeds three atoms.
 
+\smallskip\noindent\emph{Implementation note (junction-tree exact NLP).} D5 is realized
+(\texttt{cn/junction\_nlp.py}, the \texttt{coupling="d5"} flag on Credal VE) not as a
+sequence of message NLPs but as a single equivalent \emph{junction-tree} NLP, which is
+cleaner to make provably exact. Build a clique tree from the chain-graph elimination order
+(reusing the bucket-tree construction), introduce one variable vector per cluster ranging
+over that cluster's joint distribution, tie adjacent clusters with Lauritzen
+separator-consistency equalities (the marginal of a cluster onto a separator equals the
+neighbour's), and impose each LCN sentence and LMC equality on a cluster containing its
+atoms. Because the clique tree has the running-intersection property, a separator-consistent
+constraint-satisfying family of cluster marginals projects to exactly the marginals of some
+global joint in the LCN's set, and conversely; hence $\min/\max$ of the query marginal over
+this NLP equals the exact bound, at cost $\sum_c 2^{|\mathrm{atoms}(c)|}$ rather than $2^n$.
+Cross-family constraints (whose atoms span cliques) are handled by augmenting the
+elimination order with their node sets so they acquire a single host cluster --- the JT
+analogue of D2's family merging and D4's order augmentation; the cluster a constraint forces
+sets the local treewidth, so on instances whose cross-family constraints are themselves
+near-global (e.g.\ \texttt{alarm}, whose LMC assertions $C\perp B,E\mid D,A$ span all five
+atoms) D5 degenerates to near-full-joint cost, while on instances with local cross-family
+coupling it stays cheap.
+
+Two findings from the implementation. (1)~The cluster NLP is nonconvex (Type-2 ratios, the
+bilinear LMC equalities, and the conditional-query ratio objective), so a local solver
+(ipopt) only reaches a local optimum that can fall \emph{short} of the true bound; D5 must
+use the certified global backend (SCIP) to actually be exact, and defaults to it. (2)~D5 is
+exact for \emph{conditional} queries $P(q\mid e)$, where the vertex-enumeration methods
+(plain Credal VE, and D4 on top of it) are \emph{not even sound}: the conditional bound is a
+ratio whose extremum need not lie at a vertex of the unconditioned credal set, so
+min/max-over-vertices can land strictly inside the true interval. On
+\texttt{examples/d4\_biting.lcn}, $P(B\mid C{=}1)$ is exactly $[0.006,0.926]$ (D5, matching
+the global solver), whereas plain Credal VE reports $[0.038,0.963]$ and D4 reports the
+spurious near-point $[0.038,0.038]$. D5 is therefore the only member of the family that is
+sound for conditional queries, not merely tighter.
+
 \begin{table}[t]
   \centering
   \begin{tabular}{llccc}

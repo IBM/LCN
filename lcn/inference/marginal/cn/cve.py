@@ -28,6 +28,7 @@ import numpy as np
 # Local
 from lcn.core.model import LCN
 from lcn.inference.marginal.cn.coupling import CouplingConstraints
+from lcn.inference.marginal.cn.junction_nlp import build_and_solve_jt_nlp
 from lcn.inference.marginal.cn.potentials import Potential, min_fill_order
 from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
 from lcn.inference.utils.common import check_consistency
@@ -69,9 +70,53 @@ class CredalVE:
             print(f"[CredalVE] D4 coupling: {len(cc)} cross-family constraint(s)")
         return (cc if len(cc) > 0 else None), node_atoms
 
+    def _run_d5(self, query, evidence, d5_solver, verbosity):
+        """
+        Scheme D5: replace the vertex propagation with a junction-tree exact
+        NLP (cluster-marginal variables + separator consistency + all LCN
+        sentences and LMC equalities), giving the exact chain-graph bound at
+        treewidth cost. Sets lower_bound/upper_bound and the per-state arrays
+        exactly as run() does. When a constraint or the query exceeds the
+        cluster budget the JT-NLP cannot be made exact, so it falls back to
+        ExactInference.run_query (still exact, but 2^n).
+        """
+        import time
+        from lcn.inference.marginal.exact import ExactInference
+
+        t_start = time.time()
+        lo, hi, info = build_and_solve_jt_nlp(
+            self.cnv, query, evidence=evidence, solver=d5_solver,
+            verbosity=verbosity)
+        self.d5_exact = info["exact"]
+        self.induced_width = info["max_cluster_atoms"]
+
+        if info["fallback"]:
+            if verbosity > 0:
+                print("[CredalVE] D5 falling back to ExactInference "
+                      "(cluster budget exceeded).")
+            ei = ExactInference(self.cnv.lcn)
+            lo, hi = ei.run_query(query, evidence=evidence,
+                                  solver="local", verbosity=0)
+
+        # Mirror run()'s storage: bounds are on P(query=1 | evidence).
+        cards_q = self.cnv.cn.node_card.get(query, 2)
+        lower_bounds = np.array([1.0 - hi, lo]) if cards_q > 1 else np.array([lo])
+        upper_bounds = np.array([1.0 - lo, hi]) if cards_q > 1 else np.array([hi])
+        self.lower_bound = lo
+        self.upper_bound = hi
+        self.lower_bounds = lower_bounds
+        self.upper_bounds = upper_bounds
+
+        if verbosity > 0:
+            print(f"[CredalVE] D5 P({query} | {evidence}) = "
+                  f"[{lo:.6f}, {hi:.6f}]  (exact={self.d5_exact}, "
+                  f"max cluster={self.induced_width} atoms)")
+            print(f"[CredalVE] Time elapsed: {time.time() - t_start:.4f} sec")
+
     def run(self, query: str, evidence: dict = {},
             elim_heuristic: str = "topological", epsilon: float = None,
-            coupling: str = "off", verbosity: int = 1):
+            coupling: str = "off", d5_solver: str = "scip",
+            verbosity: int = 1):
         """
         Compute lower and upper bounds on P(query_var | evidence) using
         bucket-based variable elimination over the credal network's
@@ -90,21 +135,34 @@ class CredalVE:
                 exact pruning. Larger values prune more aggressively,
                 producing wider (outer) bounds but faster computation.
             coupling: str
-                Scheme D4 (docs/tighter_approximation.tex). "off" (default)
+                Schemes D4/D5 (docs/tighter_approximation.tex). "off" (default)
                 optimizes over the free strong extension (today's behavior,
-                byte-identical). "cross-family" forbids vertex combinations
+                byte-identical). "cross-family" (D4) forbids vertex combinations
                 whose assembled joint violates a cross-family LCN sentence or
                 LMC assertion (one that fits inside no single family scope),
-                tightening the bounds toward the true LCN set. Enabling it
-                forces the "min-fill" elimination ordering augmented with the
-                constrained node sets, so the constrained atoms co-occur in a
-                common bucket (otherwise the constraint scope is never
-                assembled and the coupling stays inert).
+                tightening the bounds toward the true LCN set; it forces the
+                "min-fill" elimination ordering augmented with the constrained
+                node sets so the constrained atoms co-occur in a common bucket.
+                "d5" replaces the vertex propagation entirely with a junction-
+                tree exact NLP (cluster-marginal variables + separator
+                consistency + all LCN/LMC constraints), giving the EXACT
+                chain-graph bound at treewidth cost; epsilon is ignored.
+            d5_solver: str
+                Backend for the D5 junction-tree NLP: "scip" (default,
+                certified global -- needed for D5 to actually be exact, since
+                the cluster NLP is nonconvex and ipopt only finds a local
+                optimum that can fall short of the true bound) or "ipopt"
+                (hardened multi-restart, fast but only locally optimal). Inert
+                unless coupling=="d5".
             verbosity: int
                 Verbosity level (0 is silent).
         """
-        assert coupling in ("off", "cross-family"), \
-            f"Unknown coupling '{coupling}'. Use 'off' or 'cross-family'."
+        assert coupling in ("off", "cross-family", "d5"), \
+            f"Unknown coupling '{coupling}'. Use 'off', 'cross-family' or 'd5'."
+        if coupling == "d5":
+            if epsilon is not None and verbosity > 0:
+                print("[CredalVE] D5 is exact; ignoring epsilon.")
+            return self._run_d5(query, evidence, d5_solver, verbosity)
         if epsilon is not None:
             return self.run_approx(query, evidence, epsilon,
                                    elim_heuristic, coupling, verbosity)
