@@ -134,3 +134,8 @@ dmypy.json
 version.py
 .aim
 logs/
+
+# Latex intermediate files
+*.aux
+*.out
+*.log
