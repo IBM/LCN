@@ -27,6 +27,7 @@
 # is the job of `CredalNetworkVertices` (see vertices.py).
 
 import itertools
+import logging
 from concurrent.futures import ProcessPoolExecutor
 from typing import Dict, List
 
@@ -46,6 +47,13 @@ def _solve_family(symbolic_factor: Dict, lcn: LCN, method: str,
     interpretation index. This is a module-level function so it can be shipped
     to worker processes for parallel per-family solving.
     """
+    # Suppress the benign Pyomo solver warnings unless full solver progress was
+    # requested (verbosity >= 2). Set here so it also takes effect inside worker
+    # processes under n_jobs > 1 (a parent-process logger level does not carry
+    # across the process boundary).
+    if verbosity < 2:
+        logging.getLogger('pyomo').setLevel(logging.ERROR)
+
     solver = LocalCredalSetSolver(
         lcn, method=method, solver=solver_backend,
         time_limit=time_limit, gap_tol=gap_tol, verbosity=verbosity)

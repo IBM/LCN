@@ -439,7 +439,8 @@ class LocalCredalSetSolver:
     # ------------------------------------------------------------------
 
     def _make_ipopt(self):
-        opt = make_ipopt(debug=(self.verbosity > 2), mode="exact")
+        # verbosity >= 2 shows the solver's own progress (ipopt print_level).
+        opt = make_ipopt(debug=(self.verbosity >= 2), mode="exact")
         if self.time_limit is not None:
             opt.options['max_cpu_time'] = float(self.time_limit)
             opt.options['max_wall_time'] = float(self.time_limit)
@@ -449,7 +450,7 @@ class LocalCredalSetSolver:
         """Solve once with ipopt; return (objective_value_or_None, optimal_bool)."""
         opt = self._make_ipopt()
         try:
-            results = opt.solve(model, tee=(self.verbosity > 2))
+            results = opt.solve(model, tee=(self.verbosity >= 2))
             tc = results.solver.termination_condition
             status = results.solver.status
             val = value(model.objective, exception=False)
@@ -523,7 +524,7 @@ class LocalCredalSetSolver:
             gap_tol=self.gap_tol)
         try:
             results = solver.solve(model, load_solutions=False,
-                                   tee=(self.verbosity > 2))
+                                   tee=(self.verbosity >= 2))
         except Exception as ex:
             if self.verbosity > 1:
                 print(f"[LocalCredalSetSolver] scip exception: {ex}")

@@ -23,6 +23,7 @@
 #
 # All pyAgrum coupling lives here; CredalNetwork itself is pyAgrum-free.
 
+import logging
 import re
 import time
 from typing import Dict
@@ -146,15 +147,33 @@ class CredalNetworkVertices:
                 Scheme D2: maximum flattened scope of a merged super-family
                 (1 = no merging; see CredalNetwork.from_lcn).
             verbosity: int
-                Verbosity level (0 is silent).
+                Verbosity level. 0 is silent. At verbosity < 2 the ipopt/scip
+                solver warnings/errors emitted during the per-family solves
+                (e.g. Pyomo's "Loading a SolverResults object with a warning
+                status" / "termination condition: other" notices, which are
+                benign here -- the hardened multi-restart handles them) are
+                SUPPRESSED. At verbosity >= 2 the solver's own progress log is
+                streamed (ipopt/scip ``tee``) and those messages are shown.
         """
         t0 = time.perf_counter()
-        cn = CredalNetwork.from_lcn(
-            lcn, method=method, solver=solver, time_limit=time_limit,
-            gap_tol=gap_tol, n_jobs=n_jobs, merge_budget=merge_budget,
-            verbosity=verbosity)
-        cnv = cls(cn)
-        cnv._build(verbosity=verbosity)
+        # Suppress the (benign) Pyomo solver warnings during the build, unless
+        # verbosity >= 2 where the user asked to see full solver progress. This
+        # covers the serial per-family solves and the vertex enumeration in this
+        # process; under n_jobs > 1 the per-family solves run in worker
+        # processes and emit on their own streams.
+        pyomo_logger = logging.getLogger('pyomo')
+        prev_level = pyomo_logger.level
+        if verbosity < 2:
+            pyomo_logger.setLevel(logging.ERROR)
+        try:
+            cn = CredalNetwork.from_lcn(
+                lcn, method=method, solver=solver, time_limit=time_limit,
+                gap_tol=gap_tol, n_jobs=n_jobs, merge_budget=merge_budget,
+                verbosity=verbosity)
+            cnv = cls(cn)
+            cnv._build(verbosity=verbosity)
+        finally:
+            pyomo_logger.setLevel(prev_level)
         cnv.build_time = time.perf_counter() - t0
         if verbosity > 0:
             print(f"[CredalNetworkVertices] Build time (whole pipeline): "
