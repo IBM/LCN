@@ -879,7 +879,7 @@ structure plus the enumerated extreme points of the local credal sets
   \toprule
   Algorithm & Propagation & Bound character vs.\ the strong extension \\
   \midrule
-  Credal VE (\texttt{cve.py})    & bucket elimination          & exact (the strong-extension interval) \\
+  Credal VE (\texttt{cve.py})    & per-target bucket elimination & exact (the strong-extension interval) \\
   Credal CTE (\texttt{ccte.py})  & two-pass bucket tree        & exact ($\epsilon{=}0$); outer if $\epsilon{>}0$ \\
   ApproxLP (\texttt{approxlp.py})& per-variable LP over vertices & \emph{inner} (subset of the true interval) \\
   Interval BP (\texttt{ibp.py})  & loopy interval messages     & \emph{outer} (\texttt{interval}); inner (\texttt{variational}) \\
@@ -887,6 +887,13 @@ structure plus the enumerated extreme points of the local credal sets
   \bottomrule
 \end{tabular}
 \end{center}
+
+(\texttt{CredalVE.run(evidence)} now computes \emph{all} singleton-atom marginals in one call
+by looping the single-query bucket elimination over the credal-network nodes: for each target
+node it recomputes the elimination order so the target is eliminated last, runs one pass, and
+reads off the node's bounds, projecting compound nodes to their atoms by an LP. Because each
+target gets its own optimal per-target order, its strong-extension bound is at least as tight
+as Credal CTE's shared two-pass schedule.)
 
 The essential observation is that every one of these algorithms brackets the
 \emph{strong-extension} interval $[\underline{q}_{\mathrm{SE}},\overline{q}_{\mathrm{SE}}]$,

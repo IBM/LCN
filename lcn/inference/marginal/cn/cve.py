@@ -21,9 +21,12 @@
 # queries via bucket-based variable elimination over the extreme points.
 
 import itertools
-import time
 
 import numpy as np
+from pyomo.environ import (
+    ConcreteModel, Var, ConstraintList, Objective,
+    NonNegativeReals, minimize, maximize, value,
+)
 
 # Local
 from lcn.core.model import LCN
@@ -32,7 +35,7 @@ from lcn.inference.marginal.cn.coupling import (
 from lcn.inference.marginal.cn.junction_nlp import build_and_solve_jt_nlp
 from lcn.inference.marginal.cn.potentials import Potential, min_fill_order
 from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
-from lcn.inference.utils.common import check_consistency
+from lcn.inference.utils.common import check_consistency, make_ipopt
 
 
 class CredalVE:
@@ -71,112 +74,237 @@ class CredalVE:
             print(f"[CredalVE] D4 coupling: {len(cc)} cross-family constraint(s)")
         return (cc if len(cc) > 0 else None), node_atoms
 
-    def _run_d5(self, query, evidence, d5_solver, verbosity):
+    # ------------------------------------------------------------------
+    # Public API: all posterior marginals
+    # ------------------------------------------------------------------
+
+    def run(self, evidence: dict = {},
+            elim_heuristic: str = "topological", epsilon: float = None,
+            coupling: str = "off", d5_solver: str = "scip",
+            verbosity: int = 1):
         """
-        Scheme D5: replace the vertex propagation with a junction-tree exact
-        NLP (cluster-marginal variables + separator consistency + all LCN
-        sentences and LMC equalities), giving the exact chain-graph bound at
-        treewidth cost. Sets lower_bound/upper_bound and the per-state arrays
-        exactly as run() does. When a constraint or the query exceeds the
-        cluster budget the JT-NLP cannot be made exact, so it falls back to
-        ExactInference.run_query (still exact, but 2^n).
+        Compute lower/upper bounds on the posterior marginal of EVERY
+        (non-evidence) singleton atom, by iterating the single-query bucket
+        elimination over the credal-network nodes.
+
+        For each node, the elimination ordering is recomputed so the node is the
+        last variable eliminated (its own bucket survives), one bucket-
+        elimination pass yields the node's per-state bounds, and singleton-atom
+        marginals P(atom=1 | evidence) are read off (directly for a singleton
+        node, or by an LP projection of a compound node's per-state polytope).
+        Evidence atoms are skipped.
+
+        Args:
+            evidence: {variable_name: value} for observed atoms.
+            elim_heuristic: "topological" (default) or "min-fill" per-target
+                ordering. With coupling="cross-family" the order is forced to
+                min-fill augmented with the constrained node sets.
+            epsilon: if not None, epsilon-approximate pruning (FPTAS).
+            coupling: "off" (strong extension), "cross-family" (scheme D4, drops
+                vertex combinations violating a cross-family constraint), or
+                "d5" (scheme D5, the junction-tree EXACT NLP; epsilon ignored).
+            d5_solver: backend for D5, "scip" (default, certified global) or
+                "ipopt". Inert unless coupling=="d5".
+            verbosity: 0 silent, 1 summary, 2 per-target detail.
+
+        Returns:
+            Dict mapping variable name to (lower_bounds, upper_bounds) numpy
+            arrays. Singleton atoms map to the 2-vector [P(=0), P(=1)] bounds;
+            compound nodes (e.g. "C-D") map to their per-state bounds. Also sets
+            self.marginals (this dict) and self.singleton_marginals
+            ({atom -> (lo, hi)} for P(atom=1)).
         """
-        import time
+        assert coupling in ("off", "cross-family", "d5"), \
+            f"Unknown coupling '{coupling}'. Use 'off', 'cross-family' or 'd5'."
+        assert self.cnv.extreme_points is not None, \
+            "CredalNetworkVertices must be built before run()."
+        assert self.cnv.bn_min is not None
+
+        node_atoms = self.cnv.cn.node_atoms
+        evidence_set = set(evidence.keys())
+
+        if coupling == "d5":
+            if epsilon is not None and verbosity > 0:
+                print("[CredalVE] D5 is exact; ignoring epsilon.")
+            return self._run_all_d5(evidence, evidence_set, node_atoms,
+                                    d5_solver, verbosity)
+
+        assert elim_heuristic in ("topological", "min-fill"), \
+            f"Unknown heuristic '{elim_heuristic}'. Use 'topological' or 'min-fill'."
+        if coupling == "cross-family":
+            warn_conditional_coupling(evidence, "CredalVE", verbosity)
+
+        if verbosity > 0:
+            print(f"[CredalVE] Computing all marginals "
+                  f"(coupling={coupling}, evidence={evidence})")
+
+        # Iterate over the credal-network nodes; for each non-fully-observed
+        # node run one elimination pass with that node as the (last) target.
+        self.marginals = {}
+        for node in self.cnv.cn.nodes:
+            if all(a in evidence_set for a in node_atoms[node]):
+                continue  # node fully observed -> nothing to compute
+            lo, hi = self._run_single_query(
+                node, evidence, elim_heuristic, epsilon, coupling, verbosity)
+            self.marginals[node] = (lo, hi)
+
+        # Project to singleton-atom marginals and assemble the return dict.
+        self.singleton_marginals = self._extract_singleton_atoms(
+            self.marginals, evidence_set)
+        results = self._assemble_results(evidence_set)
+
+        if verbosity > 0:
+            self._print_marginals(results)
+        return results
+
+    def _run_all_d5(self, evidence, evidence_set, node_atoms, d5_solver,
+                    verbosity):
+        """All-marginals via scheme D5: one junction-tree exact NLP per
+        non-evidence singleton atom. Sets self.marginals/self.singleton_marginals
+        and self.d5_exact/self.induced_width."""
+        if verbosity > 0:
+            print(f"[CredalVE] Computing all marginals (coupling=d5, "
+                  f"solver={d5_solver}, evidence={evidence})")
+        atoms = sorted({a for atoms in node_atoms.values() for a in atoms}
+                       - evidence_set)
+        self.singleton_marginals = {}
+        self.d5_exact = True
+        self.induced_width = 0
+        for atom in atoms:
+            lo, hi, exact, width = self._run_d5_atom(
+                atom, evidence, d5_solver, verbosity)
+            self.singleton_marginals[atom] = (lo, hi)
+            self.d5_exact = self.d5_exact and exact
+            self.induced_width = max(self.induced_width, width)
+        # D5 yields singleton-level marginals only.
+        self.marginals = {}
+        results = self._assemble_results(evidence_set)
+        if verbosity > 0:
+            self._print_marginals(results)
+            print(f"[CredalVE] D5 exact={self.d5_exact}, "
+                  f"max cluster={self.induced_width} atoms")
+        return results
+
+    # ------------------------------------------------------------------
+    # Singleton-atom projection + result assembly
+    # ------------------------------------------------------------------
+
+    def _extract_singleton_atoms(self, marginals, evidence_set):
+        """
+        Derive P(atom=1 | evidence) bounds for every non-evidence singleton
+        atom from the per-node marginals. A singleton node gives its atom's
+        bound directly (state 1); a compound node's atoms are obtained by an LP
+        over the node's per-state interval polytope (MSB-first state packing,
+        matching cve.py / coupling.py). Skips evidence atoms.
+        """
+        solver = make_ipopt()
+        singleton = {}
+        for node, (lo, hi) in marginals.items():
+            atoms = self.cnv.cn.node_atoms[node]
+            if len(atoms) == 1:
+                atom = atoms[0]
+                if atom in evidence_set:
+                    continue
+                singleton[atom] = (float(lo[1]), float(hi[1]))
+                continue
+            # Compound node: project each atom out of the per-state polytope.
+            n_atoms = len(atoms)
+            k = 2 ** n_atoms
+            for atom_idx, atom in enumerate(atoms):
+                if atom in evidence_set:
+                    continue
+                ones = [s for s in range(k)
+                        if (s >> (n_atoms - 1 - atom_idx)) & 1 == 1]
+                low = self._solve_singleton_lp(lo, hi, k, ones, minimize, solver)
+                up = self._solve_singleton_lp(lo, hi, k, ones, maximize, solver)
+                singleton[atom] = (low, up)
+        return singleton
+
+    @staticmethod
+    def _solve_singleton_lp(lo, hi, k, target_states, sense, solver):
+        """min/max sum(p[s] for s in target_states) s.t. the per-state interval
+        bounds and the simplex. (Same LP as CredalCTE._solve_singleton_lp.)"""
+        model = ConcreteModel()
+        model.S = range(k)
+        model.p = Var(model.S, within=NonNegativeReals)
+        model.constr = ConstraintList()
+        model.constr.add(sum(model.p[s] for s in model.S) == 1.0)
+        for s in model.S:
+            model.constr.add(model.p[s] >= float(lo[s]))
+            model.constr.add(model.p[s] <= float(hi[s]))
+        model.obj = Objective(
+            expr=sum(model.p[s] for s in target_states), sense=sense)
+        solver.solve(model, tee=False)
+        return float(value(model.obj))
+
+    def _assemble_results(self, evidence_set):
+        """Combine the per-node marginals (compound nodes kept as-is) with the
+        singleton-atom marginals (as 2-vectors) into one {name -> (lo,hi)} dict
+        in the contract the experiment runner consumes."""
+        results = {}
+        # Compound-node per-state bounds (filtered out downstream by name '-').
+        for node, (lo, hi) in self.marginals.items():
+            if len(self.cnv.cn.node_atoms[node]) > 1:
+                results[node] = (np.asarray(lo), np.asarray(hi))
+        # Singleton atoms as [P(=0), P(=1)] 2-vectors.
+        for atom, (lo, hi) in self.singleton_marginals.items():
+            results[atom] = (np.array([1.0 - hi, lo]),
+                             np.array([1.0 - lo, hi]))
+        return results
+
+    @staticmethod
+    def _print_marginals(results):
+        print("[CredalVE] Singleton marginals P(atom=1):")
+        for name in sorted(results):
+            if "-" in name:
+                continue
+            lo, hi = results[name]
+            print(f"  P({name}=1): [{lo[1]:.6f}, {hi[1]:.6f}]")
+
+    def _run_d5_atom(self, atom, evidence, d5_solver, verbosity):
+        """
+        Scheme D5 for a single (singleton) atom: replace the vertex propagation
+        with a junction-tree exact NLP (cluster-marginal variables + separator
+        consistency + all LCN sentences and LMC equalities), giving the exact
+        chain-graph bound P(atom=1 | evidence) at treewidth cost. Falls back to
+        ExactInference.run_query when the JT-NLP cannot be made exact within the
+        cluster budget. Returns (lo, hi, exact, width) for P(atom=1 | evidence).
+        """
         from lcn.inference.marginal.exact import ExactInference
 
-        t_start = time.time()
         lo, hi, info = build_and_solve_jt_nlp(
-            self.cnv, query, evidence=evidence, solver=d5_solver,
+            self.cnv, atom, evidence=evidence, solver=d5_solver,
             verbosity=verbosity)
-        self.d5_exact = info["exact"]
-        self.induced_width = info["max_cluster_atoms"]
+        exact = info["exact"]
+        width = info["max_cluster_atoms"]
 
         if info["fallback"]:
             if verbosity > 0:
                 print("[CredalVE] D5 falling back to ExactInference "
                       "(cluster budget exceeded).")
             ei = ExactInference(self.cnv.lcn)
-            lo, hi = ei.run_query(query, evidence=evidence,
+            lo, hi = ei.run_query(atom, evidence=evidence,
                                   solver="local", verbosity=0)
 
-        # Mirror run()'s storage: bounds are on P(query=1 | evidence).
-        cards_q = self.cnv.cn.node_card.get(query, 2)
-        lower_bounds = np.array([1.0 - hi, lo]) if cards_q > 1 else np.array([lo])
-        upper_bounds = np.array([1.0 - lo, hi]) if cards_q > 1 else np.array([hi])
-        self.lower_bound = lo
-        self.upper_bound = hi
-        self.lower_bounds = lower_bounds
-        self.upper_bounds = upper_bounds
+        if verbosity > 1:
+            print(f"  [D5] P({atom}=1 | {evidence}) = [{lo:.6f}, {hi:.6f}]  "
+                  f"(exact={exact}, max cluster={width} atoms)")
+        return lo, hi, exact, width
 
-        if verbosity > 0:
-            print(f"[CredalVE] D5 P({query} | {evidence}) = "
-                  f"[{lo:.6f}, {hi:.6f}]  (exact={self.d5_exact}, "
-                  f"max cluster={self.induced_width} atoms)")
-            print(f"[CredalVE] Time elapsed: {time.time() - t_start:.4f} sec")
-
-    def run(self, query: str, evidence: dict = {},
-            elim_heuristic: str = "topological", epsilon: float = None,
-            coupling: str = "off", d5_solver: str = "scip",
-            verbosity: int = 1):
+    def _run_single_query(self, query, evidence, elim_heuristic, epsilon,
+                          coupling, verbosity):
         """
-        Compute lower and upper bounds on P(query_var | evidence) using
-        bucket-based variable elimination over the credal network's
-        extreme points.
-
-        Args:
-            query: str
-                Name of the query variable (a node in the credal network).
-            evidence: dict
-                {variable_name: value} for observed variables.
-            elim_heuristic: str
-                Elimination ordering heuristic: "topological" (default)
-                or "min-fill".
-            epsilon: float or None
-                If not None, use epsilon-approximate pruning instead of
-                exact pruning. Larger values prune more aggressively,
-                producing wider (outer) bounds but faster computation.
-            coupling: str
-                Schemes D4/D5 (docs/tighter_approximation.tex). "off" (default)
-                optimizes over the free strong extension (today's behavior,
-                byte-identical). "cross-family" (D4) forbids vertex combinations
-                whose assembled joint violates a cross-family LCN sentence or
-                LMC assertion (one that fits inside no single family scope),
-                tightening the bounds toward the true LCN set; it forces the
-                "min-fill" elimination ordering augmented with the constrained
-                node sets so the constrained atoms co-occur in a common bucket.
-                "d5" replaces the vertex propagation entirely with a junction-
-                tree exact NLP (cluster-marginal variables + separator
-                consistency + all LCN/LMC constraints), giving the EXACT
-                chain-graph bound at treewidth cost; epsilon is ignored.
-            d5_solver: str
-                Backend for the D5 junction-tree NLP: "scip" (default,
-                certified global -- needed for D5 to actually be exact, since
-                the cluster NLP is nonconvex and ipopt only finds a local
-                optimum that can fall short of the true bound) or "ipopt"
-                (hardened multi-restart, fast but only locally optimal). Inert
-                unless coupling=="d5".
-            verbosity: int
-                Verbosity level (0 is silent).
+        One bucket-elimination pass for a single target node ``query``,
+        eliminating every other (non-evidence) variable so the target is last,
+        and returning the target node's per-state ``(lower_bounds,
+        upper_bounds)`` arrays for P(query-state | evidence). This is the engine
+        the public all-marginals :meth:`run` loops over; ``coupling`` is "off"
+        or "cross-family" here (the "d5" path is handled per-atom by
+        :meth:`_run_d5_atom`).
         """
-        assert coupling in ("off", "cross-family", "d5"), \
-            f"Unknown coupling '{coupling}'. Use 'off', 'cross-family' or 'd5'."
-        if coupling == "d5":
-            if epsilon is not None and verbosity > 0:
-                print("[CredalVE] D5 is exact; ignoring epsilon.")
-            return self._run_d5(query, evidence, d5_solver, verbosity)
         if epsilon is not None:
-            return self.run_approx(query, evidence, epsilon,
-                                   elim_heuristic, coupling, verbosity)
-        if coupling == "cross-family":
-            warn_conditional_coupling(evidence, "CredalVE", verbosity)
-
-        assert elim_heuristic in ("topological", "min-fill"), \
-            f"Unknown heuristic '{elim_heuristic}'. Use 'topological' or 'min-fill'."
-        assert self.cnv.extreme_points is not None, \
-            "CredalNetworkVertices must be built before run()."
-        assert self.cnv.bn_min is not None
-
-        t_start = time.time()
+            return self._run_single_query_approx(
+                query, evidence, epsilon, elim_heuristic, coupling, verbosity)
 
         bn = self.cnv.bn_min  # use for DAG structure
         node_names = [bn.variable(n).name() for n in bn.nodes()]
@@ -333,9 +461,7 @@ class CredalVE:
 
         # Step 5: Combine remaining potentials
         if len(potentials) == 0:
-            self.lower_bound = 0.0
-            self.upper_bound = 1.0
-            return
+            return np.zeros(cards[query]), np.ones(cards[query])
 
         final = potentials[0]
         for p in potentials[1:]:
@@ -358,62 +484,22 @@ class CredalVE:
                 lower_bounds[val] = min(lower_bounds[val], probs[val])
                 upper_bounds[val] = max(upper_bounds[val], probs[val])
 
-        t_end = time.time()
+        return lower_bounds, upper_bounds
 
-        # Store results for the positive (=1) state by default,
-        # but also store the full interval arrays
-        self.lower_bound = lower_bounds[1] if cards[query] > 1 else lower_bounds[0]
-        self.upper_bound = upper_bounds[1] if cards[query] > 1 else upper_bounds[0]
-        self.lower_bounds = lower_bounds
-        self.upper_bounds = upper_bounds
-
-        if verbosity > 0:
-            print(f"[CredalVE] Results for P({query} | {evidence}):")
-            for val in range(cards[query]):
-                print(f"  P({query}={val}): "
-                      f"[{lower_bounds[val]:.6f}, {upper_bounds[val]:.6f}]")
-            print(f"[CredalVE] Time elapsed: {t_end - t_start:.4f} sec")
-
-    def run_approx(self, query: str, evidence: dict,
-                   epsilon: float, elim_heuristic: str = "topological",
-                   coupling: str = "off", verbosity: int = 1):
+    def _run_single_query_approx(self, query, evidence, epsilon,
+                                 elim_heuristic, coupling, verbosity):
         """
-        Epsilon-approximate credal variable elimination. Same algorithm as
-        run() but uses epsilon-approximate pruning at each elimination step,
-        which allows slightly dominated functions to be removed. This bounds
-        the size of intermediate potentials, yielding an FPTAS (fully
-        polynomial-time approximation scheme) with error at most epsilon.
+        Epsilon-approximate single-query credal variable elimination: same as
+        :meth:`_run_single_query` but uses epsilon-approximate pruning at each
+        elimination step, which allows slightly dominated functions to be
+        removed. This bounds the size of intermediate potentials, yielding an
+        FPTAS (error at most epsilon). Returns the target node's per-state
+        ``(lower_bounds, upper_bounds)``.
 
         See: Mauá et al. (2012), "Solving limited memory influence diagrams"
         and Mauá & Cozman (2020), "Thirty years of credal networks", Sec 5.2.
-
-        Args:
-            query: str
-                Name of the query variable (a node in the credal network).
-            evidence: dict
-                {variable_name: value} for observed variables.
-            epsilon: float
-                Approximation tolerance. Larger values prune more
-                aggressively (fewer functions kept, faster, wider bounds).
-            elim_heuristic: str
-                Elimination ordering heuristic: "topological" or "min-fill".
-            coupling: str
-                Scheme D4: "off" (default) or "cross-family". See run().
-            verbosity: int
-                Verbosity level (0 is silent).
         """
-        assert self.cnv.extreme_points is not None, \
-            "CredalNetworkVertices must be built before run_approx()."
-        assert self.cnv.bn_min is not None
         assert epsilon >= 0, "Epsilon must be non-negative."
-        assert elim_heuristic in ("topological", "min-fill"), \
-            f"Unknown heuristic '{elim_heuristic}'. Use 'topological' or 'min-fill'."
-        assert coupling in ("off", "cross-family"), \
-            f"Unknown coupling '{coupling}'. Use 'off' or 'cross-family'."
-        if coupling == "cross-family":
-            warn_conditional_coupling(evidence, "CredalVE-approx", verbosity)
-
-        t_start = time.time()
 
         bn = self.cnv.bn_min
         node_names = [bn.variable(n).name() for n in bn.nodes()]
@@ -552,9 +638,7 @@ class CredalVE:
 
         # Step 5: Combine remaining potentials
         if len(potentials) == 0:
-            self.lower_bound = 0.0
-            self.upper_bound = 1.0
-            return
+            return np.zeros(cards[query]), np.ones(cards[query])
 
         final = potentials[0]
         for p in potentials[1:]:
@@ -576,57 +660,40 @@ class CredalVE:
                 lower_bounds[val] = min(lower_bounds[val], probs[val])
                 upper_bounds[val] = max(upper_bounds[val], probs[val])
 
-        t_end = time.time()
-
-        self.lower_bound = lower_bounds[1] if cards[query] > 1 else lower_bounds[0]
-        self.upper_bound = upper_bounds[1] if cards[query] > 1 else upper_bounds[0]
-        self.lower_bounds = lower_bounds
-        self.upper_bounds = upper_bounds
-
-        if verbosity > 0:
-            print(f"[CredalVE-approx] Results for P({query} | {evidence}):")
-            for val in range(cards[query]):
-                print(f"  P({query}={val}): "
-                      f"[{lower_bounds[val]:.6f}, {upper_bounds[val]:.6f}]")
-            print(f"[CredalVE-approx] Time elapsed: {t_end - t_start:.4f} sec")
+        return lower_bounds, upper_bounds
 
 
 if __name__ == "__main__":
 
     # Load the LCN
     file_name = "examples/alarm.lcn"
-    l = LCN()
-    l.from_lcn(file_name=file_name)
-    print(l)
+    lcn_model = LCN()
+    lcn_model.from_lcn(file_name=file_name)
+    lcn_model.summary()
+    print(lcn_model)
 
     # Check consistency
-    ok = check_consistency(l)
-    if ok:
-        print("CONSISTENT")
-    else:
-        print("INCONSISTENT")
+    print(f"\n=== Consistency check for {file_name} ===")
+    ok = check_consistency(lcn_model)
 
     # Build the credal network vertices (chain-graph factorization +
     # interval local credal sets + extreme-point enumeration)
-    cnv = CredalNetworkVertices.from_lcn(l, method="linear", verbosity=1)
+    cnv = CredalNetworkVertices.from_lcn(lcn_model, method="linear", verbosity=1)
 
-    # Credal Variable Elimination algorithm
+    # Credal Variable Elimination algorithm. A single run() now computes every
+    # singleton atom's posterior marginal by looping the per-target bucket
+    # elimination over the credal-network nodes.
     cve = CredalVE(cnv=cnv)
 
-    # Variable elimination methods
-    queries = [
-        ("B", {}),
-        ("A", {"B": 0, "E": 0}),
-    ]
+    print("\n=== All marginals (exact, coupling=off) ===")
+    results = cve.run(evidence={}, verbosity=0)
+    for atom in sorted(cve.singleton_marginals):
+        lo, hi = cve.singleton_marginals[atom]
+        print(f"  P({atom}=1) in [{lo:.6f}, {hi:.6f}]")
 
-    for q, ev in queries:
-        ev_str = str(ev) if ev else "{}"
-        print(f"\n=== P({q} | {ev_str}) ===")
-
-        cve.run(query=q, evidence=ev, verbosity=0)
-        print(f"  VE (exact):      P({q}=1) in "
-              f"[{cve.lower_bound:.6f}, {cve.upper_bound:.6f}]")
-
-        cve.run(query=q, evidence=ev, epsilon=0.01, verbosity=0)
-        print(f"  VE (eps=0.01):   P({q}=1) in "
-              f"[{cve.lower_bound:.6f}, {cve.upper_bound:.6f}]")
+    # With evidence (skips the observed atoms):
+    print("\n=== All marginals given B=0, E=0 ===")
+    cve.run(evidence={"B": 0, "E": 0}, verbosity=0)
+    for atom in sorted(cve.singleton_marginals):
+        lo, hi = cve.singleton_marginals[atom]
+        print(f"  P({atom}=1 | B=0,E=0) in [{lo:.6f}, {hi:.6f}]")
