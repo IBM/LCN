@@ -36,6 +36,7 @@ from lcn.inference.marginal.cn.coupling import (
 from lcn.inference.marginal.cn.junction_nlp import build_and_solve_jt_nlp
 from lcn.inference.marginal.cn.potentials import Potential, min_fill_order
 from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
+from lcn.inference.marginal.exact import _is_vacuous
 from lcn.inference.utils.common import check_consistency, make_ipopt
 
 
@@ -113,8 +114,11 @@ class CredalVE:
             arrays. Singleton atoms map to the 2-vector [P(=0), P(=1)] bounds;
             compound nodes (e.g. "C-D") map to their per-state bounds. Also sets
             self.marginals (this dict), self.singleton_marginals
-            ({atom -> (lo, hi)} for P(atom=1)), and the running-time statistics
-            self.build_time, self.elimination_time, self.total_time (seconds).
+            ({atom -> (lo, hi)} for P(atom=1)), the running-time statistics
+            self.build_time, self.elimination_time, self.total_time (seconds),
+            and self.degenerate (True when EVERY singleton marginal is the
+            vacuous [0, 1] -- an uninformative result that usually signals an
+            inconsistent LCN or evidence; None when there is nothing to judge).
         """
         assert coupling in ("off", "cross-family", "d5"), \
             f"Unknown coupling '{coupling}'. Use 'off', 'cross-family' or 'd5'."
@@ -158,6 +162,7 @@ class CredalVE:
         results = self._assemble_results(evidence_set)
         self.elimination_time = time.perf_counter() - t_elim_start
         self._record_times(verbosity)
+        self._flag_degenerate(evidence, verbosity)
 
         if verbosity > 0:
             self._print_marginals(results)
@@ -189,6 +194,7 @@ class CredalVE:
         results = self._assemble_results(evidence_set)
         self.elimination_time = time.perf_counter() - t_elim_start
         self._record_times(verbosity)
+        self._flag_degenerate(evidence, verbosity)
         if verbosity > 0:
             self._print_marginals(results)
             print(f"[CredalVE] D5 exact={self.d5_exact}, "
@@ -288,8 +294,36 @@ class CredalVE:
     def _print_times(self):
         print("[CredalVE] Running times (seconds):")
         print(f"  build time:       {self.build_time:.4f}")
-        print(f"  elimination time: {self.elimination_time:.4f}")
+        print(f"  running time:     {self.elimination_time:.4f}")
         print(f"  total time:       {self.total_time:.4f}")
+
+    def _flag_degenerate(self, evidence, verbosity):
+        """
+        Flag a DEGENERATE solution: one in which EVERY computed singleton-atom
+        marginal is vacuous, i.e. the whole unit interval [0, 1]. Such a result
+        is uninformative -- the bounds pin nothing -- and most often signals an
+        inconsistent (over-constrained) LCN, or evidence inconsistent with it.
+        Sets ``self.degenerate`` (True/False, or None when there is nothing to
+        judge) and, at verbosity >= 1, prints a warning naming the likely cause.
+        """
+        atoms = self.singleton_marginals
+        if not atoms:
+            self.degenerate = None
+            return
+        n_vacuous = sum(1 for (lo, hi) in atoms.values() if _is_vacuous(lo, hi))
+        self.degenerate = (n_vacuous == len(atoms))
+        if self.degenerate and verbosity > 0:
+            print("[CredalVE] WARNING: the solution is DEGENERATE -- every "
+                  "singleton marginal is the vacuous [0, 1], so the result is "
+                  "uninformative.")
+            if evidence:
+                print(f"[CredalVE] The evidence {evidence} is most likely "
+                      f"INCONSISTENT with the LCN (no distribution satisfies "
+                      f"the constraints together with this evidence). Check the "
+                      f"evidence or run check_consistency on the model.")
+            else:
+                print("[CredalVE] The LCN is most likely INCONSISTENT "
+                      "(over-constrained); run check_consistency on the model.")
 
     def _run_d5_atom(self, atom, evidence, d5_solver, verbosity):
         """
@@ -708,7 +742,13 @@ if __name__ == "__main__":
 
     # Build the credal network vertices (chain-graph factorization +
     # interval local credal sets + extreme-point enumeration)
-    cnv = CredalNetworkVertices.from_lcn(lcn_model, method="linear-tight", verbosity=1)
+    cnv = CredalNetworkVertices.from_lcn(
+        lcn_model, 
+        method="linear-tight", 
+        merge_budget=1, 
+        verbosity=2, 
+        solver="ipopt"
+    )
 
     # Credal Variable Elimination algorithm. A single run() now computes every
     # singleton atom's posterior marginal by looping the per-target bucket
@@ -716,14 +756,14 @@ if __name__ == "__main__":
     cve = CredalVE(cnv=cnv)
 
     print("\n=== All marginals (exact, coupling=off) ===")
-    results = cve.run(evidence={}, verbosity=2)
+    results = cve.run(evidence={}, elim_heuristic="min-fill", verbosity=2)
     for atom in sorted(cve.singleton_marginals):
         lo, hi = cve.singleton_marginals[atom]
         print(f"  P({atom}=1) in [{lo:.6f}, {hi:.6f}]")
 
-    # With evidence (skips the observed atoms):
-    print("\n=== All marginals given B=0, E=0 ===")
-    cve.run(evidence={"B": 0, "E": 0}, verbosity=2)
-    for atom in sorted(cve.singleton_marginals):
-        lo, hi = cve.singleton_marginals[atom]
-        print(f"  P({atom}=1 | B=0,E=0) in [{lo:.6f}, {hi:.6f}]")
+    # # With evidence (skips the observed atoms):
+    # print("\n=== All marginals given B=0, E=0 ===")
+    # cve.run(evidence={"B": 0, "E": 0}, elim_heuristic="min-fill", verbosity=2)
+    # for atom in sorted(cve.singleton_marginals):
+    #     lo, hi = cve.singleton_marginals[atom]
+    #     print(f"  P({atom}=1 | B=0,E=0) in [{lo:.6f}, {hi:.6f}]")
