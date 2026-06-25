@@ -21,6 +21,7 @@
 # queries via bucket-based variable elimination over the extreme points.
 
 import itertools
+import time
 
 import numpy as np
 from pyomo.environ import (
@@ -111,8 +112,9 @@ class CredalVE:
             Dict mapping variable name to (lower_bounds, upper_bounds) numpy
             arrays. Singleton atoms map to the 2-vector [P(=0), P(=1)] bounds;
             compound nodes (e.g. "C-D") map to their per-state bounds. Also sets
-            self.marginals (this dict) and self.singleton_marginals
-            ({atom -> (lo, hi)} for P(atom=1)).
+            self.marginals (this dict), self.singleton_marginals
+            ({atom -> (lo, hi)} for P(atom=1)), and the running-time statistics
+            self.build_time, self.elimination_time, self.total_time (seconds).
         """
         assert coupling in ("off", "cross-family", "d5"), \
             f"Unknown coupling '{coupling}'. Use 'off', 'cross-family' or 'd5'."
@@ -140,6 +142,8 @@ class CredalVE:
 
         # Iterate over the credal-network nodes; for each non-fully-observed
         # node run one elimination pass with that node as the (last) target.
+        # Time only the elimination (the algorithm itself).
+        t_elim_start = time.perf_counter()
         self.marginals = {}
         for node in self.cnv.cn.nodes:
             if all(a in evidence_set for a in node_atoms[node]):
@@ -152,9 +156,12 @@ class CredalVE:
         self.singleton_marginals = self._extract_singleton_atoms(
             self.marginals, evidence_set)
         results = self._assemble_results(evidence_set)
+        self.elimination_time = time.perf_counter() - t_elim_start
+        self._record_times(verbosity)
 
         if verbosity > 0:
             self._print_marginals(results)
+            self._print_times()
         return results
 
     def _run_all_d5(self, evidence, evidence_set, node_atoms, d5_solver,
@@ -167,6 +174,7 @@ class CredalVE:
                   f"solver={d5_solver}, evidence={evidence})")
         atoms = sorted({a for atoms in node_atoms.values() for a in atoms}
                        - evidence_set)
+        t_elim_start = time.perf_counter()
         self.singleton_marginals = {}
         self.d5_exact = True
         self.induced_width = 0
@@ -179,10 +187,13 @@ class CredalVE:
         # D5 yields singleton-level marginals only.
         self.marginals = {}
         results = self._assemble_results(evidence_set)
+        self.elimination_time = time.perf_counter() - t_elim_start
+        self._record_times(verbosity)
         if verbosity > 0:
             self._print_marginals(results)
             print(f"[CredalVE] D5 exact={self.d5_exact}, "
                   f"max cluster={self.induced_width} atoms")
+            self._print_times()
         return results
 
     # ------------------------------------------------------------------
@@ -260,6 +271,25 @@ class CredalVE:
                 continue
             lo, hi = results[name]
             print(f"  P({name}=1): [{lo[1]:.6f}, {hi[1]:.6f}]")
+
+    def _record_times(self, verbosity):
+        """
+        Record the running-time statistics (seconds) on the instance, given the
+        already-measured ``self.elimination_time``:
+          - build_time: wall-clock to build the credal network + enumerate the
+            extreme points (taken from the CredalNetworkVertices, or 0.0 if it
+            was not timed);
+          - elimination_time: the all-marginals variable elimination itself;
+          - total_time: build_time + elimination_time.
+        """
+        self.build_time = float(getattr(self.cnv, "build_time", None) or 0.0)
+        self.total_time = self.build_time + self.elimination_time
+
+    def _print_times(self):
+        print("[CredalVE] Running times (seconds):")
+        print(f"  build time:       {self.build_time:.4f}")
+        print(f"  elimination time: {self.elimination_time:.4f}")
+        print(f"  total time:       {self.total_time:.4f}")
 
     def _run_d5_atom(self, atom, evidence, d5_solver, verbosity):
         """
@@ -678,7 +708,7 @@ if __name__ == "__main__":
 
     # Build the credal network vertices (chain-graph factorization +
     # interval local credal sets + extreme-point enumeration)
-    cnv = CredalNetworkVertices.from_lcn(lcn_model, method="linear", verbosity=1)
+    cnv = CredalNetworkVertices.from_lcn(lcn_model, method="linear-tight", verbosity=1)
 
     # Credal Variable Elimination algorithm. A single run() now computes every
     # singleton atom's posterior marginal by looping the per-target bucket
@@ -686,14 +716,14 @@ if __name__ == "__main__":
     cve = CredalVE(cnv=cnv)
 
     print("\n=== All marginals (exact, coupling=off) ===")
-    results = cve.run(evidence={}, verbosity=0)
+    results = cve.run(evidence={}, verbosity=2)
     for atom in sorted(cve.singleton_marginals):
         lo, hi = cve.singleton_marginals[atom]
         print(f"  P({atom}=1) in [{lo:.6f}, {hi:.6f}]")
 
     # With evidence (skips the observed atoms):
     print("\n=== All marginals given B=0, E=0 ===")
-    cve.run(evidence={"B": 0, "E": 0}, verbosity=0)
+    cve.run(evidence={"B": 0, "E": 0}, verbosity=2)
     for atom in sorted(cve.singleton_marginals):
         lo, hi = cve.singleton_marginals[atom]
         print(f"  P({atom}=1 | B=0,E=0) in [{lo:.6f}, {hi:.6f}]")
