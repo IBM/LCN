@@ -837,10 +837,15 @@ Figure~\ref{fig:d5} shows the cluster tree and the NLP it induces.
 \paragraph{Two implementation findings.} (1)~The cluster NLP is nonconvex (Type-2 ratios,
 bilinear LMC, the conditional-ratio objective); the local solver ipopt returns a local
 optimum that can fall \emph{short} of the bound (it gave $0.90$ instead of $0.926$ above), so
-D5 defaults to the certified global backend SCIP. (2)~The treewidth saving is real only when
-the cross-family constraints are themselves local: on \texttt{alarm} the assertions $(C\perp
-B,E\mid D,A)$ and $(D\perp B,E\mid C,A)$ span all five atoms, so the augmentation forces a
-near-full-joint cluster and D5 degenerates to \texttt{ExactInference} cost there.
+D5 defaults to the certified global backend SCIP. (2)~The treewidth saving requires that the
+\emph{junction tree} stay small. Only cross-family \emph{sentences} are allowed to enlarge a
+cluster (by augmenting the elimination order); LMC assertions are not, because they are
+structural --- a chain-graph junction tree enforces them through its separators (running
+intersection), so \texttt{CredalJT} skips any LMC that is already RIP-implied by the tree and
+drops the rest (a chain-graph product joint satisfies every LMC by construction). This is what
+lets a long chain run at treewidth (Section~\ref{sec:d5-treewidth}) and keeps \texttt{alarm} at
+treewidth $3$ rather than collapsing to the full $2^5$ joint, even though its assertions
+$(C\perp B,E\mid D,A)$, $(D\perp B,E\mid C,A)$ name all five atoms.
 
 \begin{figure}[t]
 \centering
@@ -1076,6 +1081,121 @@ denominator floor $\mathbf 1_{e}^\top q_{c_a}\ge\varepsilon$ so $P(e)$ cannot va
 optimizes $\min/\max\ t$. Everything else---the same shared constraint model and the same
 separator messages---is reused; only this small objective block is added and cleared between
 atoms.
+
+\subsubsection{The treewidth advantage: a Markov-chain example}\label{sec:d5-treewidth}
+
+The headline claim for D5 is that it operates in space exponential in the \emph{treewidth}, not
+in the number of variables. This subsection makes that concrete on a clean chain
+(\texttt{examples/chain.lcn}) and shows how the engine avoids the full joint.
+
+\paragraph{The instance.} A binary Markov chain $x_0\to x_1\to\cdots\to x_7$ ($n=8$): a prior on
+$x_0$ and one transition per link,
+\begin{verbatim}
+  P0 : 0.3 <= P(x0)       <= 0.5
+  T_i: 0.2 <= P(x_{i+1} | x_i)  <= 0.4   and   0.6 <= P(x_{i+1} | !x_i) <= 0.8
+\end{verbatim}
+for $i=0,\dots,6$. \emph{Every} sentence is family-local; there is no cross-family sentence. The
+LCN's only cross-family constraints are the LMC assertions
+$(x_{i+1}\perp\{x_0,\dots,x_{i-1}\}\mid x_i)$, whose \texttt{all\_vars} grow up to all eight atoms.
+
+\paragraph{Why a naive reading would blow up --- and why D5 does not.} If those LMC assertions
+were forced into a single host cluster (as a literal ``all atoms in one bucket'' reading demands),
+the engine would build one $2^8=256$-state cluster: no better than the full joint. The key is that
+\textbf{for a chain graph the LMC assertions are structural} --- they are exactly the
+independencies the junction tree already encodes through its separators. \texttt{CredalJT}
+therefore (i) augments the elimination order with cross-family \emph{sentence} node sets only
+(here there are none), and (ii) imposes an LMC assertion only if it is \emph{not} already
+RIP-implied by the resulting tree. On the chain \emph{every} LMC is RIP-implied
+($Z=\{x_i\}$ is the separator on the path between $x_{i+1}$ and the earlier atoms), so
+\emph{none} are imposed, and the tree is the linear clique chain
+\[
+  \{x_0,x_1\}\ \overset{\{x_1\}}{-}\ \{x_1,x_2\}\ \overset{\{x_2\}}{-}\ \cdots\ \overset{\{x_6\}}{-}\ \{x_6,x_7\},
+\]
+i.e.\ $7$ clusters of two atoms each plus a trivial $\{x_7\}$ leaf, \textbf{treewidth $1$}
+(Figure~\ref{fig:d5-chain}). The NLP has $\sum_c 2^{|\mathrm{atoms}(c)|}=7\cdot 2^2=28$
+cluster-marginal variables, versus $2^8=256$ for the full joint --- and the gap is
+$n\cdot 2^2$ vs $2^n$, i.e.\ \emph{linear} in $n$ instead of exponential.
+
+\paragraph{Step by step.}
+\emph{(1)} Build the families $P(x_0),P(x_1\mid x_0),\dots,P(x_7\mid x_6)$ (scopes
+$\{x_i,x_{i+1}\}$). \emph{(2)} Min-fill over the family scopes (no augmentation, since there is no
+cross-family sentence) yields the clique chain above; each $x_i$ is a separator.
+\emph{(3)} Check each LMC: $(x_{i+1}\perp x_{<i}\mid x_i)$ has $Z=\{x_i\}\subseteq$ the separator
+$\{x_i\}$, with $x_{i+1}$ on one side and $x_{<i}$ on the other $\Rightarrow$ RIP-implied
+$\Rightarrow$ skipped. \emph{(4)} Build one constraint NLP: per cluster $c_i$ a vector
+$q_{c_i}\in\Delta(2^2)$ over $(x_i,x_{i+1})$ with a simplex; the link sentences
+$P(x_{i+1}\mid x_i)$ as Type-2 ratio rows on $c_i$; and the separator equalities
+$M_{c_i\to\{x_{i+1}\}}q_{c_i}=M_{c_{i+1}\to\{x_{i+1}\}}q_{c_{i+1}}$. \emph{(5)} For each atom, read
+its marginal off any hosting cluster and solve $\min/\max$ over this shared model.
+
+\emph{One message, concretely.} The edge $c_0\!\to\!c_1$ over separator $\{x_1\}$ enforces, for the
+solved distribution, $q_{c_1}$'s $x_1$-marginal $=q_{c_0}$'s $x_1$-marginal:
+$q_{c_0}[x_0{=}0,x_1{=}1]+q_{c_0}[x_0{=}1,x_1{=}1]=q_{c_1}[x_1{=}1,x_2{=}0]+q_{c_1}[x_1{=}1,x_2{=}1]$.
+That shared value of $P(x_1{=}1)$ is the message passed from the $\{x_0,x_1\}$ block into the
+$\{x_1,x_2\}$ block; it is all $c_1$ needs to know about $x_0$.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[font=\small,>=Latex,node distance=4mm,
+  cl/.style={draw,rounded corners,inner sep=3pt,fill=blue!6,align=center,minimum height=8mm},
+  sep/.style={draw,rectangle,inner sep=1.5pt,fill=yellow!25,font=\scriptsize}]
+  \node[cl] (c0) {$\{x_0,x_1\}$};
+  \node[sep,right=of c0] (s1) {$x_1$};
+  \node[cl,right=of s1] (c1) {$\{x_1,x_2\}$};
+  \node[sep,right=of c1] (s2) {$x_2$};
+  \node[cl,right=of s2] (c2) {$\{x_2,x_3\}$};
+  \node[sep,right=of c2] (s3) {$x_3$};
+  \node[right=of s3] (dots) {$\cdots$};
+  \node[sep,right=of dots] (s6) {$x_6$};
+  \node[cl,right=of s6] (c6) {$\{x_6,x_7\}$};
+  \draw[-] (c0)--(s1); \draw[-] (s1)--(c1); \draw[-] (c1)--(s2); \draw[-] (s2)--(c2);
+  \draw[-] (c2)--(s3); \draw[-] (s3)--(dots); \draw[-] (dots)--(s6); \draw[-] (s6)--(c6);
+  \node[draw,rounded corners,fill=red!7,below=8mm of c2,align=center] (full)
+    {full joint over $\{x_0,\dots,x_7\}$:\\$2^8=256$ states};
+  \node[draw,rounded corners,fill=green!8,below=8mm of full,align=center] (cost)
+    {\textbf{D5 cost}: $\textstyle\sum_i 2^{|c_i|}=7\cdot 2^2=\mathbf{28}$ variables\\
+     (treewidth $1$), \emph{not} $2^8$};
+  \draw[->,dashed,red!60!black] (full) -- node[right,font=\scriptsize]{D5 avoids} (cost);
+\end{tikzpicture}
+\caption{\texttt{CredalJT} on the $8$-atom chain \texttt{chain.lcn}: the junction tree is a linear
+  chain of $7$ two-atom clusters (treewidth $1$) tied by single-atom separators. The exact joint
+  over all eight atoms is $2^8=256$ states, but the engine never materializes it --- it solves an
+  NLP with $7\cdot 2^2=28$ cluster-marginal variables.}
+\label{fig:d5-chain}
+\end{figure}
+
+\paragraph{Comparison with the other engines.} All of the cn/ engines consume the same credal
+network. On this chain there is no cross-family \emph{sentence}, so the strong extension equals
+the true LCN set and every engine reports the same exact interval --- but at very different cost
+and with different guarantees:
+\begin{center}
+\begin{tabular}{lllll}
+  \toprule
+  & $P(x_0{=}1)$ & $P(x_2{=}1)$ & $P(x_7{=}1)$ & cost / character \\
+  \midrule
+  \texttt{ExactInference} & $[0.300,0.500]$ & $[0.328,0.640]$ & $[0.334,0.667]$ & full joint, $2^8=256$ vars \\
+  \texttt{CredalJT} (D5)  & $[0.300,0.500]$ & $[0.328,0.640]$ & $[0.334,0.667]$ & \textbf{treewidth}, $7{\cdot}2^2=28$ vars; exact \\
+  \texttt{CredalVE}       & $[0.300,0.500]$ & $[0.328,0.640]$ & $[0.334,0.667]$ & per-target vertex elimination (strong ext.) \\
+  \texttt{CredalCTE}      & $[0.300,0.500]$ & $[0.328,0.640]$ & $[0.334,0.667]$ & two-pass vertex tree (strong ext.) \\
+  \bottomrule
+\end{tabular}
+\end{center}
+\texttt{CredalJT} matches the full-joint \texttt{ExactInference} answer while working in
+treewidth-bounded space. \texttt{CredalVE}/\texttt{CredalCTE} bound the \emph{strong extension},
+which on a (sentence-free) chain coincides with the LCN set, so they too are exact here---but they
+enumerate and propagate the local extreme \emph{vertices} rather than exploiting the small
+treewidth of the NLP, and (unlike D5) would be merely outer bounds the moment a cross-family
+sentence is added. As $n$ grows the contrast sharpens: D5 stays at $n\cdot 2^{w+1}$ ($w$ the
+treewidth) while the full joint and any vertex enumeration that materializes it grow as $2^n$.
+
+\paragraph{Contrast with \texttt{alarm}.} The favourable structure here is \emph{local}
+cross-family coupling (none, in fact). \texttt{alarm} is the unfavourable case: its cross-family
+LMC assertions $(C\perp B,E\mid D,A)$ and $(D\perp B,E\mid C,A)$ span all five atoms and are
+\emph{not} RIP-implied by the family tree (the compound node $C\!-\!D$ hides $D$ behind the $\{A\}$
+separator). \texttt{CredalJT} drops them (they are inert: a chain-graph product joint satisfies
+every LMC by construction), keeps the genuinely-binding small-scope $(B\perp E)$, and so still
+runs at treewidth $3$ on \texttt{alarm} while reproducing the brute-force-verified bounds
+$P(A){=}[0.087,0.100]$, $P(B){=}[0.100,0.123]$, $P(E){=}[0.050,0.074]$.
 
 The \texttt{cn/} package ships five inference algorithms beyond CVE. Crucially, \emph{all of
 them consume the same object}: a built \texttt{CredalNetworkVertices}, i.e.\ the directed

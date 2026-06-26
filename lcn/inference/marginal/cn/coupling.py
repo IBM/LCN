@@ -228,12 +228,20 @@ class CouplingConstraints:
     # Query helpers
     # ------------------------------------------------------------------
 
-    def constraint_node_sets(self, node_atoms: Dict[str, List[str]]) -> List[List[str]]:
+    def constraint_node_sets(self, node_atoms: Dict[str, List[str]],
+                             kinds=None) -> List[List[str]]:
         """
         For each constraint, the set of NODE names whose atoms it touches. Used
         to augment the elimination order so the constrained nodes co-occur in a
         common bucket (otherwise the constraint scope is never assembled and the
         check stays inert). `node_atoms` maps node name -> its atom list.
+
+        ``kinds`` optionally restricts to constraints of the given kinds
+        (subset of {"type1","type2","lmc"}). D4 (cve.py) passes None (all);
+        D5/CredalJT passes ("type1","type2") so that only cross-family
+        *sentences* force atoms together -- LMC assertions are structural and
+        are handled by the junction tree's running-intersection separators, so
+        augmenting with them would needlessly inflate the treewidth.
         """
         node_of_atom = {}
         for node, atoms in node_atoms.items():
@@ -241,6 +249,8 @@ class CouplingConstraints:
                 node_of_atom[a] = node
         out = []
         for c in self._constraints:
+            if kinds is not None and c.kind not in kinds:
+                continue
             nodes = sorted({node_of_atom[a] for a in c.atoms
                             if a in node_of_atom})
             if nodes:

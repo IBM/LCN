@@ -1,0 +1,32 @@
+# A clean binary Markov chain  x0 -> x1 -> x2 -> ... -> x7  (8 atoms).
+#
+# Every sentence is family-local: a prior on x0 and a transition P(x_{i+1} | x_i)
+# (one bound for x_i=1, one for x_i=0) on each link. There is NO cross-family
+# sentence, so the LCN's only cross-family constraints are the LMC independence
+# assertions (x_{i+1} _||_ {x_0..x_{i-1}} | x_i) -- and those are STRUCTURAL: the
+# chain-graph junction tree enforces them through its separators (running
+# intersection), so CredalJT (scheme D5) does not impose them and does not let
+# them inflate the treewidth.
+#
+# Treewidth of a chain is 1: CredalJT builds n-1 = 7 clusters {x_i, x_{i+1}} with
+# separators {x_i}, and solves an NLP with sum_i 2^|c_i| = 7 * 2^2 = 28 cluster-
+# marginal variables -- exponential in the treewidth (2^2), NOT in the number of
+# atoms (the full joint is 2^8 = 256). It returns the EXACT chain-graph marginals,
+# matching ExactInference's full-joint solve. This is the favourable case for D5
+# (local cross-family coupling); contrast examples/alarm.lcn, whose cross-family
+# LMC assertions span all five atoms.
+P0:  0.3 <= P(x0)        <= 0.5
+T0a: 0.2 <= P(x1 | x0)   <= 0.4
+T0b: 0.6 <= P(x1 | !x0)  <= 0.8
+T1a: 0.2 <= P(x2 | x1)   <= 0.4
+T1b: 0.6 <= P(x2 | !x1)  <= 0.8
+T2a: 0.2 <= P(x3 | x2)   <= 0.4
+T2b: 0.6 <= P(x3 | !x2)  <= 0.8
+T3a: 0.2 <= P(x4 | x3)   <= 0.4
+T3b: 0.6 <= P(x4 | !x3)  <= 0.8
+T4a: 0.2 <= P(x5 | x4)   <= 0.4
+T4b: 0.6 <= P(x5 | !x4)  <= 0.8
+T5a: 0.2 <= P(x6 | x5)   <= 0.4
+T5b: 0.6 <= P(x6 | !x5)  <= 0.8
+T6a: 0.2 <= P(x7 | x6)   <= 0.4
+T6b: 0.6 <= P(x7 | !x6)  <= 0.8

@@ -38,6 +38,7 @@ from lcn.inference.marginal.exact import ExactInference
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
 _BITING = os.path.join(_ROOT, "examples", "d4_biting.lcn")
+_CHAIN = os.path.join(_ROOT, "examples", "chain.lcn")
 
 # SCIP is required for D5 to be exact (the cluster NLP is nonconvex); skip the
 # SCIP-backed assertions when the solver is not on PATH.
@@ -60,6 +61,15 @@ def cnv():
     build is the expensive step)."""
     lcn = LCN()
     _quiet(lcn.from_lcn, file_name=_BITING)
+    return _quiet(CredalNetworkVertices.from_lcn, lcn,
+                  method="linear", verbosity=0)
+
+
+@pytest.fixture(scope="module")
+def chain_cnv():
+    """A built credal network for the 8-atom Markov chain examples/chain.lcn."""
+    lcn = LCN()
+    _quiet(lcn.from_lcn, file_name=_CHAIN)
     return _quiet(CredalNetworkVertices.from_lcn, lcn,
                   method="linear", verbosity=0)
 
@@ -218,3 +228,50 @@ class TestBuildOnce:
         _quiet(jt.run, evidence={}, solver="scip", verbosity=0)
         assert calls["n"] == 1, \
             f"constraint model built {calls['n']} times, expected 1"
+
+
+# ======================================================================
+# 5. Treewidth advantage on a Markov chain
+# ======================================================================
+
+class TestTreewidth:
+
+    def test_chain_collapses_to_treewidth(self, chain_cnv):
+        # On the 8-atom Markov chain, CredalJT must build n-1=7 clusters of two
+        # atoms each (treewidth 1) -- NOT a single 2^8 joint. The LMC assertions
+        # are RIP-implied by the separators, so none are imposed.
+        from lcn.inference.marginal.cn.junction_nlp import _build_jt_and_hosts
+        jt, sbh, lbh, _, over, fb = _build_jt_and_hosts(
+            chain_cnv, None, {}, 16)
+        assert not over and not fb
+        assert jt.max_cluster_size() == 2, \
+            f"max cluster {jt.max_cluster_size()} atoms; chain treewidth is 1"
+        assert len(jt.cluster_ids) == 8  # 7 two-atom clusters + the {x7} leaf
+        # every cluster has at most two atoms
+        assert all(len(jt.atoms[c]) <= 2 for c in jt.cluster_ids)
+        # all LMC assertions RIP-implied -> none imposed
+        assert sum(len(v) for v in lbh.values()) == 0
+
+    def test_rip_implied_predicate(self, chain_cnv):
+        # The Markov-chain LMC (x_{i+1} perp earlier | x_i) is RIP-implied;
+        # a fabricated non-separator conditioning is not.
+        from lcn.inference.marginal.cn.junction_nlp import _build_jt_and_hosts
+        jt, *_ = _build_jt_and_hosts(chain_cnv, None, {}, 16)
+        assert jt._rip_implied(["x2"], ["x0"], ["x1"]) is True
+        # x0 and x2 are NOT independent given x4 (x4 is not on the x0-x2 path)
+        assert jt._rip_implied(["x0"], ["x2"], ["x4"]) is False
+
+    @_needs_scip
+    def test_chain_matches_exact(self, chain_cnv):
+        jt = CredalJT(chain_cnv)
+        _quiet(jt.run, evidence={}, solver="scip", verbosity=0)
+        assert jt.induced_width == 2
+        lcn = LCN()
+        _quiet(lcn.from_lcn, file_name=_CHAIN)
+        ei = ExactInference(lcn)
+        for atom in ("x0", "x2", "x4", "x7"):
+            elo, ehi = _quiet(ei.run_query, atom, evidence={},
+                              solver="local", verbosity=0)
+            lo, hi = jt.singleton_marginals[atom]
+            assert lo == pytest.approx(elo, abs=_TOL), f"{atom} lower"
+            assert hi == pytest.approx(ehi, abs=_TOL), f"{atom} upper"

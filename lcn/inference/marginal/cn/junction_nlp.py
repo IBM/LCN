@@ -244,6 +244,52 @@ class _JTClusters:
     def max_cluster_size(self):
         return max(len(self.atoms[c]) for c in self.cluster_ids)
 
+    def _subtree(self, child, parent):
+        """Cluster ids in the component containing `child` after removing the
+        tree edge (child, parent) -- i.e. `child` and everything reachable from
+        it without crossing back through `parent`."""
+        seen = set()
+        stack = [child]
+        while stack:
+            c = stack.pop()
+            if c in seen:
+                continue
+            seen.add(c)
+            for nb in self.children.get(c, []) + ([self.parent[c]]
+                                                  if c in self.parent else []):
+                if nb != parent and nb not in seen:
+                    stack.append(nb)
+        return seen
+
+    def _atoms_of(self, cluster_ids):
+        atoms = set()
+        for c in cluster_ids:
+            atoms.update(self.atoms[c])
+        return atoms
+
+    def _rip_implied(self, X, Y, Z):
+        """
+        True if the independence (X perp Y | Z) is already enforced by the
+        junction tree's separators (running-intersection): there is a tree edge
+        whose separator S contains Z and whose two sides carry, beyond S, all of
+        X on one side and all of Y on the other. Such an assertion need not be
+        imposed as an explicit equality -- any separator-consistent family of
+        cluster marginals satisfies it. For a chain graph every LMC assertion is
+        RIP-implied by the family-scope tree, which is what keeps the treewidth
+        small.
+        """
+        Xs, Ys, Zs = set(X), set(Y), set(Z)
+        for (c, p) in self.edges:
+            S = set(self.sep[(c, p)])
+            if not Zs.issubset(S):
+                continue
+            sideA = self._atoms_of(self._subtree(c, p)) - S
+            sideB = self._atoms_of(self._subtree(p, c)) - S
+            if (Xs.issubset(sideA) and Ys.issubset(sideB)) or \
+               (Xs.issubset(sideB) and Ys.issubset(sideA)):
+                return True
+        return False
+
     def describe(self, sentences_by_host=None, lmc_by_host=None,
                  query_cluster=None) -> str:
         """
@@ -670,11 +716,15 @@ def _build_jt_and_hosts(cnv, query, evidence, max_cluster_atoms):
     if lcn.independencies is None:
         lcn.local_markov_condition()
 
-    # Cross-family constraints (sentences/LMC spanning >1 family) -- their node
-    # sets are forced to co-occur in a cluster when building the JT, so every
-    # constraint gets a single host cluster.
+    # Cross-family constraints. Only cross-family SENTENCES augment the
+    # elimination order (forcing their atoms into one cluster); LMC assertions
+    # are NOT used to augment -- they are structural and the junction tree's
+    # running-intersection separators already enforce them, so augmenting with
+    # them would needlessly inflate the treewidth (e.g. a clean Markov chain
+    # would collapse to a single 2^n cluster instead of width-2).
     cc = CouplingConstraints.from_lcn(lcn, cnv.cn.factorization.factors)
-    extra_node_sets = cc.constraint_node_sets(cnv.cn.node_atoms)
+    extra_node_sets = cc.constraint_node_sets(cnv.cn.node_atoms,
+                                              kinds=("type1", "type2"))
 
     jt = _JTClusters(cnv, query, evidence, extra_node_sets)
 
@@ -685,6 +735,7 @@ def _build_jt_and_hosts(cnv, query, evidence, max_cluster_atoms):
     lmc_by_host: Dict[str, List] = {}
     fallback = False
 
+    # Sentences must be hosted (or the tree cannot represent them exactly).
     for sid, s in lcn.sentences.items():
         atoms = list(s.get_atoms().keys())
         if not atoms:
@@ -695,15 +746,23 @@ def _build_jt_and_hosts(cnv, query, evidence, max_cluster_atoms):
         else:
             sentences_by_host.setdefault(host, []).append(sid)
 
+    # LMC assertions: impose one only if it has a host cluster AND is not already
+    # enforced by the tree's separators (running-intersection). An LMC that is
+    # RIP-implied is redundant; one with no host is, for a chain-graph product,
+    # inert (the strong extension satisfies every LMC by construction), so it is
+    # safe to drop. This is what lets a chain stay at treewidth.
     for indep in lcn.independencies.get_assertions():
-        atoms = list(indep.all_vars)
+        X, Y, Z = (sorted(indep.event1), sorted(indep.event2),
+                   sorted(indep.event3))
+        atoms = sorted(set(X) | set(Y) | set(Z))
         if not atoms:
             continue
+        if jt._rip_implied(X, Y, Z):
+            continue  # enforced structurally by the separators
         host = jt.host(atoms)
-        if host is None:
-            fallback = True
-        else:
+        if host is not None:
             lmc_by_host.setdefault(host, []).append(indep)
+        # else: non-implied, unhostable cross-family LMC -> drop (inert).
 
     # Query-cluster assignment only for the single-query build. For the
     # query-independent build (query is None), each atom's host is resolved
