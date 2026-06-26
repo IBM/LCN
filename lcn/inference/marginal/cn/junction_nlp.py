@@ -312,10 +312,66 @@ class _JTClusters:
                 f"q[{p}] marginalized to {sep_str}")
         return "\n".join(lines)
 
+    def describe_detailed(self, sentences_by_host=None, lmc_by_host=None,
+                          query_cluster=None) -> str:
+        """
+        Like :meth:`describe`, but expands every separator-consistency message
+        into its explicit per-state equalities -- the exact linear rows the D5
+        NLP enforces. For a tree edge (c -> p) with separator S, each state s of
+        S yields one equality
+
+            sum_{j: c-state j projects to s} q[c][j]
+              == sum_{k: p-state k projects to s} q[p][k]
+
+        i.e. the marginal of cluster c onto S equals the marginal of cluster p
+        onto S. The cluster states are rendered as readable atom assignments
+        (MSB-first). This is the message-level detail of the junction-tree
+        calibration.
+        """
+        lines = [self.describe(sentences_by_host, lmc_by_host, query_cluster)]
+        lines.append("")
+        lines.append("Detailed separator-consistency equalities "
+                     "(one per separator state, per edge):")
+        if not self.edges:
+            lines.append("  (no edges -- single cluster or disconnected)")
+        for (c, p) in self.edges:
+            S = self.sep[(c, p)]
+            atoms_c, atoms_p = self.atoms[c], self.atoms[p]
+            sep_str = "{" + ", ".join(S) + "}"
+            lines.append(f"  edge {c} -> {p}, separator {sep_str}"
+                         f"{' (empty)' if not S else ''}:")
+            if not S:
+                # Empty separator: the only shared marginal is the total mass,
+                # which both simplices already pin to 1.
+                lines.append("    sum(q[%s]) == sum(q[%s]) == 1 "
+                             "(no shared atoms)" % (c, p))
+                continue
+            Mc = _marginal_matrix(atoms_c, S)
+            Mp = _marginal_matrix(atoms_p, S)
+            for r in range(Mc.shape[0]):
+                s_label = _state_label(S, r)
+                lhs = " + ".join(
+                    f"q[{c}|{_state_label(atoms_c, j)}]"
+                    for j in np.nonzero(Mc[r])[0])
+                rhs = " + ".join(
+                    f"q[{p}|{_state_label(atoms_p, k)}]"
+                    for k in np.nonzero(Mp[r])[0])
+                lines.append(f"    P({s_label}):  {lhs}")
+                lines.append(f"      == {rhs}")
+        return "\n".join(lines)
+
 
 # ----------------------------------------------------------------------
 # Marginalization matrix (cluster joint -> separator joint)
 # ----------------------------------------------------------------------
+
+def _state_label(atoms: List[str], idx: int) -> str:
+    """Human-readable label of state `idx` (MSB-first) over `atoms`,
+    e.g. atoms=[A,C], idx=2 -> "A=1,C=0"."""
+    n = len(atoms)
+    bits = [(idx >> (n - 1 - i)) & 1 for i in range(n)]
+    return ",".join(f"{a}={b}" for a, b in zip(atoms, bits))
+
 
 def _marginal_matrix(atoms_c: List[str], atoms_s: List[str]) -> np.ndarray:
     """
@@ -508,6 +564,29 @@ def _init_q(model, jt, csize, rng=None):
             start = start / start.sum()
         for i in range(n):
             model.q[(cid, i)].value = float(start[i])
+
+
+def _print_realized_messages(model, jt, csize, prefix=""):
+    """
+    Print the separator messages REALIZED by the current solution loaded in
+    ``model.q`` -- i.e. the actual numeric marginal each cluster sends over each
+    separator at the optimum (both endpoints agree on it by the separator-
+    consistency equalities). Read-only; call after a solve loaded a solution.
+    """
+    for (c, p) in jt.edges:
+        S = jt.sep[(c, p)]
+        if not S:
+            continue
+        Mc = _marginal_matrix(jt.atoms[c], S)
+        try:
+            qc = np.array([float(value(model.q[(c, j)]))
+                           for j in range(csize[c])])
+        except Exception:
+            return  # no solution loaded
+        msg = Mc @ qc
+        cells = ", ".join(f"P({_state_label(S, r)})={msg[r]:.4f}"
+                          for r in range(len(msg)))
+        print(f"{prefix}  message {c} -> {p} over {{{', '.join(S)}}}: {cells}")
 
 
 def _solve_sense(model, jt, obj_expr, csize, sense, solver, time_limit,
@@ -780,7 +859,9 @@ class CredalJT:
                 nonconvex cluster NLP to be exact) or "ipopt" (local).
             max_cluster_atoms / time_limit / gap_tol: JT-NLP budget and solver
                 limits (see build_and_solve_jt_nlp).
-            verbosity: 0 silent, 1 summary, 2 also prints the junction tree.
+            verbosity: 0 silent, 1 summary, 2 also prints the junction tree
+                with the detailed separator-consistency messages, and the
+                solver's own progress.
         """
         evidence = evidence or {}
         evidence_set = set(evidence.keys())
@@ -803,7 +884,7 @@ class CredalJT:
                   f"max cluster {jt.max_cluster_size()} atoms "
                   f"(n={len(self.cnv.lcn.atoms)} atoms total)")
         if verbosity > 1:
-            print(jt.describe(sentences_by_host, lmc_by_host))
+            print(jt.describe_detailed(sentences_by_host, lmc_by_host))
 
         self.singleton_marginals = {}
         if over_budget or fallback:
@@ -822,10 +903,22 @@ class CredalJT:
                     _clear_atom_objective(model)
                     obj = _atom_objective(model, jt, csize, atom, host,
                                           evidence, solver)
+                    if verbosity > 1:
+                        print(f"  [D5] atom {atom} (host cluster {host}):")
                     lo = _solve_sense(model, jt, obj, csize, 'min', solver,
                                       time_limit, gap_tol, verbosity)
+                    if verbosity > 1:
+                        print(f"    min P({atom}=1) = "
+                              f"{0.0 if lo is None else lo:.6f}; realized "
+                              f"separator messages at the minimizer:")
+                        _print_realized_messages(model, jt, csize, prefix="  ")
                     hi = _solve_sense(model, jt, obj, csize, 'max', solver,
                                       time_limit, gap_tol, verbosity)
+                    if verbosity > 1:
+                        print(f"    max P({atom}=1) = "
+                              f"{1.0 if hi is None else hi:.6f}; realized "
+                              f"separator messages at the maximizer:")
+                        _print_realized_messages(model, jt, csize, prefix="  ")
                     lo = 0.0 if lo is None else max(0.0, lo)
                     hi = 1.0 if hi is None else min(1.0, hi)
                 self.singleton_marginals[atom] = (lo, hi)
