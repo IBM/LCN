@@ -33,7 +33,8 @@ from pyomo.environ import (
 from lcn.core.model import LCN
 from lcn.inference.marginal.cn.coupling import (
     CouplingConstraints, warn_conditional_coupling)
-from lcn.inference.marginal.cn.junction_nlp import build_and_solve_jt_nlp
+from lcn.inference.marginal.cn.junction_nlp import (
+    build_and_solve_jt_nlp, print_junction_tree)
 from lcn.inference.marginal.cn.potentials import Potential, min_fill_order
 from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
 from lcn.inference.marginal.exact import _is_vacuous
@@ -750,13 +751,23 @@ if __name__ == "__main__":
         solver="scip"
     )
 
+    verbosity = 2
+
+    # At verbosity 2, show the D5 junction tree and the separator messages it
+    # propagates (for one representative query atom).
+    if verbosity >= 2:
+        atom0 = cnv.cn.node_atoms[cnv.cn.nodes[0]][0]
+        print()
+        print_junction_tree(cnv, query=atom0, evidence={})
+
     # Credal Variable Elimination algorithm. A single run() now computes every
     # singleton atom's posterior marginal by looping the per-target bucket
     # elimination over the credal-network nodes.
     cve = CredalVE(cnv=cnv)
 
     print("\n=== All marginals (exact, coupling=off) ===")
-    results = cve.run(evidence={}, elim_heuristic="min-fill", verbosity=1, coupling="cross-family")
+    results = cve.run(evidence={}, elim_heuristic="min-fill",
+                      verbosity=verbosity, coupling="d5")
     for atom in sorted(cve.singleton_marginals):
         lo, hi = cve.singleton_marginals[atom]
         print(f"  P({atom}=1) in [{lo:.6f}, {hi:.6f}]")
