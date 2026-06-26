@@ -45,11 +45,12 @@ from lcn.inference.marginal.cn.ccte import CredalCTE
 from lcn.inference.marginal.cn.approxlp import ApproxLP
 from lcn.inference.marginal.cn.ijgp import CredalIJGP
 from lcn.inference.marginal.cn.cve import CredalVE
+from lcn.inference.marginal.cn.junction_nlp import CredalJT
 
-ALGORITHMS = ["exact", "ariel", "ibp", "ijgp", "ijgp_e", "ijgp_cp", "ijgp_cm", "ccte", "ccte_e", "ccte_cp", "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "cve_d5"]
+ALGORITHMS = ["exact", "ariel", "ibp", "ijgp", "ijgp_e", "ijgp_cp", "ijgp_cm", "ccte", "ccte_e", "ccte_cp", "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "d5"]
 
 
-_CVE_ALGORITHMS = {"ibp", "ijgp", "ijgp_e", "ijgp_cp", "ijgp_cm", "ccte", "ccte_e", "ccte_cp", "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "cve_d5"}
+_CVE_ALGORITHMS = {"ibp", "ijgp", "ijgp_e", "ijgp_cp", "ijgp_cm", "ccte", "ccte_e", "ccte_cp", "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "d5"}
 
 
 def _compute_induced_width(cnv):
@@ -382,12 +383,11 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 raw = algo.run(
                     evidence=evidence, coupling="cross-family",
                     verbosity=verbosity)
-            elif algorithm == "cve_d5":
+            elif algorithm == "d5":
                 d5_solver = kwargs.get("solver", "scip")
-                algo = CredalVE(cnv=cnv)
+                algo = CredalJT(cnv=cnv)
                 raw = algo.run(
-                    evidence=evidence, coupling="d5", d5_solver=d5_solver,
-                    verbosity=verbosity)
+                    evidence=evidence, solver=d5_solver, verbosity=verbosity)
                 result["induced_width"] = algo.induced_width
             t_run_end = time.time()
             result["run_time"] = round(t_run_end - t_run_start, 4)

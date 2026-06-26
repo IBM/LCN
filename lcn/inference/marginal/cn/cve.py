@@ -34,7 +34,7 @@ from lcn.core.model import LCN
 from lcn.inference.marginal.cn.coupling import (
     CouplingConstraints, warn_conditional_coupling)
 from lcn.inference.marginal.cn.junction_nlp import (
-    build_and_solve_jt_nlp, print_junction_tree)
+    CredalJT, print_junction_tree)
 from lcn.inference.marginal.cn.potentials import Potential, min_fill_order
 from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
 from lcn.inference.marginal.exact import _is_vacuous
@@ -83,8 +83,7 @@ class CredalVE:
 
     def run(self, evidence: dict = {},
             elim_heuristic: str = "topological", epsilon: float = None,
-            coupling: str = "off", d5_solver: str = "scip",
-            verbosity: int = 1):
+            coupling: str = "off", verbosity: int = 1):
         """
         Compute lower/upper bounds on the posterior marginal of EVERY
         (non-evidence) singleton atom, by iterating the single-query bucket
@@ -103,11 +102,11 @@ class CredalVE:
                 ordering. With coupling="cross-family" the order is forced to
                 min-fill augmented with the constrained node sets.
             epsilon: if not None, epsilon-approximate pruning (FPTAS).
-            coupling: "off" (strong extension), "cross-family" (scheme D4, drops
-                vertex combinations violating a cross-family constraint), or
-                "d5" (scheme D5, the junction-tree EXACT NLP; epsilon ignored).
-            d5_solver: backend for D5, "scip" (default, certified global) or
-                "ipopt". Inert unless coupling=="d5".
+            coupling: "off" (strong extension) or "cross-family" (scheme D4,
+                drops vertex combinations violating a cross-family constraint).
+                For the EXACT junction-tree bound (scheme D5) use the dedicated
+                CredalJT engine (lcn.inference.marginal.cn.junction_nlp), which
+                builds one junction tree for all marginals.
             verbosity: 0 silent, 1 summary, 2 per-target detail.
 
         Returns:
@@ -121,20 +120,15 @@ class CredalVE:
             vacuous [0, 1] -- an uninformative result that usually signals an
             inconsistent LCN or evidence; None when there is nothing to judge).
         """
-        assert coupling in ("off", "cross-family", "d5"), \
-            f"Unknown coupling '{coupling}'. Use 'off', 'cross-family' or 'd5'."
+        assert coupling in ("off", "cross-family"), \
+            f"Unknown coupling '{coupling}'. Use 'off' or 'cross-family' " \
+            f"(for the exact D5 bound use the CredalJT engine)."
         assert self.cnv.extreme_points is not None, \
             "CredalNetworkVertices must be built before run()."
         assert self.cnv.bn_min is not None
 
         node_atoms = self.cnv.cn.node_atoms
         evidence_set = set(evidence.keys())
-
-        if coupling == "d5":
-            if epsilon is not None and verbosity > 0:
-                print("[CredalVE] D5 is exact; ignoring epsilon.")
-            return self._run_all_d5(evidence, evidence_set, node_atoms,
-                                    d5_solver, verbosity)
 
         assert elim_heuristic in ("topological", "min-fill"), \
             f"Unknown heuristic '{elim_heuristic}'. Use 'topological' or 'min-fill'."
@@ -167,39 +161,6 @@ class CredalVE:
 
         if verbosity > 0:
             self._print_marginals(results)
-            self._print_times()
-        return results
-
-    def _run_all_d5(self, evidence, evidence_set, node_atoms, d5_solver,
-                    verbosity):
-        """All-marginals via scheme D5: one junction-tree exact NLP per
-        non-evidence singleton atom. Sets self.marginals/self.singleton_marginals
-        and self.d5_exact/self.induced_width."""
-        if verbosity > 0:
-            print(f"[CredalVE] Computing all marginals (coupling=d5, "
-                  f"solver={d5_solver}, evidence={evidence})")
-        atoms = sorted({a for atoms in node_atoms.values() for a in atoms}
-                       - evidence_set)
-        t_elim_start = time.perf_counter()
-        self.singleton_marginals = {}
-        self.d5_exact = True
-        self.induced_width = 0
-        for atom in atoms:
-            lo, hi, exact, width = self._run_d5_atom(
-                atom, evidence, d5_solver, verbosity)
-            self.singleton_marginals[atom] = (lo, hi)
-            self.d5_exact = self.d5_exact and exact
-            self.induced_width = max(self.induced_width, width)
-        # D5 yields singleton-level marginals only.
-        self.marginals = {}
-        results = self._assemble_results(evidence_set)
-        self.elimination_time = time.perf_counter() - t_elim_start
-        self._record_times(verbosity)
-        self._flag_degenerate(evidence, verbosity)
-        if verbosity > 0:
-            self._print_marginals(results)
-            print(f"[CredalVE] D5 exact={self.d5_exact}, "
-                  f"max cluster={self.induced_width} atoms")
             self._print_times()
         return results
 
@@ -326,36 +287,6 @@ class CredalVE:
                 print("[CredalVE] The LCN is most likely INCONSISTENT "
                       "(over-constrained); run check_consistency on the model.")
 
-    def _run_d5_atom(self, atom, evidence, d5_solver, verbosity):
-        """
-        Scheme D5 for a single (singleton) atom: replace the vertex propagation
-        with a junction-tree exact NLP (cluster-marginal variables + separator
-        consistency + all LCN sentences and LMC equalities), giving the exact
-        chain-graph bound P(atom=1 | evidence) at treewidth cost. Falls back to
-        ExactInference.run_query when the JT-NLP cannot be made exact within the
-        cluster budget. Returns (lo, hi, exact, width) for P(atom=1 | evidence).
-        """
-        from lcn.inference.marginal.exact import ExactInference
-
-        lo, hi, info = build_and_solve_jt_nlp(
-            self.cnv, atom, evidence=evidence, solver=d5_solver,
-            verbosity=verbosity)
-        exact = info["exact"]
-        width = info["max_cluster_atoms"]
-
-        if info["fallback"]:
-            if verbosity > 0:
-                print("[CredalVE] D5 falling back to ExactInference "
-                      "(cluster budget exceeded).")
-            ei = ExactInference(self.cnv.lcn)
-            lo, hi = ei.run_query(atom, evidence=evidence,
-                                  solver="local", verbosity=0)
-
-        if verbosity > 1:
-            print(f"  [D5] P({atom}=1 | {evidence}) = [{lo:.6f}, {hi:.6f}]  "
-                  f"(exact={exact}, max cluster={width} atoms)")
-        return lo, hi, exact, width
-
     def _run_single_query(self, query, evidence, elim_heuristic, epsilon,
                           coupling, verbosity):
         """
@@ -364,8 +295,7 @@ class CredalVE:
         and returning the target node's per-state ``(lower_bounds,
         upper_bounds)`` arrays for P(query-state | evidence). This is the engine
         the public all-marginals :meth:`run` loops over; ``coupling`` is "off"
-        or "cross-family" here (the "d5" path is handled per-atom by
-        :meth:`_run_d5_atom`).
+        or "cross-family".
         """
         if epsilon is not None:
             return self._run_single_query_approx(
@@ -754,27 +684,25 @@ if __name__ == "__main__":
     verbosity = 2
 
     # At verbosity 2, show the D5 junction tree and the separator messages it
-    # propagates (for one representative query atom).
+    # propagates (one tree serves all marginals -- query-independent).
     if verbosity >= 2:
-        atom0 = cnv.cn.node_atoms[cnv.cn.nodes[0]][0]
         print()
-        print_junction_tree(cnv, query=atom0, evidence={})
+        print_junction_tree(cnv, query=None, evidence={})
 
-    # Credal Variable Elimination algorithm. A single run() now computes every
-    # singleton atom's posterior marginal by looping the per-target bucket
-    # elimination over the credal-network nodes.
+    # CredalVE computes all singleton marginals over the strong extension by
+    # looping the per-target bucket elimination over the credal-network nodes.
     cve = CredalVE(cnv=cnv)
-
-    print("\n=== All marginals (exact, coupling=off) ===")
-    results = cve.run(evidence={}, elim_heuristic="min-fill",
-                      verbosity=verbosity, coupling="d5")
+    print("\n=== All marginals (CredalVE, coupling=off) ===")
+    cve.run(evidence={}, elim_heuristic="min-fill", verbosity=verbosity)
     for atom in sorted(cve.singleton_marginals):
         lo, hi = cve.singleton_marginals[atom]
         print(f"  P({atom}=1) in [{lo:.6f}, {hi:.6f}]")
 
-    # # With evidence (skips the observed atoms):
-    # print("\n=== All marginals given B=0, E=0 ===")
-    # cve.run(evidence={"B": 0, "E": 0}, elim_heuristic="min-fill", verbosity=2)
-    # for atom in sorted(cve.singleton_marginals):
-    #     lo, hi = cve.singleton_marginals[atom]
-    #     print(f"  P({atom}=1 | B=0,E=0) in [{lo:.6f}, {hi:.6f}]")
+    # CredalJT computes the EXACT marginals (scheme D5) with one junction tree
+    # for all atoms.
+    jt = CredalJT(cnv=cnv)
+    print("\n=== All marginals (CredalJT, exact D5) ===")
+    jt.run(evidence={}, solver="scip", verbosity=verbosity)
+    for atom in sorted(jt.singleton_marginals):
+        lo, hi = jt.singleton_marginals[atom]
+        print(f"  P({atom}=1) in [{lo:.6f}, {hi:.6f}]")

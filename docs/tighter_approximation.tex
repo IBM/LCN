@@ -333,7 +333,13 @@ sum (closing gap B for $C\!-\!D$). The query marginal $P(A)$ is then read off th
 $\{A\}$ bucket. No step ever forms the loose product, and no bucket exceeds three atoms.
 
 \smallskip\noindent\emph{Implementation note (junction-tree exact NLP).} D5 is realized
-(\texttt{cn/junction\_nlp.py}, the \texttt{coupling="d5"} flag on Credal VE) not as a
+(\texttt{cn/junction\_nlp.py}) as its own \texttt{CredalJT} engine --- a build-once junction
+tree shared across all marginals: the clique tree and the constraint NLP (cluster variables,
+separator equalities, sentence and LMC rows) are query-independent, so they are constructed a
+single time and only the objective $P(\mathrm{atom}{=}1\mid e)$ is swapped per atom (two NLP
+solves each). (D5 used to live behind \texttt{CredalVE}'s \texttt{coupling="d5"}, which rebuilt
+the entire tree and model once \emph{per atom}; that option has been removed and Credal VE now
+covers only \texttt{off}/\texttt{cross-family}.) The tree is built not as a
 sequence of message NLPs but as a single equivalent \emph{junction-tree} NLP, which is
 cleaner to make provably exact. Build a clique tree from the chain-graph elimination order
 (reusing the bucket-tree construction), introduce one variable vector per cluster ranging
@@ -763,7 +769,7 @@ evidence and directs the user to D5 (Section~\ref{sec:d5-detail}), which is exac
 \end{figure}
 
 % ======================================================================
-\subsection{D5 --- junction-tree exact NLP (\texttt{coupling="d5"})}
+\subsection{D5 --- junction-tree exact NLP (the \texttt{CredalJT} engine)}
 \label{sec:d5-detail}
 
 \paragraph{What it computes.} D5 abandons the vertex product entirely and computes the
@@ -788,32 +794,33 @@ with their node sets, exactly as in D4; if that would push a cluster past the tr
 budget, D5 falls back to \texttt{ExactInference.run\_query} (still exact, at $2^n$).
 
 \begin{algorithm}[t]
-\caption{D5 junction-tree exact NLP (\texttt{build\_and\_solve\_jt\_nlp})}
+\caption{D5 junction-tree exact NLP (\texttt{CredalJT.run}; one tree, all marginals)}
 \label{alg:d5}
 \begin{algorithmic}[1]
-\Require credal net $\mathit{cnv}$; query $q$; evidence $e$; budget $k_{\max}$; solver
+\Require credal net $\mathit{cnv}$; evidence $e$; budget $k_{\max}$; solver
 \State $\mathcal C\gets$ cross-family constraints; augment the min-fill order with their node
-  sets and the query$+$evidence node set
-\State build the clique tree $T$ (clusters $\mathcal K$, edges with separators) from the
-  augmented order; flatten each cluster to its atom set; prune leaf clusters subsumed by a
-  neighbour
-\If{$\max_{c}|\mathrm{atoms}(c)| > k_{\max}$} \Return \textsc{ExactInference}$(q,e)$
+  sets \emph{only} (no query --- the tree is query-INDEPENDENT)
+\State build the clique tree $T$ (clusters $\mathcal K$, edges with separators) \emph{once};
+  flatten each cluster to its atom set; prune leaf clusters subsumed by a neighbour
+\If{$\max_{c}|\mathrm{atoms}(c)| > k_{\max}$} \Return \textsc{ExactInference} per atom
   \Comment{budget fallback}
 \EndIf
-\State create variables $q_c[i]\ge 0$ for each cluster $c$ and state $i\in[0,2^{|\mathrm
-  {atoms}(c)|})$; add per-cluster simplex $\sum_i q_c[i]=1$
+\State \emph{(build the constraint model once)} create variables $q_c[i]\ge 0$ per cluster and
+  state, with $\sum_i q_c[i]=1$
 \ForAll{tree edges $(c,d)$ with separator $S$}
-  \State build $0/1$ marginalisation matrices $M_{c\to S},M_{d\to S}$;
-    add $M_{c\to S}\,q_c = M_{d\to S}\,q_d$ \Comment{separator consistency}
+  \State add the separator-consistency equalities $M_{c\to S}\,q_c = M_{d\to S}\,q_d$
 \EndFor
-\ForAll{sentences / LMC assertions} assign each to a host cluster containing its atoms; add
-  its row(s) (Type-1/2 linear/ratio, or bilinear LMC) on that cluster's $q_c$
+\ForAll{sentences / LMC assertions} add their row(s) on a host cluster containing their atoms
+  (Type-1/2 linear/ratio, or bilinear LMC)
 \EndFor
-\State on the host cluster $c_q$ of $q{\cup}e$, build the objective
-  $P(q{=}1\mid e)=(\mathbf 1_{q,e}^\top q_{c_q})/(\mathbf 1_{e}^\top q_{c_q})$
-  via the aux-variable trick (with denominator floor under SCIP)
-\State $\underline q\gets \textsc{Solve}(\min)$, $\overline q\gets \textsc{Solve}(\max)$ with
-  the global backend (SCIP); \Return $[\underline q,\overline q]$
+\ForAll{non-evidence singleton atoms $a$} \Comment{loop; only the objective changes}
+  \State pick a host cluster $c_a$ containing $a$ and the evidence atoms; build the objective
+    $P(a{=}1\mid e)=(\mathbf 1_{a,e}^\top q_{c_a})/(\mathbf 1_{e}^\top q_{c_a})$ via the
+    aux-variable trick (denominator floor under SCIP)
+  \State $\underline q_a\gets\textsc{Solve}(\min)$, $\overline q_a\gets\textsc{Solve}(\max)$
+    over the \emph{shared} model with the global backend (SCIP)
+\EndFor
+\State \Return $\{a \mapsto [\underline q_a,\overline q_a]\}$
 \end{algorithmic}
 \end{algorithm}
 

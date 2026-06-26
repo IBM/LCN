@@ -45,6 +45,7 @@
 # exceed a budget, the caller falls back to ExactInference.
 
 import logging
+import time
 from typing import Dict, List
 
 import numpy as np
@@ -60,7 +61,7 @@ from pyomo.environ import (
 # Local
 from lcn.inference.marginal.cn.coupling import CouplingConstraints
 from lcn.inference.marginal.cn.potentials import min_fill_order
-from lcn.inference.marginal.exact import make_scip, _read_gap
+from lcn.inference.marginal.exact import make_scip, _read_gap, _is_vacuous
 from lcn.core.model import SentenceType
 from lcn.inference.utils.common import (
     make_ipopt, build_truth_table,
@@ -142,6 +143,19 @@ class _JTClusters:
     """
 
     def __init__(self, cnv, query, evidence, extra_node_sets):
+        """
+        Build the augmented junction tree.
+
+        ``query`` may be ``None`` (the query-INDEPENDENT tree used by the
+        all-marginals CredalJT engine): then the tree is built over a plain
+        min-fill order with only the cross-family constraint node sets as
+        augmenting cliques. Every singleton atom is still hosted in some cluster
+        (each node's own scope is a clique), so any atom's marginal can be read
+        off a hosting cluster -- one tree serves all marginals. When ``query`` is
+        a node name (single-query build_and_solve_jt_nlp), the query+evidence
+        node set is added as an extra clique and the query node is kept
+        un-eliminated so its bucket holds the query.
+        """
         self.cnv = cnv
         node_atoms = cnv.cn.node_atoms
         # One global atom order so every cluster/separator packs MSB-first
@@ -150,21 +164,25 @@ class _JTClusters:
         self._rank = {a: i for i, a in enumerate(self.atom_order)}
 
         node_scopes = _node_scopes(cnv)
-        # Augmenting cliques: query+evidence nodes and the cross-family node
-        # sets. Map evidence/query atoms to their owning node names.
-        node_of_atom = {}
-        for node, atoms in node_atoms.items():
-            for a in atoms:
-                node_of_atom[a] = node
-        q_nodes = sorted({node_of_atom[a]
-                          for a in ([query] + list(evidence.keys()))
-                          if a in node_of_atom})
-        aug = [q_nodes] + [list(s) for s in extra_node_sets]
+        aug = [list(s) for s in extra_node_sets]
+        exclude = set()
+        if query is not None:
+            # Augmenting clique: the query+evidence node set; keep the query node
+            # un-eliminated so its bucket holds the query.
+            node_of_atom = {}
+            for node, atoms in node_atoms.items():
+                for a in atoms:
+                    node_of_atom[a] = node
+            q_nodes = sorted({node_of_atom[a]
+                              for a in ([query] + list(evidence.keys()))
+                              if a in node_of_atom})
+            if q_nodes:
+                aug = [q_nodes] + aug
+            exclude = {query}
         aug = [s for s in aug if s]
 
         scopes = node_scopes + aug
-        # Keep the query node un-eliminated so its bucket holds the query.
-        elim_order = min_fill_order(scopes, exclude={query})
+        elim_order = min_fill_order(scopes, exclude=exclude)
         parent, children, eff = _jt_from_scopes(scopes, elim_order)
 
         self.cluster_ids = list(elim_order)
@@ -330,9 +348,14 @@ def _dotq(vec, q, cid, n):
     return sum(float(vec[i]) * q[(cid, i)] for i in range(n))
 
 
-def _build_model(jt, cnv, query, evidence, sentences_by_host,
-                 lmc_by_host, query_cluster, solver):
-    """Build the Pyomo JT-NLP model (objective set later per sense)."""
+def _build_constraint_model(jt, cnv, sentences_by_host, lmc_by_host):
+    """
+    Build the constraint-only Pyomo JT model: cluster variables + per-cluster
+    simplex + separator-consistency equalities + sentence rows + LMC bilinear
+    rows. NO objective. This part is QUERY-INDEPENDENT, so the all-marginals
+    engine builds it once and reuses it for every atom (only the objective,
+    added by ``_atom_objective``, changes per atom). Returns (model, csize).
+    """
     lcn = cnv.lcn
     model = ConcreteModel()
 
@@ -406,7 +429,20 @@ def _build_model(jt, cnv, query, evidence, sentences_by_host,
                     v2 = _dotq(Ab, model.q, cid, n) * _dotq(Ac, model.q, cid, n)
                     model.constr.add(v1 - v2 == 0.0)
 
-    # Objective machinery on the query cluster: P(query=1 | evidence).
+    return model, csize
+
+
+def _atom_objective(model, jt, csize, query, query_cluster, evidence, solver):
+    """
+    Build (and attach to ``model``) the objective expression for
+    P(query=1 | evidence), reading it off ``query_cluster`` (a cluster whose
+    atoms contain the query and the evidence atoms). No evidence -> linear
+    ``A_query . q``; with evidence -> the fractional ``obj_var`` ratio aux. The
+    evidence-ratio aux constraint is query-specific; it is added under the fixed
+    component name ``obj_var`` (the caller clears it between atoms via
+    ``_clear_atom_objective`` so the constraint model can be reused).
+    Returns the objective expression.
+    """
     cid = query_cluster
     atoms_c = jt.atoms[cid]
     interps = [dict(zip(atoms_c, row))
@@ -421,17 +457,34 @@ def _build_model(jt, cnv, query, evidence, sentences_by_host,
         AE = A_q * E
         AE_expr = _dotq(AE, model.q, cid, n)
         E_expr = _dotq(E, model.q, cid, n)
+        model.obj_den_floor = ConstraintList()
         if solver == "scip":
-            model.constr.add(E_expr >= _DEN_FLOOR)
+            model.obj_den_floor.add(E_expr >= _DEN_FLOOR)
         model.obj_var = Var(within=NonNegativeReals, bounds=(0.0, 1.0))
-        model.constr.add(model.obj_var * E_expr == AE_expr)
-        obj_expr = model.obj_var
-    else:
-        obj_expr = _dotq(A_q, model.q, cid, n)
+        model.obj_ratio = ConstraintList()
+        model.obj_ratio.add(model.obj_var * E_expr == AE_expr)
+        return model.obj_var
+    return _dotq(A_q, model.q, cid, n)
 
-    # Return the objective expression and cluster sizes alongside the model
-    # rather than stashing them as model attributes -- assigning a Pyomo Var to
-    # a model attribute would try to re-register the component and raise.
+
+def _clear_atom_objective(model):
+    """Remove the per-atom objective components added by _atom_objective so the
+    shared constraint model can be reused for the next atom."""
+    for name in ("objective", "obj_var", "obj_ratio", "obj_den_floor"):
+        if hasattr(model, name):
+            model.del_component(name)
+
+
+def _build_model(jt, cnv, query, evidence, sentences_by_host,
+                 lmc_by_host, query_cluster, solver):
+    """
+    Single-query convenience: build the constraint model and attach the query
+    objective. Used by build_and_solve_jt_nlp. Returns (model, obj_expr, csize).
+    """
+    model, csize = _build_constraint_model(jt, cnv, sentences_by_host,
+                                           lmc_by_host)
+    obj_expr = _atom_objective(model, jt, csize, query, query_cluster,
+                               evidence, solver)
     return model, obj_expr, csize
 
 
@@ -573,10 +626,15 @@ def _build_jt_and_hosts(cnv, query, evidence, max_cluster_atoms):
         else:
             lmc_by_host.setdefault(host, []).append(indep)
 
-    q_atoms = list(evidence.keys()) + [query]
-    query_cluster = jt.host(q_atoms)
-    if query_cluster is None:
-        fallback = True
+    # Query-cluster assignment only for the single-query build. For the
+    # query-independent build (query is None), each atom's host is resolved
+    # later, per atom, by the all-marginals engine.
+    query_cluster = None
+    if query is not None:
+        q_atoms = list(evidence.keys()) + [query]
+        query_cluster = jt.host(q_atoms)
+        if query_cluster is None:
+            fallback = True
 
     return jt, sentences_by_host, lmc_by_host, query_cluster, False, fallback
 
@@ -584,8 +642,10 @@ def _build_jt_and_hosts(cnv, query, evidence, max_cluster_atoms):
 def print_junction_tree(cnv, query, evidence=None, max_cluster_atoms=16,
                         file=None):
     """
-    Print the D5 junction tree and the separator messages it propagates for the
-    query P(query | evidence), without solving the NLP.
+    Print the D5 junction tree and the separator messages it propagates, without
+    solving the NLP. ``query`` may be a node name (the single-query tree, where
+    the query+evidence are forced into one cluster) or ``None`` (the
+    query-independent tree the all-marginals CredalJT engine uses).
 
     Shows each cluster (atom scope, number of states, and the sentences / LMC
     assertions it hosts), the tree as an indented forest, and the per-edge
@@ -601,8 +661,11 @@ def print_junction_tree(cnv, query, evidence=None, max_cluster_atoms=16,
     evidence = evidence or {}
     jt, sentences_by_host, lmc_by_host, query_cluster, over_budget, fallback = \
         _build_jt_and_hosts(cnv, query, evidence, max_cluster_atoms)
-    header = (f"=== Junction tree for P({query}"
-              f"{' | ' + str(evidence) if evidence else ''}) ===")
+    ev_str = (' | ' + str(evidence)) if evidence else ''
+    if query is None:
+        header = f"=== Junction tree (all marginals{ev_str}) ==="
+    else:
+        header = f"=== Junction tree for P({query}{ev_str}) ==="
     print(header, file=out)
     if over_budget:
         print(f"max cluster {jt.max_cluster_size()} atoms exceeds budget "
@@ -669,3 +732,150 @@ def build_and_solve_jt_nlp(cnv, query, evidence=None, solver="ipopt",
     lo = 0.0 if lo is None else max(0.0, lo)
     hi = 1.0 if hi is None else min(1.0, hi)
     return lo, hi, info
+
+
+class CredalJT:
+    """
+    Junction-tree exact marginal inference for chain-graph LCNs (scheme D5).
+
+    Builds ONE junction tree and ONE constraint NLP (cluster-marginal variables
+    + per-cluster simplex + Lauritzen separator-consistency equalities + all LCN
+    sentence and LMC rows), then computes the exact posterior bounds of EVERY
+    non-evidence singleton atom by swapping only the objective P(atom=1 |
+    evidence) per atom and solving min/max. The constraint structure is
+    query-independent, so unlike the old CredalVE(coupling="d5") path it does not
+    rebuild the tree/model per atom -- only the (cheap) objective and the two
+    NLP solves are per-atom.
+
+    Exactness: the clique tree has the running-intersection property and every
+    sentence/LMC assertion is hosted in a containing cluster, so the
+    separator-consistent, constraint-satisfying cluster marginals project exactly
+    to the true joint's marginals; cost is bounded by treewidth, not 2^n. When a
+    cluster exceeds the treewidth budget, the engine falls back to
+    ExactInference.run_query per atom (still exact, at 2^n).
+    """
+
+    def __init__(self, cnv):
+        assert cnv.extreme_points is not None, \
+            "CredalNetworkVertices must be built before passing to CredalJT."
+        assert cnv.bn_min is not None
+        self.cnv = cnv
+
+    def run(self, evidence: dict = {}, solver: str = "scip",
+            max_cluster_atoms: int = 16, time_limit: float = None,
+            gap_tol: float = 0.0, verbosity: int = 1):
+        """
+        Compute exact lower/upper bounds on the posterior marginal of every
+        non-evidence singleton atom.
+
+        Returns {name -> (lower_bounds, upper_bounds)} (singleton atoms as the
+        2-vector [P(=0), P(=1)]). Also sets self.singleton_marginals
+        ({atom -> (lo, hi)} for P(atom=1)), self.d5_exact, self.induced_width,
+        the running-time stats (build_time / elimination_time / total_time), and
+        self.degenerate (all marginals vacuous [0,1]).
+
+        Args:
+            evidence: {atom -> value} for observed atoms (skipped as queries).
+            solver: "scip" (default, certified global -- needed for the
+                nonconvex cluster NLP to be exact) or "ipopt" (local).
+            max_cluster_atoms / time_limit / gap_tol: JT-NLP budget and solver
+                limits (see build_and_solve_jt_nlp).
+            verbosity: 0 silent, 1 summary, 2 also prints the junction tree.
+        """
+        evidence = evidence or {}
+        evidence_set = set(evidence.keys())
+        node_atoms = self.cnv.cn.node_atoms
+        atoms = sorted({a for ats in node_atoms.values() for a in ats}
+                       - evidence_set)
+
+        t0 = time.perf_counter()
+        # Build the query-independent JT and assign constraints to host clusters
+        # ONCE (query=None => no per-query augmentation).
+        jt, sentences_by_host, lmc_by_host, _, over_budget, fallback = \
+            _build_jt_and_hosts(self.cnv, None, evidence, max_cluster_atoms)
+        self.d5_exact = not (over_budget or fallback)
+        self.induced_width = jt.max_cluster_size()
+
+        if verbosity > 0:
+            print(f"[CredalJT] Computing all marginals (D5, solver={solver}, "
+                  f"evidence={evidence})")
+            print(f"[CredalJT] junction tree: {len(jt.cluster_ids)} clusters, "
+                  f"max cluster {jt.max_cluster_size()} atoms "
+                  f"(n={len(self.cnv.lcn.atoms)} atoms total)")
+        if verbosity > 1:
+            print(jt.describe(sentences_by_host, lmc_by_host))
+
+        self.singleton_marginals = {}
+        if over_budget or fallback:
+            # Cannot host every constraint within budget -> per-atom exact fallback.
+            self._all_exact_fallback(atoms, evidence, verbosity)
+        else:
+            logging.getLogger('pyomo.core').setLevel(logging.ERROR)
+            model, csize = _build_constraint_model(
+                jt, self.cnv, sentences_by_host, lmc_by_host)
+            for atom in atoms:
+                host = jt.host([atom] + list(evidence.keys()))
+                if host is None:
+                    # Atom + evidence not co-hosted -> exact fallback for it.
+                    lo, hi = self._exact_atom(atom, evidence)
+                else:
+                    _clear_atom_objective(model)
+                    obj = _atom_objective(model, jt, csize, atom, host,
+                                          evidence, solver)
+                    lo = _solve_sense(model, jt, obj, csize, 'min', solver,
+                                      time_limit, gap_tol, verbosity)
+                    hi = _solve_sense(model, jt, obj, csize, 'max', solver,
+                                      time_limit, gap_tol, verbosity)
+                    lo = 0.0 if lo is None else max(0.0, lo)
+                    hi = 1.0 if hi is None else min(1.0, hi)
+                self.singleton_marginals[atom] = (lo, hi)
+                if verbosity > 1:
+                    print(f"  [D5] P({atom}=1 | {evidence}) = "
+                          f"[{lo:.6f}, {hi:.6f}]")
+
+        self.elimination_time = time.perf_counter() - t0
+        self.build_time = float(getattr(self.cnv, "build_time", None) or 0.0)
+        self.total_time = self.build_time + self.elimination_time
+
+        results = {atom: (np.array([1.0 - hi, lo]), np.array([1.0 - lo, hi]))
+                   for atom, (lo, hi) in self.singleton_marginals.items()}
+        self.marginals = dict(results)
+
+        # Flag a degenerate (all-vacuous) result.
+        if not self.singleton_marginals:
+            self.degenerate = None
+        else:
+            n_vac = sum(1 for (lo, hi) in self.singleton_marginals.values()
+                        if _is_vacuous(lo, hi))
+            self.degenerate = (n_vac == len(self.singleton_marginals))
+
+        if verbosity > 0:
+            print("[CredalJT] Singleton marginals P(atom=1):")
+            for atom in sorted(self.singleton_marginals):
+                lo, hi = self.singleton_marginals[atom]
+                print(f"  P({atom}=1): [{lo:.6f}, {hi:.6f}]")
+            print(f"[CredalJT] exact={self.d5_exact}, "
+                  f"max cluster={self.induced_width} atoms")
+            print("[CredalJT] Running times (seconds):")
+            print(f"  build time:    {self.build_time:.4f}")
+            print(f"  inference time:{self.elimination_time:.4f}")
+            print(f"  total time:    {self.total_time:.4f}")
+            if self.degenerate:
+                print("[CredalJT] WARNING: the solution is DEGENERATE -- every "
+                      "singleton marginal is the vacuous [0, 1] (uninformative; "
+                      "the LCN/evidence is likely inconsistent).")
+        return results
+
+    def _exact_atom(self, atom, evidence):
+        """Exact P(atom=1 | evidence) bound via the full-joint ExactInference."""
+        from lcn.inference.marginal.exact import ExactInference
+        ei = ExactInference(self.cnv.lcn)
+        return ei.run_query(atom, evidence=evidence, solver="local",
+                            verbosity=0)
+
+    def _all_exact_fallback(self, atoms, evidence, verbosity):
+        if verbosity > 0:
+            print("[CredalJT] cluster budget exceeded / unhosted constraint; "
+                  "falling back to ExactInference per atom.")
+        for atom in atoms:
+            self.singleton_marginals[atom] = self._exact_atom(atom, evidence)
