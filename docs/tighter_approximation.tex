@@ -876,6 +876,142 @@ near-full-joint cluster and D5 degenerates to \texttt{ExactInference} cost there
 \label{fig:d5}
 \end{figure}
 
+\subsubsection{A complete worked example: all marginals of \texttt{d4\_biting} with
+\texttt{CredalJT}}\label{sec:d5-walkthrough}
+
+This subsection works the \texttt{CredalJT} engine end to end on
+\texttt{examples/d4\_biting.lcn}, computing \emph{all} singleton marginals with no evidence,
+and shows the junction tree, the messages, and exactly how each message is computed.
+
+\paragraph{The model.} \texttt{d4\_biting} has three atoms $\{A,B,C\}$ and four sentences:
+\begin{verbatim}
+  A1: 0.4 <= P(A)          <= 0.6
+  B1: 0.1 <= P(B | A)      <= 0.3
+  C1: 0.2 <= P(C | A)      <= 0.5
+  BC: 0.0 <= P(B and C)    <= 0.05
+\end{verbatim}
+$A$ is a root; $B$ and $C$ are its children. The families are $P(A)$, $P(B\mid A)$,
+$P(C\mid A)$, with the LMC independence $(B\perp C\mid A)$. The sentence $\mathit{BC}$
+(atoms $\{B,C\}$) is \emph{cross-family}: it constrains $B$ and $C$ jointly but lies in no
+single family. This is what makes the strong extension loose---the free product can pick
+$P(B{=}1\mid A)$ and $P(C{=}1\mid A)$ together so that $P(B\land C)$ reaches $0.92$, far above
+the $0.05$ bound---and what D5 enforces exactly.
+
+\paragraph{Local credal sets.} The \texttt{cn/} compiler solves each family in isolation
+(\texttt{method="linear"}), giving the conditional intervals (lower/upper):
+\begin{center}
+\begin{tabular}{lll}
+  \toprule
+  $P(A)$ & $P(B\mid A)$ & $P(C\mid A)$ \\
+  \midrule
+  $A{=}1:[0.4,0.6]$ & $B{=}1,A{=}1:[0.1,0.3]$ & $C{=}1,A{=}1:[0.2,0.5]$ \\
+                    & $B{=}1,A{=}0:[0,1]$     & $C{=}1,A{=}0:[0,1]$ \\
+  \bottomrule
+\end{tabular}
+\end{center}
+($B,C$ are unconstrained given $A{=}0$ because $\mathit{B1},\mathit{C1}$ condition on $A$ and
+$A{=}0$ is the complement; $\mathit{BC}$ does not appear in any single family.)
+
+\paragraph{The junction tree.} \texttt{CredalJT} builds one \emph{query-independent} clique
+tree (Algorithm~\ref{alg:d5}). The cross-family sentence $\mathit{BC}$ contributes the
+augmenting clique $\{B,C\}$, which---together with the family scopes $\{A\}$, $\{A,B\}$,
+$\{A,C\}$ and the moralization $A$ couples $B$ and $C$---makes the min-fill elimination produce
+three clusters and the chain
+\[
+  \boxed{C:\{C\}}\ \xleftarrow{\,S=\{C\}\,}\ \boxed{B:\{B,C\}}\ \xleftarrow{\,S=\{B,C\}\,}\
+  \boxed{A:\{A,B,C\}}.
+\]
+Figure~\ref{fig:d5-walk} draws it. Cluster $A$ has the full atom set $\{A,B,C\}$ and hence is
+the host of \emph{everything}: all four sentences \emph{and} the LMC equality $(B\perp C\mid A)$
+sit on $A$; clusters $B$ and $C$ carry no constraints and exist only to expose the marginals
+$P(B,C)$ and $P(C)$ through the separators. (The pruning step keeps $B$ and $C$ because in the
+tree orientation $C\leftarrow B\leftarrow A$ each is the \emph{parent} of the larger cluster, not
+a subsumed leaf; they are harmless---each merely copies a marginal of $A$.)
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[font=\small,>=Latex,node distance=10mm,
+  cl/.style={draw,rounded corners,inner sep=5pt,align=center,fill=blue!6},
+  sep/.style={draw,rectangle,inner sep=2pt,fill=yellow!25,font=\scriptsize},
+  host/.style={draw,rounded corners,inner sep=3pt,fill=green!8,font=\scriptsize,align=center}]
+  \node[cl] (A) {cluster $A$\\$\{A,B,C\}$\\$q_A\in\Delta(2^3)$};
+  \node[sep,right=14mm of A] (sAB) {$S{=}\{B,C\}$};
+  \node[cl,right=10mm of sAB] (B) {cluster $B$\\$\{B,C\}$\\$q_B\in\Delta(2^2)$};
+  \node[sep,right=10mm of B] (sBC) {$S{=}\{C\}$};
+  \node[cl,right=10mm of sBC] (C) {cluster $C$\\$\{C\}$\\$q_C\in\Delta(2^1)$};
+  \draw[-] (A) -- (sAB); \draw[-] (sAB) -- (B);
+  \draw[-] (B) -- (sBC); \draw[-] (sBC) -- (C);
+  \node[host,below=8mm of A] (h)
+    {hosts ALL constraints:\\$A1,B1,C1,BC$ and $(B\perp C\mid A)$};
+  \draw[->] (h) -- (A);
+\end{tikzpicture}
+\caption{The \texttt{d4\_biting} junction tree built by \texttt{CredalJT} (one tree for all
+  marginals). Cluster $A=\{A,B,C\}$ is the full joint and hosts every sentence and the LMC
+  equality; the separators $\{B,C\}$ and $\{C\}$ tie the downstream clusters $B$ and $C$ to it.}
+\label{fig:d5-walk}
+\end{figure}
+
+\paragraph{The NLP variables and constraints.} One probability vector per cluster:
+$q_A\in\Delta(2^3)$ (8 states over $A,B,C$, MSB-first), $q_B\in\Delta(2^2)$ (4 states over
+$B,C$), $q_C\in\Delta(2^1)$ (2 states over $C$); each on its own simplex $\sum_i q_\bullet[i]=1$.
+On cluster $A$ the engine adds: the Type-1/2 sentence rows (e.g.\ $\mathit{A1}$ as
+$0.4\le P(A{=}1)\le0.6$ with $P(A{=}1)=\sum_{b,c}q_A[A{=}1,b,c]$; $\mathit{B1}$ as
+$0.1\,P(A{=}1)\le P(B{=}1,A{=}1)\le0.3\,P(A{=}1)$; $\mathit{BC}$ as $P(B{=}1,C{=}1)\le0.05$),
+and the bilinear LMC equality for $(B\perp C\mid A)$, namely
+$P(B,C,A)\,P(A)=P(B,A)\,P(C,A)$ for each configuration.
+
+\paragraph{Separator-consistency messages.} The two tree edges contribute the Lauritzen
+equalities $M_{A\to\{B,C\}}\,q_A = M_{B\to\{B,C\}}\,q_B$ and
+$M_{B\to\{C\}}\,q_B = M_{C\to\{C\}}\,q_C$. Written per separator state, the first edge's message
+($A\to B$ over $\{B,C\}$) is the four equalities
+\begin{align*}
+  q_B[B{=}0,C{=}0] &= q_A[A{=}0,B{=}0,C{=}0] + q_A[A{=}1,B{=}0,C{=}0],\\
+  q_B[B{=}0,C{=}1] &= q_A[A{=}0,B{=}0,C{=}1] + q_A[A{=}1,B{=}0,C{=}1],\\
+  q_B[B{=}1,C{=}0] &= q_A[A{=}0,B{=}1,C{=}0] + q_A[A{=}1,B{=}1,C{=}0],\\
+  q_B[B{=}1,C{=}1] &= q_A[A{=}0,B{=}1,C{=}1] + q_A[A{=}1,B{=}1,C{=}1],
+\end{align*}
+i.e.\ each $q_B$ cell equals the sum of the $q_A$ cells that agree on $(B,C)$---this is the
+``message'' $A$ sends to $B$, the marginal of the cluster-$A$ joint onto $\{B,C\}$. The second
+edge ($B\to C$ over $\{C\}$) similarly sets
+$q_C[C{=}c]=q_B[B{=}0,C{=}c]+q_B[B{=}1,C{=}c]$. Because the tree has the running-intersection
+property, these two equalities are enough to guarantee a single global joint exists consistent
+with all three cluster marginals.
+
+\paragraph{Reading a marginal: $P(B)$.} For each non-evidence atom the engine swaps in the
+objective and solves $\min$/$\max$ over the \emph{same} model. For $B$ the objective is
+$P(B{=}1)=\sum_{a,c}q_A[a,B{=}1,c]$, read off the host cluster $A$. The maximization returns
+$\overline{P(B{=}1)}=0.72$ at the cluster-$A$ joint
+\begin{center}
+\begin{tabular}{lcccccccc}
+  \toprule
+  state $(A,B,C)$ & $000$ & $001$ & $010$ & $011$ & $100$ & $101$ & $110$ & $111$ \\
+  $q_A$ & $0$ & $0$ & $0.5751$ & $0.0249$ & $0.2227$ & $0.0573$ & $0.0954$ & $0.0246$ \\
+  \bottomrule
+\end{tabular}
+\end{center}
+Here $P(B{=}1)=0.5751+0.0249+0.0954+0.0246=0.72$. The \emph{message} this maximizer sends from
+$A$ to $B$, $M_{A\to\{B,C\}}\,q_A$, is
+\[
+  \big(P(B{=}0,C{=}0),\,P(B{=}0,C{=}1),\,P(B{=}1,C{=}0),\,P(B{=}1,C{=}1)\big)
+  = (0.2227,\ 0.0573,\ 0.6705,\ 0.0495),
+\]
+computed cell-by-cell as the separator equalities above prescribe, e.g.\
+$P(B{=}1,C{=}0)=q_A[010]+q_A[110]=0.5751+0.0954=0.6705$. Note the cross-family sentence is
+\emph{binding}: $P(B\land C)=q_A[011]+q_A[111]=0.0249+0.0246=0.0495\le0.05$. Without the
+joint cluster (i.e.\ over the free product) $B$ could be pushed to $P(B{=}1)$ near $1$ while
+$C$ stayed high, but the $0.05$ cap on the shared cell holds it to $0.72$. The minimization
+gives $\underline{P(B{=}1)}=0.04$, so $P(B)\in[0.04,0.72]$.
+
+\paragraph{All marginals.} Running every atom through the same model yields
+\[
+  P(A)=[0.40,\,0.60],\qquad P(B)=[0.04,\,0.72],\qquad P(C)=[0.08,\,0.80],
+\]
+each matching the certified-global \texttt{ExactInference} oracle to solver tolerance. The
+junction tree and constraint model are built \emph{once}; only the objective changes across the
+three atoms (two SCIP solves each). At \texttt{verbosity=2} \texttt{CredalJT} prints exactly this
+information: the tree, the per-state separator-consistency equalities, and the realized message
+values at each $\min$/$\max$ optimizer.
+
 The \texttt{cn/} package ships five inference algorithms beyond CVE. Crucially, \emph{all of
 them consume the same object}: a built \texttt{CredalNetworkVertices}, i.e.\ the directed
 structure plus the enumerated extreme points of the local credal sets
