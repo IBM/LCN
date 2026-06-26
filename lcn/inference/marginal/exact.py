@@ -1326,7 +1326,7 @@ if __name__ == "__main__":
                 print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
     # Load the LCN
-    file_name = "examples/alarm.lcn"
+    file_name = "examples/d4_biting.lcn"
     lcn_model = LCN()
     lcn_model.from_lcn(file_name=file_name)
     lcn_model.summary()
@@ -1349,21 +1349,21 @@ if __name__ == "__main__":
     # the library default is a 3600s (1h) limit and gap_tol=0 (prove optimality).
     print("\n=== ExactInference (global / SCIP, no evidence) ===")
     algo2 = ExactInference(lcn=lcn_model)
-    results = algo2.run(evidence={}, debug=False, verbosity=1, solver="global",
-                        time_limit=10, gap_tol=0.0, progress_bar=True)
+    results = algo2.run(evidence={}, debug=False, verbosity=2, solver="global",
+                        time_limit=3600, gap_tol=0.0, progress_bar=True)
     print_singleton_marginals(results)
 
     # Query inference: bounds on an arbitrary propositional formula (local solver).
-    print("\n=== ExactInference.run_query (local, no evidence) ===")
-    algo3 = ExactInference(lcn=lcn_model)
-    lb, ub = algo3.run_query("B and !C", verbosity=1, solver="local")
-    print(f"P(B and !C) in [{lb:.6f}, {ub:.6f}]")
+    # print("\n=== ExactInference.run_query (local, no evidence) ===")
+    # algo3 = ExactInference(lcn=lcn_model)
+    # lb, ub = algo3.run_query("B and !C", verbosity=1, solver="local")
+    # print(f"P(B and !C) in [{lb:.6f}, {ub:.6f}]")
 
     # Conditional query: bounds on P(query | evidence).
-    print("\n=== ExactInference.run_query (local, evidence B=1) ===")
-    algo4 = ExactInference(lcn=lcn_model)
-    lb, ub = algo4.run_query("D", evidence={"B": 1}, verbosity=1, solver="local")
-    print(f"P(D | B=1) in [{lb:.6f}, {ub:.6f}]")
+    # print("\n=== ExactInference.run_query (local, evidence B=1) ===")
+    # algo4 = ExactInference(lcn=lcn_model)
+    # lb, ub = algo4.run_query("D", evidence={"B": 1}, verbosity=1, solver="local")
+    # print(f"P(D | B=1) in [{lb:.6f}, {ub:.6f}]")
 
     # Run exact marginal inference (with evidence)
     # print("\n=== ExactInference (B=0, E=0) ===")

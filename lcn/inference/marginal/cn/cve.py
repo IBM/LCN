@@ -730,7 +730,7 @@ class CredalVE:
 if __name__ == "__main__":
 
     # Load the LCN
-    file_name = "examples/alarm.lcn"
+    file_name = "examples/d4_biting.lcn"
     lcn_model = LCN()
     lcn_model.from_lcn(file_name=file_name)
     lcn_model.summary()
@@ -746,8 +746,8 @@ if __name__ == "__main__":
         lcn_model, 
         method="linear-tight", 
         merge_budget=1, 
-        verbosity=2, 
-        solver="ipopt"
+        verbosity=1, 
+        solver="scip"
     )
 
     # Credal Variable Elimination algorithm. A single run() now computes every
@@ -756,7 +756,7 @@ if __name__ == "__main__":
     cve = CredalVE(cnv=cnv)
 
     print("\n=== All marginals (exact, coupling=off) ===")
-    results = cve.run(evidence={}, elim_heuristic="min-fill", verbosity=2)
+    results = cve.run(evidence={}, elim_heuristic="min-fill", verbosity=1, coupling="cross-family")
     for atom in sorted(cve.singleton_marginals):
         lo, hi = cve.singleton_marginals[atom]
         print(f"  P({atom}=1) in [{lo:.6f}, {hi:.6f}]")

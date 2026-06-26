@@ -14,6 +14,6 @@
 # Note: the LMC assertion (B _||_ C | A) is structurally satisfied by any
 # product joint, so it is NOT what makes this instance loose -- the sentence is.
 A1: 0.4 <= P(A) <= 0.6
-B1: 0.1 <= P(B | A) <= 0.9
-C1: 0.1 <= P(C | A) <= 0.9
+B1: 0.1 <= P(B | A) <= 0.3
+C1: 0.2 <= P(C | A) <= 0.5
 BC: 0.0 <= P(B and C) <= 0.05
