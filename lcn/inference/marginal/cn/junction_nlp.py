@@ -196,6 +196,8 @@ class _JTClusters:
         # Tree edges (child, parent) and their separators (atom intersection).
         self.edges = []
         self.sep = {}
+        self.parent = {}      # cid -> parent cid (root has no entry)
+        self.children = {cid: [] for cid in self.cluster_ids}
         for cid in self.cluster_ids:
             par = parent.get(cid)
             if par is None or par not in self.atoms:
@@ -203,6 +205,12 @@ class _JTClusters:
             shared = set(self.atoms[cid]) & set(self.atoms[par])
             self.edges.append((cid, par))
             self.sep[(cid, par)] = self._sort(shared)
+            self.parent[cid] = par
+            self.children[par].append(cid)
+
+    def roots(self):
+        """Cluster ids with no parent (one per connected component)."""
+        return [cid for cid in self.cluster_ids if cid not in self.parent]
 
     def _sort(self, atoms):
         return sorted(atoms, key=lambda a: self._rank[a])
@@ -217,6 +225,74 @@ class _JTClusters:
 
     def max_cluster_size(self):
         return max(len(self.atoms[c]) for c in self.cluster_ids)
+
+    def describe(self, sentences_by_host=None, lmc_by_host=None,
+                 query_cluster=None) -> str:
+        """
+        Render the junction tree and the separator messages as a string.
+
+        The D5 NLP does not pass numeric messages; it ties adjacent clusters with
+        Lauritzen separator-consistency equalities and solves them jointly. The
+        "message" on a tree edge (c -> parent p) with separator S is therefore
+        the marginal of the cluster onto S, which both endpoints must agree on:
+        ``M_{c->S} q_c == M_{p->S} q_p``. This method lists the clusters (with
+        their atom scopes and what each hosts), the tree as an indented forest,
+        and the per-edge separator messages.
+
+        Args:
+            sentences_by_host / lmc_by_host: optional {cluster -> [sentence ids /
+                assertions]} maps (as built in build_and_solve_jt_nlp) so the
+                description shows which constraints each cluster carries.
+            query_cluster: optional cluster id holding the query (+ evidence).
+        """
+        sentences_by_host = sentences_by_host or {}
+        lmc_by_host = lmc_by_host or {}
+        lines = []
+        n_atoms = len(self.atom_order)
+        lines.append(
+            f"Junction tree: {len(self.cluster_ids)} cluster(s), "
+            f"max cluster {self.max_cluster_size()} atoms "
+            f"(of {n_atoms} total); {len(self.edges)} edge(s).")
+
+        # Clusters and what they host.
+        lines.append("Clusters (cluster: atoms [size]  -> hosted):")
+        for cid in self.cluster_ids:
+            atoms = self.atoms[cid]
+            tags = []
+            if cid == query_cluster:
+                tags.append("QUERY")
+            sids = sentences_by_host.get(cid, [])
+            if sids:
+                tags.append("sentences=" + ",".join(str(s) for s in sids))
+            indeps = lmc_by_host.get(cid, [])
+            if indeps:
+                tags.append("LMC=" + "; ".join(str(a) for a in indeps))
+            host = ("  -> " + " | ".join(tags)) if tags else ""
+            lines.append(f"  {cid}: {{{', '.join(atoms)}}} "
+                         f"[2^{len(atoms)}={2 ** len(atoms)} states]{host}")
+
+        # Tree as an indented forest (root has no parent).
+        lines.append("Tree (root at top, children indented):")
+
+        def _walk(cid, depth):
+            lines.append("    " * depth + f"- {cid} {{{', '.join(self.atoms[cid])}}}")
+            for ch in sorted(self.children.get(cid, [])):
+                _walk(ch, depth + 1)
+        for r in sorted(self.roots()):
+            _walk(r, 0)
+
+        # Separator messages, one per edge (child -> parent).
+        lines.append("Messages (separator-consistency equalities, child -> parent):")
+        if not self.edges:
+            lines.append("  (no edges -- single cluster or disconnected)")
+        for (c, p) in self.edges:
+            S = self.sep[(c, p)]
+            sep_str = "{" + ", ".join(S) + "}" if S else "{} (empty separator)"
+            lines.append(
+                f"  {c} -> {p}  over separator {sep_str}:  "
+                f"q[{c}] marginalized to {sep_str} == "
+                f"q[{p}] marginalized to {sep_str}")
+        return "\n".join(lines)
 
 
 # ----------------------------------------------------------------------
@@ -446,18 +522,16 @@ def _solve_sense(model, jt, obj_expr, csize, sense, solver, time_limit,
     return best if ok else None
 
 
-def build_and_solve_jt_nlp(cnv, query, evidence=None, solver="ipopt",
-                           max_cluster_atoms=16, time_limit=None,
-                           gap_tol=0.0, verbosity=1):
+def _build_jt_and_hosts(cnv, query, evidence, max_cluster_atoms):
     """
-    Build and solve the D5 junction-tree exact NLP for P(query=1 | evidence).
-
-    Returns (lo, hi, info) where info = {"exact": bool, "max_cluster_atoms": int,
-    "fallback": bool}. exact/fallback flag whether every constraint found a host
-    cluster within the budget; the caller may fall back to ExactInference when
-    fallback is True.
+    Build the augmented junction tree and assign every LCN sentence / LMC
+    assertion (and the query+evidence) to a host cluster. Shared by
+    build_and_solve_jt_nlp and print_junction_tree. Returns
+    (jt, sentences_by_host, lmc_by_host, query_cluster, over_budget, fallback):
+      - over_budget: True if a cluster exceeds max_cluster_atoms (cannot be made
+        exact within the treewidth budget);
+      - fallback: True if some constraint/query has no host (degenerate).
     """
-    evidence = evidence or {}
     lcn = cnv.lcn
     if lcn.primal_graph is None:
         lcn.build_primal_graph()
@@ -472,18 +546,9 @@ def build_and_solve_jt_nlp(cnv, query, evidence=None, solver="ipopt",
 
     jt = _JTClusters(cnv, query, evidence, extra_node_sets)
 
-    # Bail out (caller falls back to ExactInference) if any cluster blew past
-    # the treewidth budget after augmentation.
     if jt.max_cluster_size() > max_cluster_atoms:
-        info = {"exact": False, "fallback": True,
-                "max_cluster_atoms": jt.max_cluster_size()}
-        if verbosity > 0:
-            print(f"[D5] max cluster {jt.max_cluster_size()} atoms exceeds "
-                  f"budget {max_cluster_atoms}; falling back to ExactInference.")
-        return None, None, info
+        return jt, {}, {}, None, True, True
 
-    # Constraint -> host assignment. With the augmented JT a host always exists;
-    # if one somehow does not (degenerate structure), fall back.
     sentences_by_host: Dict[str, List] = {}
     lmc_by_host: Dict[str, List] = {}
     fallback = False
@@ -512,6 +577,73 @@ def build_and_solve_jt_nlp(cnv, query, evidence=None, solver="ipopt",
     query_cluster = jt.host(q_atoms)
     if query_cluster is None:
         fallback = True
+
+    return jt, sentences_by_host, lmc_by_host, query_cluster, False, fallback
+
+
+def print_junction_tree(cnv, query, evidence=None, max_cluster_atoms=16,
+                        file=None):
+    """
+    Print the D5 junction tree and the separator messages it propagates for the
+    query P(query | evidence), without solving the NLP.
+
+    Shows each cluster (atom scope, number of states, and the sentences / LMC
+    assertions it hosts), the tree as an indented forest, and the per-edge
+    separator-consistency messages (q[child] |S == q[parent] |S, where S is the
+    separator). These equalities are the D5 analogue of junction-tree messages:
+    the message a cluster passes to a neighbour is its marginal over the shared
+    separator.
+
+    Returns the same `jt` object so callers can inspect it programmatically.
+    """
+    import sys
+    out = file if file is not None else sys.stdout
+    evidence = evidence or {}
+    jt, sentences_by_host, lmc_by_host, query_cluster, over_budget, fallback = \
+        _build_jt_and_hosts(cnv, query, evidence, max_cluster_atoms)
+    header = (f"=== Junction tree for P({query}"
+              f"{' | ' + str(evidence) if evidence else ''}) ===")
+    print(header, file=out)
+    if over_budget:
+        print(f"max cluster {jt.max_cluster_size()} atoms exceeds budget "
+              f"{max_cluster_atoms}; D5 would fall back to ExactInference.",
+              file=out)
+    elif fallback:
+        print("a constraint/query has no host cluster (degenerate structure); "
+              "D5 would fall back to ExactInference.", file=out)
+    print(jt.describe(sentences_by_host, lmc_by_host, query_cluster), file=out)
+    return jt
+
+
+def build_and_solve_jt_nlp(cnv, query, evidence=None, solver="ipopt",
+                           max_cluster_atoms=16, time_limit=None,
+                           gap_tol=0.0, verbosity=1):
+    """
+    Build and solve the D5 junction-tree exact NLP for P(query=1 | evidence).
+
+    Returns (lo, hi, info) where info = {"exact": bool, "max_cluster_atoms": int,
+    "fallback": bool}. exact/fallback flag whether every constraint found a host
+    cluster within the budget; the caller may fall back to ExactInference when
+    fallback is True.
+    """
+    evidence = evidence or {}
+    lcn = cnv.lcn
+
+    jt, sentences_by_host, lmc_by_host, query_cluster, over_budget, fallback = \
+        _build_jt_and_hosts(cnv, query, evidence, max_cluster_atoms)
+
+    # Bail out (caller falls back to ExactInference) if any cluster blew past
+    # the treewidth budget after augmentation.
+    if over_budget:
+        info = {"exact": False, "fallback": True,
+                "max_cluster_atoms": jt.max_cluster_size()}
+        if verbosity > 0:
+            print(f"[D5] max cluster {jt.max_cluster_size()} atoms exceeds "
+                  f"budget {max_cluster_atoms}; falling back to ExactInference.")
+        return None, None, info
+
+    if verbosity > 1:
+        print(jt.describe(sentences_by_host, lmc_by_host, query_cluster))
 
     info = {"exact": not fallback, "fallback": fallback,
             "max_cluster_atoms": jt.max_cluster_size()}
