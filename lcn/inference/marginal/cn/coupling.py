@@ -56,14 +56,14 @@ def warn_conditional_coupling(evidence, tag, verbosity):
     lie at a vertex of the unconditioned credal set, so for conditional queries
     these methods are NOT guaranteed to be outer bounds even with coupling off;
     the D4 filter can make the interval visibly too tight (e.g. collapse it to a
-    near-point). Use coupling="d5" (the junction-tree exact NLP) for trustworthy
-    conditional bounds. This is a no-op when there is no evidence.
+    near-point). Use the CredalJT engine (the junction-tree exact NLP, scheme
+    D5) for trustworthy conditional bounds. This is a no-op without evidence.
     """
     if evidence and verbosity > 0:
         print(f"[{tag}] WARNING: coupling='cross-family' (D4) with evidence "
               f"{dict(evidence)} -- D4 is unsound for CONDITIONAL queries "
-              f"(the bound may be too tight, not a valid outer bound). Use "
-              f"coupling='d5' for an exact conditional bound.")
+              f"(the bound may be too tight, not a valid outer bound). Use the "
+              f"CredalJT engine for an exact conditional bound.")
 
 
 def _node_state_to_atom_bits(state: int, atoms: List[str]) -> Dict[str, int]:
