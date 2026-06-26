@@ -25,6 +25,10 @@ dependencies = [
     "ipywidgets",
     "pyomo",
     "gravis",
+    # gravis 0.1.0 imports the legacy `pkg_resources` module, which setuptools
+    # removed in 80.0. Pin setuptools to the last series that still ships it so
+    # `import gravis` works (the notebooks use gravis for graph visualization).
+    "setuptools<80",
     "pytest",
     "pyagrum>=2.3.2"
 ]
