@@ -853,7 +853,7 @@ if __name__ == "__main__":
     # Load the LCN. We use asia.lcn here because it has a factor with three
     # boundary variables, so the factor-to-variable messages introduce a
     # non-trivial pairwise independence assumption (see analyze() below).
-    file_name = "examples/alarm.lcn"
+    file_name = "examples/chain.lcn"
     lcn_model = LCN()
     lcn_model.from_lcn(file_name=file_name)
     print(lcn_model)

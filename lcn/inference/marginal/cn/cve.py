@@ -661,7 +661,7 @@ class CredalVE:
 if __name__ == "__main__":
 
     # Load the LCN
-    file_name = "examples/d4_biting.lcn"
+    file_name = "examples/chain.lcn"
     lcn_model = LCN()
     lcn_model.from_lcn(file_name=file_name)
     lcn_model.summary()
