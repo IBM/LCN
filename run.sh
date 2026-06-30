@@ -6,7 +6,8 @@
 # Arguments:
 #   benchmark_dir  - path to benchmark instances (e.g., benchmarks/polytree)
 #   algorithm      - one of: exact, ariel, ibp, ijgp, ijgp_e, ijgp_cp, ijgp_cm,
-#                    ccte, ccte_e, ccte_cp, ccte_cm, approxlp
+#                    ccte, ccte_e, ccte_cp, ccte_cm, approxlp, cve, cve_e,
+#                    cve_d4, cjt
 #   factorization  - the factorization to use (e.g., linear, nlp, exact)
 #
 # Options (positional, after algorithm):
@@ -23,6 +24,8 @@
 #   ./run.sh benchmarks/polytree ijgp_e 600 0.01 4
 #   ./run.sh benchmarks/polytree ijgp_cp 600 0.01 4 10
 #   ./run.sh benchmarks/polytree ccte_cp 600 0.01 "" 10
+#   ./run.sh benchmarks/chain cve linear 300
+#   ./run.sh benchmarks/chain cjt linear 300
 
 b=$1
 a=$2
@@ -36,7 +39,8 @@ if [ -z "$b" ] || [ -z "$a" ] || [ -z "$f" ]; then
     echo "Usage: $0 <benchmark_dir> <algorithm> <factorization> [time_limit] [epsilon] [ibound] [n_clusters]"
     echo ""
     echo "Algorithms: exact, ariel, ibp, ijgp, ijgp_e, ijgp_cp, ijgp_cm,"
-    echo "            ccte, ccte_e, ccte_cp, ccte_cm, approxlp"
+    echo "            ccte, ccte_e, ccte_cp, ccte_cm, approxlp,"
+    echo "            cve, cve_e, cve_d4, cjt"
     exit 1
 fi
 
@@ -123,10 +127,30 @@ elif [ "$a" = "approxlp" ]; then
     # approxlp: no extra arguments
     :
 
+elif [ "$a" = "cve" ]; then
+    # cve: Credal Variable Elimination (coupling off); no extra arguments
+    :
+
+elif [ "$a" = "cve_e" ]; then
+    # cve_e: epsilon required
+    if [ -n "$e" ]; then
+        cmd="$cmd --epsilon $e"
+    fi
+
+elif [ "$a" = "cve_d4" ]; then
+    # cve_d4: CVE with cross-family coupling (D4); no extra arguments
+    :
+
+elif [ "$a" = "cjt" ]; then
+    # cjt: CredalJT junction-tree exact NLP (scheme D5). Use the certified
+    # global backend (scip) so the cluster NLP is solved exactly.
+    cmd="$cmd --solver scip"
+
 else
     echo "Unknown algorithm: $a"
     echo "Allowed: exact, ariel, ibp, ijgp, ijgp_e, ijgp_cp, ijgp_cm,"
-    echo "         ccte, ccte_e, ccte_cp, ccte_cm, approxlp"
+    echo "         ccte, ccte_e, ccte_cp, ccte_cm, approxlp,"
+    echo "         cve, cve_e, cve_d4, cjt"
     exit 1
 fi
 

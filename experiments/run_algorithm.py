@@ -10,6 +10,21 @@ Usage:
 """
 
 import os
+import argparse
+import json
+import multiprocessing
+import time
+
+from lcn.core.model import LCN
+from lcn.inference.marginal.exact import ExactInference
+from lcn.inference.marginal.ariel import ArielInference
+from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
+from lcn.inference.marginal.cn.ibp import IntervalBP
+from lcn.inference.marginal.cn.ccte import CredalCTE
+from lcn.inference.marginal.cn.approxlp import ApproxLP
+from lcn.inference.marginal.cn.ijgp import CredalIJGP
+from lcn.inference.marginal.cn.cve import CredalVE
+from lcn.inference.marginal.cn.junction_nlp import CredalJT
 
 
 def set_num_threads(n):
@@ -30,28 +45,9 @@ _DEFAULT_NUM_THREADS = 1
 if "OMP_NUM_THREADS" not in os.environ:
     set_num_threads(_DEFAULT_NUM_THREADS)
 
-import argparse
-import json
-import multiprocessing
-import time
-import numpy as np
+ALGORITHMS = ["exact", "ariel", "ibp",  "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "cjt"]
 
-from lcn.core.model import LCN
-from lcn.inference.marginal.exact import ExactInference
-from lcn.inference.marginal.ariel import ArielInference
-from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
-from lcn.inference.marginal.cn.ibp import IntervalBP
-from lcn.inference.marginal.cn.ccte import CredalCTE
-from lcn.inference.marginal.cn.approxlp import ApproxLP
-from lcn.inference.marginal.cn.ijgp import CredalIJGP
-from lcn.inference.marginal.cn.cve import CredalVE
-from lcn.inference.marginal.cn.junction_nlp import CredalJT
-
-ALGORITHMS = ["exact", "ariel", "ibp", "ijgp", "ijgp_e", "ijgp_cp", "ijgp_cm", "ccte", "ccte_e", "ccte_cp", "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "d5"]
-
-
-_CVE_ALGORITHMS = {"ibp", "ijgp", "ijgp_e", "ijgp_cp", "ijgp_cm", "ccte", "ccte_e", "ccte_cp", "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "d5"}
-
+_CVE_ALGORITHMS = {"ibp", "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "cjt"}
 
 def _compute_induced_width(cnv):
     """Compute the induced width (treewidth upper bound) from a built
@@ -216,8 +212,8 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
         evidence = {}
 
     # Load LCN
-    l = LCN()
-    l.from_lcn(file_name=lcn_file)
+    lcn_model = LCN()
+    lcn_model.from_lcn(file_name=lcn_file)
 
     result = {
         "algorithm": algorithm,
@@ -235,7 +231,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
         t_start = time.time()
 
         if algorithm == "exact":
-            algo = ExactInference(lcn=l)
+            algo = ExactInference(lcn=lcn_model)
             raw = algo.run(evidence=evidence, verbosity=verbosity, debug=True)
             marginals = _filter_singletons(raw)
             t_end = time.time()
@@ -244,7 +240,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
         elif algorithm == "ariel":
             n_iters = kwargs.get("n_iters", 10)
             threshold = kwargs.get("threshold", 1e-6)
-            algo = ArielInference(lcn=l)
+            algo = ArielInference(lcn=lcn_model)
             raw = algo.run(
                 n_iters=n_iters, threshold=threshold,
                 evidence=evidence, verbosity=verbosity)
@@ -264,7 +260,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             cn_gap_tol = kwargs.get("gap_tol", 0.0)
             merge_budget = kwargs.get("merge_budget", 1)
             cnv = CredalNetworkVertices.from_lcn(
-                l, method=fact_method, solver=cn_solver,
+                lcn_model, method=fact_method, solver=cn_solver,
                 time_limit=cn_time_limit, gap_tol=cn_gap_tol,
                 n_jobs=n_jobs, merge_budget=merge_budget, verbosity=verbosity)
             result["build_time"] = round(cnv.build_time, 4)
@@ -383,11 +379,11 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 raw = algo.run(
                     evidence=evidence, coupling="cross-family",
                     verbosity=verbosity)
-            elif algorithm == "d5":
-                d5_solver = kwargs.get("solver", "scip")
+            elif algorithm == "cjt":
+                cjt_solver = kwargs.get("solver", "scip")
                 algo = CredalJT(cnv=cnv)
                 raw = algo.run(
-                    evidence=evidence, solver=d5_solver, verbosity=verbosity)
+                    evidence=evidence, solver=cjt_solver, verbosity=verbosity)
                 result["induced_width"] = algo.induced_width
             t_run_end = time.time()
             result["run_time"] = round(t_run_end - t_run_start, 4)
