@@ -76,8 +76,8 @@ class Generator:
 
         Args:
             num_vars: Number of variables in each LCN.
-            graph_type: Graph topology — "random", "dag", "polytree", "chain",
-                or "easy" (instances designed to be quick for the SCIP global
+            graph_type: Graph topology — "random", "dag", "polytree", "tree",
+                "chain", or "easy" (instances designed to be quick for the SCIP global
                 solver to certify; see the strategy/coverage args below).
             num_instances: Number of consistent instances to generate.
             num_sentences: Number of sentences per instance (only used when
@@ -130,9 +130,9 @@ class Generator:
         Returns:
             A list of consistent LCN instances.
         """
-        assert graph_type in ("random", "dag", "polytree", "chain", "easy"), \
+        assert graph_type in ("random", "dag", "polytree", "tree", "chain", "easy"), \
             f"Unknown graph_type '{graph_type}'. " \
-            f"Use 'random', 'dag', 'polytree', 'chain', or 'easy'."
+            f"Use 'random', 'dag', 'polytree', 'tree', 'chain', or 'easy'."
         assert num_vars >= 3, "Need at least 3 variables."
         assert max_component_size >= 1, "max_component_size must be >= 1."
         assert max_parents >= 1, "max_parents must be >= 1."
@@ -398,6 +398,8 @@ class Generator:
             return self._graph_dag(num_vars, max_parents), []
         elif graph_type == "polytree":
             return self._graph_polytree(num_vars, max_parents), []
+        elif graph_type == "tree":
+            return self._graph_tree(num_vars), []
         elif graph_type == "chain":
             return self._graph_chain(num_vars, max_component_size)
 
@@ -475,6 +477,28 @@ class Generator:
         for i in range(n):
             v = ordering[i]
             scopes.append(parents_of[v] + [v])
+        return scopes
+
+    def _graph_tree(self, n: int) -> List[List[int]]:
+        """Random rooted directed tree: a single root, and every non-root node
+        has EXACTLY ONE parent chosen from the earlier nodes.
+
+        This is the branching analogue of a chain and the single-parent special
+        case of a polytree (matches examples/tree.lcn). Because no node has two
+        parents, there are no colliders: the moral graph equals the skeleton, so
+        the chain-graph junction tree stays at treewidth 1 and inference engines
+        such as ARIEL / CredalJT are exact on it (see docs/ariel_exactness.tex).
+
+        Args:
+            n: Number of variables.
+        """
+        ordering = self._random_ordering(n)
+        scopes = [[ordering[0]]]  # the single root (Type-1 prior)
+        for i in range(1, n):
+            v = ordering[i]
+            # exactly one parent, drawn uniformly from the earlier nodes
+            parent = ordering[self.rng.randint(i)]
+            scopes.append([parent, v])
         return scopes
 
     def _graph_chain(self, n: int,
@@ -899,7 +923,7 @@ if __name__ == "__main__":
 
     gen = Generator(seed=42)
 
-    for graph_type in ["random", "dag", "polytree", "chain"]:
+    for graph_type in ["random", "dag", "polytree", "tree", "chain"]:
         print(f"\n{'='*60}")
         print(f"Generating {graph_type} LCNs (5 variables, 2 instances)")
         print(f"{'='*60}")

@@ -23,7 +23,7 @@ import argparse
 
 from lcn.benchmarks.generator import Generator
 
-TOPOLOGIES = ["chain", "polytree", "random", "dag"]
+TOPOLOGIES = ["chain", "tree", "polytree", "random", "dag"]
 # "easy" is available via --types but excluded from the default set (it targets
 # SCIP-easy instances rather than a graph topology; see Generator.generate).
 ALL_TYPES = TOPOLOGIES + ["easy"]
@@ -46,7 +46,7 @@ examples:
     parser.add_argument(
         "--types", type=str, nargs="+", default=TOPOLOGIES,
         choices=ALL_TYPES,
-        help="instance types to generate (default: chain polytree random dag; "
+        help="instance types to generate (default: chain tree polytree random dag; "
              "'easy' produces SCIP-easy instances)")
     parser.add_argument(
         "--sizes", type=int, nargs="+", default=[5, 10, 15, 20, 30],
