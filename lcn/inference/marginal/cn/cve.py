@@ -691,12 +691,12 @@ if __name__ == "__main__":
 
     # CredalVE computes all singleton marginals over the strong extension by
     # looping the per-target bucket elimination over the credal-network nodes.
-    cve = CredalVE(cnv=cnv)
-    print("\n=== All marginals (CredalVE, coupling=off) ===")
-    cve.run(evidence={}, elim_heuristic="min-fill", verbosity=verbosity)
-    for atom in sorted(cve.singleton_marginals):
-        lo, hi = cve.singleton_marginals[atom]
-        print(f"  P({atom}=1) in [{lo:.6f}, {hi:.6f}]")
+    # cve = CredalVE(cnv=cnv)
+    # print("\n=== All marginals (CredalVE, coupling=off) ===")
+    # cve.run(evidence={}, elim_heuristic="min-fill", verbosity=verbosity)
+    # for atom in sorted(cve.singleton_marginals):
+    #     lo, hi = cve.singleton_marginals[atom]
+    #     print(f"  P({atom}=1) in [{lo:.6f}, {hi:.6f}]")
 
     # CredalJT computes the EXACT marginals (scheme D5) with one junction tree
     # for all atoms.
