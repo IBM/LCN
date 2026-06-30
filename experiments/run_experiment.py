@@ -165,8 +165,9 @@ Parallel usage — each combination gets its own output file:
                 graph_type, num_vars = _parse_instance_info(instance)
                 basename = os.path.basename(instance)
 
-                # Skip exact for large instances
-                if algo == "exact" and num_vars > args.exact_threshold:
+                # Skip exact (both backends) for large instances
+                if algo in ("exact_l", "exact_g") and \
+                        num_vars > args.exact_threshold:
                     continue
 
                 # Skip already completed

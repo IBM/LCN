@@ -5,9 +5,10 @@
 #
 # Arguments:
 #   benchmark_dir  - path to benchmark instances (e.g., benchmarks/polytree)
-#   algorithm      - one of: exact, ariel, ibp, ijgp, ijgp_e, ijgp_cp, ijgp_cm,
-#                    ccte, ccte_e, ccte_cp, ccte_cm, approxlp, cve, cve_e,
-#                    cve_d4, cjt
+#   algorithm      - one of: exact_l, exact_g, ariel, ibp, ijgp, ijgp_e,
+#                    ijgp_cp, ijgp_cm, ccte, ccte_e, ccte_cp, ccte_cm, approxlp,
+#                    cve, cve_e, cve_d4, cjt
+#                    (exact_l = local/ipopt backend; exact_g = global/SCIP backend)
 #   factorization  - the factorization to use (e.g., linear, nlp, exact)
 #
 # Options (positional, after algorithm):
@@ -17,8 +18,9 @@
 #   n_clusters     - number of clusters for *_cp, *_cm algorithms
 #
 # Examples:
-#   ./run.sh benchmarks/chain exact 300
-#   ./run.sh benchmarks/chain ccte 300
+#   ./run.sh benchmarks/chain exact_l linear 300
+#   ./run.sh benchmarks/chain exact_g linear 300
+#   ./run.sh benchmarks/chain ccte linear 300
 #   ./run.sh benchmarks/polytree ccte_e 600 0.01
 #   ./run.sh benchmarks/polytree ijgp 300 "" 4
 #   ./run.sh benchmarks/polytree ijgp_e 600 0.01 4
@@ -38,8 +40,8 @@ k=$7
 if [ -z "$b" ] || [ -z "$a" ] || [ -z "$f" ]; then
     echo "Usage: $0 <benchmark_dir> <algorithm> <factorization> [time_limit] [epsilon] [ibound] [n_clusters]"
     echo ""
-    echo "Algorithms: exact, ariel, ibp, ijgp, ijgp_e, ijgp_cp, ijgp_cm,"
-    echo "            ccte, ccte_e, ccte_cp, ccte_cm, approxlp,"
+    echo "Algorithms: exact_l, exact_g, ariel, ibp, ijgp, ijgp_e, ijgp_cp,"
+    echo "            ijgp_cm, ccte, ccte_e, ccte_cp, ccte_cm, approxlp,"
     echo "            cve, cve_e, cve_d4, cjt"
     exit 1
 fi
@@ -56,8 +58,14 @@ if [ -n "$t" ]; then
     cmd="$cmd --time-limit $t"
 fi
 
-if [ "$a" = "exact" ]; then
-    # exact: no extra arguments
+if [ "$a" = "exact_l" ]; then
+    # exact_l: exact inference with the local backend (ipopt + SLSQP fallback).
+    # The backend is selected by the algorithm name; no extra arguments.
+    :
+
+elif [ "$a" = "exact_g" ]; then
+    # exact_g: exact inference with the global backend (SCIP, certified).
+    # The backend is selected by the algorithm name; no extra arguments.
     :
 
 elif [ "$a" = "ariel" ]; then
@@ -148,8 +156,8 @@ elif [ "$a" = "cjt" ]; then
 
 else
     echo "Unknown algorithm: $a"
-    echo "Allowed: exact, ariel, ibp, ijgp, ijgp_e, ijgp_cp, ijgp_cm,"
-    echo "         ccte, ccte_e, ccte_cp, ccte_cm, approxlp,"
+    echo "Allowed: exact_l, exact_g, ariel, ibp, ijgp, ijgp_e, ijgp_cp,"
+    echo "         ijgp_cm, ccte, ccte_e, ccte_cp, ccte_cm, approxlp,"
     echo "         cve, cve_e, cve_d4, cjt"
     exit 1
 fi

@@ -45,7 +45,7 @@ _DEFAULT_NUM_THREADS = 1
 if "OMP_NUM_THREADS" not in os.environ:
     set_num_threads(_DEFAULT_NUM_THREADS)
 
-ALGORITHMS = ["exact", "ariel", "ibp",  "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "cjt"]
+ALGORITHMS = ["exact_l", "exact_g", "ariel", "ibp",  "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "cjt"]
 
 _CVE_ALGORITHMS = {"ibp", "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "cjt"}
 
@@ -145,7 +145,8 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
 
     Args:
         lcn_file: path to .lcn file
-        algorithm: one of "exact", "ariel", "ibp", "ccte", "ccte_e", "approxlp"
+        algorithm: one of "exact_l", "exact_g", "ariel", "ibp", "ccte",
+                   "ccte_e", "approxlp", "cve", "cjt" (see ALGORITHMS)
         evidence: dict of evidence (default: {})
         verbosity: 0=silent
         time_limit: max wall-clock seconds (None=unlimited). Enforced by
@@ -159,6 +160,13 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
     """
     if evidence is None:
         evidence = {}
+
+    # For the exact backends, give the engine its own per-solve limit matching
+    # the subprocess watchdog so SCIP/ipopt stop cleanly with partial bounds
+    # instead of being hard-killed. (No-op for other algorithms.)
+    if (time_limit is not None and algorithm in ("exact_l", "exact_g")
+            and "exact_time_limit" not in kwargs):
+        kwargs["exact_time_limit"] = float(time_limit)
 
     if time_limit is None:
         return _run_single_impl(
@@ -230,9 +238,19 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
     try:
         t_start = time.time()
 
-        if algorithm == "exact":
+        if algorithm in ("exact_l", "exact_g"):
+            # Two backends of the same full-joint NLP:
+            #   exact_l -> "local"  (ipopt + SLSQP fallback; fast, may be loose)
+            #   exact_g -> "global" (SCIP spatial branch-and-bound; certified)
+            exact_solver = "local" if algorithm == "exact_l" else "global"
+            # The per-solve time limit (also used by the subprocess watchdog) so
+            # the engine terminates cleanly with partial bounds rather than being
+            # hard-killed. Defaults to ExactInference's own default when absent.
+            exact_time_limit = kwargs.get("exact_time_limit", 3600.0)
             algo = ExactInference(lcn=lcn_model)
-            raw = algo.run(evidence=evidence, verbosity=verbosity, debug=True)
+            raw = algo.run(
+                evidence=evidence, solver=exact_solver, verbosity=verbosity,
+                debug=(exact_solver == "local"), time_limit=exact_time_limit)
             marginals = _filter_singletons(raw)
             t_end = time.time()
             result["run_time"] = round(t_end - t_start, 4)

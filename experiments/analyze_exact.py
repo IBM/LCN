@@ -78,6 +78,21 @@ def _make_stats_key(rec, instance, group_by):
         return (rec["graph_type"], rec["num_vars"], rec["algorithm"])
 
 
+# The exact backends, in preference order for use as the ground-truth reference:
+# the certified global solver (exact_g) is trusted over the local one (exact_l).
+_EXACT_ALGORITHMS = ("exact_g", "exact_l")
+
+
+def _exact_reference(algos):
+    """Return the ground-truth exact record for an instance: prefer exact_g
+    (SCIP, certified global), fall back to exact_l (ipopt, local). None if the
+    instance has neither."""
+    for name in _EXACT_ALGORITHMS:
+        if name in algos:
+            return algos[name]
+    return None
+
+
 def analyze(records, output_file=None, latex_file=None, group_by="size"):
     """Compute absolute error metrics for approximate algorithms vs exact.
 
@@ -100,14 +115,14 @@ def analyze(records, output_file=None, latex_file=None, group_by="size"):
     })
 
     for instance, algos in groups.items():
-        if "exact" not in algos:
+        exact = _exact_reference(algos)
+        if exact is None:
             continue
 
-        exact = algos["exact"]
         exact_marg = exact["marginals"]
 
         for algo_name, rec in algos.items():
-            if algo_name == "exact":
+            if algo_name in _EXACT_ALGORITHMS:
                 continue
 
             approx_marg = rec["marginals"]
@@ -146,11 +161,12 @@ def analyze(records, output_file=None, latex_file=None, group_by="size"):
                 if exact_width > 1e-12:
                     s["width_ratios"].append(approx_width / exact_width)
 
-    # Also collect exact timing
+    # Also collect exact timing (from the same reference record: exact_g if
+    # present, else exact_l).
     exact_stats = defaultdict(list)
     for instance, algos in groups.items():
-        if "exact" in algos:
-            rec = algos["exact"]
+        rec = _exact_reference(algos)
+        if rec is not None:
             if group_by == "instance":
                 ekey = os.path.basename(instance)
             else:

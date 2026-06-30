@@ -117,7 +117,7 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
             ref_rec.get("total_time", ref_rec.get("time_seconds", 0.0)))
 
         for algo_name, rec in algos.items():
-            if algo_name == reference or algo_name == "exact":
+            if algo_name == reference or algo_name in ("exact_l", "exact_g"):
                 continue
 
             approx_marg = rec["marginals"]
