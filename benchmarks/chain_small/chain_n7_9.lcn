@@ -1,0 +1,9 @@
+# Saved LCN instance
+
+s0: 0.43159 <= P((x1 xor x4)) <= 1.0 ; True
+s1: 0.036896 <= P(((x0 and !x6) and x2)) <= 0.636896 ; True
+s2: 0.489699 <= P(!x5) <= 1.0 ; True
+s3: 0.01 <= P(x2 | ((x1 and !x4) and x3)) <= 0.520561 ; True
+s4: 0.43535 <= P(x5 | ((x1 xor x4) and x3)) <= 1.0 ; True
+s5: 0.01 <= P(x5) <= 0.340109 ; True
+s6: 0.288058 <= P(x0) <= 0.888058 ; True
