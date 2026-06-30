@@ -214,15 +214,16 @@ class FactorGraph:
 
         # Sort sentences in decreasing order of their scope sizes
         temp = sorted(sentences, key=lambda x: len(x.atoms), reverse=True)
-        
+
         # Group sentences in corresponding factors so that all sentences in a
-        # factor span the same atoms in their scopes.
+        # factor span the same atoms in their scopes. Each newly created factor
+        # gets a fresh label "f{index}" with index incremented AFTER it is used,
+        # so labels never collide. (A previous version created the first factor
+        # before the loop and then reused label "f1" for the next new-scope
+        # factor while index was still 1, silently overwriting -- and dropping
+        # the sentences of -- the first, largest-scope factor.)
         index = 1
-        f = FactorNode(label=f"f{index}")
-        f.add_sentence(temp.pop(0))
-        self.factor_nodes[f.label] = f
-        while len(temp) > 0:
-            s = temp.pop(0)
+        for s in temp:
             found = False
             for _, nf in self.factor_nodes.items():
                 if nf.is_scope_equal(s.atoms):
@@ -234,7 +235,7 @@ class FactorGraph:
                 index += 1
                 f.add_sentence(s)
                 self.factor_nodes[f.label] = f
-    # --            
+    # --
 
     def _make_edges(self):
         """
