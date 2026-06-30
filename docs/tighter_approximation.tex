@@ -791,7 +791,10 @@ conversely every feasible global joint projects to such a family. Hence the clus
 the full-joint NLP have the same optimal value. Cross-family constraints (and the
 query$+$evidence atoms) are forced to share a host cluster by augmenting the elimination order
 with their node sets, exactly as in D4; if that would push a cluster past the treewidth
-budget, D5 falls back to \texttt{ExactInference.run\_query} (still exact, at $2^n$).
+budget, D5 falls back to \texttt{ExactInference.run\_query} (still exact, at $2^n$). This
+exactness argument is not specific to chains and is made precise (with the exact condition under
+which a \emph{dropped} LMC is still respected, and the one structure where it fails) as
+Theorem~\ref{thm:d5-exact} in Section~\ref{sec:d5-generality}.
 
 \begin{algorithm}[t]
 \caption{D5 junction-tree exact NLP (\texttt{CredalJT.run}; one tree, all marginals)}
@@ -1189,13 +1192,350 @@ sentence is added. As $n$ grows the contrast sharpens: D5 stays at $n\cdot 2^{w+
 treewidth) while the full joint and any vertex enumeration that materializes it grow as $2^n$.
 
 \paragraph{Contrast with \texttt{alarm}.} The favourable structure here is \emph{local}
-cross-family coupling (none, in fact). \texttt{alarm} is the unfavourable case: its cross-family
+cross-family coupling (none, in fact). \texttt{alarm} is the more interesting case: its cross-family
 LMC assertions $(C\perp B,E\mid D,A)$ and $(D\perp B,E\mid C,A)$ span all five atoms and are
-\emph{not} RIP-implied by the family tree (the compound node $C\!-\!D$ hides $D$ behind the $\{A\}$
-separator). \texttt{CredalJT} drops them (they are inert: a chain-graph product joint satisfies
-every LMC by construction), keeps the genuinely-binding small-scope $(B\perp E)$, and so still
-runs at treewidth $3$ on \texttt{alarm} while reproducing the brute-force-verified bounds
-$P(A){=}[0.087,0.100]$, $P(B){=}[0.100,0.123]$, $P(E){=}[0.050,0.074]$.
+\emph{not} single-edge-RIP-implied (the compound node $C\!-\!D$ hides $D$ behind the $\{A\}$
+separator, so the cheap \texttt{\_rip\_implied} test misses them). \texttt{CredalJT} drops them, keeps
+the genuinely-binding small-scope $(B\perp E)$, and runs at treewidth $3$. The drop is nonetheless
+\emph{exactness-preserving} here, but for a subtler reason than ``the product satisfies every LMC'':
+both assertions are \emph{separator-entailed by the triangulated junction tree} --- $\{A,D\}$
+separates $C$ from $\{B,E\}$ in the chordal graph $G^\ast$ whose maximal cliques are the clusters
+$\{B,E,A\},\{A,C,D\}$, so any separator-consistent family already satisfies them
+(Section~\ref{sec:d5-generality} makes this precise). \texttt{CredalJT} therefore reproduces the
+brute-force-verified bounds $P(A){=}[0.087,0.100]$, $P(B){=}[0.100,0.123]$,
+$P(E){=}[0.050,0.074]$ --- and is in fact \emph{more} reliable than raw \texttt{ExactInference} on
+this instance, whose local solver over-tightens $P(A)$ to $[0.092,0.100]$ and $P(E)$ to
+$[0.050,0.073]$ (both \emph{inside} the true interval; see the brute-force verifier in
+Section~\ref{sec:d5-generality}).
+
+\subsection{Generality and exactness of \texttt{CredalJT}}\label{sec:d5-generality}
+
+The Markov chain of Section~\ref{sec:d5-treewidth} and the worked example of
+Section~\ref{sec:d5-walkthrough} might suggest that \texttt{CredalJT} is a chain-specific trick.
+It is not. This subsection answers two questions precisely:
+(i)~\emph{for which structures does the engine apply}, and
+(ii)~\emph{when is its output the exact LCN marginal bound} rather than merely a valid outer bound.
+Nothing in the construction privileges a chain; a chain is only the best-case \emph{treewidth}
+($w{=}1$). The same engine builds a genuine, branching junction tree on every chain-graph LCN, and
+is provably exact under an explicit, checkable condition. We state the condition, prove it, and
+report empirically (with an independent oracle) exactly where it holds and where it does not.
+
+\subsubsection{Setup and notation}
+
+Write $\mathbf V=\{V_1,\dots,V_n\}$ for the atoms. The LCN's distribution set is the
+\emph{full-joint feasible region} that \texttt{ExactInference} optimizes,
+\begin{equation}\label{eq:Ffull}
+  \mathcal F \;=\; \Bigl\{\, p\in\Delta(2^{\mathbf V}) \;:\;
+     g_s(p)\in[\ell_s,u_s]\ \forall s,\quad h_\iota(p)=0\ \forall \iota \,\Bigr\},
+\end{equation}
+where $s$ ranges over the LCN sentences and $\iota$ over the LMC independence assertions.
+Each $g_s$ is a Type-1 linear functional $P(\varphi)=\mathbf 1_\varphi^\top p$ or a Type-2 ratio
+$P(\varphi\mid\psi)$ (encoded as the two bilinear inequalities
+$\mathbf 1_{\varphi\psi}^\top p\gtrless\,b\,\mathbf 1_\psi^\top p$); each $h_\iota$ is the bilinear
+LMC equality built by \texttt{lmc\_constraint\_groups\_vec} for $(X\perp Y\mid S)$. The exact bound
+of a query atom $a$ (optionally given evidence $e$) is $[\min,\max]$ of the read-off functional over
+$\mathcal F$, and this is precisely what \texttt{exact.py} computes on the $2^n$ joint.
+
+The decisive structural fact, true by construction of the encoding and \emph{independent of any
+graph topology}, is
+
+\begin{quote}\emph{\textbf{Locality.} Every constraint depends on $p$ only through its marginal on a
+fixed atom set, its \emph{scope}: a sentence $s$ through $p{\restriction}\,\mathrm{atoms}(s)$, and an
+LMC assertion $(X\perp Y\mid S)$ through $p{\restriction}\,(X\cup Y\cup S)$.}\end{quote}
+(A Type-1 row reads $\mathbf 1_\varphi^\top p=\sum$ of marginal cells; a Type-2 row is a ratio of two
+such; an LMC group is a polynomial in marginal cells of $X\cup Y\cup S$. None ever inspects a cell
+outside its scope.) Locality is what makes a marginal-based decomposition possible at all.
+
+\texttt{CredalJT} introduces, for each cluster $C$ of a clique tree $T$, a vector
+$q_C\in\Delta(2^{C})$ and optimizes the \emph{cluster-feasible region}
+\begin{equation}\label{eq:Gjt}
+  \mathcal G \;=\; \Bigl\{\, (q_C)_{C\in T} \;:\;
+    \textstyle\sum_i q_C[i]=1;\;\;
+    M_{C\to S}\,q_C=M_{D\to S}\,q_D\ \text{on every edge }(C,D),\,S{=}C\cap D;\;\;
+    \text{each hosted constraint holds on its host cluster} \,\Bigr\}.
+\end{equation}
+The separator equalities $M_{C\to S}q_C=M_{D\to S}q_D$ force the two clusters to agree on the
+marginal of the shared atoms $S$; a constraint is \emph{hosted} on a cluster $C_{h}\supseteq
+\mathrm{scope}$ and imposed on $q_{C_h}$'s marginal there. The read-off of $P(a\mid e)$ uses one
+cluster containing $a$ and the evidence atoms.
+
+\subsubsection{Applicability: any chain graph, at the cost of its treewidth}
+
+The clique tree is built by the standard \emph{moralize $\to$ triangulate $\to$ clique-tree}
+pipeline (\texttt{\_node\_scopes} $+$ \texttt{min\_fill\_order} $+$ \texttt{\_jt\_from\_scopes}),
+which the package already uses for CCTE. The interaction graph is the moral graph of the chain-graph
+factorization (each family $\{\text{child}\}\cup\text{parents}$ becomes a clique, marrying
+co-parents); \texttt{min\_fill\_order} triangulates it; \texttt{\_jt\_from\_scopes} returns the
+bucket tree, which is a clique tree with the running-intersection property (RIP). This pipeline is
+\emph{topology-agnostic}: it runs on a chain, a polytree, a collider, a multiply-connected DAG, or a
+chain graph with undirected cliques alike. What varies is only the size of the largest cluster, i.e.\
+the induced treewidth $w$; the NLP has $\sum_C 2^{|C|}=O(n\,2^{w+1})$ variables.
+
+\texttt{CredalJT} therefore \emph{applies to any chain-graph LCN}. The chain
+(Section~\ref{sec:d5-treewidth}) is merely the case $w{=}1$, where the clique tree is a linear path.
+On non-chain structures the clique tree branches: Table~\ref{tab:d5-shapes} shows that the engine
+builds a branching width-$1$ \emph{tree} on \texttt{tree} (a single-parent branching process), a
+width-$2$ tree on \texttt{cancer} (collider $D\mid B\!\land\!C$) and on \texttt{polytree} (two
+colliders), a width-$2$ tree on \texttt{asia} (colliders $+$ \textsc{xor} formulas) and on
+\texttt{alarm} (compound $C\!-\!D$), and a width-$5$ \emph{star} on \texttt{smokers} (the undirected
+clique $F_1\!-\!F_2\!-\!F_3$). The only role the budget $k_{\max}$ plays is to fall back to
+\texttt{ExactInference} when $w$ is so large that $2^{w}\!\approx\!2^n$ anyway (no saving to be
+had). The tree and the polytree are worked in detail in Section~\ref{sec:d5-tree-polytree}.
+
+\begin{table}[t]\centering\small
+\begin{tabular}{lllccc}
+  \toprule
+  Network & chain-graph feature & clique tree (atom clusters) & max cluster & $w$ & exact? \\
+  \midrule
+  \texttt{chain}     & Markov chain ($n{=}8$)       & linear path, $7\times\{x_i,x_{i+1}\}$        & $2$ & $1$ & \checkmark \\
+  \texttt{tree}      & branching tree ($n{=}7$)      & $6$ edge-clusters $\{x_p,x_c\}$              & $2$ & $1$ & \checkmark \\
+  \texttt{polytree}  & colliders ($n{=}7$)           & path $\{x_0x_1x_2\}{-}\{x_2x_3\}{-}\{x_3x_4x_5\}{-}\{x_5x_6\}$ & $3$ & $2$ & \checkmark\,$^\dagger$ \\
+  \texttt{d4\_biting}& cross-family sentence         & single cluster $\{A,B,C\}$                  & $3$ & $2$ & \checkmark \\
+  \texttt{cancer}    & collider $D\mid B\!\land\!C$  & tree, e.g.\ $\{A,B,C\}{-}\{B,C,D\}{-}\{D,E\}$& $3$ & $2$ & \checkmark \\
+  \texttt{asia}      & colliders $+$ \textsc{xor}    & tree, $\{B,S,C\}{-}\{B,C,D\}{-}\{C,D,X\}$    & $3$ & $2$ & \checkmark\,$^\dagger$ \\
+  \texttt{alarm}     & compound node $C\!-\!D$       & tree, $\{B,E,A\}{-}\{A\}{-}\{A,C,D\}$        & $3$ & $2$ & \checkmark \\
+  \texttt{smokers}   & undirected clique $F_1F_2F_3$ & star, centre separator $\{S_1,S_2,S_3\}$     & $6$ & $5$ & \emph{outer only} \\
+  \bottomrule
+\end{tabular}
+\caption{\texttt{CredalJT} builds a genuine (branching) junction tree on every chain-graph LCN, not
+  only on chains. ``Max cluster'' is the largest cluster's atom count (what the engine reports as
+  \texttt{induced\_width}); the treewidth $w$ is one less, and governs cost ($O(n2^{w+1})$
+  variables). The last column is the
+  exactness verdict of Section~\ref{sec:d5-exactness-thm}: \checkmark\ where the sufficient condition
+  holds; \emph{outer only} on \texttt{smokers}, where six large-scope LMC assertions are neither
+  hosted nor separator-entailed. $^\dagger$\texttt{asia} and \texttt{polytree} \emph{violate} the
+  sufficient condition (unentailed, unhostable LMC drops --- the co-parent independencies of their
+  colliders) yet are exact on every queried atom: the condition is sufficient, not necessary
+  (Sections~\ref{sec:d5-exactness-thm},~\ref{sec:d5-tree-polytree}).}
+\label{tab:d5-shapes}
+\end{table}
+
+\subsubsection{Exactness theorem}\label{sec:d5-exactness-thm}
+
+Let $G^\ast$ be the chordal graph whose maximal cliques are the clusters of $T$ (two atoms are
+adjacent iff they co-occur in some cluster). Say an LMC assertion $(X\perp Y\mid S)$ is
+\emph{separator-entailed} if $S$ separates $X$ from $Y$ in $G^\ast$.
+
+\begin{theorem}[Exactness]\label{thm:d5-exact}
+Suppose
+\begin{enumerate}\itemsep1pt
+  \item[\textnormal{(H1)}] $T$ has the running-intersection property \emph{(always true for the
+    clique tree built above)};
+  \item[\textnormal{(H2)}] every LCN sentence is hosted: some cluster contains $\mathrm{atoms}(s)$;
+  \item[\textnormal{(H3)}] every LMC assertion is \emph{either} hosted \emph{or} separator-entailed;
+  \item[\textnormal{(H4)}] the query atom $a$ and all evidence atoms lie together in some cluster.
+\end{enumerate}
+Then for every such $a$, $\;\min_{q\in\mathcal G}(\text{read }a)=\min_{p\in\mathcal F}p_a$ and
+likewise for $\max$ \emph{(and for the conditional ratio $P(a\mid e)$)}. That is,
+\texttt{CredalJT}'s bounds equal the exact \texttt{ExactInference} bounds.
+\end{theorem}
+
+\begin{proof}
+We show the two feasible regions have identical projections onto every cluster scope; since each
+objective (a linear functional of one cluster's marginal, or a ratio of two such) depends only on
+that projection, the optima coincide.
+
+\emph{Projection $\mathcal F\to\mathcal G$ (always valid, hence an outer bound).}
+Given $p\in\mathcal F$, set $q_C:=p{\restriction}C$ for each cluster. Cluster simplexes hold (a
+marginal of a distribution sums to $1$); separator equalities hold (both sides equal
+$p{\restriction}S$); every hosted constraint $c$ holds because $q_{C_h}{\restriction}\mathrm{scope}(c)
+=p{\restriction}\mathrm{scope}(c)$ and $c$ holds for $p$ by \emph{locality}. The read-off of $a$
+equals $p_a$. Hence $q\in\mathcal G$ with the same objective value, so
+$[\min,\max]_{\mathcal G}\supseteq[\min,\max]_{\mathcal F}$: \textbf{\texttt{CredalJT} is always a
+valid outer bound}, with no assumption beyond (H1)/(H4).
+
+\emph{Reconstruction $\mathcal G\to\mathcal F$ (needs H2/H3).}
+Given a separator-consistent family $(q_C)\in\mathcal G$, the RIP marginal-consistency theorem
+(Lauritzen, \emph{Graphical Models}, Prop.~3.18) yields a \emph{unique} joint
+\begin{equation}\label{eq:reconstruct}
+  p \;=\; \frac{\prod_{C} q_C}{\prod_{(C,D)\in T} q_{S}}
+\end{equation}
+that is a genuine distribution and whose marginal on each cluster $C$ is exactly $q_C$ (and hence on
+each separator and on each sub-clique). We verify $p\in\mathcal F$:
+\begin{itemize}\itemsep1pt
+  \item \emph{Sentences} (H2): $p{\restriction}\mathrm{atoms}(s)=q_{C_h}{\restriction}\mathrm{atoms}(s)$
+    for the host $C_h$, which satisfies $g_s$ by construction of $\mathcal G$; by locality $g_s(p)$ is
+    in range.
+  \item \emph{Hosted LMC} (part of H3): identical argument --- the bilinear residual is a function of
+    the host cluster's marginal, which satisfies it.
+  \item \emph{Separator-entailed LMC} (the other part of H3): $p$ in \eqref{eq:reconstruct}
+    factorizes over $T$, so it obeys the \emph{global Markov property of $G^\ast$}: whenever $S$
+    separates $X$ from $Y$ in $G^\ast$, $X\perp_{p}Y\mid S$. Thus every separator-entailed LMC holds
+    for $p$ \emph{automatically}, even though it was dropped from $\mathcal G$.
+\end{itemize}
+So $p\in\mathcal F$ with $p_a$ equal to the read-off, giving
+$[\min,\max]_{\mathcal F}\supseteq[\min,\max]_{\mathcal G}$.
+
+Both inclusions force equality. For a conditional query the objective is the ratio of two marginal
+functionals of the single cluster of (H4); the same two maps preserve it. \qed
+\end{proof}
+
+\noindent\textbf{Reading of the proof.} (a)~The argument never mentions chains: it uses only RIP,
+hosting, separator-entailment, and locality. Exactness is a property of the \emph{junction tree},
+not of the chain. (b)~The projection half holds unconditionally, so \texttt{CredalJT} is \emph{never
+unsound} --- its interval always contains the true one; (H2)/(H3) only decide whether it is
+\emph{tight}. (c)~On a pure Markov chain the moral graph is already triangulated and every LMC
+$(x_{i+1}\perp x_{<i}\mid x_i)$ is a single separator, so (H3) holds with $w{=}1$ --- recovering
+Section~\ref{sec:d5-treewidth} as the special case.
+
+\paragraph{What the engine actually checks, and the residual heuristic.} \texttt{CredalJT} hosts every
+sentence (H2) and every \emph{hostable} LMC, and it recognises a \emph{single-edge} separator-entailed
+LMC via \texttt{\_rip\_implied} and drops it. The gap between this test and the full (H3) condition is
+that \texttt{\_rip\_implied} only inspects \emph{one} tree edge, whereas separator-entailment may rest
+on the chordal graph $G^\ast$ as a whole (multiple cliques). For an LMC that is neither hostable nor
+single-edge-RIP, the engine \emph{drops it anyway} --- this is the ``inert drop''. The drop is
+exactness-preserving \emph{iff} the assertion is separator-entailed by $G^\ast$; when it is not, the
+result is a valid \emph{outer} bound that can be loose. (The earlier description of these drops as
+``inert because a product joint satisfies every LMC'' is the right intuition for the
+\emph{strong-extension} product but is not the reason exactness holds: $\mathcal F$ is \emph{not} the
+product set; the correct reason is global-Markov entailment by $G^\ast$.)
+
+\subsubsection{Empirical validation across structures}
+
+We checked all six shipped chain-graph LCNs two ways: a solver-free structural test (does each LMC
+satisfy (H3)? --- i.e.\ separation in $G^\ast$, computed from the clusters), and a numerical
+comparison of \texttt{CredalJT} against an \emph{independent} exact oracle. For the $\le 5$-atom
+networks the oracle is the LMC-aware brute-force verifier
+(\texttt{verify\_bruteforce.py}), which optimizes over a parametric family that satisfies every LMC
+equality \emph{by construction} (residual $\sim10^{-16}$) using SLSQP only --- so it is immune to the
+nonconvex-solver unreliability that makes raw \texttt{ExactInference}/SCIP themselves untrustworthy on
+these bilinear systems. The results:
+
+\begin{itemize}\itemsep2pt
+  \item \texttt{chain}, \texttt{d4\_biting}, \texttt{cancer}: (H2)/(H3) hold (every LMC is hosted or
+    single-edge-RIP), so Theorem~\ref{thm:d5-exact} guarantees exactness; the numbers match the
+    oracle on every atom.
+  \item \texttt{alarm}: the two five-atom LMCs $(C\perp B,E\mid A,D)$, $(D\perp B,E\mid C,A)$ are not
+    single-edge-RIP but \emph{are} separator-entailed by $G^\ast$ ($\{A,D\}$ separates $C$ from
+    $\{B,E\}$), so (H3) holds and the theorem applies. The brute-force oracle confirms the exact
+    bounds $P(A){=}[0.087,0.100]$, $P(B){=}[0.100,0.123]$, $P(E){=}[0.050,0.074]$, $P(C){=}P(D){=}[0,1]$;
+    \texttt{CredalJT} reproduces them, whereas raw \texttt{ExactInference} (local solver) reports the
+    spuriously-tight $P(A){=}[0.092,0.100]$, $P(E){=}[0.050,0.073]$ --- \texttt{CredalJT} is here the
+    \emph{more} trustworthy engine.
+  \item \texttt{asia}: three LMCs ($(B\perp C,X\mid S)$, $(D\perp S,X\mid C,B)$, $(X\perp S,B,D\mid C)$)
+    are \emph{neither} hosted \emph{nor} separator-entailed, so (H3) \emph{fails} and the theorem does
+    not certify exactness. Empirically \texttt{CredalJT} is nonetheless exact on every queried atom:
+    the unentailed assertions happen not to bind those marginals given the sentences. This shows (H3)
+    is \emph{sufficient but not necessary}.
+  \item \texttt{smokers}: all six large-scope LMCs (e.g.\ $(S_3\perp F_1,C_1,C_2\mid S_1,S_2,F_2,F_3)$)
+    are unhostable and unentailed --- in the width-$6$ family cluster $\{F_1,F_2,F_3,S_1,S_2,S_3\}$ the
+    atoms $S_3$ and $F_1$ co-occur, so no separator can divide them. (H3) fails \emph{and} it bites:
+    \texttt{CredalJT} returns the loose $P(F_1){=}P(S_1){=}[0,1]$ where the dropped independencies would
+    tighten them. The interval is still a valid \emph{outer} bound (the projection half of the proof),
+    just not tight.
+\end{itemize}
+
+\noindent The practical upshot: \texttt{CredalJT} is a \emph{general} chain-graph engine whose bounds
+are \textbf{always sound (outer)} and \textbf{exact whenever (H2)/(H3) hold} --- which provably covers
+a clean chain, a branching \emph{tree} (single-parent nodes, treewidth $1$;
+Section~\ref{sec:d5-tree-polytree}), \texttt{cancer}, and \texttt{alarm}. It is \emph{also} exact
+empirically on the structures that violate (H3) but whose dropped independencies do not bind ---
+\texttt{asia} and the \emph{polytree} of Section~\ref{sec:d5-tree-polytree}. The one failure mode is an
+LMC whose scope is buried inside a single large cluster (an undirected clique, as in
+\texttt{smokers}), where no separator can express it and it is too large to host; there the engine
+silently widens to an outer bound. A conservative variant would \emph{refuse to drop} any
+non-separator-entailed LMC and instead widen the host (or fall back to \texttt{ExactInference}) so
+that the output is always exact; the current engine trades that guarantee for treewidth, and the
+\texttt{d5\_exact} flag together with this $G^\ast$-separation test tells the caller which regime it
+is in.
+
+\subsubsection{Worked structures: a branching tree and a polytree}\label{sec:d5-tree-polytree}
+
+The chain of Section~\ref{sec:d5-treewidth} is the simplest singly-connected structure. Two natural
+generalizations stress the exactness theorem in different ways: a \emph{tree} (each node still has a
+single parent, but the graph \emph{branches}) and a \emph{polytree} (the undirected skeleton is still
+a tree, but nodes may have \emph{several} parents, i.e.\ \textsc{collider} v-structures). We ship both
+as \texttt{examples/tree.lcn} and \texttt{examples/polytree.lcn} and analyse them here. The headline:
+\textbf{the tree is exact for the same reason the chain is} (Theorem~\ref{thm:d5-exact} applies
+verbatim, treewidth $1$); \textbf{the polytree is exact too, but only empirically} --- moralizing its
+colliders breaks the sufficient condition (H3), yet the dropped independencies turn out not to bind,
+exactly as for \texttt{asia}.
+
+\paragraph{The branching tree (\texttt{tree.lcn}).} Seven atoms in a binary tree
+\[
+  x_0\to\{x_1,x_2\},\quad x_1\to\{x_3,x_4\},\quad x_2\to\{x_5,x_6\},
+\]
+a prior on the root $x_0$ and a transition $P(x_c\mid x_p)$ on each edge (no cross-family sentence).
+Because \emph{every node has exactly one parent}, there are no co-parents to marry: the moral graph
+\emph{equals} the tree skeleton, already triangulated. \texttt{CredalJT} builds one two-atom cluster
+per edge,
+\[
+  \{x_0,x_1\},\,\{x_0,x_2\},\,\{x_1,x_3\},\,\{x_1,x_4\},\,\{x_2,x_5\},\,\{x_2,x_6\}
+\]
+(six clusters, single-atom separators $\{x_0\},\{x_1\},\{x_2\}$, plus a trivial $\{x_6\}$ leaf),
+giving \textbf{treewidth $1$}, just like the chain but with a branch. Every LMC assertion
+$(x_c\perp\text{non-descendants}\mid x_p)$ is then a single-separator (RIP) independence ---
+$\{x_p\}$ separates the child's subtree from the rest in $G^\ast$ --- so all are dropped as
+RIP-implied and \emph{none} is imposed, while (H2)/(H3) hold trivially. Theorem~\ref{thm:d5-exact}
+therefore certifies exactness, and the brute-force oracle confirms it: \texttt{CredalJT} and the
+LMC-correct oracle agree to four decimals on all seven atoms, e.g.
+\[
+  P(x_0)=[0.300,0.500],\quad P(x_1)=P(x_2)=[0.400,0.680],\quad
+  P(x_3)=\cdots=P(x_6)=[0.328,0.640],
+\]
+solving an NLP with $\sum_C 2^{|C|}=6\cdot 2^2=24$ variables rather than the full joint
+$2^7=128$. \emph{A branching tree is exactly as favourable as a chain.}
+
+\paragraph{The polytree (\texttt{polytree.lcn}).} Seven atoms, singly connected, with two colliders:
+\[
+  x_0\to x_2\leftarrow x_1,\qquad x_2\to x_3,\qquad x_3\to x_5\leftarrow x_4,\qquad x_5\to x_6,
+\]
+priors on the roots $x_0,x_1,x_4$ and the four-row conditionals $P(x_2\mid x_0,x_1)$,
+$P(x_5\mid x_3,x_4)$. The multi-parent nodes are what distinguishes a polytree from a tree, and they
+change the Markov picture in two ways. First, the LMC now contains \emph{marginal}-independence
+assertions of the co-parents and unrelated roots --- $(x_0\perp x_1,x_4)$, $(x_1\perp x_0,x_4)$,
+$(x_4\perp x_0,x_1,x_2,x_3)$ --- and a small conditional one $(x_2\perp x_4\mid x_0,x_1)$. Second,
+moralizing each collider \emph{marries its co-parents}: the family cliques become $\{x_0,x_1,x_2\}$
+and $\{x_3,x_4,x_5\}$, so \texttt{CredalJT} runs at \textbf{treewidth $2$}, with the clique tree
+\[
+  \{x_0,x_1,x_2\}\ \overset{\{x_2\}}{-}\ \{x_2,x_3\}\ \overset{\{x_3\}}{-}\ \{x_3,x_4,x_5\}\
+  \overset{\{x_5\}}{-}\ \{x_5,x_6\}.
+\]
+(7 clusters, max cluster $3$ atoms; $\sum_C 2^{|C|}=2\cdot 2^3+\cdots = 28$ variables vs.\ $2^7=128$.)
+
+Now the subtlety. The co-parent assertion $(x_0\perp x_1,x_4)$ has scope $\{x_0,x_1,x_4\}$, which
+straddles \emph{both} collider cliques and so fits in \emph{no} single cluster --- it is
+\textbf{unhostable}. And after moralization $x_0$ and $x_1$ co-occur in $\{x_0,x_1,x_2\}$, so no
+separator can divide them: it is also \textbf{not} separator-entailed by $G^\ast$. The same holds for
+all five co-parent / root independencies. \texttt{CredalJT} therefore \emph{drops} them (imposes
+none of the LMC assertions), and \textbf{condition (H3) of Theorem~\ref{thm:d5-exact} fails} --- the
+theorem does \emph{not} certify the polytree exact. This is structurally the \texttt{smokers}
+situation (an unentailed, unhostable independence buried in a moralized clique), now arising on a
+clean polytree rather than from an undirected clique.
+
+Yet the brute-force oracle (a parametric family $P(x_0)P(x_1)P(x_4)\,P(x_2\mid x_0,x_1)\,P(x_3\mid
+x_2)\,P(x_5\mid x_3,x_4)\,P(x_6\mid x_5)$, LMC-correct to $3\!\times\!10^{-16}$) shows
+\texttt{CredalJT} is in fact \textbf{exact on every atom}:
+\begin{center}\small
+\begin{tabular}{lccccccc}
+  \toprule
+  & $x_0$ & $x_1$ & $x_2$ & $x_3$ & $x_4$ & $x_5$ & $x_6$ \\
+  \midrule
+  \texttt{CredalJT} (D5, SCIP) & $[.30,.50]$ & $[.40,.60]$ & $[.31,.63]$ & $[.348,.676]$ & $[.20,.50]$ & $[.264,.653]$ & $[.339,.694]$ \\
+  brute-force oracle           & $[.30,.50]$ & $[.40,.60]$ & $[.31,.63]$ & $[.348,.676]$ & $[.20,.50]$ & $[.264,.653]$ & $[.339,.694]$ \\
+  \bottomrule
+\end{tabular}
+\end{center}
+The dropped co-parent independencies simply do not bind these marginals: although the joint cluster
+$\{x_0,x_1,x_2\}$ is \emph{permitted} to correlate $x_0$ and $x_1$, the optima of every singleton
+marginal $P(x_i)$ over the cluster NLP are attained without exploiting that freedom (the optimizing
+joint happens to keep the co-parents independent). This is the polytree analogue of the \texttt{asia}
+observation: \textbf{(H3) is sufficient, not necessary}, so a structure can violate it and still be
+exact. (One can manufacture a polytree where the drop \emph{does} bite --- add a cross-family sentence
+coupling two co-parents, e.g.\ $P(x_0\land x_1)\le\epsilon$, whose scope sits in the collider clique
+and would then be hosted, or one coupling a co-parent to a different collider, which would be
+unhostable and make the bound loose --- but the plain transition-only polytree above is exact.)
+
+\paragraph{Takeaway.} A tree is exact and cheap (treewidth $1$) by the same RIP argument as the chain.
+A polytree is more delicate: its colliders moralize into cliques that hide the co-parent
+independencies from the separators, so the engine drops them and the \emph{sufficient} exactness
+condition no longer holds --- the bound is then guaranteed only to be a valid \emph{outer} bound. On
+the transition-only polytree we ship it remains exact because those independencies do not bind, but
+the certificate is empirical (oracle agreement), not the theorem. The reliable rule of thumb is the
+$G^\ast$-separation test of Section~\ref{sec:d5-exactness-thm}: a singly-connected structure with
+\emph{single-parent} nodes (chain, tree) always satisfies (H3) and is provably exact at treewidth
+$1$; a structure with \emph{multi-parent} colliders (polytree) may need the empirical check, and a
+buried undirected clique (\texttt{smokers}) is where the drop actually loosens the bound.
 
 The \texttt{cn/} package ships five inference algorithms beyond CVE. Crucially, \emph{all of
 them consume the same object}: a built \texttt{CredalNetworkVertices}, i.e.\ the directed
