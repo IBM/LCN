@@ -1326,7 +1326,8 @@ if __name__ == "__main__":
                 print(f"    P({var}={val}): [{lo[val]:.6f}, {hi[val]:.6f}]")
 
     # Load the LCN
-    file_name = "examples/chain.lcn"
+    # file_name = "examples/chain.lcn"
+    file_name = "benchmarks/tree_small/tree_n6_8.lcn"
     lcn_model = LCN()
     lcn_model.from_lcn(file_name=file_name)
     lcn_model.summary()

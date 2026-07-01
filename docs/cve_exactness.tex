@@ -1,0 +1,430 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usepackage{xcolor}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,shapes.geometric,calc}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{definition}{Definition}
+
+\newcommand{\lo}{\underline}
+\newcommand{\hi}{\overline}
+\newcommand{\indep}{\perp\!\!\!\perp}
+\newcommand{\DSE}{\mathcal{D}_{\mathrm{SE}}}
+\newcommand{\DLCN}{\mathcal{D}_{\mathrm{LCN}}}
+\newcommand{\CVE}{\texttt{CredalVE}}
+
+\title{Exactness of Credal Variable Elimination on Chain-Graph LCNs\\
+\large What CVE actually bounds, when the per-target bucket schedule is exact
+across chains, trees, polytrees, DAGs and chain graphs, and how the tightening
+schemes (D1--D5) act on it}
+\author{IBM Research}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Credal Variable Elimination (CVE, \texttt{lcn/inference/marginal/cn/cve.py}) is the hub of the
+credal-network family: the per-target bucket-elimination engine against which Credal Cluster Tree
+Elimination (CCTE), ApproxLP, Interval BP and Credal IJGP are all measured. This note pins down
+three things about CVE against the implementation. \textbf{(i)~What it bounds.} CVE optimizes over
+the \emph{strong extension} $\DSE$ of the compiled credal network, not the LCN's distribution set
+$\DLCN$. More precisely, CVE does not merely return \emph{a} valid outer bound over $\DSE$: it
+returns \emph{exactly} the strong-extension interval $[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]$,
+because it recomputes an elimination order per query with the target eliminated \emph{last}, so the
+extreme-vertex combination that attains a bound survives to the final bucket. Since
+$\DLCN\subseteq\DSE$, the reported interval is always a valid outer bound on $\DLCN$, and it is the
+\emph{tightest} such bound any strong-extension propagation can give.
+\textbf{(ii)~Which tightening schemes apply.} The five schemes of the companion note
+(\texttt{docs/tighter\_approximation.tex}) split for CVE exactly as for CCTE: D1/D2/D3 are
+\emph{build-stage} knobs on \texttt{CredalNetworkVertices.from\_lcn} that CVE inherits for
+\emph{free} (it merely consumes tighter vertices, and being exact over $\DSE$ it reports the
+tighter strong extension verbatim); D4 (\texttt{coupling="cross-family"}) is \emph{implemented
+inside} CVE as a prune-time function filter \emph{together with} an order augmentation that forces
+the coupled atoms into a common bucket; D5 is a \emph{separate} engine (\texttt{CredalJT}), not a
+CVE knob. \textbf{(iii)~When it is exact.} Because CVE is exact over $\DSE$, its exactness with
+respect to $\DLCN$ reduces to a single geometric question: \emph{when does $\DSE=\DLCN$?} We show
+this holds on a clean singly-connected, cross-family-\emph{sentence}-free LCN --- Markov chain,
+tree, polytree, and chain graph with compound nodes (\texttt{alarm}) --- so CVE is exact there; and
+we exhibit the precise boundary --- a cross-family \emph{sentence} (\texttt{d4\_biting}) --- where
+$\DSE\supsetneq\DLCN$ and CVE's \texttt{coupling="off"} interval, though still a valid and exact
+$\DSE$ bound, is looser than $\DLCN$. On that instance the D4 order augmentation lets CVE reach the
+exact bound for the coupled \emph{conditional} query while remaining sound, and CredalJT (D5) is the
+reliable exact engine in general. This last point contrasts sharply with CCTE, whose single shared
+order makes even the \emph{unconditional} bound fall strictly \emph{inside} $[\lo q_{\mathrm{SE}},\hi
+q_{\mathrm{SE}}]$ on the same instance.
+\end{abstract}
+
+\tableofcontents
+
+\section{Background: the CVE algorithm}\label{sec:bg}
+
+\subsection{LCNs, the credal network, and the strong extension}
+An LCN over binary atoms $\mathbf V=\{V_1,\dots,V_n\}$ is a set of probability \emph{sentences},
+each Type-1 $\ell\le P(\varphi)\le u$ or Type-2 $\ell\le P(\varphi\mid\psi)\le u$, over
+propositional formulas. Together with the conditional independencies of the \emph{Local Markov
+Condition} (LMC) of the primal graph, the sentences define a set $\DLCN\subseteq\Delta(2^{\mathbf
+V})$ of joint distributions. The marginal task for a query atom $a$ is $\lo P(a)=\min_{p\in\DLCN}
+P(a)$ and $\hi P(a)=\max_{p\in\DLCN} P(a)$; exact inference (\texttt{ExactInference},
+\texttt{exact.py}) solves one nonconvex NLP over the full $2^n$ joint per bound.
+
+The \texttt{cn/} pipeline instead compiles the chain-graph LCN into a \emph{credal network}: a
+directed graph over the families $\mathrm{ch}_v\mid\mathrm{pa}_v$ of the simplified structure graph,
+whose local credal sets $K_v=K(\mathrm{ch}_v\mid\mathrm{pa}_v)$ are interval-valued and computed per
+family. \texttt{CredalNetworkVertices.from\_lcn} enumerates the extreme points of every $K_v$
+(\texttt{cnv.extreme\_points}), and \emph{all} the credal-network engines --- CVE, CCTE,
+Interval~BP, ApproxLP and Credal~IJGP --- consume exactly that object. What they bound is the
+\emph{strong extension}
+\begin{equation}\label{eq:se}
+  \DSE=\Bigl\{\textstyle\prod_v P_v \;:\; P_v\in K_v \text{ chosen independently per parent-config}\Bigr\},
+\end{equation}
+the set of joints obtained by letting each family, and each parent configuration of each family,
+pick one extreme point of its local set freely and independently. Because the chain-graph
+factorization $\prod_v P(\mathrm{ch}_v\mid\mathrm{pa}_v)$ reproduces the LMC exactly (this is what
+\texttt{verify\_lmc\_factorization.py} certifies), every element of $\DSE$ satisfies every LMC
+assertion. Hence
+\begin{equation}\label{eq:incl}
+  \DLCN\;\subseteq\;\DSE,
+  \qquad\Longrightarrow\qquad
+  [\lo q_{\mathrm{LCN}},\hi q_{\mathrm{LCN}}]\;\subseteq\;[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}],
+\end{equation}
+so any engine that brackets $\DSE$ produces a valid \emph{outer} bound on $\DLCN$. The inclusion in
+\eqref{eq:incl} is strict exactly when a \emph{cross-family sentence} (a sentence whose atom scope
+is contained in no single family scope) couples choices that the free product of \eqref{eq:se}
+decouples. Sections~\ref{sec:exact} and~\ref{sec:boundary} turn on this distinction.
+
+\subsection{The per-target bucket schedule}\label{sec:schedule}
+\CVE{}'s public \texttt{run(evidence, elim\_heuristic, epsilon, coupling, verbosity)}
+(\texttt{cve.py:84--165}) computes the bounds of \emph{every} non-evidence singleton atom by
+\emph{looping} a single-query bucket elimination over the credal-network nodes. For each target node
+it calls \texttt{\_run\_single\_query} (\texttt{cve.py:290--482}), which:
+\begin{enumerate}
+  \item \textbf{Builds initial potentials from the extreme points} (\texttt{cve.py:320--381}). Each
+    family becomes a set of CPT-shaped functions: one function per Cartesian combination of a chosen
+    extreme point in every parent configuration. A \texttt{Potential} is a finite \emph{set} of
+    non-negative arrays over a shared scope; this set is precisely an explicit vertex enumeration of
+    the family's contribution to $\DSE$.
+  \item \textbf{Chooses an elimination order in which the target is last}
+    (\texttt{cve.py:391--410}). With \texttt{elim\_heuristic="topological"} it takes the DAG
+    topological order and removes the query; with \texttt{"min-fill"} it runs the greedy
+    interaction-graph heuristic \texttt{min\_fill\_order(scopes, exclude=\{query\})}. Either way the
+    query node's own bucket \emph{survives} to the end.
+  \item \textbf{Runs one bucket-elimination pass} (\texttt{cve.py:421--455}): for each variable in
+    the order, collect the potentials mentioning it, \emph{combine} them (elementwise product,
+    scope union), \emph{marginalize} the variable out, and \emph{prune} dominated functions
+    ($g$ dominates $f$ iff $g\ge f$ everywhere and $g>f$ somewhere; \texttt{potentials.py:124--148}).
+  \item \textbf{Reads off the target bounds} (\texttt{cve.py:469--481}): every surviving function
+    $f$ over the query scope is normalized to $f/\sum f$, and the per-state min/max across all
+    surviving functions gives $[\lo P(\text{query}),\hi P(\text{query})]$.
+\end{enumerate}
+The two decisive features are that (a) each potential is an explicit set of strong-extension
+vertices, and (b) the query is eliminated \emph{last}. Feature~(a) is what makes CVE a
+\emph{strong-extension} method; feature~(b) is what makes it \emph{exact} over $\DSE$, and is
+exactly what CCTE's single shared two-pass order gives up (\texttt{docs/ccte\_exactness.tex}). An
+optional $\epsilon>0$ activates \texttt{\_run\_single\_query\_approx} (\texttt{cve.py:484}), an
+FPTAS that permits $\epsilon$-domination in pruning (Mau\'a et al.\ 2012); with $\epsilon=0$ the
+pruning is exact.
+
+\section{What CVE bounds: exact over the strong extension}\label{sec:bounds}
+
+\begin{proposition}[$\DSE$ target]\label{prop:se}
+With \texttt{coupling="off"} and exact pruning ($\epsilon=0$), \CVE{} computes, for every query atom
+$a$, exactly the strong-extension interval
+$[\lo q_{\mathrm{SE}}(a),\hi q_{\mathrm{SE}}(a)]$
+$=[\min_{P\in\DSE}P(a),\ \max_{P\in\DSE}P(a)]$. In particular it is always a valid \emph{outer}
+bound on $\DLCN$.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+\emph{Every function CVE forms is a strong-extension point.} The initial potentials
+(\texttt{cve.py:320--381}) are, by construction, the extreme points of the families, i.e.\ the
+generators of $\DSE$ in \eqref{eq:se}. The two potential operations preserve this: \texttt{combine}
+takes an elementwise product of one function from each argument (a product of local choices, still a
+point of the joint over the union scope), and \texttt{marginalize} sums a variable out (the marginal
+of such a product). Pruning removes only \emph{dominated} functions, which can never attain a
+componentwise extremum, so it changes no bound. Hence at the final step every surviving function
+over the query scope is the query-marginal of some $P\in\DSE$, and the min/max read-off
+(\texttt{cve.py:469--481}) ranges over exactly $\{P(a):P\in\DSE\}$ at its extreme vertices.
+
+\emph{The query-last order loses no extremum.} Because $\DSE$ is a product of finitely many
+polytopes, $\max_{P\in\DSE}P(a)$ is attained at a vertex of that product, i.e.\ at a specific
+combination of family extreme points. Eliminating the query \emph{last} means that combination is
+never marginalized away before the read-off, and it is never pruned, because at the query scope it
+is (by definition of the extremum) not dominated. Thus the read-off sees it, and CVE returns the
+exact $\DSE$ bound. \eqref{eq:incl} then gives the outer-bound guarantee on $\DLCN$.
+\end{proof}
+
+\noindent This is the sense in which CVE is the ``gold'' member of the family
+(\texttt{docs/tighter\_approximation.tex}, comparison table): it is exact over $\DSE$, whereas
+ApproxLP is \emph{inner}, Interval~BP and IJGP carry loopy outer slack, and CCTE is exact over $\DSE$
+only when its single shared order happens to coincide with a query-last order --- which fails under
+cross-family coupling (Section~\ref{sec:boundary}).
+
+\section{When CVE is exact with respect to $\DLCN$}\label{sec:exact}
+
+By Proposition~\ref{prop:se}, CVE returns $[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]$ \emph{exactly}.
+Its exactness with respect to the LCN --- $[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]=[\lo
+q_{\mathrm{LCN}},\hi q_{\mathrm{LCN}}]$ --- therefore reduces entirely to the geometric question of
+\textbf{when $\DSE=\DLCN$}. The following proposition characterizes the clean case; the topology
+enters only through singly-connectedness of the primal graph.
+
+\begin{proposition}[Exactness on clean singly-connected LCNs]\label{prop:exact}
+Let $\mathcal L$ be a chain-graph LCN whose primal graph is singly connected (Markov chain, rooted
+tree, polytree, or a chain graph whose compound nodes leave the family DAG singly connected, e.g.\
+\texttt{alarm}) and which has \emph{no cross-family sentence} (every sentence's atom scope fits
+inside one family; only the LMC assertions may be cross-family). Then with \texttt{coupling="off"}
+and $\epsilon=0$, \CVE{} returns the exact LCN marginal bounds for every atom.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+There are two gaps between the CVE output and the LCN truth, and both close.
+
+\emph{(1) $\DSE=\DLCN$ (no gap B).} A chain-graph product $\prod_v P(\mathrm{ch}_v\mid\mathrm{pa}_v)$
+satisfies every LMC assertion by construction, so a free product in \eqref{eq:se} can leave $\DLCN$
+\emph{only} by violating a \emph{sentence}. When every sentence is intra-family, each family's local
+credal set $K_v$ already encodes every sentence constraining its scope, and the free product of
+compliant families is again compliant. Hence $\DSE=\DLCN$; equivalently, there is no cross-family
+coupling for the free product of \eqref{eq:se} to break. (This is precisely the content certified by
+\texttt{verify\_lmc\_factorization.py} on chain/tree/polytree instances.)
+
+\emph{(2) CVE is exact over $\DSE$ (no schedule loss).} This is Proposition~\ref{prop:se}: the
+query-last per-target order guarantees the extreme vertex combination survives to the read-off.
+Singly-connectedness is not needed for this half --- CVE's per-target order is exact over $\DSE$ on
+\emph{any} topology --- but it is what makes half~(1) hold, so both halves together give exactness
+w.r.t.\ $\DLCN$.
+
+Combining, $[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]=[\lo q_{\mathrm{LCN}},\hi q_{\mathrm{LCN}}]$
+and CVE reports it exactly.
+\end{proof}
+
+\subsection{Topology by topology}\label{sec:topo}
+
+\paragraph{Markov chain.} The primal graph is a path $x_0\!-\!x_1\!-\!\cdots\!-\!x_n$; every family is
+$P(x_{i+1}\mid x_i)$ with a single parent. Singly connected, no cross-family sentence, so
+$\DSE=\DLCN$ and CVE is exact. On \texttt{examples/chain.lcn} ($n=8$) CVE returns
+$P(x_0)=[0.300,0.500]$, $P(x_2)=[0.328,0.640]$, $P(x_7)=[0.334,0.667]$, matching
+\texttt{ExactInference} and CredalJT (cf.\ \texttt{docs/tighter\_approximation.tex},
+\S\,chain, and \texttt{docs/ccte\_exactness.tex}).
+
+\paragraph{Tree.} A rooted branching structure in which every node has at most one parent. Same
+argument: single-parent families, singly connected, no cross-family sentence $\Rightarrow$
+$\DSE=\DLCN$ $\Rightarrow$ exact. Confirmed on \texttt{examples/tree.lcn}.
+
+\paragraph{Polytree.} Singly connected but with colliders (a node with several parents). The
+families are now $P(\mathrm{ch}\mid\mathrm{pa}_1,\dots,\mathrm{pa}_k)$, and moralizing the colliders
+induces co-parent independencies in the LMC. As long as every \emph{sentence} is intra-family,
+$\DSE=\DLCN$ still holds (the free product respects the moralized LMC), so CVE is exact. Confirmed on
+\texttt{examples/polytree.lcn}. (This is the same boundary ARIEL sits on ---
+\texttt{docs/ariel\_exactness.tex} --- exact on singly-connected, and the LMC is preserved
+structurally along the unique family path.)
+
+\paragraph{Chain graph with compound nodes.} \texttt{examples/alarm.lcn} has five atoms and a
+compound node $C\text{-}D$; the families are $P(A\mid B,E)$, $P(B)$, $P(E)$, $P(C\text{-}D\mid A)$.
+The two large-scope LMC assertions $(C\indep B,E\mid D,A)$ and $(D\indep B,E\mid C,A)$ are
+cross-family, but they are \emph{LMC assertions, not sentences}: the factorization reproduces them
+for free. There is no cross-family \emph{sentence}, so $\DSE=\DLCN$ and CVE is exact, returning e.g.\
+$P(A)=[0.087,0.100]$, $P(B)=[0.100,0.123]$, $P(E)=[0.050,0.074]$ (matching the brute-force oracle,
+and more reliable than raw \texttt{ExactInference}, which can locally over-tighten ---
+\texttt{docs/tighter\_approximation.tex}, alarm).
+
+\paragraph{General / loopy DAG, or any cross-family \emph{sentence}.} When the primal graph has more
+than one path between two atoms (loopy), or a sentence couples atoms across families, $\DSE\supsetneq
+\DLCN$ can be strict: the free product of \eqref{eq:se} realizes joints that violate the coupling.
+CVE still returns the \emph{exact} $\DSE$ interval (Proposition~\ref{prop:se}), hence a valid outer
+bound, but it is no longer tight. This is the boundary of Section~\ref{sec:boundary}, and the regime
+where the coupling schemes D4/D5 earn their keep.
+
+\begin{center}\small
+\begin{tabular}{lccc}
+\toprule
+Topology & singly conn.? & cross-family \emph{sentence}? & CVE (\texttt{coupling="off"}) \\
+\midrule
+Markov chain (\texttt{chain})     & yes & no  & \textbf{exact} \\
+Tree (\texttt{tree})              & yes & no  & \textbf{exact} \\
+Polytree (\texttt{polytree})      & yes & no  & \textbf{exact} \\
+Chain graph, compound (\texttt{alarm}) & yes & no  & \textbf{exact} \\
+Cross-family sentence (\texttt{d4\_biting}) & yes & \textbf{yes} & exact over $\DSE$; outer on $\DLCN$ \\
+Loopy DAG                          & no  & --- & exact over $\DSE$; outer on $\DLCN$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{The boundary: a cross-family sentence (\texttt{d4\_biting})}\label{sec:boundary}
+
+The minimal witness that separates $\DSE$ from $\DLCN$ is \texttt{examples/d4\_biting.lcn}: three
+atoms, $A$ the root with independent children $B,C$, so the families are $P(A)$, $P(B\mid A)$,
+$P(C\mid A)$, plus one cross-family sentence.
+\begin{center}\small
+\begin{verbatim}
+A1: 0.4 <= P(A)        <= 0.6
+B1: 0.1 <= P(B | A)    <= 0.3
+C1: 0.2 <= P(C | A)    <= 0.5
+BC: 0.0 <= P(B and C)  <= 0.05      <- cross-family (scope {B,C} in no family)
+\end{verbatim}
+\end{center}
+The LMC assertion $(B\indep C\mid A)$ is satisfied by \emph{any} product joint, so it is not what
+makes this instance loose; the \emph{sentence} \texttt{BC} is. The free product of \eqref{eq:se} can
+pick a high-$P(B\mid A)$ vertex and a high-$P(C\mid A)$ vertex at once, reaching $P(B\land C)$ far
+above $0.05$ --- a joint in $\DSE$ but not in $\DLCN$.
+
+\subsection{On the \emph{unconditional} marginals CVE is still exact here}
+The unconditional bounds happen to be unaffected by the coupling gap on this instance: the exact
+$\DLCN$ intervals are
+\[
+  P(A)=[0.40,0.60],\qquad P(B)=[0.04,0.72],\qquad P(C)=[0.08,0.80],
+\]
+confirmed by four independent oracles (parametric SLSQP enforcing $B\indep C\mid A$; a
+strong-extension vertex oracle; \texttt{CredalJT}/D5 with SCIP; and single-query CVE ---
+\texttt{docs/ccte\_exactness.tex}). CVE with \texttt{coupling="off"} returns exactly $P(B)=[0.04,0.72]$
+because, for the \emph{unconditional} $P(B)$, the extremal vertex combination does not require
+violating \texttt{BC} --- so $\DSE$ and $\DLCN$ agree on this particular marginal, and CVE's exact
+$\DSE$ read-off (Proposition~\ref{prop:se}) is the exact LCN bound.
+
+\begin{center}\small
+\begin{tabular}{lccc}
+\toprule
+ & $P(A)$ & $P(B)$ & $P(C)$ \\
+\midrule
+exact $=$ \CVE{} $=$ oracle $=$ D5 & $[0.40,0.60]$ & $\mathbf{[0.04,0.72]}$ & $[0.08,0.80]$ \\
+CCTE \texttt{coupling="off"}          & $[0.40,0.60]$ & $\mathbf{[0.05,0.65]}$ & $[0.08,0.80]$ \\
+CCTE \texttt{coupling="cross-family"} (D4) & $[0.40,0.60]$ & $\mathbf{[0.05,0.55]}$ & $[0.08,0.80]$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+The contrast with CCTE is the whole point of the per-target schedule. CCTE, using the \emph{same}
+vertices, reports $P(B)=[0.05,0.65]$ --- strictly \emph{inside} the true $\DSE$ interval, i.e.\ not
+even a valid outer bound --- because its single shared order eliminates $B$ mid-schedule and prunes
+(by dominance) the very function that carried the extremal $P(B)$; dominance in a marginalized scope
+is not dominance for the eventual read-off. CVE avoids this precisely by recomputing a query-last
+order for $B$, so the extremal function survives (Proposition~\ref{prop:se}). This is the
+``order-sensitive outer approximation'' the code comment warns about, and it is CVE's per-target
+recomputation that immunizes it.
+
+\subsection{Where the gap bites: conditional queries and D4}
+The coupling gap $\DSE\supsetneq\DLCN$ does bite on \emph{conditional} queries. The \texttt{.lcn}
+header records that $P(B\mid C=1)$ collapses from $[0.0375,0.9625]$ under \texttt{coupling="off"} to
+$[0.0375,0.0375]$ under \texttt{coupling="cross-family"}: the free product allows $B$ and $C$ both
+near their high vertices given $A$, which the sentence \texttt{BC} forbids. Scheme D4
+(Section~\ref{sec:schemes}) removes exactly those vertex \emph{combinations}. In CVE this is two
+coordinated changes (\texttt{cve.py:391--455}):
+\begin{enumerate}
+  \item \textbf{Order augmentation.} The min-fill order is built from the potential scopes
+    \emph{plus} the constraint node sets, \texttt{scopes + constraints.constraint\_node\_sets(...)}
+    (\texttt{cve.py:408--410}), forcing the coupled atoms $\{A,B,C\}$ to co-occur in a common bucket.
+    Without this the constraint scope is never assembled and the filter is inert.
+  \item \textbf{Prune-time filtering.} In each bucket, \emph{after} combining and \emph{before}
+    marginalizing, \texttt{combined.filter\_infeasible}
+    (\texttt{cve.py:441--442}) drops any function whose assembled joint violates a cross-family
+    constraint --- checkable only once the bucket scope covers the constraint's atoms, which the
+    augmentation guarantees.
+\end{enumerate}
+D4 is sound for \emph{unconditional} marginals (the extremum sits at a surviving vertex). For
+conditional $P(q\mid e)$ the ratio extremum need not sit at a vertex, so D4 is not guaranteed exact;
+the reliable exact engine for cross-family coupling is \texttt{CredalJT} (D5). Note also that on the
+\emph{unconditional} $P(B)$ above, D4 is \emph{correctly inert}: CVE augments its order and the
+filter fires but finds nothing to drop that would change $[0.04,0.72]$ --- consistent with $\DSE$ and
+$\DLCN$ already agreeing on that marginal.
+
+\section{The tightening schemes (D1--D5) for CVE}\label{sec:schemes}
+
+The companion note \texttt{docs/tighter\_approximation.tex} identifies two sources of looseness in
+the strong-extension bound and five schemes that attack them:
+\begin{itemize}
+  \item \textbf{Gap A (local-set widening).} Each $K_v$ is computed per family in isolation, so it
+    admits distributions no global LCN distribution realizes (it ignores sentences on \emph{other}
+    families and cross-family LMC equalities). This widens $\DSE$ before any propagation.
+  \item \textbf{Gap B (strong-extension widening).} Even with perfect $K_v$, the free product of
+    \eqref{eq:se} lets each family/parent-config pick its vertex independently, violating
+    cross-family sentences. This is the $\DSE\supsetneq\DLCN$ gap of Section~\ref{sec:boundary}.
+\end{itemize}
+Because CVE is exact over $\DSE$ (Proposition~\ref{prop:se}), it reports whatever $\DSE$ it is
+given \emph{verbatim} --- so shrinking $\DSE$ toward $\DLCN$ pulls CVE's output inward with no
+algorithmic slack of its own to absorb the change. The schemes therefore split into two classes for
+CVE exactly as they do for CCTE.
+
+\paragraph{Class 1 --- input-level (D1, D2, D3): free build-stage knobs.} These change only what
+\texttt{CredalNetworkVertices.from\_lcn} produces --- tighter local intervals, hence tighter
+enumerated vertices --- and CVE consumes them without any code change.
+\begin{itemize}
+  \item \textbf{D1} (\texttt{method="linear-tight"}): each family's local LP is enriched with every
+    in-scope sentence \emph{and} the scope-restricted LMC bilinear equalities, closing Gap~A
+    partially. Vacuous $[0,1]$ CPT rows collapse to genuine sub-intervals.
+  \item \textbf{D2} (\texttt{merge\_budget=$k$}): merge adjacent families whose combined scope
+    $\le k$ before factorization; at $k=1$ no merge, at $k=n$ exact. Larger merged scopes bring
+    cross-family constraints in-scope, closing Gap~A and, via the merge, part of Gap~B.
+  \item \textbf{D3} (\texttt{solver="scip"}): solve each family's D1 model with SCIP's certified
+    global branch-and-bound instead of local ipopt, closing Gap~A \emph{exactly} (and flagging any
+    unsound ipopt local optimum). Cost $2^n$ per solve.
+\end{itemize}
+Being exact over $\DSE$, CVE is the cleanest beneficiary of Class~1: the tighter strong extension is
+reported exactly, so D1/D2/D3 pull CVE's interval straight toward $\DLCN$.
+
+\paragraph{Class 2 --- propagation-level coupling (D4, D5): per-algorithm.}
+\begin{itemize}
+  \item \textbf{D4} (\texttt{coupling="cross-family"} on \texttt{CVE.run}): implemented inside CVE as
+    the order augmentation $+$ prune-time filter of Section~\ref{sec:boundary}
+    (\texttt{cve.py:391--455}, \texttt{coupling.py:101--250}). It attacks Gap~B by dropping infeasible
+    vertex \emph{combinations}. Sound for unconditional marginals; not guaranteed for conditional
+    ratios.
+  \item \textbf{D5} (\texttt{CredalJT}, \texttt{cn/junction\_nlp.py}): a \emph{separate} engine, not a
+    CVE knob. It builds one junction tree, introduces cluster-marginal variables, imposes
+    separator-consistency and hosts each LCN constraint on a cluster, and solves one NLP per atom.
+    It closes Gap~A $+$ Gap~B \emph{exactly} whenever every sentence is hosted and every LMC is
+    hosted-or-separator-entailed (Theorem~1 of \texttt{docs/tighter\_approximation.tex}), at cost
+    exponential in \emph{treewidth} rather than $n$. It is sound for both unconditional and
+    conditional queries. For cross-family coupling this is the reliable exact engine.
+\end{itemize}
+
+\begin{center}\small
+\begin{tabular}{lllll}
+\toprule
+Scheme & Where it lives for CVE & Gap closed & Exact? & Cost \\
+\midrule
+D1 \texttt{method="linear-tight"} & build (\texttt{from\_lcn}) & A (partial) & no & $\approx 0$ \\
+D2 \texttt{merge\_budget=$k$}     & build (\texttt{from\_lcn}) & A $(+\,$B$)$ & at $k=n$ & $2^k$ \\
+D3 \texttt{solver="scip"}         & build (\texttt{from\_lcn}) & A (exact)   & Gap~A only & $2^n$/solve \\
+D4 \texttt{coupling="cross-family"} & inside \texttt{CVE.run}  & B           & uncond.\ only & med \\
+D5 \texttt{CredalJT}              & separate engine           & A $+$ B     & yes (Thm.\ 1) & treewidth \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Verdict}\label{sec:verdict}
+
+\begin{proposition}[Summary]\label{prop:verdict}
+Let $\mathcal L$ be a chain-graph LCN and run \CVE{} with $\epsilon=0$.
+\begin{enumerate}
+  \item (\emph{Always}) With \texttt{coupling="off"}, CVE returns exactly the strong-extension
+    interval $[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]$, a valid outer bound on $\DLCN$
+    (Proposition~\ref{prop:se}).
+  \item (\emph{Exact}) If $\mathcal L$ is singly connected and has no cross-family sentence --- Markov
+    chain, tree, polytree, or compound-node chain graph such as \texttt{alarm} --- then
+    $\DSE=\DLCN$ and CVE is exact for every atom (Proposition~\ref{prop:exact}).
+  \item (\emph{Boundary}) A cross-family sentence makes $\DSE\supsetneq\DLCN$ possible. Unconditional
+    marginals may still be exact (they are on \texttt{d4\_biting}); conditional queries and the
+    general case need D4 (unconditional-sound) or, for a guaranteed exact bound, the D5 engine
+    \texttt{CredalJT}.
+  \item (\emph{Tightening}) D1/D2/D3 tighten CVE for free at build time and are reported verbatim
+    (CVE being exact over $\DSE$); D4 is CVE's built-in coupling filter with order augmentation; D5
+    is the separate exact engine.
+\end{enumerate}
+\end{proposition}
+
+\noindent Compared to its siblings: CVE is exact over $\DSE$ (like CCTE with $\epsilon=0$, unlike
+ApproxLP's inner bound and IBP/IJGP's loopy outer slack), and its per-target query-last schedule
+makes it \emph{strictly more reliable than CCTE} the moment a cross-family sentence appears --- where
+CCTE's single shared order can fall inside the strong-extension interval, CVE always returns it
+exactly. The three companion notes cover the neighbors: \texttt{docs/ccte\_exactness.tex} (the
+two-pass schedule and its \texttt{d4\_biting} inner error), \texttt{docs/ariel\_exactness.tex}
+(structural LMC preservation on singly-connected factor graphs), and
+\texttt{docs/tighter\_approximation.tex} (the D1--D5 taxonomy and the D5 exactness theorem).
+
+\end{document}
