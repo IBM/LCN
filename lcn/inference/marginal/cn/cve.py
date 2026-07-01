@@ -662,6 +662,7 @@ if __name__ == "__main__":
 
     # Load the LCN
     file_name = "examples/chain.lcn"
+    # file_name = "benchmarks/easy/easy_linear_n10_3.lcn"
     lcn_model = LCN()
     lcn_model.from_lcn(file_name=file_name)
     lcn_model.summary()
@@ -675,10 +676,10 @@ if __name__ == "__main__":
     # interval local credal sets + extreme-point enumeration)
     cnv = CredalNetworkVertices.from_lcn(
         lcn_model, 
-        method="linear-tight", 
+        method="linear", 
         merge_budget=1, 
-        verbosity=1, 
-        solver="scip"
+        verbosity=2, 
+        solver="ipopt"
     )
 
     verbosity = 2
@@ -691,12 +692,12 @@ if __name__ == "__main__":
 
     # CredalVE computes all singleton marginals over the strong extension by
     # looping the per-target bucket elimination over the credal-network nodes.
-    # cve = CredalVE(cnv=cnv)
-    # print("\n=== All marginals (CredalVE, coupling=off) ===")
-    # cve.run(evidence={}, elim_heuristic="min-fill", verbosity=verbosity)
-    # for atom in sorted(cve.singleton_marginals):
-    #     lo, hi = cve.singleton_marginals[atom]
-    #     print(f"  P({atom}=1) in [{lo:.6f}, {hi:.6f}]")
+    cve = CredalVE(cnv=cnv)
+    print("\n=== All marginals (CredalVE, coupling=off) ===")
+    cve.run(evidence={}, elim_heuristic="min-fill", verbosity=verbosity)
+    for atom in sorted(cve.singleton_marginals):
+        lo, hi = cve.singleton_marginals[atom]
+        print(f"  P({atom}=1) in [{lo:.6f}, {hi:.6f}]")
 
     # CredalJT computes the EXACT marginals (scheme D5) with one junction tree
     # for all atoms.

@@ -854,6 +854,7 @@ if __name__ == "__main__":
     # boundary variables, so the factor-to-variable messages introduce a
     # non-trivial pairwise independence assumption (see analyze() below).
     file_name = "examples/chain.lcn"
+    # file_name = "benchmarks/easy/easy_sparse_n10_3.lcn"
     lcn_model = LCN()
     lcn_model.from_lcn(file_name=file_name)
     print(lcn_model)
@@ -873,5 +874,5 @@ if __name__ == "__main__":
 
     # Analyze the independence assumptions made by ARIEL and contrast them
     # with the Local Markov Condition of the original LCN.
-    print("\n=== Independence analysis ===")
-    algo.analyze(verbosity=2)
+    # print("\n=== Independence analysis ===")
+    # algo.analyze(verbosity=2)
