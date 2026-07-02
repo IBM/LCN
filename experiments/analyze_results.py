@@ -1,18 +1,53 @@
-"""Analyze inference results against a reference algorithm.
+"""Analyze inference results against a user-selectable reference algorithm.
 
-For large instances where exact inference is not available, use a reference
-algorithm (default: ARIEL) to compute absolute error metrics for other algorithms.
+Loads all per-algorithm JSONL files from the results directory
+(``results/{benchmark}/{algorithm}.jsonl``), groups them by instance, and
+computes error metrics for every other algorithm relative to the chosen
+reference.
 
-Loads all per-algorithm JSONL files from the results directory.
+The reference is selected with ``--reference``:
+  * ``ariel`` (default): use the ARIEL algorithm's record as the reference.
+    ARIEL is exact on singly-connected LCNs and available at any scale, so it
+    is the practical baseline when exact inference is out of reach.
+  * ``exact``: use the ground-truth exact bounds per instance, preferring
+    ``exact_g`` (SCIP, certified global) and falling back to ``exact_l``
+    (ipopt, local) when only that is present. Only instances that were solved
+    exactly contribute.
+  * any other algorithm name (e.g. ``cve``, ``cjt``, ``ibp``): use that
+    algorithm's record as the reference.
 
-Metrics per variable (absolute errors on P(var=1) bounds):
-  - |ref_lower - approx_lower|
-  - |approx_upper - ref_upper|
-  - Interval width ratio: approx_width / ref_width
+Reported metrics
+----------------
+Errors are measured on ``P(var=1)`` (the state-1 marginal), per variable, then
+aggregated (mean/max) over all variables of all instances in each group. Let
+``[r_lo, r_hi]`` be the reference bound and ``[a_lo, a_hi]`` the algorithm's
+bound for a variable. The script reports, for each (group, algorithm):
+
+  * ``mae_lb`` -- mean absolute lower-bound error, ``mean |r_lo - a_lo|``.
+  * ``mae_ub`` -- mean absolute upper-bound error, ``mean |a_hi - r_hi|``.
+        (These two MAEs are the primary accuracy metrics.)
+  * ``max_lb`` / ``max_ub`` -- the corresponding worst-case absolute errors,
+        ``max |r_lo - a_lo|`` and ``max |a_hi - r_hi|``.
+  * ``contain`` -- containment rate: the fraction of variables whose algorithm
+        interval *contains* the reference interval
+        (``a_lo <= r_lo`` and ``a_hi >= r_hi``, within a 1e-9 tolerance). 1.0
+        means the algorithm is a valid outer bound on every variable; values
+        below 1.0 flag intervals that are too tight (inner / unsound).
+  * ``mean_wr`` -- mean interval-width ratio ``(a_hi - a_lo) / (r_hi - r_lo)``
+        over variables with a non-degenerate reference width (``std_wr`` in the
+        size grouping). >1 wider than the reference, <1 tighter.
+  * Timings (means): ``build_t``, ``run_t``, ``total_t`` for the algorithm
+        (``std_tt`` = std-dev of total time in the size grouping), and
+        ``ref_t`` = mean total time of the reference on the same group.
+  * ``avg_iw`` -- mean reported induced width (``n/a`` if unavailable).
+
+The reference algorithm itself, and the exact backends when they are not the
+reference, are excluded from the scored rows.
 
 Usage:
-    python experiments/analyze_reference.py --results-dir results
-    python experiments/analyze_reference.py --results-dir results --reference ariel --output analysis_ref.csv
+    python experiments/analyze_results.py --results-dir results
+    python experiments/analyze_results.py --results-dir results --reference exact \\
+        --output analysis.csv --latex analysis.tex --group-by size
 """
 
 import argparse
@@ -25,6 +60,18 @@ import sys
 from collections import defaultdict
 
 
+# The algorithm names produced by run_algorithm.py (see its ALGORITHMS list),
+# plus the special "exact" reference that resolves to exact_g/exact_l per
+# instance.
+_ALGORITHMS = ["exact_l", "exact_g", "ariel", "ibp", "ccte", "ccte_e",
+               "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "cjt"]
+_REFERENCE_CHOICES = ["exact"] + _ALGORITHMS
+
+# The exact backends, in preference order when the reference is "exact": the
+# certified global solver (exact_g) is trusted over the local one (exact_l).
+_EXACT_ALGORITHMS = ("exact_g", "exact_l")
+
+
 def _mean(vals):
     return sum(vals) / len(vals) if vals else float("nan")
 
@@ -35,13 +82,6 @@ def _std(vals):
         return 0.0
     m = sum(vals) / len(vals)
     return math.sqrt(sum((x - m) ** 2 for x in vals) / len(vals))
-
-
-def _rmse(vals):
-    """Compute root mean squared error from a list of absolute errors."""
-    if not vals:
-        return float("nan")
-    return math.sqrt(sum(x * x for x in vals) / len(vals))
 
 
 def _load_results(results_dir):
@@ -77,13 +117,41 @@ def _make_stats_key(rec, instance, group_by):
         return (rec["graph_type"], rec["num_vars"], rec["algorithm"])
 
 
+def _reference_record(algos, reference):
+    """Return the reference record for an instance's {algorithm: record} map.
+
+    For ``reference == "exact"`` prefer exact_g (certified global) then exact_l
+    (local). Otherwise return the named algorithm's record. None if absent.
+    """
+    if reference == "exact":
+        for name in _EXACT_ALGORITHMS:
+            if name in algos:
+                return algos[name]
+        return None
+    return algos.get(reference)
+
+
+def _is_reference_or_exact(algo_name, reference):
+    """Whether algo_name should be excluded from the scored (approximate) set.
+
+    Always exclude the reference itself. Also exclude the exact backends when
+    they are not the reference -- they are ground truth, not approximations to
+    score against the reference.
+    """
+    if reference == "exact":
+        return algo_name in _EXACT_ALGORITHMS
+    # A named reference: exclude it, and still exclude the exact backends (they
+    # are the ground truth and are analyzed separately with --reference exact).
+    return algo_name == reference or algo_name in _EXACT_ALGORITHMS
+
+
 def analyze(records, reference="ariel", output_file=None, latex_file=None,
             group_by="size"):
-    """Compute absolute error metrics vs a reference algorithm.
+    """Compute absolute-error metrics vs the chosen reference algorithm.
 
     Args:
         records: list of result dicts loaded from JSONL.
-        reference: name of the reference algorithm.
+        reference: reference algorithm name, or "exact" for the exact bounds.
         output_file: optional CSV output path.
         latex_file: optional LaTeX table output path.
         group_by: "size" to aggregate by (graph_type, num_vars, algorithm),
@@ -102,22 +170,20 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
     ref_stats = defaultdict(list)
 
     for instance, algos in groups.items():
-        if reference not in algos:
+        ref_rec = _reference_record(algos, reference)
+        if ref_rec is None:
             continue
-
-        ref_rec = algos[reference]
-        num_vars = ref_rec["num_vars"]
 
         ref_marg = ref_rec["marginals"]
         if group_by == "instance":
             ref_key = os.path.basename(instance)
         else:
-            ref_key = (ref_rec["graph_type"], num_vars)
+            ref_key = (ref_rec["graph_type"], ref_rec["num_vars"])
         ref_stats[ref_key].append(
             ref_rec.get("total_time", ref_rec.get("time_seconds", 0.0)))
 
         for algo_name, rec in algos.items():
-            if algo_name == reference or algo_name in ("exact_l", "exact_g"):
+            if _is_reference_or_exact(algo_name, reference):
                 continue
 
             approx_marg = rec["marginals"]
@@ -156,7 +222,7 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
                     s["width_ratios"].append(approx_width / ref_width)
 
     if not stats:
-        print(f"No results found for reference algorithm '{reference}'.")
+        print(f"No results found for reference '{reference}'.")
         return
 
     # Print summary table
@@ -171,8 +237,8 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
                   f"{'ref_t':>8} {'avg_iw':>7}")
     else:
         header = (f"{'type':<12} {'n':>4} {'algo':<10} "
-                  f"{'mae_lb':>9} {'rmse_lb':>9} {'max_lb':>9} "
-                  f"{'mae_ub':>9} {'rmse_ub':>9} {'max_ub':>9} "
+                  f"{'mae_lb':>9} {'max_lb':>9} "
+                  f"{'mae_ub':>9} {'max_ub':>9} "
                   f"{'contain':>8} {'mean_wr':>9} "
                   f"{'build_t':>8} {'run_t':>8} {'total_t':>8} "
                   f"{'std_tt':>8} {'ref_t':>8} {'avg_iw':>7}")
@@ -185,10 +251,8 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
             continue
 
         mae_lb = _mean(s["abs_lb_errors"])
-        rmse_lb = _rmse(s["abs_lb_errors"])
         max_lb = max(s["abs_lb_errors"])
         mae_ub = _mean(s["abs_ub_errors"])
-        rmse_ub = _rmse(s["abs_ub_errors"])
         max_ub = max(s["abs_ub_errors"])
         contain = _mean(s["contained"])
         mean_wr = _mean(s["width_ratios"])
@@ -217,10 +281,8 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
                 "algorithm": algo,
                 "reference": reference,
                 "mae_lb_error": round(mae_lb, 8),
-                "rmse_lb_error": round(rmse_lb, 8),
                 "max_lb_error": round(max_lb, 8),
                 "mae_ub_error": round(mae_ub, 8),
-                "rmse_ub_error": round(rmse_ub, 8),
                 "max_ub_error": round(max_ub, 8),
                 "containment_rate": round(contain, 6),
                 "mean_width_ratio": round(mean_wr, 6),
@@ -236,8 +298,8 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
             ref_t = _mean(rt_list)
 
             print(f"{graph_type:<12} {num_vars:>4} {algo:<10} "
-                  f"{mae_lb:>9.6f} {rmse_lb:>9.6f} {max_lb:>9.6f} "
-                  f"{mae_ub:>9.6f} {rmse_ub:>9.6f} {max_ub:>9.6f} "
+                  f"{mae_lb:>9.6f} {max_lb:>9.6f} "
+                  f"{mae_ub:>9.6f} {max_ub:>9.6f} "
                   f"{contain:>8.4f} {mean_wr:>9.4f} "
                   f"{mean_bt:>8.3f} {mean_rt:>8.3f} {mean_tt:>8.3f} "
                   f"{std_tt:>8.3f} {ref_t:>8.3f} {iw_str}")
@@ -248,10 +310,8 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
                 "algorithm": algo,
                 "reference": reference,
                 "mae_lb_error": round(mae_lb, 8),
-                "rmse_lb_error": round(rmse_lb, 8),
                 "max_lb_error": round(max_lb, 8),
                 "mae_ub_error": round(mae_ub, 8),
-                "rmse_ub_error": round(rmse_ub, 8),
                 "max_ub_error": round(max_ub, 8),
                 "containment_rate": round(contain, 6),
                 "mean_width_ratio": round(mean_wr, 6),
@@ -294,9 +354,7 @@ def _save_latex(rows, path, reference, group_by="size", caption="Results"):
             ("instance", "Instance", "l"),
             ("algorithm", "Algorithm", "l"),
             ("mae_lb_error", "MAE$_{\\text{lb}}$", "r"),
-            ("rmse_lb_error", "RMSE$_{\\text{lb}}$", "r"),
             ("mae_ub_error", "MAE$_{\\text{ub}}$", "r"),
-            ("rmse_ub_error", "RMSE$_{\\text{ub}}$", "r"),
             ("build_time", "Build", "r"),
             ("run_time", "Run", "r"),
             ("total_time", "Total", "r"),
@@ -309,9 +367,7 @@ def _save_latex(rows, path, reference, group_by="size", caption="Results"):
             ("num_vars", "$n$", "r"),
             ("algorithm", "Algorithm", "l"),
             ("mae_lb_error", "MAE$_{\\text{lb}}$", "r"),
-            ("rmse_lb_error", "RMSE$_{\\text{lb}}$", "r"),
             ("mae_ub_error", "MAE$_{\\text{ub}}$", "r"),
-            ("rmse_ub_error", "RMSE$_{\\text{ub}}$", "r"),
             ("mean_build_time", "Build", "r"),
             ("mean_run_time", "Run", "r"),
             ("mean_total_time", "Total", "r"),
@@ -338,7 +394,7 @@ def _save_latex(rows, path, reference, group_by="size", caption="Results"):
                 if v is None:
                     vals.append("--")
                 elif isinstance(v, float):
-                    if k.startswith("mae") or k.startswith("rmse") or k.startswith("max"):
+                    if k.startswith("mae") or k.startswith("max"):
                         vals.append(f"{v:.4f}")
                     elif k == "containment_rate":
                         vals.append(f"{v:.3f}")
@@ -358,13 +414,17 @@ def _save_latex(rows, path, reference, group_by="size", caption="Results"):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Analyze inference results against a reference algorithm.")
+        description="Analyze inference results against a selectable "
+                    "reference algorithm.")
     parser.add_argument(
         "--results-dir", type=str, default="results",
         help="Directory with results_*.jsonl files (default: results)")
     parser.add_argument(
-        "--reference", type=str, default="ariel",
-        help="Reference algorithm (default: ariel)")
+        "--reference", type=str, default="ariel", choices=_REFERENCE_CHOICES,
+        metavar="ALGO",
+        help="Reference algorithm (default: ariel). Use 'exact' for the "
+             "ground-truth exact bounds (prefers exact_g then exact_l per "
+             "instance), or one of " + ", ".join(_ALGORITHMS))
     parser.add_argument(
         "--output", type=str, default=None,
         help="Output CSV file (optional)")

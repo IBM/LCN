@@ -17,6 +17,7 @@
 
 import itertools
 import logging
+import os
 import numpy as np
 from pyomo.environ import (
     ConcreteModel,
@@ -33,6 +34,140 @@ from typing import List, Dict
 
 # Local
 from lcn.core.model import LCN, Formula, SentenceType
+
+
+# Subprocess isolation for the SLSQP fallback --------------------------------
+#
+# On some platforms (observed: RHEL 9, glibc with hardened heap checks) the
+# scipy SLSQP path in the ExactInference *local* solver can trip a native
+# "double free or corruption" abort that raises SIGABRT. A Python try/except
+# cannot catch a SIGABRT -- the whole process dies -- so a single bad solve
+# would take down an entire run even though ExactInference-local is only a
+# best-effort, re-verified backend (see docs/properties.tex).
+#
+# The guard below runs each SLSQP-driving helper in a short-lived child
+# process. If the child aborts natively, the parent observes a non-zero /
+# signal exitcode and degrades gracefully (returns the helper's documented
+# "no result" value) instead of crashing. A clean child returns its result
+# over a pipe.
+#
+# We use the "fork" start method on POSIX so the child inherits the parent's
+# memory: the `checks` argument is a list of closures (capturing numpy arrays)
+# that is NOT picklable, and fork avoids having to serialize it. Only the
+# RETURN value must be picklable (numpy arrays / floats / bools -- all are).
+#
+# Controlled by the LCN_ISOLATE_SLSQP environment variable:
+#   unset / "auto" (default): isolate on Linux (where the crash occurs), and
+#                             only when a forking start method is available;
+#   "1"/"true"/"yes"        : force isolation on;
+#   "0"/"false"/"no"        : force isolation off (run in-process).
+import multiprocessing as _mp
+import sys as _sys
+
+
+def _isolation_enabled() -> bool:
+    """Whether to run SLSQP helpers in an isolated child process."""
+    flag = os.environ.get("LCN_ISOLATE_SLSQP", "auto").strip().lower()
+    if flag in ("1", "true", "yes", "on"):
+        return True
+    if flag in ("0", "false", "no", "off"):
+        return False
+    # auto: fork-based isolation is only meaningful/cheap on POSIX, and the
+    # crash it guards against is Linux-specific.
+    return _sys.platform.startswith("linux") and \
+        "fork" in _mp.get_all_start_methods()
+
+
+def _isolated_target(_fn, _q, *args, **kwargs):
+    """Child entry point: run _fn and ship its result back over the queue."""
+    try:
+        _q.put(("ok", _fn(*args, **kwargs)))
+    except BaseException as e:  # pragma: no cover - surfaced to parent below
+        _q.put(("err", f"{type(e).__name__}: {e}"))
+
+
+def run_isolated(fn, args=(), kwargs=None, on_crash=None, verbosity: int = 0,
+                 timeout: float = None):
+    """
+    Run ``fn(*args, **kwargs)`` in a forked child process, returning its result.
+
+    If isolation is disabled (see :func:`_isolation_enabled`) the function is
+    called directly in-process. If the child dies from a native abort (SIGABRT,
+    SIGSEGV, ...) -- which no Python ``try/except`` could catch -- the parent
+    detects the abnormal exit and returns ``on_crash`` (a caller-supplied
+    "no result" sentinel) instead of propagating the crash.
+
+    Args:
+        fn: callable to run (inherited via fork; need not be picklable).
+        args, kwargs: arguments for ``fn`` (inherited via fork; the RESULT must
+            be picklable, which every SLSQP helper's return value is).
+        on_crash: value returned if the child crashes, errors, or times out.
+        verbosity: if > 0, print a diagnostic when the child does not return
+            a clean result.
+        timeout: optional wall-clock seconds after which a still-running child
+            is terminated and ``on_crash`` returned (guards a hung SLSQP).
+
+    Returns:
+        ``fn``'s return value, or ``on_crash`` on native crash / error / timeout.
+    """
+    if kwargs is None:
+        kwargs = {}
+    if not _isolation_enabled():
+        return fn(*args, **kwargs)
+
+    ctx = _mp.get_context("fork")
+    q = ctx.Queue()
+    proc = ctx.Process(target=_isolated_target,
+                       args=(fn, q, *args), kwargs=kwargs)
+    proc.start()
+
+    # Poll for a result while watching liveness. We must NOT do a blocking
+    # q.get() (a natively-aborting child never writes, so it would deadlock)
+    # nor join() before draining (a large numpy result can fill the pipe and
+    # deadlock the child on flush). So: try a short non-blocking read each
+    # tick; stop once we have a payload, or the child has exited and the queue
+    # is drained, or the optional timeout elapses.
+    import queue as _queue
+    import time as _time
+    payload = None
+    deadline = None if timeout is None else _time.monotonic() + timeout
+    while True:
+        try:
+            payload = q.get(timeout=0.05)
+            break
+        except _queue.Empty:
+            pass
+        if not proc.is_alive():
+            # Child exited; make one last non-blocking drain in case the result
+            # landed between our get() and this check.
+            try:
+                payload = q.get_nowait()
+            except _queue.Empty:
+                payload = None
+            break
+        if deadline is not None and _time.monotonic() > deadline:
+            break
+
+    if proc.is_alive():
+        proc.terminate()
+    proc.join()
+
+    result = on_crash
+    if payload is not None and payload[0] == "ok":
+        result = payload[1]
+    elif verbosity > 0:
+        if payload is not None and payload[0] == "err":
+            print(f"[run_isolated] SLSQP child raised {payload[1]}; "
+                  f"degrading to fallback result.")
+        else:
+            ec = proc.exitcode
+            sig = -ec if (ec is not None and ec < 0) else None
+            reason = (f"signal {sig}" if sig
+                      else "timeout" if (deadline is not None) else
+                      f"exit code {ec}")
+            print(f"[run_isolated] SLSQP child terminated abnormally "
+                  f"({reason}); degrading to fallback result.")
+    return result
 
 
 # ipopt configuration shared across all LCN inference algorithms ------------
@@ -331,6 +466,22 @@ def find_feasible_points(N, checks, n_points=12, restarts=200, seed=0,
                          tol=1e-6, spread=True, spread_per_point=4,
                          spread_sigma=0.4):
     """
+    Isolated wrapper around :func:`_find_feasible_points_impl` -- see
+    :func:`run_isolated`. Runs the SLSQP feasibility search in a child process
+    so a native abort degrades to an empty result (no feasible points) instead
+    of crashing the run. Returns ``[]`` on child crash.
+    """
+    return run_isolated(
+        _find_feasible_points_impl,
+        args=(N, checks, n_points, restarts, seed, tol, spread,
+              spread_per_point, spread_sigma),
+        on_crash=[])
+
+
+def _find_feasible_points_impl(N, checks, n_points=12, restarts=200, seed=0,
+                               tol=1e-6, spread=True, spread_per_point=4,
+                               spread_sigma=0.4):
+    """
     Find feasible distributions over the 2^N world-probability simplex that
     satisfy a list of constraint residuals, via an SLSQP *feasibility* search
     (minimize the total squared constraint violation from many restarts).
@@ -421,6 +572,18 @@ def find_feasible_points(N, checks, n_points=12, restarts=200, seed=0,
 def find_biased_feasible_points(N, checks, obj_vec, sense, n_points=1,
                                 restarts=2, seed=0, tol=1e-6, bias=0.5):
     """
+    Isolated wrapper around :func:`_find_biased_feasible_points_impl` -- see
+    :func:`run_isolated`. Returns ``[]`` on child crash.
+    """
+    return run_isolated(
+        _find_biased_feasible_points_impl,
+        args=(N, checks, obj_vec, sense, n_points, restarts, seed, tol, bias),
+        on_crash=[])
+
+
+def _find_biased_feasible_points_impl(N, checks, obj_vec, sense, n_points=1,
+                                      restarts=2, seed=0, tol=1e-6, bias=0.5):
+    """
     Find feasible distributions *biased toward an objective extreme*, for use as
     warm-start seeds in ``optimize_marginal_slsqp``.
 
@@ -500,6 +663,20 @@ def find_biased_feasible_points(N, checks, obj_vec, sense, n_points=1,
 def optimize_marginal_slsqp(N, obj_vec, checks, sense, seeds, feas_tol=1e-6,
                             diversify=True):
     """
+    Isolated wrapper around :func:`_optimize_marginal_slsqp_impl` -- see
+    :func:`run_isolated`. Runs the SLSQP bound optimization in a child process
+    so a native abort degrades to ``(None, False)`` ("no feasible optimum
+    found") instead of crashing the run.
+    """
+    return run_isolated(
+        _optimize_marginal_slsqp_impl,
+        args=(N, obj_vec, checks, sense, seeds, feas_tol, diversify),
+        on_crash=(None, False))
+
+
+def _optimize_marginal_slsqp_impl(N, obj_vec, checks, sense, seeds,
+                                  feas_tol=1e-6, diversify=True):
+    """
     Optimize a linear objective ``obj_vec @ p`` over the 2^N simplex subject to
     ``checks``, starting SLSQP from each feasible seed in ``seeds`` and keeping
     the best feasible result. This is phase 2 of the robust bound computation:
@@ -549,9 +726,10 @@ def optimize_marginal_slsqp(N, obj_vec, checks, sense, seeds, feas_tol=1e-6,
 
     # Augment the (possibly central-basin-clustered) seeds with feasible points
     # biased toward the requested objective extreme, so the local SLSQP search
-    # can actually reach it. See find_biased_feasible_points.
+    # can actually reach it. Call the *impl* (not the isolated wrapper): we are
+    # already inside the isolated child here, so a nested fork must be avoided.
     if diversify:
-        seeds = list(seeds) + find_biased_feasible_points(
+        seeds = list(seeds) + _find_biased_feasible_points_impl(
             N, checks, obj_vec, sense)
 
     cons = [{"type": "eq", "fun": lambda p: float(p.sum()) - 1.0}]
@@ -580,6 +758,20 @@ def optimize_marginal_slsqp(N, obj_vec, checks, sense, seeds, feas_tol=1e-6,
 def optimize_marginal_ratio_slsqp(N, num_vec, den_vec, checks, sense, seeds,
                                   feas_tol=1e-6, den_floor=1e-9,
                                   diversify=True):
+    """
+    Isolated wrapper around :func:`_optimize_marginal_ratio_slsqp_impl` -- see
+    :func:`run_isolated`. Degrades to ``(None, False)`` on child crash.
+    """
+    return run_isolated(
+        _optimize_marginal_ratio_slsqp_impl,
+        args=(N, num_vec, den_vec, checks, sense, seeds, feas_tol, den_floor,
+              diversify),
+        on_crash=(None, False))
+
+
+def _optimize_marginal_ratio_slsqp_impl(N, num_vec, den_vec, checks, sense,
+                                        seeds, feas_tol=1e-6, den_floor=1e-9,
+                                        diversify=True):
     """
     Optimize a *fractional* objective ``(num_vec @ p) / (den_vec @ p)`` over the
     2^N simplex subject to ``checks``, starting SLSQP from each feasible seed and
@@ -629,8 +821,9 @@ def optimize_marginal_ratio_slsqp(N, num_vec, den_vec, checks, sense, seeds,
     # Augment seeds with feasible points biased toward the numerator extreme; the
     # numerator is the dominant lever on the ratio when the denominator is bounded
     # away from zero, so this helps the local search reach far/corner extremes.
+    # Call the *impl* (not the isolated wrapper): already inside the child here.
     if diversify:
-        seeds = list(seeds) + find_biased_feasible_points(
+        seeds = list(seeds) + _find_biased_feasible_points_impl(
             N, checks, num_vec, sense)
 
     cons = [{"type": "eq", "fun": lambda p: float(p.sum()) - 1.0}]
