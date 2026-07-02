@@ -203,6 +203,35 @@ class IntervalBP:
 
                 for target_var in scope:
                     old_lo, old_hi = msg_f2v[(fi, target_var)]
+
+                    # A conditional factor P(child | parents) constrains only the
+                    # child's distribution given the parents; it imposes NO
+                    # constraint on a parent's own marginal. The correct upward
+                    # (factor -> parent) message is therefore the vacuous [0, 1]
+                    # interval, and the parent's marginal is pinned by its own
+                    # family factor (and any downward messages). Normalizing a
+                    # likelihood into a distribution here (as the previous code did)
+                    # injects a spurious parent-marginal constraint -- e.g.
+                    # collapsing an unconstrained root parent to [0.5, 0.5] -- and
+                    # breaks exactness even on trees.
+                    #
+                    # NOTE: this means IBP does not perform Bayesian *upward*
+                    # updates from evidence on a child: the interval message algebra
+                    # combines messages by intersection, not by the product that a
+                    # child-to-parent likelihood update would require, so posterior
+                    # shifts of a parent given an observed child are not captured.
+                    # Conditional queries with evidence on descendants should use
+                    # CredalVE / CredalJT instead (see docs/ibp_exactness.tex).
+                    if target_var != node:
+                        new_lo = np.zeros(cards[target_var])
+                        new_hi = np.ones(cards[target_var])
+                        new_hi = np.maximum(new_lo, new_hi)
+                        msg_f2v[(fi, target_var)] = (new_lo, new_hi)
+                        max_delta = max(max_delta,
+                                        np.max(np.abs(new_lo - old_lo)),
+                                        np.max(np.abs(new_hi - old_hi)))
+                        continue
+
                     other_vars = [v for v in scope if v != target_var]
 
                     new_lo = np.ones(cards[target_var])
@@ -216,10 +245,32 @@ class IntervalBP:
                             *[range(cards[pn]) for pn in parents]
                         ))
 
-                    other_bounds = {}
+                    # Corner distributions for each other variable. The incoming
+                    # interval message [lo, hi] is a box of per-state bounds; the
+                    # extremum of the child marginal over that box is attained at a
+                    # VERTEX of the box's probability-simplex intersection, i.e. at
+                    # a valid distribution, NOT at the component-wise lo/hi arrays
+                    # (which do not sum to 1). For a binary variable those vertices
+                    # are exactly [1 - p, p] for p in {lo[1], hi[1]}. Enumerating
+                    # the component-wise lo/hi arrays instead (and renormalizing)
+                    # under-covers the reachable set and makes the child marginal
+                    # spuriously inner -- e.g. P(x1) collapses from [0.40, 0.68] to
+                    # [0.43, 0.65] on a two-atom chain. For cardinality > 2 we fall
+                    # back to the lo/hi box corners (renormalized), which remains a
+                    # sound outer enumeration for those (rare) compound cases.
+                    corner_dists = {}
                     for ov in other_vars:
                         ov_lo, ov_hi = msg_v2f[(ov, fi)]
-                        other_bounds[ov] = (ov_lo, ov_hi)
+                        if cards[ov] == 2:
+                            dists = [np.array([1.0 - ov_lo[1], ov_lo[1]]),
+                                     np.array([1.0 - ov_hi[1], ov_hi[1]])]
+                        else:
+                            dists = []
+                            for arr in (ov_lo, ov_hi):
+                                s = float(np.sum(arr))
+                                dists.append(arr / s if s > 0
+                                             else np.ones(cards[ov]) / cards[ov])
+                        corner_dists[ov] = dists
 
                     vertex_lists = [vertices.get(pc, [np.ones(cards[node]) / cards[node]])
                                     for pc in all_pcs]
@@ -228,21 +279,21 @@ class IntervalBP:
                         *[range(c) for c in vertex_counts]
                     ))
 
+                    corner_vars = list(other_vars)
+                    corner_choice_ranges = [range(len(corner_dists[ov]))
+                                            for ov in corner_vars]
+
                     for vc in vertex_combos:
-                        corner_vars = list(other_vars)
-                        n_corners = len(corner_vars)
-                        for corner_bits in itertools.product([0, 1],
-                                                             repeat=n_corners):
+                        for corner_choice in itertools.product(*corner_choice_ranges):
                             target_marginal = np.zeros(cards[target_var])
 
                             other_probs = {}
                             for ci, ov in enumerate(corner_vars):
-                                ov_lo, ov_hi = other_bounds[ov]
-                                if corner_bits[ci] == 0:
-                                    other_probs[ov] = ov_lo
-                                else:
-                                    other_probs[ov] = ov_hi
+                                other_probs[ov] = corner_dists[ov][corner_choice[ci]]
 
+                            # target_var == node (the child): the parent-target
+                            # case is handled by the vacuous [0, 1] shortcut above,
+                            # so only the child accumulation runs here.
                             for pc_idx, pc in enumerate(all_pcs):
                                 v_idx = vc[pc_idx]
                                 vertex = vertex_lists[pc_idx][v_idx]
@@ -252,20 +303,7 @@ class IntervalBP:
                                     if pn in other_probs:
                                         weight *= other_probs[pn][pc[pi]]
 
-                                if target_var == node:
-                                    target_marginal += vertex * weight
-                                else:
-                                    target_pi = parents.index(target_var)
-                                    target_val = pc[target_pi]
-                                    other_parent_w = 1.0
-                                    for pi, pn in enumerate(parents):
-                                        if pn != target_var and pn in other_probs:
-                                            other_parent_w *= other_probs[pn][pc[pi]]
-                                    if node in other_probs:
-                                        child_contrib = np.dot(vertex, other_probs[node])
-                                    else:
-                                        child_contrib = np.sum(vertex)
-                                    target_marginal[target_val] += child_contrib * other_parent_w
+                                target_marginal += vertex * weight
 
                             total = np.sum(target_marginal)
                             if total > 0:

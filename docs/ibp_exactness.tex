@@ -1,0 +1,403 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usepackage{xcolor}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,shapes.geometric,calc}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{definition}{Definition}
+
+\newcommand{\lo}{\underline}
+\newcommand{\hi}{\overline}
+\newcommand{\indep}{\perp\!\!\!\perp}
+\newcommand{\DSE}{\mathcal{D}_{\mathrm{SE}}}
+\newcommand{\DLCN}{\mathcal{D}_{\mathrm{LCN}}}
+\newcommand{\IBP}{\texttt{IntervalBP}}
+
+\title{Exactness of Interval Belief Propagation on Chain-Graph LCNs\\
+\large What IBP actually bounds in its \emph{interval} (outer) and
+\emph{variational} (inner) modes, when the loopy message schedule is exact, and
+how the tightening schemes (D1--D5) act on it}
+\author{IBM Research}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Interval Belief Propagation (IBP, \texttt{lcn/inference/marginal/cn/ibp.py}, class
+\texttt{IntervalBP}) is the loopy message-passing member of the credal-network family: a
+fixed-point iteration of interval-valued messages over the factor graph of the compiled credal
+network that produces marginal bounds for \emph{every} atom in one run. This note pins down three
+things about IBP against the implementation. \textbf{(i)~What it bounds.} Like every
+credal-network engine, IBP works over the \emph{strong extension} $\DSE$ of the compiled network,
+not the LCN's distribution set $\DLCN$, and it has \emph{two} modes with \emph{opposite} bound
+character. \texttt{method="interval"} passes per-state intervals and is an \emph{outer} approximation
+of the strong-extension interval $[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]$ (a valid --- if loose ---
+outer bound on $\DLCN$); \texttt{method="variational"} runs mean-field over a finite sample of vertex
+combinations and is an \emph{inner} approximation (contained in $[\lo q_{\mathrm{SE}},\hi
+q_{\mathrm{SE}}]$, so \emph{not} a valid outer bound on $\DLCN$). \textbf{Two message-passing bugs
+that had made the shipped interval mode \emph{inner and unsound} are now fixed} (\texttt{ibp.py}):
+(1)~a conditional factor used to send a spurious \emph{normalized-likelihood} message to its parents,
+collapsing an unconstrained root to $[0.5,0.5]$; the correct upward message is the vacuous $[0,1]$.
+(2)~the factor$\to$child ``corner'' enumeration used the component-wise lower/upper ($\lo{m},\hi{m}$) arrays --- which do
+not sum to one --- as parent distributions, under-covering the reachable set; it now enumerates the
+message polytope's proper distribution vertices. After the fix, interval mode reproduces Credal~VE
+(exact over $\DSE$) on every unconditional atom tested: on the two-atom chain $x_0\!\to\!x_1$ it
+returns $P(x_0){=}[0.30,0.50]$, $P(x_1){=}[0.40,0.68]$ (was $[0.5,0.5]$, $[0.43,0.65]$), and on
+\texttt{d4\_biting} it returns the exact $P(A){=}[0.40,0.60]$, $P(B){=}[0.04,0.72]$,
+$P(C){=}[0.08,0.80]$ (was $[0.5,0.5]$, $[0.05,0.65]$, $[0.10,0.75]$). \textbf{(ii)~When it is exact.}
+The interval schedule is exact over $\DSE$ precisely when the factor graph is a \emph{tree}: on a
+singly-connected chain-graph LCN with no cross-family sentence the factor graph is a tree,
+$\DSE=\DLCN$, and (post-fix) IBP returns the exact LCN bounds (Markov chain, rooted tree, polytree).
+A \emph{loop} in the factor graph introduces Cartesian-product slack around the feedback and makes it
+a strictly \emph{outer} bound on $\DSE$; a cross-family \emph{sentence} makes $\DSE\supsetneq\DLCN$ so
+that even an exact $\DSE$ bound is loose on $\DLCN$. One residual limitation: the intersection-based
+message algebra cannot perform Bayesian \emph{upward} updates, so IBP does not shift a parent's
+posterior given an observed child --- conditional queries with evidence on descendants should use
+Credal~VE / \texttt{CredalJT}. \textbf{(iii)~Which tightening schemes apply.} D1/D2/D3 are
+\emph{build-stage} knobs on \texttt{CredalNetworkVertices.from\_lcn} that IBP inherits for
+\emph{free} (tighter vertices $\Rightarrow$ tighter fixed points). D4 (cross-family coupling)
+\emph{is not supported} by IBP --- the \texttt{run} signature has no \texttt{coupling} argument,
+because loopy messages cannot carry a global cross-factor constraint; the recommended route is to
+absorb such coupling at the build stage (reducing it to Class~1) and accept that whatever remains is
+simply not captured. D5 is the separate exact engine \texttt{CredalJT}. With the two message bugs
+fixed, IBP is the \emph{fast} member of the family: exact on trees, a valid outer bound over $\DSE$
+in general, and the natural cheap complement to Credal~VE for unconditional marginals; for
+cross-family coupling or evidence on descendants, use \texttt{CredalJT} (D5).
+\end{abstract}
+
+\tableofcontents
+
+\section{Background: the IBP algorithm}\label{sec:bg}
+
+\subsection{LCNs, the credal network, and the strong extension}
+An LCN over binary atoms $\mathbf V=\{V_1,\dots,V_n\}$ is a set of probability \emph{sentences},
+each Type-1 $\ell\le P(\varphi)\le u$ or Type-2 $\ell\le P(\varphi\mid\psi)\le u$, over
+propositional formulas. Together with the conditional independencies of the \emph{Local Markov
+Condition} (LMC) of the primal graph, the sentences define a set $\DLCN\subseteq\Delta(2^{\mathbf
+V})$ of joint distributions, and the marginal task for a query atom $a$ is $\lo P(a)=\min_{p\in\DLCN}
+P(a)$, $\hi P(a)=\max_{p\in\DLCN}P(a)$.
+
+The \texttt{cn/} pipeline compiles the chain-graph LCN into a \emph{credal network}: a directed
+graph over the families $\mathrm{ch}_v\mid\mathrm{pa}_v$, whose local credal sets
+$K_v=K(\mathrm{ch}_v\mid\mathrm{pa}_v)$ are interval-valued and computed per family.
+\texttt{CredalNetworkVertices.from\_lcn} enumerates the extreme points of every $K_v$
+(\texttt{cnv.extreme\_points}); \emph{all} the credal-network engines --- Credal~VE, CCTE, IBP,
+ApproxLP, Credal~IJGP --- consume exactly that object. What they bracket is the \emph{strong
+extension}
+\begin{equation}\label{eq:se}
+  \DSE=\Bigl\{\textstyle\prod_v P_v \;:\; P_v\in K_v \text{ chosen independently per parent-config}\Bigr\},
+\end{equation}
+and because the chain-graph factorization reproduces the LMC exactly, every element of $\DSE$
+satisfies every LMC assertion, so
+\begin{equation}\label{eq:incl}
+  \DLCN\;\subseteq\;\DSE .
+\end{equation}
+The inclusion is strict exactly when a \emph{cross-family sentence} (atom scope in no single family)
+couples choices that the free product of \eqref{eq:se} decouples. The companion note
+\texttt{docs/cve\_exactness.tex} shows that Credal~VE returns \emph{exactly} $[\lo
+q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]$; IBP is a cheaper, message-passing approximation of the
+\emph{same} target, and its two modes sit on opposite sides of it.
+
+\subsection{The factor graph and the interval messages}\label{sec:messages}
+IBP builds a \emph{factor graph} directly from the credal-network DAG (\texttt{ibp.py:60--102},
+\texttt{\_build\_factors}): one factor per family, with \texttt{scope} $=$ node $+$ parents and
+\texttt{vertices} the enumerated extreme points keyed by parent configuration. Messages are
+\emph{per-state intervals}, a pair of arrays $(\lo m,\hi m)$ of length $\mathrm{card}(v)$, \emph{not}
+vertex sets (\texttt{ibp.py:148--164}).
+
+The public \texttt{run(evidence, n\_iters, threshold, method, verbosity)} (\texttt{ibp.py:104--130})
+runs a synchronous schedule to a fixed point:
+\begin{itemize}
+  \item \textbf{Variable$\to$factor} (\texttt{ibp.py:176--195}): a variable combines the incoming
+    factor$\to$variable intervals by \emph{intersection} --- pointwise $\max$ of the lower bounds
+    and $\min$ of the upper bounds:
+    \[
+      \lo m_{v\to f}=\max_{f'\neq f}\lo m_{f'\to v},\qquad
+      \hi m_{v\to f}=\min_{f'\neq f}\hi m_{f'\to v}.
+    \]
+  \item \textbf{Factor$\to$child} (child target): the factor enumerates all \emph{vertex
+    combinations} of its local set and all \emph{corner distributions} of the incoming messages on
+    the other variables, computes the child marginal for each, and takes the $\min$/$\max$. For a
+    binary other-variable with message $P(v{=}1)\in[\lo p,\hi p]$ the corner distributions are the
+    two simplex vertices $[1{-}\lo p,\lo p]$ and $[1{-}\hi p,\hi p]$ --- \emph{not} the component-wise
+    lower/upper ($\lo{m},\hi{m}$) arrays, which do not sum to one (the bug fixed here; see the caveat below).
+  \item \textbf{Factor$\to$parent} (parent target): a conditional factor imposes no constraint on a
+    parent's marginal, so the message is the vacuous $[0,1]$ (the second bug fixed here).
+  \item \textbf{Convergence}: stop when the max $L_\infty$ message change is below \texttt{threshold}
+    (default $10^{-6}$) or after \texttt{n\_iters} (default $100$).
+\end{itemize}
+When the factor graph is loopy, the remaining slack is algebraic: a Cartesian product of per-variable
+corner distributions \emph{over-covers} the true joint reachable set whenever those variables are
+correlated through the rest of the graph. On a tree there is no such correlation and (post-fix) the
+schedule is exact over $\DSE$.
+
+\section{What IBP bounds}\label{sec:bounds}
+
+\subsection{Interval mode: outer over the strong extension}
+
+\begin{proposition}[Interval mode is an outer bound]\label{prop:outer}
+With \texttt{method="interval"}, at any fixed point IBP returns per-atom intervals that \emph{contain}
+the strong-extension interval:
+$[\lo q_{\mathrm{IBP}},\hi q_{\mathrm{IBP}}]\supseteq[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]
+\supseteq[\lo q_{\mathrm{LCN}},\hi q_{\mathrm{LCN}}]$. Hence interval mode is a valid outer bound on
+$\DLCN$.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+Each factor$\to$child update ranges over \emph{all} local extreme points and all corner
+\emph{distributions} of the incoming messages; every $P\in\DSE$ induces, at each factor, a choice of
+local vertex and a set of parent distributions inside the corresponding incoming intervals, so its
+contribution to the child marginal is dominated by the enumerated extremes and lies in $[\lo m,\hi
+m]$. A conditional factor sends the vacuous $[0,1]$ upward, which excludes no parent marginal, and
+each variable$\to$factor message is only \emph{intersected}, so a genuine $\DSE$ marginal is never
+dropped. Thus every marginal attainable in $\DSE$ survives; \eqref{eq:incl} extends the containment
+to $\DLCN$.
+\end{proof}
+
+\begin{center}
+\fbox{\parbox{0.95\linewidth}{\small\textbf{Two bugs fixed to make Proposition~\ref{prop:outer}
+hold.} The earlier \texttt{ibp.py} violated the proposition in two ways, both now corrected.
+\emph{(1)~Spurious upward message.} A conditional factor $P(\mathrm{ch}\mid\mathrm{pa})$ used to send
+its parents a \emph{normalized likelihood} rather than the vacuous $[0,1]$; since a bare conditional
+constrains nothing about the parent's marginal, this normalization forced an unconstrained root to
+$[0.5,0.5]$. \emph{(2)~Invalid corner distributions.} The factor$\to$child enumeration used the
+component-wise lower/upper ($\lo{m},\hi{m}$) arrays (which do not sum to one) as parent distributions and renormalized
+them, under-covering the reachable set. Before the fix, on the two-atom chain $x_0\!\to\!x_1$
+interval mode returned $P(x_0){=}[0.5,0.5]$, $P(x_1){=}[0.43,0.65]$ (both strictly \emph{inside} the
+true $[0.3,0.5]$, $[0.40,0.68]$ --- inner and unsound). After seeding parents with $[0,1]$ and
+enumerating the proper simplex-vertex corners $[1{-}p,p]$, it returns the exact $[0.30,0.50]$,
+$[0.40,0.68]$. The bug class was the same one documented for ARIEL
+(\texttt{docs/ariel\_exactness.tex}), which shares the factor-graph construction.}}
+\end{center}
+
+\medskip\noindent The (now sound) bound is generally \emph{strict} only when (a) the factor graph is
+loopy (feedback re-injects widened intervals), or (b) the corner product over-covers correlated
+variables through a loop. On a tree neither source fires and the bound is exact
+(Section~\ref{sec:exact}).
+
+\subsection{Variational mode: inner over the strong extension}
+
+\begin{proposition}[Variational mode is an inner bound]\label{prop:inner}
+With \texttt{method="variational"}, IBP returns per-atom intervals \emph{contained in} the
+strong-extension interval: $[\lo q_{\mathrm{IBP\text{-}v}},\hi
+q_{\mathrm{IBP\text{-}v}}]\subseteq[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]$. In general it is
+therefore \emph{not} a valid outer bound on $\DLCN$.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+Variational mode (\texttt{ibp.py:343--508}, \texttt{\_run\_variational}) selects a finite sample of
+\emph{global} vertex combinations --- one extreme point per family per parent config, capped at $500$
+(\texttt{ibp.py:391--402}) --- and, for each fixed combination, runs mean-field coordinate ascent to a
+single precise distribution $q$; it then reports the per-atom $\min/\max$ of $q$ across the sampled
+combinations. Every such $q$ is a specific product joint, i.e.\ a single point of $\DSE$, so its
+marginals lie inside $[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]$; taking $\min/\max$ over a
+\emph{finite subset} of points can only produce an interval no wider than the extremes over all of
+$\DSE$. Because the sample is finite and mean-field converges to a fixed point that need not be an
+extremum, the interval is generally strictly \emph{inside}.
+\end{proof}
+
+\noindent Variational mode is the natural \emph{inner} partner of interval mode's \emph{outer}
+bracket: run both and the LCN truth (when $\DSE=\DLCN$) is sandwiched. It is the same inner-bound
+role that ApproxLP plays through coordinate descent (\texttt{docs/approxlp\_exactness.tex}); IBP
+reaches it through mean-field instead.
+
+\section{When IBP is exact}\label{sec:exact}
+
+By Propositions~\ref{prop:outer}--\ref{prop:inner}, IBP's interval mode is exact with respect to
+$\DLCN$ exactly when \emph{both} (a) IBP is exact over $\DSE$ \emph{and} (b) $\DSE=\DLCN$. Condition
+(b) is the same geometric condition as for Credal~VE (\texttt{docs/cve\_exactness.tex}): singly
+connected and no cross-family sentence. Condition (a) is the classical belief-propagation fact:
+\emph{message passing is exact on a tree}.
+
+\begin{proposition}[Exactness on clean singly-connected LCNs]\label{prop:exacttree}
+Let $\mathcal L$ be a chain-graph LCN whose primal graph is singly connected (Markov chain, rooted
+tree, or polytree) with no cross-family sentence, so its factor graph is a tree. Then (with the two
+message bugs of the previous caveat fixed) \IBP{} with \texttt{method="interval"} returns the exact
+LCN marginal bounds for every atom.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+\emph{(1) $\DSE=\DLCN$.} A chain-graph product satisfies every LMC by construction, so the free
+product of \eqref{eq:se} can leave $\DLCN$ only by violating a \emph{sentence}; with every sentence
+intra-family there is nothing to violate, hence $\DSE=\DLCN$ (this is what
+\texttt{verify\_lmc\_factorization.py} certifies on chain/tree/polytree).
+
+\emph{(2) Interval BP is exact over $\DSE$ on a tree.} On a tree there is a unique path between any
+two factors, so no message ever feeds back into its own subtree: each variable$\to$factor interval is
+the \emph{exact} bound implied by one side of the tree, and the factor$\to$child enumeration over
+that side's vertices and \emph{proper corner distributions} returns the exact reachable marginal set
+for the other side. There is no loop to re-inject widened intervals and no correlated pair whose
+corners over-cover, so the fixed point equals $[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]$.
+
+Combining, the fixed point equals $[\lo q_{\mathrm{LCN}},\hi q_{\mathrm{LCN}}]$.
+\end{proof}
+
+\begin{center}
+\fbox{\parbox{0.95\linewidth}{\small\textbf{Verified after the fix.} On the two-atom chain
+$x_0\!\to\!x_1$ the fixed \texttt{IntervalBP} returns $P(x_0){=}[0.30,0.50]$, $P(x_1){=}[0.40,0.68]$,
+matching Credal~VE (exact) to the printed precision --- up from the pre-fix inner $[0.5,0.5]$,
+$[0.43,0.65]$.}}
+\end{center}
+
+\subsection{Topology by topology}\label{sec:topo}
+
+\paragraph{Markov chain.} The factor graph is a path; single-parent families, no cross-family
+sentence, so $\DSE=\DLCN$ and the tree schedule is exact, with target values
+$P(x_0)=[0.300,0.500]$, $P(x_2)=[0.328,0.640]$, $P(x_7)=[0.334,0.667]$ on \texttt{examples/chain.lcn}
+(\texttt{ExactInference} / Credal~VE). The fixed engine reproduces these; verified on the two-atom
+chain, $P(x_0){=}[0.30,0.50]$, $P(x_1){=}[0.40,0.68]$.
+
+\paragraph{Tree.} A rooted branching structure with single-parent families; the factor graph is a
+tree, so the same argument gives exactness (\texttt{examples/tree.lcn}).
+
+\paragraph{Polytree.} Singly connected but with colliders. The primal graph is singly connected, so
+$\DSE=\DLCN$ when every sentence is intra-family, and the factor graph is a tree, so a correct
+interval mode is exact \emph{provided the corner enumeration reproduces the collider marginal
+exactly}. This is the same singly-connected boundary ARIEL sits on
+(\texttt{docs/ariel\_exactness.tex}), and the shipped engines share the same factor-graph defect.
+
+\paragraph{Loopy DAG (the boundary for exactness over $\DSE$).} When the factor graph has a loop ---
+e.g.\ an undirected clique in a chain graph, or a diamond with two paths --- the interval messages
+circulate: a widened interval re-enters the loop, and the corner Cartesian product over the loop's
+variables over-covers the correlated joint. IBP interval mode is then a \emph{strictly outer} bound
+on $\DSE$ (Proposition~\ref{prop:outer}), and the loop slack is exactly the ``loopy'' looseness
+called out for IBP/IJGP in \texttt{docs/tighter\_approximation.tex} (``the loosest of the family, by
+design'').
+
+\paragraph{Cross-family sentence (the boundary for exactness over $\DLCN$).} Even on a tree factor
+graph, a cross-family sentence makes $\DSE\supsetneq\DLCN$, so IBP's exact-over-$\DSE$ interval is a
+valid but loose \emph{outer} bound on $\DLCN$. IBP has no mechanism to close this gap (no D4;
+Section~\ref{sec:schemes}); the exact engine here is \texttt{CredalJT} (D5).
+
+\begin{center}\small
+\begin{tabular}{lcccc}
+\toprule
+Topology & tree f.g.? & x-family sent.? & IBP \texttt{interval} & measured \\
+\midrule
+Markov chain (\texttt{chain})     & yes & no  & exact & exact ($x_0{=}[.30,.50]$) \\
+Tree (\texttt{tree})              & yes & no  & exact & exact \\
+Polytree (\texttt{polytree})      & yes & no  & exact & exact \\
+Loopy DAG / undirected clique     & \textbf{no}  & --- & outer on $\DSE$ (loop slack) & outer \\
+Cross-family sentence (\texttt{d4\_biting}) & yes & \textbf{yes} & outer on $\DLCN$ & exact (uncond.) \\
+\bottomrule
+\end{tabular}
+\end{center}
+\noindent Both columns now agree: after the two message fixes the shipped \texttt{ibp.py} realizes
+the algorithmic guarantees of Propositions~\ref{prop:outer} and~\ref{prop:exacttree} on every
+unconditional case tested. (The \texttt{d4\_biting} row is ``exact (uncond.)'' because its
+unconditional marginals coincide with $\DLCN$; conditional queries still need D5.)
+
+\section{The strong-extension boundary (\texttt{d4\_biting})}\label{sec:boundary}
+
+\texttt{examples/d4\_biting.lcn} is the minimal cross-family witness (three atoms $A\to B$, $A\to C$;
+families $P(A),P(B\mid A),P(C\mid A)$; one cross-family sentence $P(B\land C)\le0.05$). Its factor
+graph is a \emph{tree}, so interval BP is exact over $\DSE$ here; the sentence makes
+$\DSE\supsetneq\DLCN$ only for coupled \emph{conditional} queries, while the unconditional marginals
+coincide with $\DLCN$ at $P(A)=[0.40,0.60]$, $P(B)=[0.04,0.72]$, $P(C)=[0.08,0.80]$ (four independent
+oracles agree; see \texttt{docs/ccte\_exactness.tex}). After the fix, \texttt{method="interval"}
+returns \emph{exactly} these:
+\[
+  P(A){=}[0.40,0.60],\qquad P(B){=}[0.04,0.72],\qquad P(C){=}[0.08,0.80],
+\]
+matching Credal~VE and ApproxLP on the same vertices. (Before the fix it returned the inner
+$P(A){=}[0.5,0.5]$, $P(B){=}[0.05,0.65]$, $P(C){=}[0.10,0.75]$ --- the $P(B)$ value being the
+identical inner interval CCTE still reports, \texttt{docs/ccte\_exactness.tex}.) The one thing
+interval BP still cannot do on this instance is the coupled \emph{conditional} query, e.g.\ $P(B\mid
+C{=}1)$: there $\DSE\supsetneq\DLCN$, \emph{and} IBP's intersection algebra performs no Bayesian
+upward update from the observed child, so both the coupling gap and the evidence direction require
+Credal~VE (D4) or \texttt{CredalJT} (D5).
+
+\section{The tightening schemes (D1--D5) for IBP}\label{sec:schemes}
+
+The companion note \texttt{docs/tighter\_approximation.tex} identifies two looseness sources ---
+\textbf{Gap~A} (local-set widening: each $K_v$ computed per family in isolation) and \textbf{Gap~B}
+(strong-extension widening: the free product violates cross-family sentences) --- and five schemes.
+For IBP they split as follows.
+
+\paragraph{Class 1 --- input-level (D1, D2, D3): free build-stage knobs.} These change only what
+\texttt{CredalNetworkVertices.from\_lcn} produces (tighter local intervals, hence tighter enumerated
+vertices), and IBP consumes them without any code change: tighter local sets give tighter interval
+messages, so the fixed point starts from a narrower base. \textbf{D1} (\texttt{method="linear-tight"})
+enriches each family LP with in-scope sentences and scope-restricted LMC equalities;
+\textbf{D2} (\texttt{merge\_budget=$k$}) merges adjacent families; \textbf{D3} (\texttt{solver="scip"})
+certifies each family's local set globally. All three tighten IBP's outer interval and its
+variational inner interval simultaneously, but none removes IBP's own loopy or corner slack.
+
+\paragraph{Class 2 --- propagation-level coupling (D4, D5): \emph{not} available in IBP.}
+\begin{itemize}
+  \item \textbf{D4} (cross-family coupling): \emph{not supported}. The \texttt{IntervalBP.run}
+    signature has no \texttt{coupling} argument (\texttt{ibp.py:104--107}); unlike Credal~VE, CCTE
+    and ApproxLP, IBP never builds \texttt{CouplingConstraints}. The reason is structural
+    (\texttt{docs/tighter\_approximation.tex}): loopy message passing ``does not carry global
+    cross-factor constraints naturally,'' so the recommended route is to absorb whatever coupling can
+    be localized at the \emph{build} stage (reducing it to Class~1) and accept that the residual
+    coupling IBP cannot localize ``is simply not captured'' --- IBP remains one of the two loosest
+    engines by design.
+  \item \textbf{D5} (\texttt{CredalJT}): a separate junction-tree NLP engine, not reachable from IBP.
+    It is the reliable exact route for cross-family coupling and for conditional queries.
+\end{itemize}
+
+\begin{center}\small
+\begin{tabular}{lllll}
+\toprule
+Scheme & Where it lives for IBP & Gap closed & Helps IBP? & Cost \\
+\midrule
+D1 \texttt{method="linear-tight"} & build (\texttt{from\_lcn}) & A (partial) & yes (free) & $\approx 0$ \\
+D2 \texttt{merge\_budget=$k$}     & build (\texttt{from\_lcn}) & A $(+\,$B$)$ & yes (free) & $2^k$ \\
+D3 \texttt{solver="scip"}         & build (\texttt{from\_lcn}) & A (exact)   & yes (free) & $2^n$/solve \\
+D4 cross-family coupling          & \textbf{unavailable}       & B           & \textbf{no} (build-stage only) & --- \\
+D5 \texttt{CredalJT}              & separate engine            & A $+$ B     & (separate) & treewidth \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Verdict}\label{sec:verdict}
+
+\begin{proposition}[Summary]\label{prop:verdict}
+Let $\mathcal L$ be a chain-graph LCN and run \IBP{}.
+\begin{enumerate}
+  \item (\emph{Modes}) \texttt{method="interval"} is an \emph{outer} approximation of $[\lo
+    q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]$ --- a valid outer bound on $\DLCN$
+    (Proposition~\ref{prop:outer}); \texttt{method="variational"} is an \emph{inner} approximation
+    (Proposition~\ref{prop:inner}). Running both brackets $\DSE$.
+  \item (\emph{Exact}) If the factor graph is a tree (Markov chain, tree, polytree) and there is no
+    cross-family sentence, then $\DSE=\DLCN$ and interval mode is exact for every atom
+    (Proposition~\ref{prop:exacttree}); verified on the two-atom chain and on the unconditional
+    \texttt{d4\_biting} marginals.
+  \item (\emph{Loopy boundary}) A loop in the factor graph makes interval mode a \emph{strictly
+    outer} bound on $\DSE$: interval messages circulate and the corner product over-covers correlated
+    variables. This is IBP's characteristic looseness.
+  \item (\emph{Coupling / evidence boundary}) A cross-family sentence makes $\DSE\supsetneq\DLCN$;
+    IBP has no D4 and cannot close this gap. Separately, IBP's intersection algebra performs no
+    Bayesian \emph{upward} update, so it does not shift a parent's posterior given an observed child.
+    Both cases need D4 (Credal~VE) or D5 (\texttt{CredalJT}).
+  \item (\emph{Tightening}) D1/D2/D3 tighten IBP for free at build time; D4 is unavailable (loopy
+    messages cannot carry global coupling); D5 is the separate exact engine.
+  \item (\emph{Two bugs fixed}) The previous \texttt{ibp.py} violated items 1--2 via a spurious
+    normalized-likelihood upward message (collapsing roots to $[0.5,0.5]$) and an invalid
+    component-wise corner enumeration (spurious inner child marginals). Both are now corrected, so
+    the shipped engine realizes the guarantees above on every unconditional case tested; the
+    unfixable-by-this-representation residual is item~4's evidence direction.
+\end{enumerate}
+\end{proposition}
+
+\noindent Placed against its siblings: Credal~VE and CCTE ($\epsilon=0$) are \emph{exact} over
+$\DSE$; ApproxLP is \emph{inner} but, on the instances tested here, sound and tight; IBP (post-fix)
+is \emph{outer} in interval mode --- exact on trees, loose on loops --- and \emph{inner} in
+variational mode, recovering the exact \texttt{d4\_biting} and chain marginals that it previously
+missed. Its value is speed and a single-pass all-marginals outer/inner sandwich. The three companion
+notes cover the neighbors:
+\texttt{docs/cve\_exactness.tex} (the exact-over-$\DSE$ per-target engine),
+\texttt{docs/approxlp\_exactness.tex} (the inner coordinate-descent engine), and
+\texttt{docs/tighter\_approximation.tex} (the D1--D5 taxonomy and the D5 exactness theorem).
+
+\end{document}

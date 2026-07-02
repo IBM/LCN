@@ -1,0 +1,538 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usepackage{xcolor}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,shapes.geometric,calc}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{definition}{Definition}
+
+\newcommand{\lo}{\underline}
+\newcommand{\hi}{\overline}
+\newcommand{\indep}{\perp\!\!\!\perp}
+\newcommand{\DSE}{\mathcal{D}_{\mathrm{SE}}}
+\newcommand{\DLCN}{\mathcal{D}_{\mathrm{LCN}}}
+
+\title{Exactness Properties of LCN Marginal-Inference Algorithms\\
+\large A consolidated reference: what each engine bounds, when it is exact,
+outer, inner, or unreliable --- with formal results and proofs}
+\author{IBM Research}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+The LCN library ships nine marginal-inference engines --- the exact oracle \texttt{ExactInference},
+the junction-tree NLP \texttt{CredalJT} (scheme D5), the credal-network family Credal~VE, Credal~CTE,
+ApproxLP, Interval~BP, Credal~IJGP, and the structural engines ARIEL and SCC-factor-graph
+propagation. Their exactness behavior has been analyzed one engine at a time in six companion notes
+(\texttt{ariel\_exactness}, \texttt{cve\_exactness}, \texttt{ccte\_exactness},
+\texttt{ibp\_exactness}, \texttt{approxlp\_exactness}, \texttt{tighter\_approximation}). This document
+consolidates that analysis into a single reference. We fix one framework --- the LCN distribution set
+$\DLCN$, its strong extension $\DSE\supseteq\DLCN$, and the two looseness sources (Gap~A, Gap~B) ---
+and then place every engine in it: which feasible set it optimizes, whether its returned interval is
+\emph{exact}, a valid \emph{outer} bound, an \emph{inner} bound (hence \emph{not} a valid outer
+bound), or \emph{unreliable} (a solver artifact); the precise topological condition under which it is
+exact; and its cost. We state the formal results with proof sketches, collected in one place: the
+fundamental inclusion $\DLCN\subseteq\DSE$; CVE's exactness over $\DSE$; the exactness of
+CVE/IBP/ARIEL on clean singly-connected LCNs; ApproxLP's inner-bound guarantee; IBP's mode dichotomy;
+IJGP's exactness at $i$-bound $\ge$ treewidth; ARIEL's structural LMC preservation; and the D5/
+CredalJT exactness theorem (hypotheses H1--H4, with the projection/reconstruction proof). Throughout
+we separate three distinct kinds of looseness --- \emph{definitional} (an engine that honestly targets
+$\DSE$), \emph{solver} (ipopt local optima in \texttt{ExactInference}), and \emph{implementation}
+(the now-fixed ARIEL factor-grouping bug; the two now-fixed Interval~BP message bugs) --- and report
+the \emph{shipped} reality, not merely the intended theory. A master table and a topology cross-cut table
+give the one-screen summary, and a closing decision guide says which engine to reach for.
+\end{abstract}
+
+\tableofcontents
+
+\section{The unifying framework}\label{sec:framework}
+
+\subsection{LCNs, the LCN distribution set, and the marginal task}
+An LCN over binary atoms $\mathbf V=\{V_1,\dots,V_n\}$ is a set of probability \emph{sentences}, each
+Type-1 $\ell\le P(\varphi)\le u$ or Type-2 $\ell\le P(\varphi\mid\psi)\le u$ over propositional
+formulas, together with the conditional independencies of the \emph{Local Markov Condition} (LMC) of
+its primal graph. These jointly define the \emph{LCN distribution set}
+\begin{equation}\label{eq:dlcn}
+  \DLCN=\bigl\{\,p\in\Delta(2^{\mathbf V})\;:\;g_s(p)\in[\ell_s,u_s]\ \forall\,\text{sentences }s,\quad
+  h_\iota(p)=0\ \forall\,\text{LMC assertions }\iota\,\bigr\},
+\end{equation}
+where each $g_s$ is a Type-1 linear or Type-2 ratio functional and each $h_\iota$ is the bilinear LMC
+equality $P(x,y,s)\,P(s)=P(x,s)\,P(y,s)$ for the assertion $(X\indep Y\mid S)$, over every joint
+configuration of $Y$ and $S$. The marginal task for a query atom $a$ is
+\[
+  \lo P(a)=\min_{p\in\DLCN}P(a),\qquad \hi P(a)=\max_{p\in\DLCN}P(a),
+\]
+and, for a conditional query, the ratio $P(a\mid e)$. Every functional in \eqref{eq:dlcn} depends on
+$p$ only through its marginal on a fixed atom set (\emph{locality}): sentence $s$ through
+$p{\restriction}\mathrm{atoms}(s)$, assertion $(X\indep Y\mid S)$ through $p{\restriction}(X\cup Y\cup
+S)$. Locality is the lever behind every exactness result below.
+
+\subsection{The credal network and the strong extension}
+When the LCN's structure graph is a chain graph, the joint factorizes over families:
+\begin{equation}\label{eq:factor}
+  P(\mathbf V)=\prod_v P(\mathrm{ch}_v\mid\mathrm{pa}_v),
+\end{equation}
+and this factorization reproduces exactly the LMC independencies. The \texttt{cn/} pipeline
+(\texttt{CredalNetworkVertices.\allowbreak from\_lcn}) compiles the LCN into a \emph{credal network}:
+interval-valued local credal sets $K_v$ with enumerated extreme points. The credal-network engines
+bound not $\DLCN$
+but the \emph{strong extension}
+\begin{equation}\label{eq:se}
+  \DSE=\Bigl\{\textstyle\prod_v P_v \;:\; P_v\in K_v\text{ chosen independently per parent-config}\Bigr\}.
+\end{equation}
+
+\begin{proposition}[Fundamental inclusion]\label{prop:incl}
+$\DLCN\subseteq\DSE$. The inclusion is equality when the primal graph is singly connected and there
+is no cross-family sentence (a sentence whose atom scope lies in no single family); it is strict
+exactly when a cross-family sentence couples choices that the free product of \eqref{eq:se}
+decouples.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+Any $p\in\DLCN$ factorizes as \eqref{eq:factor} and each conditional $P(\mathrm{ch}_v\mid\mathrm{pa}_v)$
+lies in $K_v$, so $p\in\DSE$: the inclusion holds. A chain-graph product satisfies every LMC
+assertion by construction, so a free product in \eqref{eq:se} can leave $\DLCN$ \emph{only} by
+violating a \emph{sentence}; when every sentence is intra-family, each $K_v$ already encodes every
+sentence constraining its scope and the free product of compliant families is compliant, giving
+$\DSE=\DLCN$. A cross-family sentence, by contrast, can be violated by a vertex combination that each
+family satisfies locally --- e.g.\ on \texttt{d4\_biting} the free product reaches $P(B\land C)\approx
+0.9$ against the sentence bound $0.05$ --- so $\DSE\supsetneq\DLCN$.
+\end{proof}
+
+\noindent Consequently any engine that returns a valid bound over $\DSE$ is automatically a valid
+\emph{outer} bound over $\DLCN$: $[\lo q_{\mathrm{LCN}},\hi q_{\mathrm{LCN}}]\subseteq[\lo
+q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]$. The gap between the two closes precisely under the
+Proposition~\ref{prop:incl} condition.
+
+\subsection{The two looseness sources}\label{sec:gaps}
+Following \texttt{tighter\_approximation.tex}, the gap between a credal-network engine's output and the
+LCN truth has two independent origins.
+\begin{itemize}
+  \item \textbf{Gap A (local-set widening).} Each $K_v$ is computed per family in isolation, so it
+    admits conditionals no global $p\in\DLCN$ realizes: it ignores sentences on \emph{other} families
+    and the cross-family LMC equalities. Formally $K_v^{\mathrm{true}}\subseteq K_v^{\mathrm{local}}$,
+    often strictly (e.g.\ the vacuous $[0,1]$ CPT rows on \texttt{alarm}).
+  \item \textbf{Gap B (strong-extension widening).} Even with $K_v=K_v^{\mathrm{true}}$, the free
+    product of \eqref{eq:se} lets each family pick its vertex independently, violating cross-family
+    sentences. This is exactly the strict inclusion of Proposition~\ref{prop:incl}.
+\end{itemize}
+The tightening schemes of \texttt{tighter\_approximation.tex} target these: D1 (\texttt{method="linear-tight"}),
+D2 (\texttt{merge\_budget}), D3 (\texttt{solver="scip"}) attack Gap~A at build time and are free for
+every credal-network engine; D4 (\texttt{coupling="cross-family"}) and D5 (\texttt{CredalJT}) attack
+Gap~B at propagation time.
+
+\subsection{The bound-character taxonomy}\label{sec:taxonomy}
+We classify each engine's returned interval $[\lo q,\hi q]$ against the truth $[\lo q^\star,\hi
+q^\star]$ (either $\DLCN$ or $\DSE$, stated per engine).
+\begin{definition}[Bound character]\label{def:char}
+The interval is \emph{exact} if $[\lo q,\hi q]=[\lo q^\star,\hi q^\star]$; a valid \emph{outer} bound
+if $[\lo q,\hi q]\supseteq[\lo q^\star,\hi q^\star]$ (sound: it never excludes a feasible marginal);
+an \emph{inner} bound if $[\lo q,\hi q]\subseteq[\lo q^\star,\hi q^\star]$ (\emph{not} a valid outer
+bound --- it can be too tight); and \emph{unreliable} if neither containment is guaranteed (a solver
+or implementation artifact).
+\end{definition}
+The crucial practical point: an \emph{inner} bound is unsafe as a guarantee --- it may claim more
+certainty than the LCN supports. ApproxLP and Interval~BP's variational mode are inner \emph{by
+design}; the (now-fixed) ARIEL factor-grouping bug and Interval~BP message bugs used to make those
+engines inner \emph{unsoundly}.
+
+\subsection{Three kinds of looseness}\label{sec:threekinds}
+It is essential to keep apart \emph{why} an engine's interval is not the LCN truth:
+\begin{enumerate}
+  \item \textbf{Definitional} --- the engine honestly targets $\DSE$, and $\DSE\supsetneq\DLCN$
+    (Gap~B) or $K_v^{\mathrm{local}}\supsetneq K_v^{\mathrm{true}}$ (Gap~A). This is sound looseness:
+    the interval is a valid outer bound, just not tight. Closed by D1--D5.
+  \item \textbf{Solver} --- the engine targets the right set but uses a local optimizer. This is
+    \texttt{ExactInference}'s \texttt{solver="local"} (ipopt on a nonconvex bilinear NLP): a local
+    optimum can report a \emph{spuriously inner} (too-tight, unsound) interval. Cured by
+    \texttt{solver="global"} (SCIP).
+  \item \textbf{Implementation} --- a bug makes the shipped engine depart from its own algorithm.
+    Two were on record and \emph{both are now fixed}: the ARIEL factor-grouping bug (which dropped
+    the largest factor's sentences, \S\ref{sec:ariel}) and the two Interval~BP message bugs
+    (\S\ref{sec:ibp}). We report the \emph{shipped} status, not just the intended theory; with both
+    fixes landed the shipped engines now match their algorithms.
+\end{enumerate}
+
+\section{Master table}\label{sec:master}
+
+Table~\ref{tab:master} is the one-screen summary. ``Targets'' is the feasible set the engine
+optimizes; ``character'' is per Definition~\ref{def:char} against that set; ``exact (LCN) when'' is
+the topological condition for the returned interval to equal the $\DLCN$ truth.
+
+\begin{table}[ht]\centering\footnotesize
+\caption{Exactness properties of the LCN marginal-inference engines. In the ``exact when'' column,
+``clean s.c.'' abbreviates $\DSE{=}\DLCN$, i.e.\ a singly-connected primal graph with no cross-family
+sentence.}\label{tab:master}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}llllll@{}}
+\toprule
+Engine & Targets & Character & Exact (LCN) when & Cost & Shipped \\
+\midrule
+\texttt{ExactInference} (global) & $\DLCN$ & exact$^\ast$ & always (gap $\le$ tol) & $2^n$; SCIP & OK \\
+\texttt{ExactInference} (local)  & $\DLCN$ & unreliable & --- (may over-tighten) & $2^n$; ipopt & caveat \\
+\texttt{CredalJT} (D5)           & $\DLCN$ & outer; exact if H1--H4 & H1--H4 (Thm.~\ref{thm:d5}) & treewidth & OK \\
+\midrule
+Credal~VE                        & $\DSE$ & exact over $\DSE$ & clean s.c. & per-target elim & OK \\
+Credal~CTE ($\epsilon{=}0$)      & $\DSE$ & exact over $\DSE$$^\dagger$ & clean s.c. & two-pass tree & OK$^\dagger$ \\
+ApproxLP                         & $\DSE$ & \emph{inner} & clean s.c., no stall & coord.\ descent & OK \\
+Interval~BP (\texttt{interval})  & $\DSE$ & outer & clean s.c.\ (tree) & loopy messages & fixed \\
+Interval~BP (\texttt{variational})& $\DSE$ & \emph{inner} & (inner sample) & mean-field & fixed \\
+Credal~IJGP                      & $\DSE$ & outer-style & clean s.c., $i\ge$ tw & $2^{i}$/cluster & OK \\
+\midrule
+ARIEL                            & $\DLCN$ & outer; exact on s.c. & singly connected & factor messages & fixed \\
+SCCP / SCCP-ARIEL                & $\DLCN$ & outer & trivial SCCs & per-SCC NLP & caveat \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent $^\ast$ certified when the SCIP gap $\le$ \texttt{gap\_tol}; on time-out the bound is valid
+but its optimality is unconfirmed. $^\dagger$ Credal~CTE is exact over $\DSE$ on a clean
+singly-connected sentence-free LCN, but its single shared elimination order falls \emph{strictly
+inner} the moment a cross-family sentence appears (\S\ref{sec:cte}). ``Shipped'' flags the
+implementation status: \emph{fixed} (ARIEL, \S\ref{sec:ariel}; Interval~BP, \S\ref{sec:ibp} ---
+each had a bug, since corrected), \emph{caveat} (\texttt{ExactInference}-local, SCCP).
+
+\section{The exact family: targeting $\DLCN$}\label{sec:exactfamily}
+
+\subsection{\texttt{ExactInference}: the definitional oracle}\label{sec:exact}
+\texttt{ExactInference} (\texttt{exact.py}) solves, for each atom, a $\min$ and a $\max$ of $P(a)$ (or
+the ratio $P(a\mid e)$) over the full $2^n$ joint subject to \emph{all} sentences and \emph{all} LMC
+equalities --- i.e.\ directly over $\DLCN$ of \eqref{eq:dlcn}. It is the definitional target, not a
+member of the credal-network family; in particular it does \emph{not} bound $\DSE$. Two backends,
+selected by the \texttt{solver} argument of \texttt{run}:
+\begin{itemize}
+  \item \texttt{solver="global"}: SCIP spatial branch-and-bound. Certifies the global optimum, or on
+    time-out returns the best bound with its optimality gap. \texttt{self.status} records the per-atom
+    verdict (\texttt{confirmed} / \texttt{unconfirmed} / \texttt{unsolved}).
+  \item \texttt{solver="local"} (default): ipopt with a two-phase SLSQP fallback
+    (\texttt{find\_feasible\_points} $\to$ \texttt{optimize\_\allowbreak marginal\_slsqp}) and
+    multi-restart. Fast, but a \emph{local} method on a nonconvex bilinear-LMC NLP.
+\end{itemize}
+
+\begin{proposition}[Global certified; local unreliable]\label{prop:exactinf}
+With \texttt{solver="global"} and reported gap $\le$ \texttt{gap\_tol}, \texttt{ExactInference}
+returns the exact $\DLCN$ bounds. With \texttt{solver="local"}, the returned interval is
+\emph{unreliable} (Definition~\ref{def:char}): it may be spuriously inner (too tight), because a
+local optimum of the nonconvex NLP can sit strictly inside the true range.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+The model \eqref{eq:dlcn} is exactly $\DLCN$, so any \emph{globally} optimal $\min/\max$ equals the
+true bound; SCIP's spatial B\&B certifies global optimality up to the gap tolerance. ipopt, being a
+local NLP solver on a nonconvex feasible region (the bilinear LMC equalities are nonconvex), can
+converge to a stationary point whose objective is strictly interior to the true extremum; the
+multi-restart + SLSQP fallback mitigates but does not certify. Hence the local backend carries no
+soundness guarantee.
+\end{proof}
+
+\noindent \emph{Witness (shipped).} On \texttt{alarm.lcn} the certified bound is $P(A)=[0.087,0.100]$
+(brute-force / SCIP), whereas raw \texttt{solver="local"} reports the spuriously tighter
+$P(A)=[0.092,0.100]$, $P(E)=[0.050,0.073]$ --- an \emph{inner}, unsound interval. This is the reason
+the companion notes treat \texttt{ExactInference}-local as \emph{not} a reliable oracle and prefer
+SCIP-backed cross-checks (\texttt{verify\_scip.py}, \texttt{verify\_bruteforce.py}); \texttt{CredalJT}
+is often the more trustworthy engine on such instances (\S\ref{sec:d5}).
+
+\subsection{\texttt{CredalJT} (D5): exact at treewidth cost}\label{sec:d5}
+\texttt{CredalJT} (\texttt{cn/junction\_nlp.py}) builds one junction (clique) tree from the chain-graph
+elimination order, gives each cluster $C$ a variable vector $q_C$ over the joint of its atoms, ties
+adjacent clusters by Lauritzen separator-consistency equalities, and hosts every sentence and LMC
+equality on a cluster containing its atoms. It reads each query marginal off a host cluster and
+optimizes $\min/\max$ with SCIP. Cost is $\sum_C 2^{|\mathrm{atoms}(C)|}$ --- exponential in
+\emph{treewidth}, not in $n$. Let $\mathcal F$ denote $\DLCN$ of \eqref{eq:dlcn} and
+\begin{align*}
+  \mathcal G=\bigl\{(q_C)_{C\in T}:\ &\textstyle\sum_i q_C[i]=1;\quad
+  M_{C\to S}q_C=M_{D\to S}q_D\text{ on every edge }(C,D),\,S{=}C\cap D;\\
+  &\text{each hosted constraint holds}\bigr\}
+\end{align*}
+be the cluster-feasible region. An LMC assertion $(X\indep Y\mid S)$ is \emph{hosted} if some cluster
+contains $X\cup Y\cup S$, and \emph{separator-entailed} if $S$ separates $X$ from $Y$ in the chordal
+graph $G^\ast$ whose maximal cliques are the clusters.
+
+\begin{theorem}[D5 exactness]\label{thm:d5}
+Suppose \textup{(H1)} $T$ has the running-intersection property (RIP; always true by construction);
+\textup{(H2)} every LCN sentence is hosted; \textup{(H3)} every LMC assertion is either hosted or
+separator-entailed in $G^\ast$; \textup{(H4)} the query atom and all evidence atoms lie together in
+some cluster. Then for every such atom $a$,
+\[
+  \min_{q\in\mathcal G}(\text{read }a)=\min_{p\in\mathcal F}p_a,\qquad
+  \max_{q\in\mathcal G}(\text{read }a)=\max_{p\in\mathcal F}p_a,
+\]
+and likewise for the conditional ratio $P(a\mid e)$. That is, \texttt{CredalJT} equals
+\texttt{ExactInference}.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+\emph{Projection $\mathcal F\to\mathcal G$ (always valid; needs only H1/H4).} Given $p\in\mathcal F$,
+set $q_C:=p{\restriction}C$. Cluster simplexes hold; each separator equality holds because both sides
+equal $p{\restriction}S$; every hosted constraint holds by locality; the read-off of $a$ equals
+$p_a$. Hence $q\in\mathcal G$ with the same objective, so $[\min,\max]_{\mathcal G}\supseteq
+[\min,\max]_{\mathcal F}$: \textbf{CredalJT is always a valid outer bound.}
+
+\emph{Reconstruction $\mathcal G\to\mathcal F$ (needs H2/H3).} Given a separator-consistent family
+$(q_C)\in\mathcal G$, the RIP marginal-consistency theorem (Lauritzen) yields a unique joint
+$p=\prod_C q_C/\prod_{(C,D)\in T}q_S$ whose cluster marginals are the $q_C$. Verify $p\in\mathcal F$:
+each \emph{hosted} sentence/LMC holds because, by locality, its value on $p$ equals its value on the
+host cluster marginal, which satisfies it (H2, hosted part of H3). Each \emph{separator-entailed} LMC
+holds because $p$ factorizes over $T$ and hence obeys the global Markov property of $G^\ast$: whenever
+$S$ separates $X$ from $Y$ in $G^\ast$, $X\indep_p Y\mid S$ holds automatically, even though the
+assertion was dropped from $\mathcal G$ (other part of H3). Thus $[\min,\max]_{\mathcal F}\supseteq
+[\min,\max]_{\mathcal G}$. Both inclusions force equality; H4 makes the conditional ratio a functional
+of a single cluster, so the same two maps preserve it.
+\end{proof}
+
+\noindent Three consequences. (a) The proof never mentions chains: exactness is a property of the
+\emph{junction tree}, not of chains. (b) The projection half is unconditional, so \texttt{CredalJT} is
+\emph{never unsound} --- its interval always contains the truth; H2/H3 decide only tightness. (c) On a
+Markov chain the moral graph is already triangulated and every LMC is single-separator, so H3 holds
+with treewidth $1$. \emph{H3 is sufficient but not necessary}: on \texttt{asia} and \texttt{polytree}
+some LMCs are neither hosted nor separator-entailed yet CredalJT is empirically exact (the unentailed
+assertions do not bind); on \texttt{smokers} the six large-scope LMCs of the undirected clique
+$F_1F_2F_3$ are unhostable and unentailed, H3 fails \emph{and bites}, and CredalJT returns the loose
+but valid $P(F_1)=[0,1]$.
+
+\section{The credal-network family: targeting $\DSE$}\label{sec:cnfamily}
+
+All five engines here consume the same \texttt{CredalNetworkVertices}; they differ only in how they
+propagate the enumerated extreme points, and hence in where they land relative to $[\lo
+q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]$.
+
+\subsection{Credal~VE: exact over the strong extension}\label{sec:cve}
+Credal~VE (\texttt{cve.py}) computes every atom's bounds by looping a single-query bucket elimination,
+each time recomputing an elimination order in which the target is eliminated \emph{last}.
+
+\begin{proposition}[CVE exact over $\DSE$]\label{prop:cve}
+With \texttt{coupling="off"} and exact pruning ($\epsilon{=}0$), Credal~VE returns exactly $[\lo
+q_{\mathrm{SE}}(a),\hi q_{\mathrm{SE}}(a)]$ for every atom, hence a valid outer bound on $\DLCN$.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+Every potential CVE forms is a finite set of products of local extreme points, i.e.\ a set of $\DSE$
+vertices; combine and marginalize preserve this, and pruning removes only dominated functions, which
+never attain a componentwise extremum. Because $\DSE$ is a product of finitely many polytopes, each
+bound is attained at a vertex combination; eliminating the query \emph{last} keeps that combination
+in the surviving potential through to the read-off, so the reported $\min/\max$ equals the $\DSE$
+extremum. See \texttt{cve\_exactness.tex} \S3.
+\end{proof}
+
+\noindent Combined with Proposition~\ref{prop:incl}, Credal~VE is \emph{exact w.r.t.\ $\DLCN$} exactly
+when $\DSE=\DLCN$ (singly connected, no cross-family sentence). It is the ``gold'' member of the
+family: exact over $\DSE$, whereas the others are inner (ApproxLP), outer with loop slack (IBP loopy),
+or order-sensitive (CTE).
+
+\subsection{Credal~CTE: exact over $\DSE$, but order-sensitive}\label{sec:cte}
+Credal~CTE (\texttt{ccte.py}) is the two-pass (collect + distribute) bucket-tree engine: one shared
+elimination order produces all marginals at once. With $\epsilon{=}0$ it is exact over $\DSE$ on a
+clean singly-connected sentence-free LCN (the shared schedule is a genuine clique tree there). But its
+single shared order --- deliberately \emph{not} augmented per query, unlike Credal~VE --- can prune the
+function carrying an extremal marginal at an intermediate scope where it is dominated. The witness is
+\texttt{d4\_biting}: the true $\DSE$-and-$\DLCN$ value is $P(B)=[0.04,0.72]$ (Credal~VE, CredalJT, and
+two oracles agree), yet Credal~CTE reports the strictly \emph{inner} $[0.05,0.65]$ (and CTE${+}$D4
+$[0.05,0.55]$). So on cross-family instances CTE can fall inside $[\lo q_{\mathrm{SE}},\hi
+q_{\mathrm{SE}}]$ --- \emph{not even a valid outer bound}. See \texttt{ccte\_exactness.tex}.
+
+\subsection{ApproxLP: an inner bound}\label{sec:approxlp}
+ApproxLP (\texttt{approxlp.py}) reformulates the marginal problem as a multilinear program and solves
+it by coordinate descent: fix all families but one, pick that family's best extreme point (a linear
+subproblem), sweep to convergence.
+
+\begin{proposition}[ApproxLP inner]\label{prop:approxlp}
+With \texttt{coupling="off"}, ApproxLP returns an interval contained in $[\lo q_{\mathrm{SE}},\hi
+q_{\mathrm{SE}}]$; in general it is \emph{not} a valid outer bound on $\DLCN$.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+Every state ApproxLP evaluates is a single feasible product joint (each family at one extreme point,
+or the center), i.e.\ a point of $\DSE$, and the objective is evaluated exactly on that precise Bayes
+net. The reported $\min$/$\max$ is therefore a $\min$/$\max$ over a \emph{subset} of $\DSE$ (the
+coordinate-descent trajectory), hence no smaller / no larger than the global $\DSE$ extremum:
+$\lo q_{\mathrm{SE}}\le\lo q_{\mathrm{ALP}}\le\hi q_{\mathrm{ALP}}\le\hi q_{\mathrm{SE}}$. See
+\texttt{approxlp\_exactness.tex} \S2.
+\end{proof}
+
+\noindent The inner gap is strict only when the nonconvex program makes descent stall at a non-global
+local optimum. On the instances tested (\texttt{d4\_biting}, 2-atom chain) it is \emph{sound and
+tight}: it reproduces the exact $P(B)=[0.04,0.72]$. Its natural use is the \emph{inner} half of a
+two-sided bracket: ApproxLP (inner) with Credal~VE (exact over $\DSE$) on the same vertices sandwich
+the truth and detect stalls.
+
+\subsection{Interval~BP: outer / inner by mode; exact on trees}\label{sec:ibp}
+Interval~BP (\texttt{ibp.py}, class \texttt{IntervalBP}) is loopy interval message passing over the
+factor graph. \texttt{method="interval"} passes per-state intervals and is an \emph{outer}
+approximation of $[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]$; \texttt{method="variational"} runs
+mean-field over a finite sample of vertex combinations and is an \emph{inner} approximation.
+
+\begin{proposition}[IBP interval outer; exact on tree]\label{prop:ibp}
+With \texttt{method="interval"}, Interval~BP returns a valid outer bound over $\DSE$. When the factor
+graph is a tree (Markov chain, tree, polytree) it is exact over $\DSE$; combined with
+Proposition~\ref{prop:incl} it is then exact over $\DLCN$.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+Each factor$\to$child update ranges over all local extreme points and all corner \emph{distributions}
+of the incoming messages, so every $\DSE$ marginal is contained in the message interval; a conditional
+factor sends the vacuous $[0,1]$ upward, excluding no parent marginal; variable$\to$factor messages
+only intersect. On a tree there is a unique path between factors, so no message feeds back and no
+correlated pair's corners over-cover, giving the exact $\DSE$ range. See \texttt{ibp\_exactness.tex}.
+\end{proof}
+
+\noindent \emph{Shipped status: fixed.} Two message bugs previously made the interval mode inner and
+unsound --- a spurious normalized-likelihood upward message (collapsing an unconstrained root to
+$[0.5,0.5]$) and an invalid component-wise corner enumeration. Both are now corrected; the shipped
+engine reproduces Credal~VE on the 2-atom chain ($P(x_0)=[0.30,0.50]$, was $[0.5,0.5]$) and on
+\texttt{d4\_biting} ($P(B)=[0.04,0.72]$, was $[0.05,0.65]$). One residual limitation is architectural:
+the intersection message algebra performs no Bayesian \emph{upward} update, so evidence on a child
+does not shift a parent's posterior --- for conditional queries with evidence on descendants use
+Credal~VE / \texttt{CredalJT}.
+
+\subsection{Credal~IJGP: exact at $i$-bound $\ge$ treewidth}\label{sec:ijgp}
+Credal~IJGP (\texttt{ijgp.py}) runs iterative join-graph propagation with a mini-bucket
+\texttt{i\_bound} capping cluster size, forward+backward passes to a message-change threshold.
+
+\begin{proposition}[IJGP exact at large $i$-bound]\label{prop:ijgp}
+When \texttt{i\_bound} $\ge$ the treewidth of the credal network, the join graph is a genuine junction
+tree and Credal~IJGP is exact over $\DSE$; with $\DSE=\DLCN$ it is exact over $\DLCN$. For smaller
+\texttt{i\_bound} it is an outer-style approximation, tunable by the $i$-bound.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+At \texttt{i\_bound} $\ge$ treewidth no mini-bucket partitioning is forced, so the join graph carries
+no cycle and message passing is exact elimination over the enumerated vertices (the same argument as
+Interval~BP on a tree, one level up at cluster granularity). Below treewidth, mini-bucket splitting
+introduces the loopy slack that the $i$-bound trades against cost $2^{i}$/cluster.
+\end{proof}
+
+\section{Structural and hybrid engines: targeting $\DLCN$ by decomposition}\label{sec:structural}
+
+\subsection{ARIEL: structural LMC preservation}\label{sec:ariel}
+ARIEL (\texttt{ariel.py}) runs interval message passing on the bipartite factor graph whose factor
+nodes group sentences by shared atom scope.
+
+\begin{proposition}[ARIEL exact on singly-connected]\label{prop:ariel}
+On a singly-connected LCN, ARIEL returns the exact $\DLCN$ marginal bounds. For every LMC assertion
+$(X\indep Y\mid S)$: if $X\cup Y\cup S$ fits in one factor, the bilinear equality is imposed in that
+factor's local NLP; otherwise the assertion factorizes into single-separator independencies along the
+unique factor path, each realized exactly by an interval message across that separator. The interval
+summary is lossless precisely because a tree has no second path along which a discarded joint
+correlation could matter.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+Structural LMC preservation on a tree factor graph (\texttt{ariel\_exactness.tex} Prop.~1). On the
+shipped chain/tree/polytree, \emph{no} LMC fits inside a single factor, so none is imposed as an
+explicit constraint, yet the assertions survive structurally along the tree paths, giving exactness.
+On a loopy factor graph the interval message across a boundary variable loses the joint correlation
+that a second path needs, so ARIEL is a valid outer bound but not tight (the coupled-diamond example,
+$P(D)=[0.316,0.684]$ vs exact $[0.316,0.594]$).
+\end{proof}
+
+\noindent \emph{Shipped status: fixed.} An earlier factor-graph construction
+(\texttt{factor\_graph.py}, \texttt{FactorGraph.\allowbreak\_make\_factor\_nodes}) had an off-by-one
+labelling bug: it created the first factor before the grouping loop and then reused the label
+\texttt{f1} for the next new-scope factor, silently overwriting --- and dropping the sentences of ---
+the first, largest-scope factor (sentences are sorted by decreasing scope). The \emph{shipped} ARIEL
+therefore returned vacuous $[0,1]$ interior marginals on chain/tree/polytree, contradicting
+Proposition~\ref{prop:ariel}. The bug is now fixed (each new-scope factor gets a fresh
+post-incremented label). Verified: on the two-atom chain the fixed engine returns
+$P(x_0)=[0.30,0.50]$, $P(x_1)=[0.40,0.68]$, matching Credal~VE / \texttt{ExactInference}; all tests
+pass. See \texttt{ariel\_exactness.tex}.
+
+\subsection{SCCP / SCCP-ARIEL: exactness on the acyclic condensation}\label{sec:sccp}
+The SCC-factor-graph engines (\texttt{sccp.py}, \texttt{sccp\_ariel.py}) contract each strongly
+connected component of the structure graph into a super-node, giving an acyclic condensation DAG, and
+run two-pass (collect + distribute) belief propagation on it. On the condensation the propagation is
+exact elimination; the only inexactness is \emph{inside} a cyclic super-node, whose local nonconvex
+NLP is solved by ipopt (\texttt{sccp.py}, local $\Rightarrow$ the same reliability caveat as
+\texttt{ExactInference}-local) or approximately by ARIEL loopy BP (\texttt{sccp\_ariel.py}). Hence:
+when every SCC is trivial (a singleton, whose local problem is an LP), the two-pass propagation is
+exact over $\DLCN$; a non-trivial SCC introduces solver looseness (v1) or approximation (v2). See
+\texttt{scc\_factor\_graph.tex}.
+
+\section{Topology cross-cut}\label{sec:topology}
+
+Table~\ref{tab:topo} reads the master table along the other axis: for each canonical topology, the
+character of each engine's shipped output. ``ex'' = exact, ``out'' = valid outer bound (loose),
+``in'' = inner (unsound as a guarantee), ``unrel'' = solver-unreliable.
+
+\begin{table}[ht]\centering\footnotesize
+\caption{Bound character by topology (shipped engines; unconditional marginals).}\label{tab:topo}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{@{}lccccccc@{}}
+\toprule
+Topology & Exact-glob & CredalJT & CVE & CTE & ApproxLP & IBP-int & IJGP$^\ddagger$ \\
+\midrule
+Markov chain (\texttt{chain})        & ex & ex & ex & ex & ex & ex & ex \\
+Tree (\texttt{tree})                 & ex & ex & ex & ex & ex & ex & ex \\
+Polytree (\texttt{polytree})         & ex & ex$^\dagger$ & ex & ex & ex & ex & ex \\
+Chain graph, compound (\texttt{alarm}) & ex$^\ast$ & ex & ex & ex & ex & ex & ex \\
+Cross-family sentence (\texttt{d4\_biting}) & ex & ex & ex & \textbf{in} & ex & ex & out \\
+Loopy DAG                            & ex & out & out$^\S$ & out$^\S$ & in$^\S$ & out & out \\
+Undirected clique (\texttt{smokers}) & ex & \textbf{out} & out$^\S$ & out$^\S$ & in$^\S$ & out & out \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent $^\ast$ certified-global is exact; \texttt{ExactInference}-\emph{local} over-tightens here
+($P(A)=[0.092,0.100]$ vs $[0.087,0.100]$) --- \emph{unrel}. $^\dagger$ H3 fails but CredalJT is
+empirically exact (unentailed LMCs do not bind). $^\ddagger$ IJGP shown at a small $i$-bound; at
+$i$-bound $\ge$ treewidth it matches CredalJT. $^\S$ On a loopy/undirected-clique LCN $\DSE\supsetneq
+\DLCN$; the $\DSE$-family entries are exact-over-$\DSE$ but only \emph{outer} (CVE/CTE/IBP/IJGP) or
+\emph{inner} (ApproxLP) over $\DLCN$. On \texttt{smokers} even CredalJT is outer-only ($P(F_1)=[0,1]$).
+For cross-family / loopy instances the reliable exact route is \texttt{ExactInference}-global or
+\texttt{CredalJT} where H1--H4 hold.
+
+\section{Reliability and verification}\label{sec:reliability}
+
+Three verifiers cross-check the engines against ground truth (\texttt{lcn/inference/marginal/}):
+\begin{itemize}
+  \item \texttt{verify\_scip.py} --- certified global (SCIP spatial B\&B) marginal bounds; the
+    reference oracle when it terminates within the gap tolerance.
+  \item \texttt{verify\_bruteforce.py} --- LMC-aware brute-force enumeration cross-check; found the
+    \texttt{ExactInference}-local over-tightening on \texttt{alarm}.
+  \item \texttt{verify\_lmc\_factorization.py} --- solver-free check that the credal network's product
+    joints satisfy the LMC (certifies $\DSE=\DLCN$ on chain/tree/polytree, i.e.\ Gap~B$=0$).
+\end{itemize}
+The reliability lessons carried into Table~\ref{tab:master}: \texttt{ExactInference}-local is a
+\emph{local} solver (use \texttt{solver="global"} when a guarantee is needed); the ARIEL
+factor-grouping bug and the two Interval~BP message bugs are all \emph{fixed}, so those shipped
+engines now match their algorithms; Credal~CTE is order-sensitive and can be inner on cross-family
+instances. When two
+engines that both claim ``exact over $\DSE$'' (CVE and CTE) disagree, the disagreement localizes an
+order-sensitivity or a bug, not a modeling difference.
+
+\section{Decision guide}\label{sec:guide}
+
+\begin{itemize}
+  \item \textbf{Need a certified guarantee, small $n$:} \texttt{ExactInference} with
+    \texttt{solver="global"}. Never trust \texttt{solver="local"} as a guarantee.
+  \item \textbf{Need exactness at scale, bounded treewidth:} \texttt{CredalJT} (D5) --- exact under
+    H1--H4 at cost $\sum_C 2^{|C|}$, always a valid outer bound otherwise. This is the recommended
+    exact engine for chain-graph LCNs, and is often more trustworthy than
+    \texttt{ExactInference}-local (\texttt{alarm}).
+  \item \textbf{All singleton marginals over $\DSE$, exactly:} Credal~VE. Prefer over Credal~CTE when
+    a cross-family sentence is present (CTE can fall inner).
+  \item \textbf{A two-sided sandwich of the truth:} pair Credal~VE (outer over $\DSE$) with ApproxLP
+    (inner over $\DSE$) on the same vertices; equal endpoints certify the $\DSE$ bound.
+  \item \textbf{Fast, singly-connected:} Interval~BP \texttt{method="interval"} or ARIEL --- both
+    exact on trees now that their respective bugs are fixed.
+  \item \textbf{Tighten any $\DSE$-family engine toward $\DLCN$:} apply the build-stage schemes
+    D1 (\texttt{method=\allowbreak"linear-tight"}), D2 (\texttt{merge\_budget}),
+    D3 (\texttt{solver="scip"}) first --- free for all of them --- then D4/D5 for cross-family
+    coupling.
+\end{itemize}
+
+\noindent The six companion notes hold the per-engine detail:
+\texttt{cve\_exactness.tex}, \texttt{ccte\_exactness.tex}, \texttt{ibp\_exactness.tex},
+\texttt{approxlp\_exactness.tex}, \texttt{ariel\_exactness.tex}, and \texttt{tighter\_approximation.tex}
+(the D1--D5 taxonomy and the full D5 theorem).
+
+\end{document}

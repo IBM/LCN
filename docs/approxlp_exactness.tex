@@ -1,0 +1,303 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usepackage{xcolor}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,shapes.geometric,calc}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{definition}{Definition}
+
+\newcommand{\lo}{\underline}
+\newcommand{\hi}{\overline}
+\newcommand{\indep}{\perp\!\!\!\perp}
+\newcommand{\DSE}{\mathcal{D}_{\mathrm{SE}}}
+\newcommand{\DLCN}{\mathcal{D}_{\mathrm{LCN}}}
+\newcommand{\ALP}{\texttt{ApproxLP}}
+
+\title{Exactness of ApproxLP on Chain-Graph LCNs\\
+\large Why ApproxLP is an \emph{inner} bound of the strong extension, when the
+inner bound is nonetheless tight, and how it pairs with Credal~VE to bracket the
+LCN truth}
+\author{IBM Research}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+ApproxLP (\texttt{lcn/inference/marginal/cn/approxlp.py}, class \texttt{ApproxLP}) is the
+coordinate-descent member of the credal-network family: it reformulates credal marginal inference as
+a multilinear program and solves it by iterated linearization --- fixing all local distributions but
+one and picking that family's best extreme point, sweeping to a local optimum (Antonucci, de~Campos,
+Huber \& Zaffalon, 2015). This note pins down three things about ApproxLP against the implementation.
+\textbf{(i)~What it bounds.} Like every credal-network engine, ApproxLP works over the \emph{strong
+extension} $\DSE$ of the compiled network, not the LCN's distribution set $\DLCN$. Uniquely in the
+family, it is an \emph{inner} approximation: because coordinate descent visits only \emph{feasible}
+product joints and converges to a \emph{local} optimum of a nonconvex multilinear program, the
+returned interval sits \emph{inside} the strong-extension interval $[\lo q_{\mathrm{SE}},\hi
+q_{\mathrm{SE}}]$. It is therefore \emph{not} a valid outer bound on $\DLCN$; it can be too tight.
+\textbf{(ii)~When the inner bound is tight.} When every per-variable linearization has its global
+optimum reachable by coordinate descent --- which holds on the singly-connected, sentence-free
+instances where $\DSE=\DLCN$ and the multilinear objective is benign --- ApproxLP's inner interval
+\emph{coincides} with the exact bound. We verify this on \texttt{d4\_biting}: ApproxLP returns
+$P(A){=}[0.40,0.60]$, $P(B){=}[0.04,0.72]$, $P(C){=}[0.08,0.80]$, matching Credal~VE and the exact
+oracle to four decimals --- a sound, tight inner bound (\texttt{IntervalBP}, after its two
+message-passing bugs were fixed, now matches these too; \texttt{docs/ibp\_exactness.tex}). The inner
+gap becomes strict only when coordinate descent stalls at a non-global local optimum.
+\textbf{(iii)~Which
+tightening schemes apply.} D1/D2/D3 are \emph{build-stage} knobs that ApproxLP inherits for
+\emph{free} (tighter vertices $\Rightarrow$ tighter LPs). D4 (\texttt{coupling="cross-family"}) \emph{is}
+implemented, as extra LP rows that keep every visited joint feasible --- but it is \emph{experimental
+and not a certified} bound: when the center initialization already violates a constraint, descent can
+stall at a degenerate point. D5 is the separate exact engine \texttt{CredalJT}. The natural use of
+ApproxLP is as the \emph{inner} half of a two-sided bracket: ApproxLP (inner) with Credal~VE (outer)
+on the \emph{same} vertices sandwiches the LCN truth.
+\end{abstract}
+
+\tableofcontents
+
+\section{Background: the ApproxLP algorithm}\label{sec:bg}
+
+\subsection{LCNs, the credal network, and the strong extension}
+An LCN over binary atoms $\mathbf V=\{V_1,\dots,V_n\}$ is a set of probability \emph{sentences},
+each Type-1 $\ell\le P(\varphi)\le u$ or Type-2 $\ell\le P(\varphi\mid\psi)\le u$, over
+propositional formulas. With the conditional independencies of the \emph{Local Markov Condition}
+(LMC) of the primal graph, they define a set $\DLCN\subseteq\Delta(2^{\mathbf V})$ of joints, and the
+marginal task for a query atom $a$ is $\lo P(a)=\min_{p\in\DLCN}P(a)$, $\hi P(a)=\max_{p\in\DLCN}
+P(a)$.
+
+The \texttt{cn/} pipeline compiles the chain-graph LCN into a \emph{credal network}: a directed
+graph over the families $\mathrm{ch}_v\mid\mathrm{pa}_v$ with interval-valued local credal sets
+$K_v$. \texttt{CredalNetworkVertices.from\_lcn} enumerates the extreme points of every $K_v$
+(\texttt{cnv.extreme\_points}); all engines --- Credal~VE, CCTE, IBP, ApproxLP, Credal~IJGP ---
+consume that object. What they bracket is the \emph{strong extension}
+\begin{equation}\label{eq:se}
+  \DSE=\Bigl\{\textstyle\prod_v P_v \;:\; P_v\in K_v \text{ chosen independently per parent-config}\Bigr\},
+\end{equation}
+and, because the chain-graph factorization reproduces the LMC exactly,
+\begin{equation}\label{eq:incl}
+  \DLCN\;\subseteq\;\DSE ,
+\end{equation}
+with equality unless a \emph{cross-family sentence} couples choices the free product decouples.
+Credal~VE returns \emph{exactly} $[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]$
+(\texttt{docs/cve\_exactness.tex}); ApproxLP approximates the \emph{same} target \emph{from the
+inside}.
+
+\subsection{Multilinear program and coordinate descent}\label{sec:cd}
+Credal marginal inference over $\DSE$ is a \emph{multilinear program}: the objective
+$P(\text{query}\mid\text{evidence})$ is a ratio that is linear in each family's distribution
+$P_v$ when the others are fixed, and the feasible region is the product of the polytopes $K_v$
+(\texttt{approxlp.py:41--49}). ApproxLP (\texttt{approxlp.py:306--380}, \texttt{\_coordinate\_descent})
+solves it by iterated linearization:
+\begin{enumerate}
+  \item \textbf{Initialize} every local $P_v$ to the \emph{center} (mean of its extreme points)
+    (\texttt{approxlp.py:112--131, 318}).
+  \item \textbf{Sweep} (\texttt{approxlp.py:332--370}): for each family $v$ and each parent
+    configuration, hold all other families fixed; the objective is then linear in $P_v$, so its
+    optimum over the polytope $K_v$ is at a \emph{vertex}. Enumerate the extreme points, evaluate
+    the objective for each by an exact variable-elimination pass on the resulting precise Bayes net
+    (\texttt{approxlp.py:133--234}), and \emph{greedily commit} the best (\texttt{approxlp.py:359--370}).
+  \item \textbf{Converge} (\texttt{approxlp.py:375--378}): stop when a full sweep improves nothing, or
+    after \texttt{n\_iters} (default $50$).
+\end{enumerate}
+The run is repeated with \texttt{sense="min"} and \texttt{"max"} to get the lower and upper bound of
+each query. The public API is
+\texttt{run(evidence, n\_iters=50, coupling="off", verbosity=1)} (\texttt{approxlp.py:386--389}).
+
+\section{What ApproxLP bounds: inner over the strong extension}\label{sec:bounds}
+
+\begin{proposition}[ApproxLP is an inner bound]\label{prop:inner}
+With \texttt{coupling="off"}, ApproxLP returns per-atom intervals \emph{contained in} the
+strong-extension interval:
+$[\lo q_{\mathrm{ALP}},\hi q_{\mathrm{ALP}}]\subseteq[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]$.
+In general it is therefore \emph{not} a valid outer bound on $\DLCN$.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+Every state ApproxLP evaluates is a \emph{single feasible product joint}: at every point of the
+sweep each family sits at one extreme point of its $K_v$ (or at the center, itself a convex
+combination of them), so the assembled joint is a point of $\DSE$ (\eqref{eq:se}). The objective is
+evaluated exactly on that precise Bayes net (\texttt{approxlp.py:133--234}). Hence every value
+ApproxLP ever records is $P(a)$ for some $P\in\DSE$, and lies in $[\lo q_{\mathrm{SE}},\hi
+q_{\mathrm{SE}}]$. The reported lower (resp.\ upper) bound is the smallest (largest) such value found
+along the descent trajectory, which is a $\min$ (resp.\ $\max$) over a \emph{subset} of $\DSE$ and
+therefore no smaller (no larger) than the true $\DSE$ extremum. This is the exact opposite of
+Credal~VE, which enumerates \emph{all} vertex combinations and so attains the global $\DSE$
+extremum: $\lo q_{\mathrm{SE}}\le\lo q_{\mathrm{ALP}}\le\hi q_{\mathrm{ALP}}\le\hi q_{\mathrm{SE}}$.
+\end{proof}
+
+\noindent The inner gap is strict exactly when coordinate descent \emph{stalls}: the multilinear
+program is nonconvex, so a greedy sweep from the center can reach a local optimum that is not the
+global $\DSE$ extremum (no single-family move improves, yet a coordinated multi-family jump would).
+The inner gap is \emph{zero} when the reachable local optimum is global --- the tightness question of
+Section~\ref{sec:tight}.
+
+\section{When the inner bound is tight}\label{sec:tight}
+
+By Proposition~\ref{prop:inner}, ApproxLP equals the exact LCN bound when \emph{both} (a) its inner
+interval coincides with $[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]$ (coordinate descent reaches the
+global $\DSE$ extremum) \emph{and} (b) $\DSE=\DLCN$ (singly connected, no cross-family sentence, as
+for Credal~VE). Condition (b) is the same geometric condition analyzed in
+\texttt{docs/cve\_exactness.tex}; condition (a) is an optimization-landscape property of the
+multilinear program.
+
+\begin{proposition}[Tightness on benign instances]\label{prop:tight}
+On a clean singly-connected, cross-family-sentence-free LCN whose per-family linearizations each
+expose their global optimum to a greedy sweep from the center, ApproxLP's inner interval coincides
+with the exact LCN marginal bounds.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+(b) gives $\DSE=\DLCN$ exactly as in \texttt{docs/cve\_exactness.tex} (a chain-graph product satisfies
+every LMC; with no cross-family sentence the free product cannot leave $\DLCN$). Under (a), the
+descent reaches the global $\DSE$ extremum, so by Proposition~\ref{prop:inner}'s chain of
+inequalities the inner interval equals $[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]=[\lo
+q_{\mathrm{LCN}},\hi q_{\mathrm{LCN}}]$.
+\end{proof}
+
+\subsection{Empirical confirmation on \texttt{d4\_biting}}\label{sec:empirical}
+\texttt{examples/d4\_biting.lcn} (three atoms $A\to B$, $A\to C$; families $P(A),P(B\mid A),P(C\mid A)$;
+one cross-family sentence $P(B\land C)\le0.05$) is the family's standard stress instance. The exact
+unconditional bounds are $P(A)=[0.40,0.60]$, $P(B)=[0.04,0.72]$, $P(C)=[0.08,0.80]$ (four independent
+oracles agree; \texttt{docs/ccte\_exactness.tex}). Measured, with \texttt{coupling="off"}:
+\[
+  \text{\ALP: }P(A){=}[0.40,0.60],\quad P(B){=}[0.04,0.72],\quad P(C){=}[0.08,0.80],
+\]
+matching the exact bounds to four decimals. The engines on the \emph{same} vertices:
+\begin{center}\small
+\begin{tabular}{lccc}
+\toprule
+Engine on \texttt{d4\_biting} & $P(A)$ & $P(B)$ & $P(C)$ \\
+\midrule
+Exact $=$ Credal~VE $=$ oracle          & $[0.40,0.60]$ & $\mathbf{[0.04,0.72]}$ & $[0.08,0.80]$ \\
+\textbf{ApproxLP} (\texttt{coupling="off"})      & $[0.40,0.60]$ & $\mathbf{[0.04,0.72]}$ & $[0.08,0.80]$ \\
+\texttt{IntervalBP} (\texttt{interval}, fixed) & $[0.40,0.60]$ & $\mathbf{[0.04,0.72]}$ & $[0.08,0.80]$ \\
+CCTE (\texttt{coupling="off"})          & $[0.40,0.60]$ & $\mathbf{[0.05,0.65]}$ & $[0.08,0.80]$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+On this instance ApproxLP's inner interval reaches the exact bound, and \texttt{IntervalBP} matches
+it too now that its two message-passing bugs are fixed (before the fix it returned the inner
+$[0.5,0.5]$ / $[0.05,0.65]$ / $[0.10,0.75]$; \texttt{docs/ibp\_exactness.tex}). CCTE remains inner on
+$P(B)$ (\texttt{docs/ccte\_exactness.tex}). The reason ApproxLP succeeds here is that, for these
+unconditional marginals, the objective's global $\DSE$ extremum \emph{is} a coordinate-descent fixed
+point reachable from the center --- condition (a) holds. On harder (nonconvex, more coupled)
+instances condition (a) can fail and the inner gap becomes strict; then ApproxLP under-reports the
+width and must be read as an inner bound only.
+
+\subsection{Topology by topology}
+\paragraph{Markov chain, tree, polytree.} Singly connected, no cross-family sentence, so
+$\DSE=\DLCN$; the per-family linearizations are simple and coordinate descent reaches the global
+extremum, so ApproxLP is tight (equal to \texttt{ExactInference} / Credal~VE) on
+\texttt{examples/chain.lcn}, \texttt{tree.lcn}, \texttt{polytree.lcn}. Verified on a two-atom chain
+$x_0\!\to\!x_1$: ApproxLP returns $P(x_0){=}[0.300,0.500]$, $P(x_1){=}[0.400,0.680]$, matching
+Credal~VE exactly (the fixed \texttt{IntervalBP} now agrees on this instance too;
+\texttt{docs/ibp\_exactness.tex}).
+
+\paragraph{Chain graph with compound nodes (\texttt{alarm}).} Still no cross-family sentence, so
+$\DSE=\DLCN$; ApproxLP is tight provided descent does not stall on the larger compound-node
+linearizations. This is the regime where pairing with Credal~VE (Section~\ref{sec:pairing}) is most
+valuable as a stall detector.
+
+\paragraph{Loopy DAG / cross-family sentence.} $\DSE\supsetneq\DLCN$ (or descent stalls). ApproxLP
+remains an \emph{inner} bound of $\DSE$; it never over-covers, so it cannot certify an outer bound on
+$\DLCN$. Use it as the inner half of a bracket, and use D5 (\texttt{CredalJT}) for a guaranteed exact
+bound.
+
+\section{Pairing with Credal~VE: a two-sided bracket}\label{sec:pairing}
+
+Because ApproxLP is \emph{inner} over $\DSE$ and Credal~VE is \emph{exact} over $\DSE$, running both
+on the \emph{same} enumerated vertices yields
+\[
+  \underbrace{[\lo q_{\mathrm{ALP}},\hi q_{\mathrm{ALP}}]}_{\text{inner}}
+  \;\subseteq\;
+  \underbrace{[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]}_{\text{Credal~VE, exact over }\DSE}
+  \;\supseteq\;
+  \underbrace{[\lo q_{\mathrm{LCN}},\hi q_{\mathrm{LCN}}]}_{\text{truth, when }\DSE=\DLCN}.
+\]
+When the two intervals \emph{coincide}, coordinate descent reached the global $\DSE$ extremum and the
+common value is certified as the exact $\DSE$ bound; when they \emph{differ}, the gap between them
+is precisely the coordinate-descent stall, flagging that ApproxLP under-reported the width. This is
+the recommended diagnostic use of ApproxLP (\texttt{docs/tighter\_approximation.tex}): the inner
+ApproxLP and outer Credal~VE bracket the LCN truth from both sides on the tightened vertices.
+
+\section{The tightening schemes (D1--D5) for ApproxLP}\label{sec:schemes}
+
+The companion note \texttt{docs/tighter\_approximation.tex} identifies \textbf{Gap~A} (local-set
+widening) and \textbf{Gap~B} (strong-extension widening) and five schemes.
+
+\paragraph{Class 1 --- input-level (D1, D2, D3): free build-stage knobs.} These change only what
+\texttt{CredalNetworkVertices.from\_lcn} produces; ApproxLP consumes tighter vertices without any code
+change, and its per-variable LP already optimizes over the resulting (smaller) vertex polytope, so
+its inner interval tightens toward $\DLCN$ from the inside. \textbf{D1} (\texttt{method="linear-tight"})
+enriches each family LP with in-scope sentences and scope-restricted LMC equalities; \textbf{D2}
+(\texttt{merge\_budget=$k$}) merges adjacent families; \textbf{D3} (\texttt{solver="scip"}) certifies
+each family's local set globally.
+
+\paragraph{Class 2 --- propagation-level coupling (D4, D5).}
+\begin{itemize}
+  \item \textbf{D4} (\texttt{coupling="cross-family"} on \texttt{ApproxLP.run}): implemented
+    (\texttt{approxlp.py:265--304, 346--350}) by rejecting any vertex pick whose fully reconstructed
+    joint violates a cross-family constraint --- i.e.\ adding D4's coupling rows to the per-variable LP,
+    which keeps the inner-bound guarantee while shrinking the polytope
+    (\texttt{docs/tighter\_approximation.tex}). \textbf{But it is not a certified bound}: the
+    \texttt{run} docstring warns that ApproxLP ``is an inner, greedy coordinate-descent method and is
+    the loosest fit for D4''; when the center initialization already violates a constraint, descent
+    can find no feasible improving move and \emph{stall at a degenerate point} (e.g.\ reporting
+    $[0.5,0.5]$). For a trustworthy coupled bracket, use coupled Credal~VE (outer) instead.
+  \item \textbf{D5} (\texttt{CredalJT}): a separate junction-tree NLP engine, not reachable from
+    ApproxLP; the reliable exact route for cross-family coupling and conditional queries.
+\end{itemize}
+
+\begin{center}\small
+\begin{tabular}{lllll}
+\toprule
+Scheme & Where it lives for ApproxLP & Gap closed & Character & Cost \\
+\midrule
+D1 \texttt{method="linear-tight"} & build (\texttt{from\_lcn}) & A (partial) & free, inner tightens & $\approx 0$ \\
+D2 \texttt{merge\_budget=$k$}     & build (\texttt{from\_lcn}) & A $(+\,$B$)$ & free & $2^k$ \\
+D3 \texttt{solver="scip"}         & build (\texttt{from\_lcn}) & A (exact)   & free & $2^n$/solve \\
+D4 \texttt{coupling="cross-family"} & inside \texttt{run} (LP rows) & B & \textbf{experimental, not certified} & med \\
+D5 \texttt{CredalJT}              & separate engine            & A $+$ B     & exact, separate & treewidth \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Verdict}\label{sec:verdict}
+
+\begin{proposition}[Summary]\label{prop:verdict}
+Let $\mathcal L$ be a chain-graph LCN and run \ALP{}.
+\begin{enumerate}
+  \item (\emph{Always}) With \texttt{coupling="off"}, ApproxLP returns an \emph{inner} approximation
+    of $[\lo q_{\mathrm{SE}},\hi q_{\mathrm{SE}}]$ --- \emph{not} a valid outer bound on $\DLCN$; it
+    can be too tight (Proposition~\ref{prop:inner}).
+  \item (\emph{Tight}) When $\DSE=\DLCN$ (singly connected, no cross-family sentence) and coordinate
+    descent reaches the global $\DSE$ extremum, the inner interval coincides with the exact LCN
+    bounds (Proposition~\ref{prop:tight}); verified on \texttt{d4\_biting}, where ApproxLP matches the
+    exact $P(B)=[0.04,0.72]$ (as does the fixed \texttt{IntervalBP}; CCTE remains inner there).
+  \item (\emph{Strict gap}) The inner bound is strict exactly when the nonconvex multilinear program
+    makes descent stall at a non-global local optimum; then ApproxLP under-reports the width.
+  \item (\emph{Bracket}) Pairing ApproxLP (inner) with Credal~VE (exact over $\DSE$) on the same
+    vertices brackets the truth and detects stalls (Section~\ref{sec:pairing}).
+  \item (\emph{Tightening}) D1/D2/D3 tighten ApproxLP for free at build time; D4 is implemented but
+    experimental and uncertified; D5 (\texttt{CredalJT}) is the separate exact engine.
+\end{enumerate}
+\end{proposition}
+
+\noindent Placed against its siblings: Credal~VE and CCTE ($\epsilon=0$) are \emph{exact} over
+$\DSE$; \texttt{IntervalBP} is \emph{outer} (interval) / \emph{inner} (variational) --- exact on
+trees now that its message bugs are fixed; ApproxLP is the family's \emph{inner} member --- and, on
+the instances tested here, a \emph{sound and tight} one that is the natural inner half of a two-sided
+bracket. The
+three companion notes cover the neighbors: \texttt{docs/cve\_exactness.tex} (the exact-over-$\DSE$
+per-target engine), \texttt{docs/ibp\_exactness.tex} (the message-passing engine), and
+\texttt{docs/tighter\_approximation.tex} (the D1--D5 taxonomy and the D5 exactness theorem).
+
+\end{document}
