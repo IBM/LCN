@@ -19,6 +19,8 @@
 \newcommand{\indep}{\perp\!\!\!\perp}
 \newcommand{\DSE}{\mathcal{D}_{\mathrm{SE}}}
 \newcommand{\DLCN}{\mathcal{D}_{\mathrm{LCN}}}
+\newcommand{\restr}{\!\restriction\!}
+\newcommand{\readoff}{\rho}
 
 \title{Exactness Properties of LCN Marginal-Inference Algorithms\\
 \large A consolidated reference: what each engine bounds, when it is exact,
@@ -61,21 +63,38 @@ give the one-screen summary, and a closing decision guide says which engine to r
 An LCN over binary atoms $\mathbf V=\{V_1,\dots,V_n\}$ is a set of probability \emph{sentences}, each
 Type-1 $\ell\le P(\varphi)\le u$ or Type-2 $\ell\le P(\varphi\mid\psi)\le u$ over propositional
 formulas, together with the conditional independencies of the \emph{Local Markov Condition} (LMC) of
-its primal graph. These jointly define the \emph{LCN distribution set}
+its primal graph. A candidate joint distribution $p\in\Delta(2^{\mathbf V})$ over the $2^n$ truth
+assignments belongs to the \emph{LCN distribution set} $\DLCN$ when it meets two families of
+requirements:
+\begin{itemize}
+  \item \emph{Sentence bounds.} Each sentence $s$ constrains one probability of $p$ to its interval,
+    $\ell_s\le g_s(p)\le u_s$, where $g_s(p)=P(\varphi)$ for a Type-1 sentence and $g_s(p)=P(\varphi\mid
+    \psi)$ (a ratio of two marginals of $p$) for a Type-2 sentence.
+  \item \emph{LMC equalities.} Each LMC assertion $(X\indep Y\mid S)$ imposes, for \emph{every} joint
+    configuration $\mathbf x,\mathbf y,\mathbf s$ of the atom blocks $X,Y,S$, the bilinear equality
+    \begin{equation}\label{eq:lmc}
+      P(\mathbf x,\mathbf y,\mathbf s)\,P(\mathbf s)=P(\mathbf x,\mathbf s)\,P(\mathbf y,\mathbf s),
+    \end{equation}
+    i.e.\ $X\indep Y\mid S$ under $p$. We write $h_\iota(p)=0$ for the collection of these equalities
+    belonging to assertion $\iota$.
+\end{itemize}
+Thus
 \begin{equation}\label{eq:dlcn}
-  \DLCN=\bigl\{\,p\in\Delta(2^{\mathbf V})\;:\;g_s(p)\in[\ell_s,u_s]\ \forall\,\text{sentences }s,\quad
-  h_\iota(p)=0\ \forall\,\text{LMC assertions }\iota\,\bigr\},
+  \DLCN=\bigl\{\,p\in\Delta(2^{\mathbf V})\;:\;\ell_s\le g_s(p)\le u_s\ \text{ for all sentences }s,\quad
+  h_\iota(p)=0\ \text{ for all LMC assertions }\iota\,\bigr\}.
 \end{equation}
-where each $g_s$ is a Type-1 linear or Type-2 ratio functional and each $h_\iota$ is the bilinear LMC
-equality $P(x,y,s)\,P(s)=P(x,s)\,P(y,s)$ for the assertion $(X\indep Y\mid S)$, over every joint
-configuration of $Y$ and $S$. The marginal task for a query atom $a$ is
+The marginal task for a query atom $a$ is to compute its tightest lower and upper probability,
 \[
   \lo P(a)=\min_{p\in\DLCN}P(a),\qquad \hi P(a)=\max_{p\in\DLCN}P(a),
 \]
-and, for a conditional query, the ratio $P(a\mid e)$. Every functional in \eqref{eq:dlcn} depends on
-$p$ only through its marginal on a fixed atom set (\emph{locality}): sentence $s$ through
-$p{\restriction}\mathrm{atoms}(s)$, assertion $(X\indep Y\mid S)$ through $p{\restriction}(X\cup Y\cup
-S)$. Locality is the lever behind every exactness result below.
+and, when evidence $e$ is given, the analogous bounds on the conditional $P(a\mid e)$.
+
+\medskip\noindent\emph{Notation (restriction).} For an atom set $A\subseteq\mathbf V$, write
+$p\restr A$ for the \emph{marginal of $p$ on $A$} --- the distribution over the truth assignments of
+$A$ obtained by summing $p$ over the remaining atoms. Every constraint above is \emph{local}: it
+depends on $p$ only through one such marginal --- sentence $s$ through $p\restr\mathrm{atoms}(s)$, and
+assertion $(X\indep Y\mid S)$ through $p\restr(X\cup Y\cup S)$. Locality is the lever behind every
+exactness result below.
 
 \subsection{The credal network and the strong extension}
 When the LCN's structure graph is a chain graph, the joint factorizes over families:
@@ -248,46 +267,82 @@ elimination order, gives each cluster $C$ a variable vector $q_C$ over the joint
 adjacent clusters by Lauritzen separator-consistency equalities, and hosts every sentence and LMC
 equality on a cluster containing its atoms. It reads each query marginal off a host cluster and
 optimizes $\min/\max$ with SCIP. Cost is $\sum_C 2^{|\mathrm{atoms}(C)|}$ --- exponential in
-\emph{treewidth}, not in $n$. Let $\mathcal F$ denote $\DLCN$ of \eqref{eq:dlcn} and
+\emph{treewidth}, not in $n$.
+
+We compare two feasible sets. The \emph{joint-feasible set} is $\mathcal F:=\DLCN$ of
+\eqref{eq:dlcn}: full joint distributions $p$ over all $2^n$ assignments meeting every sentence and
+LMC constraint. The \emph{cluster-feasible set} $\mathcal G$ replaces the one global joint by one
+local distribution $q_C\in\Delta(2^{|\mathrm{atoms}(C)|})$ per cluster $C$ of the junction tree $T$,
+required only to be locally consistent and to satisfy the constraints each cluster hosts:
 \begin{align*}
-  \mathcal G=\bigl\{(q_C)_{C\in T}:\ &\textstyle\sum_i q_C[i]=1;\quad
-  M_{C\to S}q_C=M_{D\to S}q_D\text{ on every edge }(C,D),\,S{=}C\cap D;\\
-  &\text{each hosted constraint holds}\bigr\}
+  \mathcal G=\bigl\{(q_C)_{C\in T}:\ &\textstyle\sum_i q_C[i]=1\ \text{ for each cluster }C
+    \quad(\text{each }q_C\text{ is a distribution});\\
+  &q_C\restr S=q_D\restr S\ \text{ on every tree edge }(C,D),\ S{=}C\cap D
+    \quad(\text{clusters agree on their separator});\\
+  &\text{every sentence / LMC equality hosted on a cluster holds there}\bigr\},
 \end{align*}
-be the cluster-feasible region. An LMC assertion $(X\indep Y\mid S)$ is \emph{hosted} if some cluster
-contains $X\cup Y\cup S$, and \emph{separator-entailed} if $S$ separates $X$ from $Y$ in the chordal
-graph $G^\ast$ whose maximal cliques are the clusters.
+where $q_C\restr S$ is the marginal of the cluster distribution $q_C$ onto the separator atoms $S$
+(the ``$M_{C\to S}q_C$'' of the implementation --- the linear map that sums $q_C$ down to $S$). An
+LMC assertion $(X\indep Y\mid S)$ is \emph{hosted} if some cluster contains $X\cup Y\cup S$ (so its
+equality \eqref{eq:lmc} can be written on that cluster), and \emph{separator-entailed} if $S$
+separates $X$ from $Y$ in the chordal graph $G^\ast$ whose maximal cliques are the clusters.
+
+\medskip\noindent\emph{The read-off functional.} Fix a query atom $a$ and evidence $e$, and let $C_a$
+be a cluster containing $a$ together with the evidence atoms (H4 below guarantees one exists). Define
+the \emph{read-off} $\readoff_a$, the marginal that \texttt{CredalJT} reports for $a$, directly from
+the host cluster distribution:
+\[
+  \readoff_a(q)=\!\!\sum_{i\,:\,a=1\text{ in state }i}\!\! q_{C_a}[i]
+  \quad(\text{no evidence}),\qquad
+  \readoff_a(q)=\frac{\sum_{i\,:\,a=1,\;e\text{ in state }i} q_{C_a}[i]}
+                     {\sum_{i\,:\,e\text{ in state }i} q_{C_a}[i]}
+  \quad(\text{with evidence }e).
+\]
+Write $\pi(p)=(p\restr C)_{C\in T}$ for the \emph{projection} of a joint $p$ onto the clusters. The
+same formula applied to $\pi(p)$ returns exactly $p$'s own marginal, $\readoff_a(\pi(p))=P_p(a)$
+(resp.\ $P_p(a\mid e)$); so the theorem below compares \emph{one} functional $\readoff_a$ optimized
+over $\mathcal G$ against the same functional optimized over $\mathcal F$.
 
 \begin{theorem}[D5 exactness]\label{thm:d5}
 Suppose \textup{(H1)} $T$ has the running-intersection property (RIP; always true by construction);
 \textup{(H2)} every LCN sentence is hosted; \textup{(H3)} every LMC assertion is either hosted or
 separator-entailed in $G^\ast$; \textup{(H4)} the query atom and all evidence atoms lie together in
-some cluster. Then for every such atom $a$,
+some cluster. Then for every such atom $a$ the read-off optimized over the cluster-feasible set
+equals the true marginal bound optimized over the joint-feasible set,
 \[
-  \min_{q\in\mathcal G}(\text{read }a)=\min_{p\in\mathcal F}p_a,\qquad
-  \max_{q\in\mathcal G}(\text{read }a)=\max_{p\in\mathcal F}p_a,
+  \min_{q\in\mathcal G}\readoff_a(q)=\min_{p\in\mathcal F}\readoff_a(\pi(p))=\lo P(a),
+  \qquad
+  \max_{q\in\mathcal G}\readoff_a(q)=\max_{p\in\mathcal F}\readoff_a(\pi(p))=\hi P(a),
 \]
-and likewise for the conditional ratio $P(a\mid e)$. That is, \texttt{CredalJT} equals
-\texttt{ExactInference}.
+and likewise for a conditional query $P(a\mid e)$. That is, \texttt{CredalJT} returns exactly the
+\texttt{ExactInference} bounds.
 \end{theorem}
 
 \begin{proof}[Proof sketch]
-\emph{Projection $\mathcal F\to\mathcal G$ (always valid; needs only H1/H4).} Given $p\in\mathcal F$,
-set $q_C:=p{\restriction}C$. Cluster simplexes hold; each separator equality holds because both sides
-equal $p{\restriction}S$; every hosted constraint holds by locality; the read-off of $a$ equals
-$p_a$. Hence $q\in\mathcal G$ with the same objective, so $[\min,\max]_{\mathcal G}\supseteq
-[\min,\max]_{\mathcal F}$: \textbf{CredalJT is always a valid outer bound.}
+\emph{Projection $\mathcal F\to\mathcal G$ (always valid; needs only H1/H4).} Given a joint
+$p\in\mathcal F$, set each cluster distribution to the corresponding marginal, $q_C:=p\restr C$. Then
+every $q_C$ is a distribution; each separator equality holds because both $q_C\restr S$ and
+$q_D\restr S$ equal $p\restr S$; and every hosted constraint holds by locality (its value on $q_C$
+equals its value on $p$). Here $q=\pi(p)$, so the read-off identity gives
+$\readoff_a(q)=\readoff_a(\pi(p))=P_p(a)$.
+Hence $q\in\mathcal G$ with the same objective value, so $\min_{\mathcal G}\readoff_a\le
+\min_{\mathcal F}\readoff_a$ and $\max_{\mathcal G}\readoff_a\ge\max_{\mathcal F}\readoff_a$: the
+cluster interval \emph{contains} the joint interval, i.e.\ \textbf{CredalJT is always a valid outer
+bound.}
 
-\emph{Reconstruction $\mathcal G\to\mathcal F$ (needs H2/H3).} Given a separator-consistent family
-$(q_C)\in\mathcal G$, the RIP marginal-consistency theorem (Lauritzen) yields a unique joint
-$p=\prod_C q_C/\prod_{(C,D)\in T}q_S$ whose cluster marginals are the $q_C$. Verify $p\in\mathcal F$:
-each \emph{hosted} sentence/LMC holds because, by locality, its value on $p$ equals its value on the
-host cluster marginal, which satisfies it (H2, hosted part of H3). Each \emph{separator-entailed} LMC
-holds because $p$ factorizes over $T$ and hence obeys the global Markov property of $G^\ast$: whenever
-$S$ separates $X$ from $Y$ in $G^\ast$, $X\indep_p Y\mid S$ holds automatically, even though the
-assertion was dropped from $\mathcal G$ (other part of H3). Thus $[\min,\max]_{\mathcal F}\supseteq
-[\min,\max]_{\mathcal G}$. Both inclusions force equality; H4 makes the conditional ratio a functional
-of a single cluster, so the same two maps preserve it.
+\emph{Reconstruction $\mathcal G\to\mathcal F$ (needs H2/H3).} Conversely, given a separator-consistent
+family $(q_C)\in\mathcal G$, the RIP marginal-consistency theorem (Lauritzen) yields a \emph{unique}
+joint $p=\prod_C q_C\big/\prod_{(C,D)\in T}q_{S}$ (with $q_S$ the common separator marginal) whose
+cluster marginals are exactly the $q_C$. We check $p\in\mathcal F$. Each \emph{hosted} sentence or LMC
+equality holds because, by locality, its value on $p$ equals its value on the host cluster's marginal
+$q_{C_h}$, which satisfies it (H2 and the hosted part of H3). Each \emph{separator-entailed} LMC
+$(X\indep Y\mid S)$ holds \emph{automatically}: since $p$ factorizes over $T$ it obeys the global
+Markov property of the chordal graph $G^\ast$, so whenever $S$ separates $X$ from $Y$ in $G^\ast$, $X$
+and $Y$ are conditionally independent given $S$ \emph{under this reconstructed $p$} --- even though
+the equality was never imposed on $\mathcal G$ (the other part of H3). Thus each cluster family lifts
+to a joint of the same objective value, giving the reverse inclusion. Both inclusions force equality;
+by H4 the conditional read-off $\readoff_a$ is a functional of the single host cluster $C_a$, so the
+same two maps preserve it.
 \end{proof}
 
 \noindent Three consequences. (a) The proof never mentions chains: exactness is a property of the
