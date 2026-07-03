@@ -62,7 +62,8 @@ from pyomo.environ import (
 from lcn.inference.marginal.cn.coupling import CouplingConstraints
 from lcn.inference.marginal.cn.potentials import min_fill_order
 from lcn.inference.marginal.exact import make_scip, _read_gap, _is_vacuous
-from lcn.core.model import SentenceType
+from lcn.core.model import LCN, SentenceType
+from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
 from lcn.inference.utils.common import (
     make_ipopt, build_truth_table,
     lmc_constraint_groups_vec, eval_indicator, make_conjunction,
@@ -1039,3 +1040,44 @@ class CredalJT:
                   "falling back to ExactInference per atom.")
         for atom in atoms:
             self.singleton_marginals[atom] = self._exact_atom(atom, evidence)
+
+
+if __name__ == "__main__":
+
+    # Load the LCN
+    # file_name = "examples/chain.lcn"
+    file_name = "benchmarks/tree_large_fr/tree_fr_n20_1.lcn"
+    lcn_model = LCN()
+    lcn_model.from_lcn(file_name=file_name)
+    lcn_model.summary()
+    print(lcn_model)
+
+    verbosity = 2
+
+    # Build the credal network for scheme D5. CredalJT formulates its NLP from
+    # the interval local credal sets, so it does NOT need the enumerated
+    # extreme points -- build vertex-free (enumerate_vertices=False) to skip the
+    # (potentially expensive) LRS enumeration.
+    cnv = CredalNetworkVertices.from_lcn(
+        lcn_model,
+        method="linear",
+        merge_budget=1,
+        solver="ipopt",
+        enumerate_vertices=False,
+        verbosity=verbosity,
+    )
+
+    # At verbosity 2, show the D5 junction tree and the separator messages it
+    # propagates (one tree serves all marginals -- query-independent).
+    if verbosity >= 2:
+        print()
+        print_junction_tree(cnv, query=None, evidence={})
+
+    # CredalJT computes the EXACT marginals (scheme D5) with one junction tree
+    # for all atoms.
+    jt = CredalJT(cnv=cnv)
+    print("\n=== All marginals (CredalJT, exact D5) ===")
+    jt.run(evidence={}, solver="scip", verbosity=verbosity)
+    for atom in sorted(jt.singleton_marginals):
+        lo, hi = jt.singleton_marginals[atom]
+        print(f"  P({atom}=1) in [{lo:.6f}, {hi:.6f}]")

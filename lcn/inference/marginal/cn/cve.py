@@ -33,8 +33,6 @@ from pyomo.environ import (
 from lcn.core.model import LCN
 from lcn.inference.marginal.cn.coupling import (
     CouplingConstraints, warn_conditional_coupling)
-from lcn.inference.marginal.cn.junction_nlp import (
-    CredalJT, print_junction_tree)
 from lcn.inference.marginal.cn.potentials import Potential, min_fill_order
 from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
 from lcn.inference.marginal.exact import _is_vacuous
@@ -694,34 +692,29 @@ class CredalVE:
 if __name__ == "__main__":
 
     # Load the LCN
-    file_name = "examples/chain.lcn"
-    # file_name = "benchmarks/easy/easy_linear_n10_3.lcn"
+    # file_name = "examples/chain.lcn"
+    file_name = "benchmarks/tree_large_fr/tree_fr_n20_1.lcn"
     lcn_model = LCN()
     lcn_model.from_lcn(file_name=file_name)
     lcn_model.summary()
     print(lcn_model)
 
-    # Check consistency
-    print(f"\n=== Consistency check for {file_name} ===")
-    ok = check_consistency(lcn_model)
-
-    # Build the credal network vertices (chain-graph factorization +
-    # interval local credal sets + extreme-point enumeration)
-    cnv = CredalNetworkVertices.from_lcn(
-        lcn_model, 
-        method="linear", 
-        merge_budget=1, 
-        verbosity=2, 
-        solver="ipopt"
-    )
-
     verbosity = 2
 
-    # At verbosity 2, show the D5 junction tree and the separator messages it
-    # propagates (one tree serves all marginals -- query-independent).
-    if verbosity >= 2:
-        print()
-        print_junction_tree(cnv, query=None, evidence={})
+    # Check consistency
+    print(f"\n=== Consistency check for {file_name} ===")
+    check_consistency(lcn_model)
+
+    # Build the credal network vertices (chain-graph factorization +
+    # interval local credal sets + extreme-point enumeration). CredalVE
+    # consumes the enumerated extreme points, so keep enumerate_vertices=True.
+    cnv = CredalNetworkVertices.from_lcn(
+        lcn_model,
+        method="linear",
+        merge_budget=1,
+        solver="ipopt",
+        verbosity=verbosity,
+    )
 
     # CredalVE computes all singleton marginals over the strong extension by
     # looping the per-target bucket elimination over the credal-network nodes.
@@ -730,13 +723,4 @@ if __name__ == "__main__":
     cve.run(evidence={}, elim_heuristic="min-fill", verbosity=verbosity)
     for atom in sorted(cve.singleton_marginals):
         lo, hi = cve.singleton_marginals[atom]
-        print(f"  P({atom}=1) in [{lo:.6f}, {hi:.6f}]")
-
-    # CredalJT computes the EXACT marginals (scheme D5) with one junction tree
-    # for all atoms.
-    jt = CredalJT(cnv=cnv)
-    print("\n=== All marginals (CredalJT, exact D5) ===")
-    jt.run(evidence={}, solver="scip", verbosity=verbosity)
-    for atom in sorted(jt.singleton_marginals):
-        lo, hi = jt.singleton_marginals[atom]
         print(f"  P({atom}=1) in [{lo:.6f}, {hi:.6f}]")
