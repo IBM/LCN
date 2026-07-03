@@ -78,15 +78,19 @@ _DEN_FLOOR = 1e-6
 # ----------------------------------------------------------------------
 
 def _node_scopes(cnv):
-    """The per-node CPT scopes [node] + parent_names, in extreme_points order
-    (identical to what CVE builds and to _compute_induced_width)."""
-    bn = cnv.bn_min
+    """The per-node CPT scopes [node] + parent_names, in cn.factors order
+    (identical to what CVE builds and to _compute_induced_width).
+
+    Derived from the CredalNetwork factors (cnv.cn), NOT the pyAgrum bn_min /
+    enumerated extreme_points, so it works for the vertex-free build the
+    CredalJT (D5) engine uses (extreme_points may be None there). The
+    factor/child order matches the old extreme_points iteration order, and each
+    factor[0] carries the same parents as bn_min's arcs, so the scopes are
+    identical to the pyAgrum-derived ones."""
     scopes = []
-    for node_name in cnv.extreme_points:
-        nid = bn.idFromName(node_name)
-        parent_ids = sorted(bn.parents(nid))
-        parent_names = [bn.variable(pid).name() for pid in parent_ids]
-        scopes.append([node_name] + parent_names)
+    for factor in cnv.cn.factors:
+        entry = factor[0]
+        scopes.append([entry["child"]] + list(entry["parents"]))
     return scopes
 
 
@@ -894,9 +898,13 @@ class CredalJT:
     """
 
     def __init__(self, cnv):
-        assert cnv.extreme_points is not None, \
-            "CredalNetworkVertices must be built before passing to CredalJT."
-        assert cnv.bn_min is not None
+        # CredalJT's NLP is formulated from the interval local credal sets, so
+        # it needs the built CredalNetwork (factors) but NOT the enumerated
+        # extreme points -- cnv may be a vertex-free build
+        # (enumerate_vertices=False), in which case extreme_points/credal_net
+        # are None.
+        assert cnv.cn is not None and cnv.cn.factors, \
+            "CredalNetwork must be built before passing to CredalJT."
         self.cnv = cnv
 
     def run(self, evidence: dict = {}, solver: str = "scip",

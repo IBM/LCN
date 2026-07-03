@@ -57,18 +57,15 @@ def _compute_induced_width(cnv):
     the potential scopes.  The induced width is the maximum number of
     neighbours a variable has at the moment it is eliminated.
     """
-    bn = cnv.bn_min
-    cards = {}
-    for nid in bn.nodes():
-        cards[bn.variable(nid).name()] = bn.variable(nid).domainSize()
-
-    # Collect scopes from the extreme-point potentials
+    # Collect the per-node CPT scopes [node] + parents. Derived from the
+    # CredalNetwork factors (cnv.cn) so this also works for a vertex-free build
+    # (enumerate_vertices=False, e.g. CredalJT) where extreme_points is None.
+    # The factor/child order and parents match the pyAgrum bn_min arcs, so the
+    # induced width is identical either way.
     scopes = []
-    for node_name in cnv.extreme_points:
-        nid = bn.idFromName(node_name)
-        parent_ids = sorted(bn.parents(nid))
-        parent_names = [bn.variable(pid).name() for pid in parent_ids]
-        scopes.append([node_name] + parent_names)
+    for factor in cnv.cn.factors:
+        entry = factor[0]
+        scopes.append([entry["child"]] + list(entry["parents"]))
 
     # Build interaction graph
     all_vars = set()
@@ -277,10 +274,15 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             cn_time_limit = kwargs.get("solver_time_limit", None)
             cn_gap_tol = kwargs.get("gap_tol", 0.0)
             merge_budget = kwargs.get("merge_budget", 1)
+            # CredalJT (D5) formulates its NLP from the interval local credal
+            # sets and never consumes the enumerated extreme points, so skip
+            # the (potentially expensive) LRS vertex enumeration for it.
+            enumerate_vertices = (algorithm != "cjt")
             cnv = CredalNetworkVertices.from_lcn(
                 lcn_model, method=fact_method, solver=cn_solver,
                 time_limit=cn_time_limit, gap_tol=cn_gap_tol,
-                n_jobs=n_jobs, merge_budget=merge_budget, verbosity=verbosity)
+                n_jobs=n_jobs, merge_budget=merge_budget,
+                enumerate_vertices=enumerate_vertices, verbosity=verbosity)
             result["build_time"] = round(cnv.build_time, 4)
             result["induced_width"] = _compute_induced_width(cnv)
 

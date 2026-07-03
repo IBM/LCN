@@ -97,7 +97,8 @@ class CredalNetworkVertices:
     def lcn(self) -> LCN:
         return self.cn.lcn
 
-    def build(self, verbosity: int = 1) -> Dict:
+    def build(self, verbosity: int = 1,
+              enumerate_vertices: bool = True) -> Dict:
         """
         Assemble the lower/upper BayesNets from the CredalNetwork's interval
         factors and enumerate the extreme points via LRS.
@@ -105,6 +106,14 @@ class CredalNetworkVertices:
         Args:
             verbosity: int
                 Verbosity level (0 is silent).
+            enumerate_vertices: bool
+                When True (default) run LRS extreme-point enumeration and store
+                the result in ``extreme_points``. When False, build the
+                lower/upper BayesNets but SKIP the (potentially expensive) LRS
+                enumeration -- ``credal_net``/``extreme_points`` stay None. Used
+                by the CredalJT (scheme D5) engine, whose constraint NLP is
+                formulated from the interval local credal sets and never
+                consumes the enumerated vertices.
 
         Returns:
             A dict with the build summary: {"build_time", "n_nodes",
@@ -112,7 +121,7 @@ class CredalNetworkVertices:
             whole-pipeline timing use from_lcn).
         """
         t0 = time.perf_counter()
-        self._build(verbosity=verbosity)
+        self._build(verbosity=verbosity, enumerate_vertices=enumerate_vertices)
         self.build_time = time.perf_counter() - t0
         return self._summary()
 
@@ -121,6 +130,7 @@ class CredalNetworkVertices:
                  solver: str = "ipopt", time_limit: float = None,
                  gap_tol: float = 0.0, n_jobs: int = 1,
                  merge_budget: int = 1,
+                 enumerate_vertices: bool = True,
                  verbosity: int = 1) -> "CredalNetworkVertices":
         """
         Build the full pipeline from an LCN: CredalNetwork (chain-graph
@@ -146,6 +156,11 @@ class CredalNetworkVertices:
             merge_budget: int
                 Scheme D2: maximum flattened scope of a merged super-family
                 (1 = no merging; see CredalNetwork.from_lcn).
+            enumerate_vertices: bool
+                When True (default) run LRS extreme-point enumeration. When
+                False, skip it (see :meth:`build`); ``extreme_points`` stays
+                None. The CredalJT (D5) engine passes False -- its NLP uses the
+                interval local credal sets, not the enumerated vertices.
             verbosity: int
                 Verbosity level. 0 is silent. At verbosity < 2 the ipopt/scip
                 solver warnings/errors emitted during the per-family solves
@@ -171,7 +186,8 @@ class CredalNetworkVertices:
                 gap_tol=gap_tol, n_jobs=n_jobs, merge_budget=merge_budget,
                 verbosity=verbosity)
             cnv = cls(cn)
-            cnv._build(verbosity=verbosity)
+            cnv._build(verbosity=verbosity,
+                       enumerate_vertices=enumerate_vertices)
         finally:
             pyomo_logger.setLevel(prev_level)
         cnv.build_time = time.perf_counter() - t0
@@ -192,8 +208,9 @@ class CredalNetworkVertices:
             "n_vertices": n_vertices,
         }
 
-    def _build(self, verbosity: int = 1):
-        """Build bn_min/bn_max, the CredalNet, and parse the extreme points."""
+    def _build(self, verbosity: int = 1, enumerate_vertices: bool = True):
+        """Build bn_min/bn_max, and (unless enumerate_vertices is False) the
+        CredalNet plus the parsed extreme points."""
         cn = self.cn
         node_names = cn.nodes
         node_card = cn.node_card
@@ -316,6 +333,17 @@ class CredalNetworkVertices:
             print("[CredalNetworkVertices] Upper BN CPTs:")
             for name in node_names:
                 print(f"  {name}: {self.bn_max.cpt(node_ids_max[name])}")
+
+        if not enumerate_vertices:
+            # Vertex-free build (e.g. CredalJT / scheme D5): the interval
+            # local credal sets carried by bn_min/bn_max are all the consumer
+            # needs; skip the (potentially expensive) LRS enumeration.
+            self.credal_net = None
+            self.extreme_points = None
+            if verbosity > 0:
+                print("[CredalNetworkVertices] Skipping LRS extreme-point "
+                      "enumeration (enumerate_vertices=False).")
+            return
 
         # Create the CredalNet and run LRS vertex enumeration
         self.credal_net = gum.CredalNet(self.bn_min, self.bn_max)
