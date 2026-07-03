@@ -24,9 +24,12 @@ import argparse
 from lcn.benchmarks.generator import Generator
 
 TOPOLOGIES = ["chain", "tree", "polytree", "random", "dag"]
-# "easy" is available via --types but excluded from the default set (it targets
-# SCIP-easy instances rather than a graph topology; see Generator.generate).
-ALL_TYPES = TOPOLOGIES + ["easy"]
+# "easy" targets SCIP-easy instances rather than a graph topology; "tree-fr" and
+# "polytree-fr" are the family-realizable classes (same topology as tree/polytree
+# but extra marginals on root atoms only, so Credal VE / Interval BP are exact --
+# see docs/strong_extension_exactness.tex). Both are available via --types but
+# excluded from the default set. See Generator.generate.
+ALL_TYPES = TOPOLOGIES + ["tree-fr", "polytree-fr", "easy"]
 
 
 def main():
@@ -47,7 +50,8 @@ examples:
         "--types", type=str, nargs="+", default=TOPOLOGIES,
         choices=ALL_TYPES,
         help="instance types to generate (default: chain tree polytree random dag; "
-             "'easy' produces SCIP-easy instances)")
+             "'tree-fr'/'polytree-fr' are the family-realizable classes on which "
+             "Credal VE / Interval BP are exact; 'easy' produces SCIP-easy instances)")
     parser.add_argument(
         "--sizes", type=int, nargs="+", default=[5, 10, 15, 20, 30],
         help="number of variables per instance (default: 5 10 15 20 30)")
@@ -103,7 +107,10 @@ examples:
     total_saved = 0
 
     for graph_type in args.types:
-        type_dir = os.path.join(args.output_dir, graph_type)
+        # Use a filesystem-friendly slug ("tree-fr" -> "tree_fr") for the
+        # subdirectory and filename prefix.
+        slug = graph_type.replace("-", "_")
+        type_dir = os.path.join(args.output_dir, slug)
         os.makedirs(type_dir, exist_ok=True)
 
         if args.verbosity > 0:
@@ -130,7 +137,7 @@ examples:
             # Encode the strategy in easy filenames (mirrors gen_easy.py) so
             # linear/bounded/verified sets don't overwrite one another.
             prefix = (f"easy_{args.strategy}" if graph_type == "easy"
-                      else graph_type)
+                      else slug)
             for i, lcn in enumerate(instances):
                 fname = os.path.join(
                     type_dir, f"{prefix}_n{n}_{i + 1}.lcn")

@@ -585,9 +585,13 @@ order-sensitivity or a bug, not a modeling difference.
     coupling.
 \end{itemize}
 
-\noindent The six companion notes hold the per-engine detail:
+\noindent The companion notes hold the per-engine detail:
 \texttt{cve\_exactness.tex}, \texttt{ccte\_exactness.tex}, \texttt{ibp\_exactness.tex},
 \texttt{approxlp\_exactness.tex}, \texttt{ariel\_exactness.tex}, and \texttt{tighter\_approximation.tex}
-(the D1--D5 taxonomy and the full D5 theorem).
+(the D1--D5 taxonomy and the full D5 theorem). For the strong-extension engines specifically,
+\texttt{strong\_extension\_exactness.tex} proves the sharp characterization: Credal~VE (and
+Interval~BP on a tree) is exact w.r.t.\ $\DLCN$ iff the primal graph is singly connected and every
+sentence is \emph{family-realizable} --- a refinement of ``no cross-family sentence'' that also
+excludes a Type-1 marginal on a non-root child.
 
 \end{document}

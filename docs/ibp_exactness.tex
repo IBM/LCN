@@ -296,6 +296,26 @@ the algorithmic guarantees of Propositions~\ref{prop:outer} and~\ref{prop:exactt
 unconditional case tested. (The \texttt{d4\_biting} row is ``exact (uncond.)'' because its
 unconditional marginals coincide with $\DLCN$; conditional queries still need D5.)
 
+\paragraph{A subtle effective cross-family case: a marginal on a non-root child.} The ``no
+cross-family sentence'' column above is judged by \emph{atom scope}. But a \textbf{Type-1 marginal
+$P(x)$ on a non-root child} $x$ acts as an effective cross-family constraint even though its scope is
+the single atom $\{x\}$: the marginal $P(x)=\sum_{\mathrm{pa}_x}P(x\mid\mathrm{pa}_x)P(\mathrm{pa}_x)$
+couples $x$'s family with its parents' marginals across families, and no per-family local credal set
+can enforce it, so $\DSE\supsetneq\DLCN$ and IBP (like CVE, sharing the same vertices) reports an
+inflated interval on a clean tree. Since IBP consumes exactly the same
+\texttt{CredalNetworkVertices} as CVE, it produces the \emph{identical} loose numbers. Witnessed on
+\texttt{benchmarks/tree\_small/tree\_n5\_1.lcn} (extra marginal $s_5:\,P(x_2)\le0.4395$ on non-root
+child $x_2$): IBP interval mode returns $P(x_2)=[0,0.8012]$ and $P(x_0)=[0.002,0.865]$, matching CVE,
+versus the exact \texttt{CredalJT}/ARIEL $P(x_2)=[0.010,0.4395]$, $P(x_0)=[0.006,0.621]$. The
+atom-scope D4 does not flag it; IBP has no D4 anyway (\S\ref{sec:schemes}). The full derivation and
+the family-realizable benchmark classes (\texttt{graph\_type="tree-fr"}/\texttt{"polytree-fr"}, which
+place extra marginals on \emph{root} atoms only, whose family \emph{is} the marginal; the default
+\texttt{tree}/\texttt{polytree} draw from all atoms and may be non-realizable) are in
+\texttt{docs/cve\_exactness.tex}, and the formal characterization --- IBP (on a tree) and CVE are
+exact w.r.t.\ $\DLCN$ iff the graph is singly connected and every sentence is
+\emph{family-realizable} --- is in \texttt{docs/strong\_extension\_exactness.tex}. The reliable exact
+engine for this case is \texttt{CredalJT} (D5).
+
 \section{The strong-extension boundary (\texttt{d4\_biting})}\label{sec:boundary}
 
 \texttt{examples/d4\_biting.lcn} is the minimal cross-family witness (three atoms $A\to B$, $A\to C$;

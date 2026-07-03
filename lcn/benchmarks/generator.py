@@ -77,8 +77,14 @@ class Generator:
         Args:
             num_vars: Number of variables in each LCN.
             graph_type: Graph topology — "random", "dag", "polytree", "tree",
-                "chain", or "easy" (instances designed to be quick for the SCIP global
-                solver to certify; see the strategy/coverage args below).
+                "tree-fr", "polytree-fr", "chain", or "easy". The "-fr"
+                (family-realizable) variants have the same topology as
+                "tree"/"polytree" but place the extra marginal sentences on root
+                atoms only, so every sentence is family-realizable and the
+                strong-extension engines (Credal VE, Interval BP) are exact on
+                them (see docs/strong_extension_exactness.tex). "easy" produces
+                instances designed to be quick for the SCIP global solver to
+                certify; see the strategy/coverage args below.
             num_instances: Number of consistent instances to generate.
             num_sentences: Number of sentences per instance (only used when
                 graph_type="random"). Defaults to num_vars if not specified.
@@ -130,9 +136,11 @@ class Generator:
         Returns:
             A list of consistent LCN instances.
         """
-        assert graph_type in ("random", "dag", "polytree", "tree", "chain", "easy"), \
+        assert graph_type in ("random", "dag", "polytree", "polytree-fr",
+                              "tree", "tree-fr", "chain", "easy"), \
             f"Unknown graph_type '{graph_type}'. " \
-            f"Use 'random', 'dag', 'polytree', 'tree', 'chain', or 'easy'."
+            f"Use 'random', 'dag', 'polytree', 'polytree-fr', 'tree', " \
+            f"'tree-fr', 'chain', or 'easy'."
         assert num_vars >= 3, "Need at least 3 variables."
         assert max_component_size >= 1, "max_component_size must be >= 1."
         assert max_parents >= 1, "max_parents must be >= 1."
@@ -182,8 +190,12 @@ class Generator:
                 scopes, components = self._make_graph(num_vars, graph_type,
                                                       max_component_size,
                                                       max_parents)
+                # The "-fr" (family-realizable) tree/polytree classes keep the
+                # same topology but place extra marginals on root atoms only.
+                extras_on_roots_only = graph_type in ("tree-fr", "polytree-fr")
                 lcn = self._build_lcn(scopes, components, num_vars, epsilon,
-                                      max_vars_per_sentence, num_extras)
+                                      max_vars_per_sentence, num_extras,
+                                      extras_on_roots_only=extras_on_roots_only)
             if self._check_and_build(lcn, consistency_restarts, verbosity,
                                      consistency_mode):
                 instances.append(lcn)
@@ -396,9 +408,13 @@ class Generator:
         """
         if graph_type == "dag":
             return self._graph_dag(num_vars, max_parents), []
-        elif graph_type == "polytree":
+        elif graph_type in ("polytree", "polytree-fr"):
+            # "polytree-fr" is the same topology as "polytree"; it differs only
+            # in that extra marginals are restricted to root atoms (family-
+            # realizable), handled in generate() / _build_lcn.
             return self._graph_polytree(num_vars, max_parents), []
-        elif graph_type == "tree":
+        elif graph_type in ("tree", "tree-fr"):
+            # "tree-fr": same topology as "tree", family-realizable extras.
             return self._graph_tree(num_vars), []
         elif graph_type == "chain":
             return self._graph_chain(num_vars, max_component_size)
@@ -707,7 +723,8 @@ class Generator:
     def _build_lcn(self, scopes: List[List[int]],
                    components: List[List[int]],
                    num_vars: int, epsilon: float, max_vars: int,
-                   num_extras: int) -> LCN:
+                   num_extras: int,
+                   extras_on_roots_only: bool = False) -> LCN:
         """
         Build an LCN instance from scopes and chain components.
 
@@ -720,6 +737,10 @@ class Generator:
             epsilon: half-width of probability intervals.
             max_vars: max variables per formula.
             num_extras: extra marginal sentences to add.
+            extras_on_roots_only: when False (default) the extra marginals are
+                drawn from all atoms (original behavior); when True they are
+                restricted to root atoms so every sentence is family-realizable
+                (the "-fr" tree/polytree classes). See the loop below.
         """
         lcn = LCN()
         atoms = [Atom(f"x{i}") for i in range(num_vars)]
@@ -766,13 +787,40 @@ class Generator:
             lcn.add_sentence(sentence)
             sid += 1
 
-        # Add extra marginal sentences P(x_i)
-        all_vars = list(range(num_vars))
+        # Add extra marginal sentences P(x_i).
+        #
+        # By default (``extras_on_roots_only=False``) the extra marginals are
+        # drawn from ALL atoms -- the original generator behavior. Note that a
+        # Type-1 marginal P(x) on a NON-root child x is an *effective*
+        # cross-family constraint: the child's marginal is
+        # sum_{pa} P(x | pa) P(pa), which couples the family P(x | parents) with
+        # its parents' marginals across families. No single per-family local
+        # credal set can enforce it, so the strong-extension engines (Credal VE,
+        # Interval BP) can inflate that marginal beyond the LCN bound -- a Gap B
+        # blowup -- even though the atom-scope cross-family test (which sees only
+        # the single atom {x}) reports the sentence as family-local. Such
+        # instances are legitimate (and exactly solved by CredalJT / ARIEL);
+        # they are simply not "family-realizable".
+        #
+        # When ``extras_on_roots_only=True`` the extras are restricted to ROOT
+        # atoms (children of a length-1 scope), whose family P(x) *is* the
+        # marginal, so the bound is enforced in-family and no Gap B blowup
+        # occurs -- yielding a fully family-realizable instance on which the
+        # strong-extension engines are exact. This is the "-fr" tree/polytree
+        # class. See docs/strong_extension_exactness.tex, docs/cve_exactness.tex,
+        # docs/ibp_exactness.tex.
+        if extras_on_roots_only:
+            extra_vars = sorted({scope[0] for scope in scopes
+                                 if len(scope) == 1})
+            if not extra_vars:  # defensive: fall back if no plain root
+                extra_vars = list(range(num_vars))
+        else:
+            extra_vars = list(range(num_vars))
         extras_added = 0
         attempts = 0
         while extras_added < num_extras and attempts < num_extras * 10:
             attempts += 1
-            var = all_vars[self.rng.randint(num_vars)]
+            var = extra_vars[self.rng.randint(len(extra_vars))]
             phi = self._make_random_formula([var], max_vars)
             lo, hi = self._make_bounds(epsilon)
             sentence = Sentence(

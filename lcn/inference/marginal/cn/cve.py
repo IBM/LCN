@@ -83,7 +83,8 @@ class CredalVE:
 
     def run(self, evidence: dict = {},
             elim_heuristic: str = "topological", epsilon: float = None,
-            coupling: str = "off", verbosity: int = 1):
+            coupling: str = "off", n_clusters: int = 0,
+            cluster_representative: str = "plub", verbosity: int = 1):
         """
         Compute lower/upper bounds on the posterior marginal of EVERY
         (non-evidence) singleton atom, by iterating the single-query bucket
@@ -107,6 +108,18 @@ class CredalVE:
                 For the EXACT junction-tree bound (scheme D5) use the dedicated
                 CredalJT engine (lcn.inference.marginal.cn.junction_nlp), which
                 builds one junction tree for all marginals.
+            n_clusters: if > 0, cluster the functions of each intermediate
+                potential into ``n_clusters`` groups (K-means, Manhattan
+                distance) and replace each cluster by a single representative
+                BEFORE the dominance/epsilon prune, capping the potential size.
+                This is the same approximation CredalCTE offers
+                (Potential.cluster_prune); ``0`` (default) disables it and keeps
+                the exact behavior. NOTE: with ``n_clusters > 0`` the result is
+                an APPROXIMATION -- no longer exact over the strong extension --
+                a deliberate size/accuracy knob analogous to ``epsilon``.
+            cluster_representative: representative used when ``n_clusters > 0``:
+                "plub" (default, Pareto least upper bound = componentwise max) or
+                "mean" (cluster centroid). Ignored when ``n_clusters == 0``.
             verbosity: 0 silent, 1 summary, 2 per-target detail.
 
         Returns:
@@ -123,6 +136,9 @@ class CredalVE:
         assert coupling in ("off", "cross-family"), \
             f"Unknown coupling '{coupling}'. Use 'off' or 'cross-family' " \
             f"(for the exact D5 bound use the CredalJT engine)."
+        assert cluster_representative in ("plub", "mean"), \
+            f"Unknown cluster_representative '{cluster_representative}'. " \
+            f"Use 'plub' or 'mean'."
         assert self.cnv.extreme_points is not None, \
             "CredalNetworkVertices must be built before run()."
         assert self.cnv.bn_min is not None
@@ -148,7 +164,8 @@ class CredalVE:
             if all(a in evidence_set for a in node_atoms[node]):
                 continue  # node fully observed -> nothing to compute
             lo, hi = self._run_single_query(
-                node, evidence, elim_heuristic, epsilon, coupling, verbosity)
+                node, evidence, elim_heuristic, epsilon, coupling, verbosity,
+                n_clusters, cluster_representative)
             self.marginals[node] = (lo, hi)
 
         # Project to singleton-atom marginals and assemble the return dict.
@@ -288,18 +305,21 @@ class CredalVE:
                       "(over-constrained); run check_consistency on the model.")
 
     def _run_single_query(self, query, evidence, elim_heuristic, epsilon,
-                          coupling, verbosity):
+                          coupling, verbosity, n_clusters=0,
+                          cluster_representative="plub"):
         """
         One bucket-elimination pass for a single target node ``query``,
         eliminating every other (non-evidence) variable so the target is last,
         and returning the target node's per-state ``(lower_bounds,
         upper_bounds)`` arrays for P(query-state | evidence). This is the engine
         the public all-marginals :meth:`run` loops over; ``coupling`` is "off"
-        or "cross-family".
+        or "cross-family". When ``n_clusters > 0`` each intermediate potential
+        is cluster-approximated (see :meth:`run`) before pruning.
         """
         if epsilon is not None:
             return self._run_single_query_approx(
-                query, evidence, epsilon, elim_heuristic, coupling, verbosity)
+                query, evidence, epsilon, elim_heuristic, coupling, verbosity,
+                n_clusters, cluster_representative)
 
         bn = self.cnv.bn_min  # use for DAG structure
         node_names = [bn.variable(n).name() for n in bn.nodes()]
@@ -444,6 +464,12 @@ class CredalVE:
             # Marginalize out the variable
             result = combined.marginalize(var)
 
+            # Optional CCTE-style cluster approximation (cap potential size)
+            # before the exact dominance prune.
+            if n_clusters > 0:
+                result = result.cluster_prune(
+                    n_clusters, representative=cluster_representative)
+
             # Prune dominated functions
             result = result.prune()
 
@@ -482,14 +508,16 @@ class CredalVE:
         return lower_bounds, upper_bounds
 
     def _run_single_query_approx(self, query, evidence, epsilon,
-                                 elim_heuristic, coupling, verbosity):
+                                 elim_heuristic, coupling, verbosity,
+                                 n_clusters=0, cluster_representative="plub"):
         """
         Epsilon-approximate single-query credal variable elimination: same as
         :meth:`_run_single_query` but uses epsilon-approximate pruning at each
         elimination step, which allows slightly dominated functions to be
         removed. This bounds the size of intermediate potentials, yielding an
         FPTAS (error at most epsilon). Returns the target node's per-state
-        ``(lower_bounds, upper_bounds)``.
+        ``(lower_bounds, upper_bounds)``. When ``n_clusters > 0`` each potential
+        is additionally cluster-approximated before the epsilon prune.
 
         See: Mauá et al. (2012), "Solving limited memory influence diagrams"
         and Mauá & Cozman (2020), "Thirty years of credal networks", Sec 5.2.
@@ -619,6 +647,11 @@ class CredalVE:
                 combined = combined.filter_infeasible(constraints, node_atoms)
 
             result = combined.marginalize(var)
+
+            # Optional CCTE-style cluster approximation before the epsilon prune.
+            if n_clusters > 0:
+                result = result.cluster_prune(
+                    n_clusters, representative=cluster_representative)
 
             # Epsilon-approximate pruning instead of exact pruning
             result = result.epsilon_prune(epsilon)

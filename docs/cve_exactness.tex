@@ -102,7 +102,8 @@ is contained in no single family scope) couples choices that the free product of
 decouples. Sections~\ref{sec:exact} and~\ref{sec:boundary} turn on this distinction.
 
 \subsection{The per-target bucket schedule}\label{sec:schedule}
-\CVE{}'s public \texttt{run(evidence, elim\_heuristic, epsilon, coupling, verbosity)}
+\CVE{}'s public \texttt{run(evidence, elim\_heuristic, epsilon, coupling, n\_clusters,
+cluster\_representative, verbosity)}
 (\texttt{cve.py:84--165}) computes the bounds of \emph{every} non-evidence singleton atom by
 \emph{looping} a single-query bucket elimination over the credal-network nodes. For each target node
 it calls \texttt{\_run\_single\_query} (\texttt{cve.py:290--482}), which:
@@ -131,7 +132,12 @@ vertices, and (b) the query is eliminated \emph{last}. Feature~(a) is what makes
 exactly what CCTE's single shared two-pass order gives up (\texttt{docs/ccte\_exactness.tex}). An
 optional $\epsilon>0$ activates \texttt{\_run\_single\_query\_approx} (\texttt{cve.py:484}), an
 FPTAS that permits $\epsilon$-domination in pruning (Mau\'a et al.\ 2012); with $\epsilon=0$ the
-pruning is exact.
+pruning is exact. A second, orthogonal approximation knob \texttt{n\_clusters}$>0$ (with
+\texttt{cluster\_representative} $\in\{$\texttt{"plub"},\texttt{"mean"}$\}$) applies the same
+K-means potential-clustering that CCTE offers (\texttt{Potential.cluster\_prune}) before each prune,
+capping the intermediate potential size; like $\epsilon$, it makes the result an \emph{approximation}
+(no longer exact over $\DSE$). The default \texttt{n\_clusters}$=0$ leaves the exact behavior below
+unchanged.
 
 \section{What CVE bounds: exact over the strong extension}\label{sec:bounds}
 
@@ -256,6 +262,52 @@ Loopy DAG                          & no  & --- & exact over $\DSE$; outer on $\D
 \bottomrule
 \end{tabular}
 \end{center}
+
+\subsection{A subtle boundary: a marginal on a non-root child}\label{sec:nonroot}
+The ``no cross-family sentence'' condition is about a sentence's \emph{atom scope} not fitting in
+one family. But a sentence can behave as an \emph{effective} cross-family constraint even when its
+atom scope is a single atom that trivially fits in a family. The case is a \textbf{Type-1 marginal
+$P(x)$ on a non-root child} $x$ (an atom with at least one parent). In the factorization $x$'s family
+is the conditional $P(x\mid\mathrm{pa}_x)$, so its marginal is $P(x)=\sum_{\mathrm{pa}_x}
+P(x\mid\mathrm{pa}_x)\,P(\mathrm{pa}_x)$ --- a functional that couples $x$'s family with its parents'
+marginals \emph{across} families. No single per-family local credal set can enforce the bound on
+$P(x)$: the family $P(x\mid\mathrm{pa}_x)$ constrains only the conditional rows, and treats
+$P(\mathrm{pa}_x)$ as given. So the strong extension $\DSE$ lets the composed marginal $P(x)$ drift
+past the sentence's bound (Gap~B), and CVE (exact over $\DSE$) reports the inflated interval, even
+though the primal graph is a clean singly-connected tree. Crucially, the atom-scope cross-family test
+sees only the single atom $\{x\}$ (which fits every family containing $x$) and reports the sentence as
+family-local, so D4 does \emph{not} flag or repair it.
+
+\emph{Witness} (\texttt{benchmarks/tree\_small/tree\_n5\_1.lcn}, a 5-atom tree
+$x_3\!\to\!x_2\!\to\!x_0$, $x_3\!\to\!x_4\!\to\!x_1$, with the extra marginal $s_5:\,P(x_2)\le
+0.4395$ on the non-root child $x_2$): the exact bound is $P(x_2)=[0.010,0.4395]$ (\texttt{CredalJT}
+and ARIEL agree, hitting $s_5$ exactly), but composing the local extreme points as $\DSE$ does gives
+$P(x_2)\in[0,0.8012]$ --- exactly CVE's and Interval~BP's output, grossly violating $s_5$. The
+looseness then propagates downstream: $P(x_0)$ inflates from the exact $[0.006,0.621]$ to
+$[0.002,0.865]$ (its family $P(x_0\mid x_2)$ additionally leaves the $x_2{=}1$ row vacuous, having
+only $s_4:\,P(x_0\mid\lnot x_2)$). Neither D1 (\texttt{linear-tight}) nor the atom-scope D4 closes the
+gap, because the coupling is genuinely across families; only D2 (merging the families) or the exact
+engine (\texttt{CredalJT}, D5) recovers the bound.
+
+\emph{The family-realizable benchmark classes.} The benchmark generator
+(\texttt{lcn/benchmarks/generator.py}) exposes dedicated \emph{family-realizable} tree and polytree
+classes, \texttt{graph\_type="tree-fr"} / \texttt{"polytree-fr"} (CLI: \texttt{--family-realizable}
+on \texttt{gen\_trees.py} / \texttt{gen\_polytrees.py}, or \texttt{--types tree-fr polytree-fr} on
+\texttt{gen\_benchmarks.py}). These place the extra marginal sentences (\texttt{num\_extras})
+\emph{only on root atoms} (atoms with no parents, whose family \emph{is} the marginal $P(x)$ and hence
+enforces the bound in-family), so generated \texttt{-fr} instances lie in the clean $\DSE=\DLCN$
+regime and CVE / Interval~BP / ARIEL are exact on them, matching \texttt{CredalJT}. The default
+\texttt{tree} / \texttt{polytree} classes draw extras from all atoms and so may contain a non-root
+marginal (as may hand-authored LCNs like \texttt{tree\_n5\_1.lcn}); there, use \texttt{CredalJT} for
+the exact bound. The companion
+note \texttt{docs/strong\_extension\_exactness.tex} formalizes this: it defines the
+\emph{family-realizable} sentence (a constraint on one family's conditional alone) and proves that
+CVE is exact w.r.t.\ $\DLCN$ \emph{iff} the primal graph is singly connected and every sentence is
+family-realizable --- the sharp condition of which ``no cross-family sentence'' is the
+atom-scope-visible half. A non-root marginal is one non-realizable form; a second is a
+\emph{collider} conditioned on a multi-configuration formula, $P(x_2\mid x_1\oplus x_3)$ (binding
+through the co-parents' joint), which is likewise loose for CVE regardless of solver or scheme~D1 ---
+see that note for the full catalogue and the exact route (D2 merge or \texttt{CredalJT}).
 
 \section{The boundary: a cross-family sentence (\texttt{d4\_biting})}\label{sec:boundary}
 

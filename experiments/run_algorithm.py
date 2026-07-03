@@ -45,9 +45,9 @@ _DEFAULT_NUM_THREADS = 1
 if "OMP_NUM_THREADS" not in os.environ:
     set_num_threads(_DEFAULT_NUM_THREADS)
 
-ALGORITHMS = ["exact_l", "exact_g", "ariel", "ibp",  "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "cjt"]
+ALGORITHMS = ["exact_l", "exact_g", "ariel", "ibp",  "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_cp", "cve_cm", "cve_d4", "cjt"]
 
-_CVE_ALGORITHMS = {"ibp", "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "cjt"}
+_CVE_ALGORITHMS = {"ibp", "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_cp", "cve_cm", "cve_d4", "cjt"}
 
 def _compute_induced_width(cnv):
     """Compute the induced width (treewidth upper bound) from a built
@@ -391,6 +391,26 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 algo = CredalVE(cnv=cnv)
                 raw = algo.run(
                     evidence=evidence, epsilon=epsilon, coupling="off",
+                    verbosity=verbosity)
+            elif algorithm == "cve_cp":
+                epsilon = kwargs.get("epsilon", None)
+                n_clusters = kwargs.get("n_clusters", 10)
+                cluster_rep = kwargs.get("cluster_representative", "plub")
+                algo = CredalVE(cnv=cnv)
+                raw = algo.run(
+                    evidence=evidence, epsilon=epsilon, coupling="off",
+                    n_clusters=n_clusters,
+                    cluster_representative=cluster_rep,
+                    verbosity=verbosity)
+            elif algorithm == "cve_cm":
+                epsilon = kwargs.get("epsilon", None)
+                n_clusters = kwargs.get("n_clusters", 10)
+                cluster_rep = kwargs.get("cluster_representative", "mean")
+                algo = CredalVE(cnv=cnv)
+                raw = algo.run(
+                    evidence=evidence, epsilon=epsilon, coupling="off",
+                    n_clusters=n_clusters,
+                    cluster_representative=cluster_rep,
                     verbosity=verbosity)
             elif algorithm == "cve_d4":
                 algo = CredalVE(cnv=cnv)
