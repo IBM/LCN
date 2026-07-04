@@ -121,6 +121,31 @@ class TestResultContract:
         assert jt.total_time == pytest.approx(
             jt.build_time + jt.elimination_time, abs=1e-9)
 
+    @_needs_scip
+    def test_records_nlp_stats(self, cnv):
+        jt = CredalJT(cnv=cnv)
+        _quiet(jt.run, evidence={}, solver="scip", verbosity=0)
+        st = jt.nlp_stats
+        assert st is not None
+        assert st["n_atoms_total"] == 3  # d4_biting has 3 atoms A, B, C
+
+        # Structural invariants (topology-independent):
+        # one simplex row per cluster; total variables = sum of cluster sizes;
+        # the category counts partition the total; nonlinear rows are a subset.
+        assert st["n_simplex"] == st["n_clusters"] >= 1
+        assert st["n_edges"] == st["n_clusters"] - 1  # a (connected) tree
+        assert st["n_variables"] >= 2 * st["n_clusters"]  # each cluster >= 1 atom
+        assert st["max_cluster_atoms"] >= 1
+        assert st["n_constraints"] == (
+            st["n_simplex"] + st["n_separator"]
+            + st["n_sentence"] + st["n_lmc"])
+        assert 0 <= st["n_nonlinear"] <= st["n_constraints"]
+        # Sentence rows come in pairs (>= lo, <= hi).
+        assert st["n_sentence"] % 2 == 0
+        # d4_biting: the cross-family sentence P(B and C) <= 0.05 forces a
+        # 3-atom host cluster, so at least one cluster carries all 3 atoms.
+        assert st["max_cluster_atoms"] == 3
+
 
 # ======================================================================
 # 2. Exactness vs the certified-global oracle

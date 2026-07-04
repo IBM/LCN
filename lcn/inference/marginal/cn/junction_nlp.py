@@ -539,6 +539,99 @@ def _build_constraint_model(jt, cnv, sentences_by_host, lmc_by_host):
     return model, csize
 
 
+def _model_stats(jt, csize, sentences_by_host, lmc_by_host, cnv):
+    """
+    Size of the (query-independent) constraint NLP that _build_constraint_model
+    builds: variable and constraint counts, broken down by category, plus the
+    number of nonlinear (bilinear) constraint rows.
+
+    Counts are derived structurally from the junction tree + host assignments
+    (they match the rows _build_constraint_model actually adds), so this is cheap
+    and does not need the built Pyomo model. The objective adds at most one more
+    variable (obj_var, only under evidence) and one ratio constraint per atom;
+    those are per-atom and excluded here since the constraint model is shared.
+
+    Returns a dict:
+        n_clusters, max_cluster_atoms, n_atoms_total, n_edges,
+        n_variables (= sum_c 2^|atoms(c)|),
+        n_constraints (total), and the per-category counts
+        n_simplex, n_separator, n_sentence, n_lmc,
+        n_nonlinear (bilinear rows: Type-2 sentence + conditional-LMC).
+    """
+    lcn = cnv.lcn
+
+    # Variables: one per (cluster, state).
+    n_variables = sum(csize[cid] for cid in jt.cluster_ids)
+
+    # Simplex: one equality per cluster.
+    n_simplex = len(jt.cluster_ids)
+
+    # Separator consistency: 2^|S| equalities per (non-empty-separator) edge.
+    n_separator = 0
+    for (c, d) in jt.edges:
+        S = jt.sep[(c, d)]
+        if S:
+            n_separator += 2 ** len(S)
+
+    # Sentence rows: Type-1 adds 2 linear rows (>= lo, <= hi); Type-2 adds 2
+    # bilinear rows (>= lo*P(psi), <= hi*P(psi)).
+    n_sentence = 0
+    n_sentence_nonlinear = 0
+    for sids in sentences_by_host.values():
+        for sid in sids:
+            s = lcn.sentences.get(sid)
+            n_sentence += 2
+            if s.type != SentenceType.Type1:
+                n_sentence_nonlinear += 2
+
+    # LMC rows: one equality per constraint group; 'conditional' groups are
+    # bilinear (product == product), the others are linear (var == product) --
+    # both products make them nonlinear, so every LMC group is nonlinear.
+    n_lmc = 0
+    n_lmc_nonlinear = 0
+    for cid, indeps in lmc_by_host.items():
+        atoms_c = jt.atoms[cid]
+        table = build_truth_table(len(atoms_c))
+        col_of = {v: i for i, v in enumerate(atoms_c)}
+        for indep in indeps:
+            for _group in lmc_constraint_groups_vec(indep, table, col_of):
+                n_lmc += 1
+                n_lmc_nonlinear += 1
+
+    n_constraints = n_simplex + n_separator + n_sentence + n_lmc
+    n_nonlinear = n_sentence_nonlinear + n_lmc_nonlinear
+
+    return {
+        "n_clusters": len(jt.cluster_ids),
+        "max_cluster_atoms": jt.max_cluster_size(),
+        "n_atoms_total": len(jt.atom_order),
+        "n_edges": len(jt.edges),
+        "n_variables": n_variables,
+        "n_constraints": n_constraints,
+        "n_simplex": n_simplex,
+        "n_separator": n_separator,
+        "n_sentence": n_sentence,
+        "n_lmc": n_lmc,
+        "n_nonlinear": n_nonlinear,
+    }
+
+
+def _format_model_stats(stats) -> str:
+    """One-block human-readable rendering of the _model_stats dict."""
+    return (
+        f"  clusters:        {stats['n_clusters']} "
+        f"(max {stats['max_cluster_atoms']} atoms; "
+        f"{stats['n_edges']} edges; {stats['n_atoms_total']} atoms total)\n"
+        f"  variables:       {stats['n_variables']} "
+        f"(cluster-state simplex vars)\n"
+        f"  constraints:     {stats['n_constraints']} total "
+        f"({stats['n_nonlinear']} nonlinear/bilinear)\n"
+        f"    simplex:       {stats['n_simplex']}\n"
+        f"    separator:     {stats['n_separator']}\n"
+        f"    sentence:      {stats['n_sentence']}\n"
+        f"    LMC:           {stats['n_lmc']}")
+
+
 def _atom_objective(model, jt, csize, query, query_cluster, evidence, solver):
     """
     Build (and attach to ``model``) the objective expression for
@@ -828,9 +921,11 @@ def build_and_solve_jt_nlp(cnv, query, evidence=None, solver="ipopt",
     Build and solve the D5 junction-tree exact NLP for P(query=1 | evidence).
 
     Returns (lo, hi, info) where info = {"exact": bool, "max_cluster_atoms": int,
-    "fallback": bool}. exact/fallback flag whether every constraint found a host
-    cluster within the budget; the caller may fall back to ExactInference when
-    fallback is True.
+    "fallback": bool} and, when the cluster NLP is actually built (not the budget/
+    unhostable fallback), "nlp_stats": the size of that NLP (variable/constraint
+    counts by category; see _model_stats). exact/fallback flag whether every
+    constraint found a host cluster within the budget; the caller may fall back to
+    ExactInference when fallback is True.
     """
     evidence = evidence or {}
     lcn = cnv.lcn
@@ -868,6 +963,11 @@ def build_and_solve_jt_nlp(cnv, query, evidence=None, solver="ipopt",
     model, obj_expr, csize = _build_model(
         jt, cnv, query, evidence, sentences_by_host, lmc_by_host,
         query_cluster, solver)
+    info["nlp_stats"] = _model_stats(
+        jt, csize, sentences_by_host, lmc_by_host, cnv)
+    if verbosity > 0:
+        print("[D5] constraint NLP size:")
+        print(_format_model_stats(info["nlp_stats"]))
     lo = _solve_sense(model, jt, obj_expr, csize, 'min', solver, time_limit,
                       gap_tol, verbosity)
     hi = _solve_sense(model, jt, obj_expr, csize, 'max', solver, time_limit,
@@ -920,8 +1020,11 @@ class CredalJT:
         Returns {name -> (lower_bounds, upper_bounds)} (singleton atoms as the
         2-vector [P(=0), P(=1)]). Also sets self.singleton_marginals
         ({atom -> (lo, hi)} for P(atom=1)), self.d5_exact, self.induced_width,
-        the running-time stats (build_time / elimination_time / total_time), and
-        self.degenerate (all marginals vacuous [0,1]).
+        the running-time stats (build_time / elimination_time / total_time),
+        self.degenerate (all marginals vacuous [0,1]), and self.nlp_stats -- the
+        size of the shared constraint NLP (variable/constraint counts by
+        category; see _model_stats). self.nlp_stats is None on the exact-fallback
+        path (over budget / unhostable constraint), where no cluster NLP is built.
 
         Args:
             evidence: {atom -> value} for observed atoms (skipped as queries).
@@ -957,6 +1060,7 @@ class CredalJT:
             print(jt.describe_detailed(sentences_by_host, lmc_by_host))
 
         self.singleton_marginals = {}
+        self.nlp_stats = None
         if over_budget or fallback:
             # Cannot host every constraint within budget -> per-atom exact fallback.
             self._all_exact_fallback(atoms, evidence, verbosity)
@@ -964,6 +1068,14 @@ class CredalJT:
             logging.getLogger('pyomo.core').setLevel(logging.ERROR)
             model, csize = _build_constraint_model(
                 jt, self.cnv, sentences_by_host, lmc_by_host)
+            # Record the size of the shared (query-independent) constraint NLP.
+            self.nlp_stats = _model_stats(
+                jt, csize, sentences_by_host, lmc_by_host, self.cnv)
+            if verbosity > 0:
+                print("[CredalJT] Constraint NLP size (shared across all "
+                      "marginals; per-atom objective adds 1 ratio var/constraint "
+                      "under evidence):")
+                print(_format_model_stats(self.nlp_stats))
             for atom in atoms:
                 host = jt.host([atom] + list(evidence.keys()))
                 if host is None:

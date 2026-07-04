@@ -432,6 +432,8 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 raw = algo.run(
                     evidence=evidence, solver=cjt_solver, verbosity=verbosity)
                 result["induced_width"] = algo.induced_width
+                # Size of the shared constraint NLP (None on exact fallback).
+                result["nlp_stats"] = algo.nlp_stats
             t_run_end = time.time()
             result["run_time"] = round(t_run_end - t_run_start, 4)
 
