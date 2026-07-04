@@ -899,11 +899,13 @@ class CredalJT:
     """
 
     def __init__(self, cnv):
-        # CredalJT's NLP is formulated from the interval local credal sets, so
-        # it needs the built CredalNetwork (factors) but NOT the enumerated
-        # extreme points -- cnv may be a vertex-free build
-        # (enumerate_vertices=False), in which case extreme_points/credal_net
-        # are None.
+        # CredalJT's NLP is formulated from the LCN sentences and LMC equalities,
+        # so it needs only the chain-graph STRUCTURE carried by the CredalNetwork
+        # factors (child/parents/scope) -- NOT the per-family interval bounds and
+        # NOT the enumerated extreme points. cnv may therefore be a structure-only
+        # build (solve_families=False, which also implies enumerate_vertices=
+        # False): the factor lobo/upbo are placeholders and extreme_points/
+        # credal_net are None. The assert below only checks the factors exist.
         assert cnv.cn is not None and cnv.cn.factors, \
             "CredalNetwork must be built before passing to CredalJT."
         self.cnv = cnv
@@ -1055,15 +1057,17 @@ if __name__ == "__main__":
     verbosity = 2
 
     # Build the credal network for scheme D5. CredalJT formulates its NLP from
-    # the interval local credal sets, so it does NOT need the enumerated
-    # extreme points -- build vertex-free (enumerate_vertices=False) to skip the
-    # (potentially expensive) LRS enumeration.
+    # the LCN sentences and LMC equalities, so it needs only the chain-graph
+    # STRUCTURE -- not the per-family interval bounds and not the enumerated
+    # extreme points. Build with solve_families=False (skip the expensive
+    # per-family min/max solves; also forces enumerate_vertices=False) so the
+    # build time is just the symbolic factorization.
     cnv = CredalNetworkVertices.from_lcn(
         lcn_model,
         method="linear",
         merge_budget=1,
         solver="ipopt",
-        enumerate_vertices=False,
+        solve_families=False,
         verbosity=verbosity,
     )
 

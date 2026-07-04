@@ -57,21 +57,25 @@ def _quiet(fn, *a, **k):
 
 @pytest.fixture(scope="module")
 def cnv():
-    """A built credal network for d4_biting (shared across the module -- the
-    build is the expensive step)."""
+    """A structure-only credal network for d4_biting (shared across the module).
+
+    CredalJT reads only the chain-graph structure, so this uses the realistic D5
+    build path solve_families=False -- no per-family interval solves. (Parity
+    with the interval-solving build is checked in TestStructureOnlyBuild.)"""
     lcn = LCN()
     _quiet(lcn.from_lcn, file_name=_BITING)
     return _quiet(CredalNetworkVertices.from_lcn, lcn,
-                  method="linear", verbosity=0)
+                  method="linear", solve_families=False, verbosity=0)
 
 
 @pytest.fixture(scope="module")
 def chain_cnv():
-    """A built credal network for the 8-atom Markov chain examples/chain.lcn."""
+    """A structure-only credal network for the 8-atom Markov chain
+    examples/chain.lcn (solve_families=False -- the D5 build path)."""
     lcn = LCN()
     _quiet(lcn.from_lcn, file_name=_CHAIN)
     return _quiet(CredalNetworkVertices.from_lcn, lcn,
-                  method="linear", verbosity=0)
+                  method="linear", solve_families=False, verbosity=0)
 
 
 # ======================================================================
@@ -228,6 +232,68 @@ class TestBuildOnce:
         _quiet(jt.run, evidence={}, solver="scip", verbosity=0)
         assert calls["n"] == 1, \
             f"constraint model built {calls['n']} times, expected 1"
+
+
+# ======================================================================
+# 4b. Structure-only build (solve_families=False): parity + no solves
+# ======================================================================
+
+class TestStructureOnlyBuild:
+
+    def test_no_family_solves_when_structure_only(self):
+        # solve_families=False must skip the per-family interval solves entirely:
+        # _solve_family is never called during the credal-network build.
+        import lcn.inference.marginal.cn.credal_network as CN
+        calls = {"n": 0}
+        orig = CN._solve_family
+
+        lcn = LCN()
+        _quiet(lcn.from_lcn, file_name=_BITING)
+
+        def counting(*a, **k):
+            calls["n"] += 1
+            return orig(*a, **k)
+
+        import unittest.mock as mock
+        with mock.patch.object(CN, "_solve_family", counting):
+            _quiet(CredalNetworkVertices.from_lcn, lcn,
+                   method="linear", solve_families=False, verbosity=0)
+        assert calls["n"] == 0, \
+            f"_solve_family called {calls['n']} times with solve_families=False"
+
+    def test_structure_only_forces_no_vertices(self):
+        # With placeholder bounds there is nothing to enumerate, so
+        # solve_families=False must coerce enumerate_vertices off.
+        lcn = LCN()
+        _quiet(lcn.from_lcn, file_name=_BITING)
+        cnv = _quiet(CredalNetworkVertices.from_lcn, lcn, method="linear",
+                     solve_families=False, enumerate_vertices=True, verbosity=0)
+        assert cnv.extreme_points is None
+        assert cnv.credal_net is None
+
+    @_needs_scip
+    def test_marginals_match_interval_solving_build(self):
+        # The whole point: CredalJT marginals are identical whether or not the
+        # per-family bounds were solved -- the skipped intervals feed no D5 row.
+        lcn1 = LCN()
+        _quiet(lcn1.from_lcn, file_name=_BITING)
+        cnv_solved = _quiet(CredalNetworkVertices.from_lcn, lcn1,
+                            method="linear", solve_families=True, verbosity=0)
+        r_solved = _quiet(CredalJT(cnv=cnv_solved).run,
+                          evidence={}, solver="scip", verbosity=0)
+
+        lcn2 = LCN()
+        _quiet(lcn2.from_lcn, file_name=_BITING)
+        cnv_struct = _quiet(CredalNetworkVertices.from_lcn, lcn2,
+                            method="linear", solve_families=False, verbosity=0)
+        r_struct = _quiet(CredalJT(cnv=cnv_struct).run,
+                          evidence={}, solver="scip", verbosity=0)
+
+        assert set(r_solved) == set(r_struct)
+        for atom in r_solved:
+            for k in (0, 1):  # (lo, hi) arrays
+                assert np.allclose(r_solved[atom][k], r_struct[atom][k],
+                                   atol=1e-6), f"mismatch on {atom}"
 
 
 # ======================================================================

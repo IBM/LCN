@@ -84,6 +84,40 @@ def _solve_family(symbolic_factor: Dict, lcn: LCN, method: str,
     return factor
 
 
+def _build_structural_factor(symbolic_factor: Dict) -> Dict:
+    """
+    Build a STRUCTURE-ONLY interval factor for one symbolic factor: the same
+    per-interpretation dict shape as :func:`_solve_family`, but with placeholder
+    ``lobo=0.0``/``upbo=1.0`` bounds and NO solver calls.
+
+    Used by the ``solve_families=False`` build path (scheme D5 / CredalJT), whose
+    NLP is formulated from the LCN sentences and LMC equalities and never reads
+    the local-credal-set intervals -- only the structural keys (child, parents,
+    parents_lst, child_lst, scope, interpretation). The bounds here are junk and
+    MUST NOT be consumed by any engine that reasons over the intervals.
+    """
+    child = symbolic_factor["child"]
+    parents = symbolic_factor["parents"]
+    parents_lst = symbolic_factor["parents_lst"]
+    child_lst = symbolic_factor["child_lst"]
+    scope = symbolic_factor["scope"]
+
+    factor = {}
+    interpretations = list(itertools.product([0, 1], repeat=len(scope)))
+    for i, interpretation in enumerate(interpretations):
+        factor[i] = {
+            "interpretation": interpretation,
+            "scope": scope,
+            "child": child,
+            "parents": parents,
+            "parents_lst": parents_lst,
+            "child_lst": child_lst,
+            "lobo": 0.0,
+            "upbo": 1.0,
+        }
+    return factor
+
+
 class CredalNetwork:
     """
     An imprecise Bayesian network derived from an LCN chain graph: the directed
@@ -114,6 +148,7 @@ class CredalNetwork:
                  solver: str = "ipopt", time_limit: float = None,
                  gap_tol: float = 0.0, n_jobs: int = 1,
                  merge_budget: int = 1,
+                 solve_families: bool = True,
                  verbosity: int = 1) -> "CredalNetwork":
         """
         Build a CredalNetwork from an LCN: derive the chain-graph structure,
@@ -147,6 +182,18 @@ class CredalNetwork:
                 combined scope is at most this size, so cross-family constraints
                 tighten the local credal sets. See
                 ``ChainGraphFactorization.build``.
+            solve_families: bool
+                When True (default), compute the interval local credal set of
+                every family by solving the min/max problems (the expensive
+                Step 3). When False, SKIP those solves: the factors carry only
+                the structural keys (child, parents, scope, interpretations)
+                with placeholder ``lobo=0.0``/``upbo=1.0`` bounds. Intended for
+                the CredalJT (scheme D5) engine, whose junction-tree NLP is
+                formulated from the LCN sentences and LMC equalities and never
+                reads the intervals -- so the per-family solves are pure
+                overhead there. Any engine that reasons over the intervals
+                (CredalVE, IntervalBP, CredalCTE, ApproxLP, CredalIJGP) MUST
+                keep this True.
             verbosity: int
                 Verbosity level (0 is silent).
 
@@ -179,8 +226,17 @@ class CredalNetwork:
             print(f"[CredalNetwork] Chain-graph factorization produced "
                   f"{len(symbolic_factors)} symbolic factors.")
 
-        # Step 3: Compute the interval local credal set for each family
-        if n_jobs and n_jobs > 1 and len(symbolic_factors) > 1:
+        # Step 3: Compute the interval local credal set for each family.
+        # When solve_families is False (e.g. CredalJT / scheme D5), skip the
+        # min/max solves entirely and build structure-only factors -- the
+        # consumer formulates its NLP from the LCN sentences/LMC, not the
+        # intervals, so the per-family solves would be pure overhead.
+        if not solve_families:
+            if verbosity > 0:
+                print("[CredalNetwork] solve_families=False: skipping per-family "
+                      "interval solves (structure-only factors).")
+            factors = [_build_structural_factor(sf) for sf in symbolic_factors]
+        elif n_jobs and n_jobs > 1 and len(symbolic_factors) > 1:
             with ProcessPoolExecutor(max_workers=n_jobs) as executor:
                 factors = list(executor.map(
                     _solve_family,

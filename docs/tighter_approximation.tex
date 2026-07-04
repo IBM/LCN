@@ -358,6 +358,20 @@ near-global (e.g.\ \texttt{alarm}, whose LMC assertions $C\perp B,E\mid D,A$ spa
 atoms) D5 degenerates to near-full-joint cost, while on instances with local cross-family
 coupling it stays cheap.
 
+\smallskip\noindent\emph{Structure-only credal-network build.} Because the D5 NLP draws its
+rows solely from the LCN sentences and LMC equalities (and the separator structure), it needs
+only the chain-graph \emph{structure} of the credal network --- the family children, parents
+and scopes --- and never reads the per-family interval local credal sets $K_v$. CredalJT
+therefore builds the credal network with \texttt{solve\_families=False}: the (expensive)
+per-family $\min/\max$ interval solves of Step~2 (\texttt{cn/local\_credal\_sets.py}) are
+skipped entirely and the factors carry placeholder $[0,1]$ bounds. This makes the D5 build
+time the (negligible) symbolic-factorization time rather than the interval-solve time --- e.g.
+on a $10$-node tree benchmark the build drops from ${\sim}18$\,s to ${\sim}0$\,s --- with
+\emph{bit-identical} marginals, since the skipped bounds are inputs to no D5 constraint. (The
+flag also forces \texttt{enumerate\_vertices=False}: with placeholder bounds there is no credal
+set to enumerate. Every engine that reasons over the intervals or their vertices --- Credal VE,
+Interval BP, Credal CTE, ApproxLP, Credal IJGP --- keeps the default \texttt{solve\_families=True}.)
+
 Two findings from the implementation. (1)~The cluster NLP is nonconvex (Type-2 ratios, the
 bilinear LMC equalities, and the conditional-query ratio objective), so a local solver
 (ipopt) only reaches a local optimum that can fall \emph{short} of the true bound; D5 must

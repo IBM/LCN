@@ -131,6 +131,7 @@ class CredalNetworkVertices:
                  gap_tol: float = 0.0, n_jobs: int = 1,
                  merge_budget: int = 1,
                  enumerate_vertices: bool = True,
+                 solve_families: bool = True,
                  verbosity: int = 1) -> "CredalNetworkVertices":
         """
         Build the full pipeline from an LCN: CredalNetwork (chain-graph
@@ -161,6 +162,17 @@ class CredalNetworkVertices:
                 False, skip it (see :meth:`build`); ``extreme_points`` stays
                 None. The CredalJT (D5) engine passes False -- its NLP uses the
                 interval local credal sets, not the enumerated vertices.
+            solve_families: bool
+                Forwarded to :meth:`CredalNetwork.from_lcn`. When True (default)
+                compute the interval local credal set of every family. When
+                False, SKIP the per-family min/max solves entirely (structure-
+                only factors with placeholder bounds) -- the CredalJT (scheme D5)
+                engine passes False because its junction-tree NLP is built from
+                the LCN sentences/LMC and never reads the intervals. Because the
+                placeholder bounds carry no usable credal set, ``solve_families=
+                False`` forces ``enumerate_vertices=False`` (there is nothing to
+                enumerate); any engine that consumes the intervals or vertices
+                MUST keep this True.
             verbosity: int
                 Verbosity level. 0 is silent. At verbosity < 2 the ipopt/scip
                 solver warnings/errors emitted during the per-family solves
@@ -170,6 +182,15 @@ class CredalNetworkVertices:
                 SUPPRESSED. At verbosity >= 2 the solver's own progress log is
                 streamed (ipopt/scip ``tee``) and those messages are shown.
         """
+        # Placeholder bounds from a structure-only build carry no usable credal
+        # set, so there is nothing for LRS to enumerate: force enumerate_vertices
+        # off when the families are not solved.
+        if not solve_families and enumerate_vertices:
+            if verbosity > 0:
+                print("[CredalNetworkVertices] solve_families=False forces "
+                      "enumerate_vertices=False (no intervals to enumerate).")
+            enumerate_vertices = False
+
         t0 = time.perf_counter()
         # Suppress the (benign) Pyomo solver warnings during the build, unless
         # verbosity >= 2 where the user asked to see full solver progress. This
@@ -184,7 +205,7 @@ class CredalNetworkVertices:
             cn = CredalNetwork.from_lcn(
                 lcn, method=method, solver=solver, time_limit=time_limit,
                 gap_tol=gap_tol, n_jobs=n_jobs, merge_budget=merge_budget,
-                verbosity=verbosity)
+                solve_families=solve_families, verbosity=verbosity)
             cnv = cls(cn)
             cnv._build(verbosity=verbosity,
                        enumerate_vertices=enumerate_vertices)
