@@ -183,3 +183,78 @@ def test_fr_classes_are_family_realizable(graph_type, seed):
             f"Type-1 sentence(s) on non-root atoms: {offenders}")
         # And it is of course still atom-scope cross-family free.
         assert not _cross_family_sentences(lcn)
+
+
+# ----------------------------------------------------------------------
+# 3. No contradictory duplicate marginals + large instances are checked.
+#    Regression for the tree_fr_n20_1 bug: extras stacked several
+#    uncoordinated P(root) intervals on the single tree root, and the
+#    consistency check was skipped for n > 10, so contradictory instances
+#    (empty intersection of the per-atom marginals) shipped silently.
+# ----------------------------------------------------------------------
+
+def _positive_interval(sentence):
+    """Interval on P(atom=1) implied by a single-atom Type-1 sentence,
+    complementing when the formula is the negated literal !x."""
+    atom = next(iter(sentence.get_atoms().keys()))
+    lo, hi = sentence.get_lower_bound(), sentence.get_upper_bound()
+    if ("!" + atom) in str(sentence).replace(" ", ""):
+        return (1.0 - hi, 1.0 - lo)
+    return (lo, hi)
+
+
+def _atoms_with_contradictory_marginals(lcn):
+    """Atoms carrying >= 2 single-atom Type-1 marginals whose intervals on
+    P(atom=1) have an empty intersection (i.e. jointly unsatisfiable)."""
+    by_atom = {}
+    for s in lcn.sentences.values():
+        if s.type == SentenceType.Type1 and len(s.get_atoms()) == 1:
+            a = next(iter(s.get_atoms().keys()))
+            by_atom.setdefault(a, []).append(_positive_interval(s))
+    bad = []
+    for a, ivals in by_atom.items():
+        if len(ivals) >= 2:
+            lo = max(i[0] for i in ivals)
+            hi = min(i[1] for i in ivals)
+            if lo > hi + 1e-9:
+                bad.append((a, ivals))
+    return bad
+
+
+@pytest.mark.parametrize("graph_type", ["tree-fr", "polytree-fr"])
+@pytest.mark.parametrize("num_vars", [8, 20, 50])
+def test_fr_marginals_are_mutually_consistent(graph_type, num_vars):
+    """Duplicate marginals on the same (root) atom must be nested/consistent,
+    never contradictory -- at any size, including n > 10 where the old code
+    skipped the consistency check."""
+    gen = Generator(seed=7)
+    instances = gen.generate(
+        num_vars=num_vars,
+        graph_type=graph_type,
+        num_instances=5,
+        max_vars_per_sentence=3,
+        num_extras=2,
+        epsilon=0.3,
+        verbosity=0,
+    )
+    assert instances, f"no {graph_type} n={num_vars} instances generated"
+    for k, lcn in enumerate(instances):
+        bad = _atoms_with_contradictory_marginals(lcn)
+        assert not bad, (
+            f"{graph_type} n={num_vars} instance {k} has contradictory "
+            f"marginals: {bad}")
+
+
+def test_large_instances_are_consistency_checked():
+    """An inconsistent LCN must be rejected by _check_and_build regardless of
+    size -- the product witness runs for n > 10 too (no blind accept)."""
+    from lcn.core.model import Sentence, Atom
+    gen = Generator(seed=0)
+    lcn = LCN()
+    lcn.add_atoms([Atom(f"x{i}") for i in range(15)])  # n = 15 > 10
+    # Directly contradictory marginals on x0: P(x0) <= 0.2 and P(x0) >= 0.8.
+    lcn.add_sentence(Sentence(label="s0", phi="x0", psi=None,
+                              lower=0.01, upper=0.2))
+    lcn.add_sentence(Sentence(label="s1", phi="x0", psi=None,
+                              lower=0.8, upper=1.0))
+    assert gen._check_and_build(lcn, verbosity=0) is False

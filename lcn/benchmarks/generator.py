@@ -18,9 +18,9 @@
 import contextlib
 import io
 import numpy as np
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from lcn.core.model import LCN, Sentence, Atom
+from lcn.core.model import LCN, Sentence, Atom, SentenceType
 from lcn.inference.utils.common import (
     check_consistency, check_consistency_product_witness
 )
@@ -662,6 +662,47 @@ class Generator:
         hi = min(1.0, val + epsilon)
         return round(lo, 6), round(hi, 6)
 
+    @staticmethod
+    def _phi_is_negated(phi: str, var: int) -> bool:
+        """True if the single-atom formula phi is the negation !xVAR.
+
+        Single-atom marginal formulas are exactly ``xN`` or ``!xN`` (see
+        _make_literal), so a substring test on the stripped string suffices.
+        """
+        return phi.replace(" ", "") == f"!x{var}"
+
+    def _interval_on_positive(self, phi: str, var: int, lo: float, hi: float):
+        """Map a bound [lo, hi] on P(phi) to the implied interval on P(xVAR=1).
+
+        For phi = xVAR this is [lo, hi]; for phi = !xVAR, P(x=1)=1-P(!x), so it
+        is [1-hi, 1-lo]. Used to accumulate a consistent per-atom marginal."""
+        if self._phi_is_negated(phi, var):
+            return (1.0 - hi, 1.0 - lo)
+        return (lo, hi)
+
+    def _nested_bounds_for_phi(self, phi: str, var: int, pos_interval):
+        """Draw a random sub-interval of ``pos_interval`` (an interval on
+        P(xVAR=1)) and return it as a bound on P(phi), respecting phi's polarity.
+
+        Guarantees the resulting sentence is jointly satisfiable with the
+        existing marginal on ``var``: the drawn interval is contained in the
+        current feasible interval for P(xVAR=1), so the intersection is nonempty.
+        """
+        plo, phi_hi = pos_interval
+        # Degenerate/near-empty feasible interval: just reuse it verbatim.
+        if phi_hi - plo <= 1e-6:
+            a, b = plo, phi_hi
+        else:
+            u1 = self.rng.uniform(plo, phi_hi)
+            u2 = self.rng.uniform(plo, phi_hi)
+            a, b = (u1, u2) if u1 <= u2 else (u2, u1)
+        # Map the sub-interval [a, b] on P(x=1) back to a bound on P(phi).
+        if self._phi_is_negated(phi, var):
+            lo, hi = 1.0 - b, 1.0 - a
+        else:
+            lo, hi = a, b
+        return round(lo, 6), round(hi, 6)
+
     def _build_random_lcn(self, num_vars: int, num_sentences: int,
                           max_vars: int, epsilon: float) -> LCN:
         """
@@ -762,6 +803,12 @@ class Generator:
             lcn.add_sentence(sentence)
             sid += 1
 
+        # Track, per atom, the interval on P(atom=1) implied by an existing
+        # single-atom Type-1 marginal (root prior). Used below so a family-
+        # realizable extra on that same atom draws a CONSISTENT sub-interval
+        # instead of an independent (and often contradictory) one.
+        marginal_on_atom: Dict[int, tuple] = {}
+
         # Scopes: Type 1 singletons and Type 2 directed sentences
         for scope in scopes:
             if len(scope) == 1:
@@ -785,6 +832,9 @@ class Generator:
                 upper=hi,
             )
             lcn.add_sentence(sentence)
+            if psi is None:
+                marginal_on_atom[child] = self._interval_on_positive(
+                    phi, child, lo, hi)
             sid += 1
 
         # Add extra marginal sentences P(x_i).
@@ -822,7 +872,20 @@ class Generator:
             attempts += 1
             var = extra_vars[self.rng.randint(len(extra_vars))]
             phi = self._make_random_formula([var], max_vars)
-            lo, hi = self._make_bounds(epsilon)
+            # If this atom already carries a Type-1 marginal (e.g. a root prior,
+            # which is always the case for the family-realizable classes where
+            # extra_vars are exactly the roots), draw a CONSISTENT sub-interval
+            # of that existing marginal instead of an independent one. Otherwise
+            # two random P(x) intervals on the same atom routinely fail to
+            # overlap -> an inconsistent instance (see the tree_fr_n20_1 bug).
+            # The sub-interval is nested in the existing bound (on P(x=1)) and
+            # then mapped back to phi's polarity, so both sentences are jointly
+            # satisfiable by construction.
+            if var in marginal_on_atom:
+                lo, hi = self._nested_bounds_for_phi(
+                    phi, var, marginal_on_atom[var])
+            else:
+                lo, hi = self._make_bounds(epsilon)
             sentence = Sentence(
                 label=f"s{sid}",
                 phi=phi,
@@ -833,6 +896,15 @@ class Generator:
             lcn.add_sentence(sentence)
             sid += 1
             extras_added += 1
+            # Fold the new (consistent) bound into the running interval so a
+            # further extra on the same atom stays consistent with both.
+            new_pos = self._interval_on_positive(phi, var, lo, hi)
+            prev = marginal_on_atom.get(var)
+            if prev is None:
+                marginal_on_atom[var] = new_pos
+            else:
+                marginal_on_atom[var] = (max(prev[0], new_pos[0]),
+                                         min(prev[1], new_pos[1]))
 
         return lcn
 
@@ -841,10 +913,12 @@ class Generator:
                          consistency_mode: str = "product") -> bool:
         """Check consistency of an instance. Returns True if consistent.
 
-        Instances with n <= 10 atoms are verified; larger instances skip the
-        check (exact consistency is infeasible at that size) and are accepted.
-        Any failure during the check is treated as inconsistent (reject), so an
-        inconsistent instance can never be silently accepted.
+        Every instance is checked -- the fast product-distribution witness is
+        O(n) and sound, so there is no size at which we blindly accept (an
+        earlier version skipped the check for n > 10, which let inconsistent
+        large instances -- e.g. contradictory duplicate root marginals -- ship
+        silently). Any failure during the check is treated as inconsistent
+        (reject), so an inconsistent instance can never be silently accepted.
 
         Two modes (``consistency_mode``):
         - ``"product"`` (default): the fast SOUND product-distribution witness
@@ -852,34 +926,79 @@ class Generator:
           only (n vars) and relies on the fact that any product distribution
           satisfies every Local Markov Condition independence automatically, so
           it does NOT build the primal/structure graph or the LMC here. ~0.2s at
-          n=10 vs ~minutes for the full check. Conservative (rejects
-          consistent-but-non-product instances), which rejection sampling
-          absorbs.
+          n=10 (and still cheap at larger n) vs ~minutes for the full check.
+          Conservative (rejects consistent-but-non-product instances), which
+          rejection sampling absorbs.
         - ``"full"``: the exact joint-LMC oracle (``check_consistency``), which
           builds the graphs + LMC. Slower (~minutes at n=10) but accepts any
-          consistent instance.
+          consistent instance. Only feasible for small n; for n > 10 we fall
+          back to the product witness regardless of the requested mode, since
+          the full oracle is intractable there.
 
         ``consistency_restarts`` caps the restart budget of the chosen search.
         """
         try:
-            if len(lcn.atoms) > 10:
-                return True  # skip consistency check for large instances
-            if consistency_mode == "product":
-                # No graph/LMC build needed: the product witness satisfies the
-                # LMC by construction.
-                return check_consistency_product_witness(
-                    lcn, restarts=consistency_restarts)
-            # Full joint-LMC oracle.
-            lcn.build_primal_graph()
-            lcn.build_structure_graph()
-            lcn.local_markov_condition()
-            # check_consistency emits diagnostics; silence them unless verbose.
-            if verbosity > 1:
-                return check_consistency(lcn, max_slsqp_restarts=consistency_restarts)
-            with contextlib.redirect_stdout(io.StringIO()):
-                return check_consistency(lcn, max_slsqp_restarts=consistency_restarts)
+            n = len(lcn.atoms)
+            if n <= 10:
+                if consistency_mode == "product":
+                    # No graph/LMC build needed: the product witness satisfies
+                    # the LMC by construction.
+                    return check_consistency_product_witness(
+                        lcn, restarts=consistency_restarts)
+                # Full joint-LMC oracle (small instances only).
+                lcn.build_primal_graph()
+                lcn.build_structure_graph()
+                lcn.local_markov_condition()
+                # check_consistency emits diagnostics; silence unless verbose.
+                if verbosity > 1:
+                    return check_consistency(
+                        lcn, max_slsqp_restarts=consistency_restarts)
+                with contextlib.redirect_stdout(io.StringIO()):
+                    return check_consistency(
+                        lcn, max_slsqp_restarts=consistency_restarts)
+            # n > 10: the product witness and the full oracle both build a 2^n
+            # table, so neither scales here. Fall back to a cheap SOUND-for-
+            # rejection structural screen that catches the only inconsistency
+            # this generator can introduce -- contradictory single-literal
+            # marginals on a shared atom (see the tree_fr_n20_1 bug). It never
+            # blindly accepts: a detected contradiction is rejected.
+            return self._marginals_structurally_consistent(lcn)
         except Exception:
             return False
+
+    @staticmethod
+    def _marginals_structurally_consistent(lcn: LCN, tol: float = 1e-9) -> bool:
+        """Cheap O(#sentences) screen: reject if any atom carries two
+        single-literal Type-1 marginals whose implied intervals on P(atom=1)
+        have an empty intersection, or any sentence has lower > upper.
+
+        This does NOT certify full consistency (it ignores joint interactions),
+        but the tree/polytree(-fr) generator produces no atom-scope cross-family
+        sentences, so contradictory duplicate marginals are the only
+        inconsistency it can create -- exactly what this catches. Used only as
+        the n > 10 fallback, where the exact oracles are intractable."""
+        pos = {}  # atom -> running [lo, hi] intersection on P(atom=1)
+        for s in lcn.sentences.values():
+            lo, hi = s.get_lower_bound(), s.get_upper_bound()
+            if lo > hi + tol:
+                return False
+            if s.type != SentenceType.Type1 or len(s.get_atoms()) != 1:
+                continue
+            atom = next(iter(s.get_atoms().keys()))
+            # Single-literal marginal only: formula is exactly "x" or "!x".
+            txt = str(s.phi_formula).replace(" ", "")
+            if txt == atom:
+                ilo, ihi = lo, hi
+            elif txt == "!" + atom:
+                ilo, ihi = 1.0 - hi, 1.0 - lo
+            else:
+                continue  # a compound Type-1 formula -- not a plain marginal
+            plo, phi_ = pos.get(atom, (0.0, 1.0))
+            plo, phi_ = max(plo, ilo), min(phi_, ihi)
+            if plo > phi_ + tol:
+                return False
+            pos[atom] = (plo, phi_)
+        return True
 
     @staticmethod
     def save(lcn: LCN, file_name: str):
