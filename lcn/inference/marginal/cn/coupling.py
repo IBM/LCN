@@ -82,19 +82,37 @@ def _node_state_to_atom_bits(state: int, atoms: List[str]) -> Dict[str, int]:
 
 
 class _Constraint:
-    """One cross-family constraint, with its atom set and a residual check."""
+    """One cross-family constraint, with its atom set and a residual check.
 
-    def __init__(self, kind: str, atoms: List[str], checker, descr: str):
+    The residual checker is built LAZILY: constructing it materializes a
+    2^|atoms| truth table plus dense indicator arrays (via _make_sentence_checker
+    / _make_lmc_checker), which is prohibitive for a wide cross-family constraint
+    (e.g. a chain/tree LMC assertion spanning ~20 atoms -> 2^20 rows). Callers
+    that only need the constraint's atom / node set -- notably the CredalJT (D5)
+    engine via ``constraint_node_sets`` -- never invoke ``feasible`` and so never
+    pay that cost. The table is built on the first ``feasible`` call and memoized.
+    """
+
+    def __init__(self, kind: str, atoms: List[str], checker_factory, descr: str):
         # kind: "lmc" | "type1" | "type2"; atoms: sorted atom names it touches.
+        # checker_factory: zero-arg callable returning the residual-check closure
+        # (deferred so the 2^|atoms| tables are not built until actually needed).
         self.kind = kind
         self.atoms = list(atoms)
         self.atom_set = set(atoms)
-        self._checker = checker
+        self._checker_factory = checker_factory
+        self._checker = None
         self.descr = descr
 
     def feasible(self, joint_flat: np.ndarray) -> bool:
         """`joint_flat`: normalized length-2^|atoms| joint over self.atoms in
-        the SAME order as self.atoms (MSB-first truth-table order)."""
+        the SAME order as self.atoms (MSB-first truth-table order).
+
+        Builds (and memoizes) the residual checker on first use -- this is where
+        the 2^|atoms| truth table is materialized, so a caller that never calls
+        ``feasible`` pays nothing."""
+        if self._checker is None:
+            self._checker = self._checker_factory()
         return self._checker(joint_flat)
 
 
@@ -149,21 +167,27 @@ class CouplingConstraints:
         constraints: List[_Constraint] = []
 
         # --- Cross-family LCN sentences -----------------------------------
+        # Pass a checker FACTORY (thunk), not a built checker: the 2^|atoms|
+        # tables are materialized only on the first feasible() call, so a
+        # caller that only reads atoms/node sets (e.g. CredalJT's
+        # constraint_node_sets) never allocates them.
         for sid, s in lcn.sentences.items():
             atoms = sorted(s.get_atoms().keys())
             if not atoms or not is_cross_family(set(atoms)):
                 continue
-            checker = cls._make_sentence_checker(s, atoms, tol)
             kind = "type1" if s.type == SentenceType.Type1 else "type2"
-            constraints.append(_Constraint(kind, atoms, checker, f"sentence {sid}"))
+            factory = (lambda s=s, atoms=atoms:
+                       cls._make_sentence_checker(s, atoms, tol))
+            constraints.append(_Constraint(kind, atoms, factory, f"sentence {sid}"))
 
         # --- Cross-family LMC assertions ----------------------------------
         for indep in lcn.independencies.get_assertions():
             atoms = sorted(indep.all_vars)
             if not atoms or not is_cross_family(set(indep.all_vars)):
                 continue
-            checker = cls._make_lmc_checker(indep, atoms, tol)
-            constraints.append(_Constraint("lmc", atoms, checker, str(indep)))
+            factory = (lambda indep=indep, atoms=atoms:
+                       cls._make_lmc_checker(indep, atoms, tol))
+            constraints.append(_Constraint("lmc", atoms, factory, str(indep)))
 
         return cls(constraints, tol)
 
