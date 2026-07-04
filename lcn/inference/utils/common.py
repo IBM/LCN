@@ -964,6 +964,126 @@ def check_consistency_product_witness(lcn: LCN, restarts: int = 40,
     return False
 
 
+def check_consistency_product_witness_scoped(lcn: LCN, restarts: int = 40,
+                                              seed: int = 0,
+                                              tol: float = 1e-7) -> bool:
+    """
+    Scalable (any-n) equivalent of :func:`check_consistency_product_witness`.
+
+    Same idea and same guarantee -- search the ``n`` per-atom marginals ``q`` for a
+    product distribution ``P(world)=prod_i q_i`` that satisfies every SENTENCE
+    bound; a hit is a SOUND consistency certificate (a product distribution
+    satisfies every Local Markov Condition independence automatically). The only
+    difference is HOW each sentence probability is evaluated: instead of a global
+    ``2^n`` joint (which caps the unscoped version at n <= 10), ``P(phi)`` is
+    computed over the LOCAL atoms of ``phi`` (and ``psi``) alone --
+    ``2^{|atoms(phi) U atoms(psi)|}`` entries, tiny for the bounded-scope sentences
+    the generator emits -- which is exact under a product measure because the atoms
+    factorize. This makes the search O(n + sum_sentences 2^{|local scope|}), with no
+    ``2^n`` term, so it works for any n and for every generator topology
+    (tree/polytree/dag/chain/random).
+
+    SOUND (every True is a genuine product-distribution certificate) and complete
+    for product-representable consistency -- identical semantics to the unscoped
+    version, just lifted past n = 10. Conservative for LCNs consistent only via a
+    non-product distribution (rejection sampling absorbs that).
+
+    Args:
+        lcn: the input LCN.
+        restarts: number of marginal-vector restarts (the first is q = 0.5).
+        seed: RNG seed for reproducible restarts.
+        tol: per-sentence-bound feasibility tolerance.
+
+    Returns:
+        True if a scope-local product-distribution witness satisfying all sentence
+        bounds is found, otherwise False.
+    """
+    from scipy.optimize import minimize as _sp_minimize
+
+    atom_index = {a: i for i, a in enumerate(lcn.atoms.keys())}
+    n = len(atom_index)
+    if n == 0:
+        return True
+
+    # Precompute, per sentence: the local atom scope (as global q-indices), a
+    # boolean (2^k, k) local truth-table mask, and the local indicator vectors.
+    entries = []
+    for _, s in lcn.sentences.items():
+        lo, hi = s.get_lower_bound(), s.get_upper_bound()
+        if lo > hi + tol:
+            return False  # individually infeasible bound
+        # Formula.atoms is {'Vi': atom_name}; evaluate() is keyed by atom NAME,
+        # so the scope is the set of atom-name values.
+        if s.type == SentenceType.Type1:
+            scope = sorted(set(s.phi_formula.atoms.values()))
+        else:
+            scope = sorted(set(s.phi_and_psi_formula.atoms.values())
+                           | set(s.psi_formula.atoms.values()))
+        idx = [atom_index[a] for a in scope]
+        k = len(scope)
+        table = build_truth_table(k)                       # (2^k, k)
+        local_interps = [dict(zip(scope, row)) for row in table]
+        one = (table == 1)                                 # bool mask
+        if s.type == SentenceType.Type1:
+            A = eval_indicator(s.phi_formula, local_interps)
+            entries.append(("t1", idx, one, A, lo, hi))
+        else:
+            Aqr = eval_indicator(s.phi_and_psi_formula, local_interps)
+            Ar = eval_indicator(s.psi_formula, local_interps)
+            entries.append(("t2", idx, one, Aqr, Ar, lo, hi))
+
+    if not entries:
+        return True
+
+    def _local_p(q, idx, one):
+        # p_local[j] = prod over the scope atoms of (q_i if bit else 1 - q_i).
+        qs = q[idx]                                        # (k,)
+        return np.prod(np.where(one, qs, 1.0 - qs), axis=1)  # (2^k,)
+
+    def _sq_violation(q):
+        tot = 0.0
+        for e in entries:
+            if e[0] == "t1":
+                _, idx, one, A, lo, hi = e
+                v = float(A @ _local_p(q, idx, one))
+                tot += max(0.0, lo - v) ** 2 + max(0.0, v - hi) ** 2
+            else:
+                _, idx, one, Aqr, Ar, lo, hi = e
+                p = _local_p(q, idx, one)
+                ppsi = float(Ar @ p)
+                pjoint = float(Aqr @ p)
+                tot += max(0.0, lo * ppsi - pjoint) ** 2 \
+                    + max(0.0, pjoint - hi * ppsi) ** 2
+        return tot
+
+    def _witness_ok(q):
+        for e in entries:
+            if e[0] == "t1":
+                _, idx, one, A, lo, hi = e
+                v = float(A @ _local_p(q, idx, one))
+                if v < lo - tol or v > hi + tol:
+                    return False
+            else:
+                _, idx, one, Aqr, Ar, lo, hi = e
+                p = _local_p(q, idx, one)
+                ppsi = float(Ar @ p)
+                pjoint = float(Aqr @ p)
+                if pjoint < lo * ppsi - tol or pjoint > hi * ppsi + tol:
+                    return False
+        return True
+
+    rng = np.random.default_rng(seed)
+    bounds = [(0.0, 1.0)] * n
+    for k in range(restarts):
+        q0 = np.full(n, 0.5) if k == 0 else rng.random(n)
+        res = _sp_minimize(_sq_violation, q0, method="L-BFGS-B",
+                           bounds=bounds,
+                           options={"maxiter": 500, "ftol": 1e-16})
+        if _witness_ok(np.asarray(res.x, dtype=float)):
+            return True
+    return False
+
+
 def check_consistency(lcn: LCN, max_slsqp_restarts: int = 300) -> bool:
     """
     Check if the LCN is consistent or not. An LCN is consistent

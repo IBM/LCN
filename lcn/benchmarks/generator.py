@@ -22,7 +22,8 @@ from typing import Dict, List, Optional
 
 from lcn.core.model import LCN, Sentence, Atom, SentenceType
 from lcn.inference.utils.common import (
-    check_consistency, check_consistency_product_witness
+    check_consistency, check_consistency_product_witness,
+    check_consistency_product_witness_scoped,
 )
 
 
@@ -931,9 +932,16 @@ class Generator:
           rejection sampling absorbs.
         - ``"full"``: the exact joint-LMC oracle (``check_consistency``), which
           builds the graphs + LMC. Slower (~minutes at n=10) but accepts any
-          consistent instance. Only feasible for small n; for n > 10 we fall
-          back to the product witness regardless of the requested mode, since
-          the full oracle is intractable there.
+          consistent instance. Only feasible for small n.
+
+        For n > 10 both the unscoped product witness and the full oracle build a
+        2^n table and are intractable, so regardless of ``consistency_mode`` we
+        use the SCOPE-LOCAL product witness
+        (``check_consistency_product_witness_scoped``): the same sound,
+        complete-for-product-consistency search, but evaluating each sentence over
+        its own bounded atom scope so there is no 2^n term. This covers every
+        topology (tree/polytree/dag/chain/random), catching multi-atom clique and
+        cross-scope contradictions -- not just single-literal marginal collisions.
 
         ``consistency_restarts`` caps the restart budget of the chosen search.
         """
@@ -956,49 +964,19 @@ class Generator:
                 with contextlib.redirect_stdout(io.StringIO()):
                     return check_consistency(
                         lcn, max_slsqp_restarts=consistency_restarts)
-            # n > 10: the product witness and the full oracle both build a 2^n
-            # table, so neither scales here. Fall back to a cheap SOUND-for-
-            # rejection structural screen that catches the only inconsistency
-            # this generator can introduce -- contradictory single-literal
-            # marginals on a shared atom (see the tree_fr_n20_1 bug). It never
-            # blindly accepts: a detected contradiction is rejected.
-            return self._marginals_structurally_consistent(lcn)
+            # n > 10: the unscoped product witness and the full oracle both build
+            # a 2^n table, so neither scales here. Use the SCOPE-LOCAL product
+            # witness, which evaluates every sentence over its own (bounded) atom
+            # scope -- no 2^n term -- so it scales to any n while keeping the same
+            # sound, complete-for-product-consistency guarantee. This catches not
+            # just contradictory single-literal marginals (the tree_fr_n20_1 bug)
+            # but also multi-atom clique / cross-scope contradictions that a
+            # single-literal structural screen would miss (chain / random). Never
+            # blindly accepts.
+            return check_consistency_product_witness_scoped(
+                lcn, restarts=consistency_restarts)
         except Exception:
             return False
-
-    @staticmethod
-    def _marginals_structurally_consistent(lcn: LCN, tol: float = 1e-9) -> bool:
-        """Cheap O(#sentences) screen: reject if any atom carries two
-        single-literal Type-1 marginals whose implied intervals on P(atom=1)
-        have an empty intersection, or any sentence has lower > upper.
-
-        This does NOT certify full consistency (it ignores joint interactions),
-        but the tree/polytree(-fr) generator produces no atom-scope cross-family
-        sentences, so contradictory duplicate marginals are the only
-        inconsistency it can create -- exactly what this catches. Used only as
-        the n > 10 fallback, where the exact oracles are intractable."""
-        pos = {}  # atom -> running [lo, hi] intersection on P(atom=1)
-        for s in lcn.sentences.values():
-            lo, hi = s.get_lower_bound(), s.get_upper_bound()
-            if lo > hi + tol:
-                return False
-            if s.type != SentenceType.Type1 or len(s.get_atoms()) != 1:
-                continue
-            atom = next(iter(s.get_atoms().keys()))
-            # Single-literal marginal only: formula is exactly "x" or "!x".
-            txt = str(s.phi_formula).replace(" ", "")
-            if txt == atom:
-                ilo, ihi = lo, hi
-            elif txt == "!" + atom:
-                ilo, ihi = 1.0 - hi, 1.0 - lo
-            else:
-                continue  # a compound Type-1 formula -- not a plain marginal
-            plo, phi_ = pos.get(atom, (0.0, 1.0))
-            plo, phi_ = max(plo, ilo), min(phi_, ihi)
-            if plo > phi_ + tol:
-                return False
-            pos[atom] = (plo, phi_)
-        return True
 
     @staticmethod
     def save(lcn: LCN, file_name: str):

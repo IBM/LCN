@@ -247,7 +247,8 @@ def test_fr_marginals_are_mutually_consistent(graph_type, num_vars):
 
 def test_large_instances_are_consistency_checked():
     """An inconsistent LCN must be rejected by _check_and_build regardless of
-    size -- the product witness runs for n > 10 too (no blind accept)."""
+    size -- the scope-local product witness runs for n > 10 too (no blind
+    accept). Covers a single-literal marginal collision."""
     from lcn.core.model import Sentence, Atom
     gen = Generator(seed=0)
     lcn = LCN()
@@ -258,3 +259,33 @@ def test_large_instances_are_consistency_checked():
     lcn.add_sentence(Sentence(label="s1", phi="x0", psi=None,
                               lower=0.8, upper=1.0))
     assert gen._check_and_build(lcn, verbosity=0) is False
+
+
+def test_large_multiatom_contradiction_is_rejected():
+    """A MULTI-ATOM contradiction (the kind chain/random can create) must be
+    rejected at n > 10 -- the scope-local witness catches it where a
+    single-literal structural screen would not. P(x0 and x1) >= 0.9 forces both
+    P(x0) and P(x1) >= 0.9, contradicting P(x0) <= 0.2."""
+    from lcn.core.model import Sentence, Atom
+    gen = Generator(seed=0)
+    lcn = LCN()
+    lcn.add_atoms([Atom(f"x{i}") for i in range(15)])  # n = 15 > 10
+    lcn.add_sentence(Sentence(label="s0", phi="(x0 and x1)", psi=None,
+                              lower=0.9, upper=1.0))
+    lcn.add_sentence(Sentence(label="s1", phi="x0", psi=None,
+                              lower=0.01, upper=0.2))
+    assert gen._check_and_build(lcn, verbosity=0) is False
+
+
+def test_large_consistent_multiatom_is_accepted():
+    """A consistent multi-atom large instance must be accepted (no false
+    rejection): P(x0 and x1) in [0.1, 0.4] with P(x0) in [0.5, 0.8]."""
+    from lcn.core.model import Sentence, Atom
+    gen = Generator(seed=0)
+    lcn = LCN()
+    lcn.add_atoms([Atom(f"x{i}") for i in range(15)])  # n = 15 > 10
+    lcn.add_sentence(Sentence(label="s0", phi="(x0 and x1)", psi=None,
+                              lower=0.1, upper=0.4))
+    lcn.add_sentence(Sentence(label="s1", phi="x0", psi=None,
+                              lower=0.5, upper=0.8))
+    assert gen._check_and_build(lcn, verbosity=0) is True
