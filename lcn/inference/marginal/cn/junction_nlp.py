@@ -1046,7 +1046,7 @@ if __name__ == "__main__":
 
     # Load the LCN
     # file_name = "examples/chain.lcn"
-    file_name = "benchmarks/tree_large_fr/tree_fr_n20_1.lcn"
+    file_name = "benchmarks/tree_large_fr/tree_fr_n10_1.lcn"
     lcn_model = LCN()
     lcn_model.from_lcn(file_name=file_name)
     lcn_model.summary()
