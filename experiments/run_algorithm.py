@@ -274,15 +274,22 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             cn_time_limit = kwargs.get("solver_time_limit", None)
             cn_gap_tol = kwargs.get("gap_tol", 0.0)
             merge_budget = kwargs.get("merge_budget", 1)
-            # CredalJT (D5) formulates its NLP from the interval local credal
-            # sets and never consumes the enumerated extreme points, so skip
-            # the (potentially expensive) LRS vertex enumeration for it.
-            enumerate_vertices = (algorithm != "cjt")
+            # CredalJT (D5) formulates its NLP from the LCN sentences and LMC
+            # equalities and needs only the chain-graph STRUCTURE -- not the
+            # per-family interval local credal sets and not the enumerated
+            # extreme points. So for cjt skip both the per-family min/max
+            # interval solves (solve_families=False) and the LRS vertex
+            # enumeration (which solve_families=False forces off anyway). This
+            # keeps the reported build_time to just the symbolic factorization.
+            is_cjt = (algorithm == "cjt")
+            enumerate_vertices = not is_cjt
+            solve_families = not is_cjt
             cnv = CredalNetworkVertices.from_lcn(
                 lcn_model, method=fact_method, solver=cn_solver,
                 time_limit=cn_time_limit, gap_tol=cn_gap_tol,
                 n_jobs=n_jobs, merge_budget=merge_budget,
-                enumerate_vertices=enumerate_vertices, verbosity=verbosity)
+                enumerate_vertices=enumerate_vertices,
+                solve_families=solve_families, verbosity=verbosity)
             result["build_time"] = round(cnv.build_time, 4)
             result["induced_width"] = _compute_induced_width(cnv)
 
