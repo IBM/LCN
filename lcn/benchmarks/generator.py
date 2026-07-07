@@ -79,17 +79,31 @@ class Generator:
         Args:
             num_vars: Number of variables in each LCN.
             graph_type: Graph topology — "random", "dag", "polytree", "tree",
-                "tree-fr", "polytree-fr", "chain", "ktree", or "easy". A "ktree"
-                is the maximal graph of treewidth exactly ``k`` (see
-                ``_graph_ktree``); it is oriented as a DAG so every atom
-                conditions on the full conjunction of its ``k`` clique-parents,
-                and its chain-graph junction tree stays at treewidth ``k``. The
-                "-fr"
+                "tree-fr", "polytree-fr", "chain", "ktree", "ktree-fr", or
+                "easy". A "ktree" is the maximal graph of treewidth exactly
+                ``k`` (see ``_graph_ktree``); it is oriented as a DAG so every
+                atom conditions on the full conjunction of its ``k``
+                clique-parents, and its chain-graph junction tree stays at
+                treewidth ``k``. "ktree-fr" has the SAME topology but restricts
+                the extra marginals to root atoms, so it contains no
+                non-family-realizable *sentence* (every Type-1 is on a root, and
+                the full-conjunction conditionals each pin a single
+                parent-config). CAVEAT: unlike "tree-fr"/"polytree-fr", this does
+                NOT make the strong-extension engines (Credal VE, Interval BP)
+                exact for ``k >= 2`` — a k-tree with ``k >= 2`` is not
+                singly-connected (the ``k`` clique-parents are moralized into a
+                loop), a *structural* source of non-realizability the "-fr"
+                extras placement cannot remove. So "ktree-fr" means "no
+                non-realizable sentences", NOT "exact for CVE/IBP"; use CredalJT
+                / ExactInference(solver="global") for exact bounds. (Only for
+                ``k == 1``, where the k-tree is a plain tree, is "ktree-fr" fully
+                family-realizable.) The "-fr"
                 (family-realizable) variants have the same topology as
-                "tree"/"polytree" but place the extra marginal sentences on root
-                atoms only, so every sentence is family-realizable and the
-                strong-extension engines (Credal VE, Interval BP) are exact on
-                them (see docs/strong_extension_exactness.tex). "easy" produces
+                "tree"/"polytree"/"ktree" but place the extra marginal sentences
+                on root atoms only, so every *sentence* is family-realizable; for
+                "tree-fr"/"polytree-fr" (singly-connected) the strong-extension
+                engines (Credal VE, Interval BP) are then exact
+                (see docs/strong_extension_exactness.tex). "easy" produces
                 instances designed to be quick for the SCIP global solver to
                 certify; see the strategy/coverage args below.
             num_instances: Number of consistent instances to generate.
@@ -148,15 +162,16 @@ class Generator:
             A list of consistent LCN instances.
         """
         assert graph_type in ("random", "dag", "polytree", "polytree-fr",
-                              "tree", "tree-fr", "chain", "ktree", "easy"), \
+                              "tree", "tree-fr", "chain", "ktree", "ktree-fr",
+                              "easy"), \
             f"Unknown graph_type '{graph_type}'. " \
             f"Use 'random', 'dag', 'polytree', 'polytree-fr', 'tree', " \
-            f"'tree-fr', 'chain', 'ktree', or 'easy'."
+            f"'tree-fr', 'chain', 'ktree', 'ktree-fr', or 'easy'."
         assert num_vars >= 3, "Need at least 3 variables."
         assert max_component_size >= 1, "max_component_size must be >= 1."
         assert max_parents >= 1, "max_parents must be >= 1."
         assert k >= 1, "k must be >= 1."
-        if graph_type == "ktree":
+        if graph_type in ("ktree", "ktree-fr"):
             assert num_vars >= k + 1, "ktree needs num_vars >= k + 1."
         assert consistency_mode in ("product", "full"), \
             f"Unknown consistency_mode '{consistency_mode}'. Use 'product' or 'full'."
@@ -204,15 +219,17 @@ class Generator:
                 scopes, components = self._make_graph(num_vars, graph_type,
                                                       max_component_size,
                                                       max_parents, k)
-                # The "-fr" (family-realizable) tree/polytree classes keep the
-                # same topology but place extra marginals on root atoms only.
-                extras_on_roots_only = graph_type in ("tree-fr", "polytree-fr")
+                # The "-fr" classes keep the same topology but place extra
+                # marginals on root atoms only.
+                extras_on_roots_only = graph_type in (
+                    "tree-fr", "polytree-fr", "ktree-fr")
                 # k-tree scopes must condition on ALL k clique-parents (not a
                 # max_vars subsample) or the treewidth-k guarantee breaks.
                 lcn = self._build_lcn(scopes, components, num_vars, epsilon,
                                       max_vars_per_sentence, num_extras,
                                       extras_on_roots_only=extras_on_roots_only,
-                                      full_parents=(graph_type == "ktree"))
+                                      full_parents=graph_type in (
+                                          "ktree", "ktree-fr"))
             if self._check_and_build(lcn, consistency_restarts, verbosity,
                                      consistency_mode):
                 instances.append(lcn)
@@ -433,7 +450,9 @@ class Generator:
         elif graph_type in ("tree", "tree-fr"):
             # "tree-fr": same topology as "tree", family-realizable extras.
             return self._graph_tree(num_vars), []
-        elif graph_type == "ktree":
+        elif graph_type in ("ktree", "ktree-fr"):
+            # "ktree-fr": same topology as "ktree"; differs only in restricting
+            # extra marginals to root atoms (handled in generate() / _build_lcn).
             return self._graph_ktree(num_vars, k), []
         elif graph_type == "chain":
             return self._graph_chain(num_vars, max_component_size)

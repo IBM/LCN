@@ -18,13 +18,22 @@ from lcn.benchmarks.generator import Generator
 
 
 def generate(output_dir, sizes, num_instances, seed, epsilon,
-             max_vars, num_extras, k, verbosity):
+             max_vars, num_extras, k, verbosity, family_realizable=False):
     os.makedirs(output_dir, exist_ok=True)
     gen = Generator(seed=seed)
 
+    # The family-realizable class "ktree-fr" has the same topology but places
+    # the extra marginals on root atoms only, so the instance has no
+    # non-family-realizable SENTENCE. CAVEAT: for k >= 2 the k-tree is still not
+    # singly-connected, so unlike tree-fr/polytree-fr this does NOT make Credal
+    # VE / Interval BP exact -- use CredalJT / ExactInference(solver="global").
+    # See Generator.generate and docs/strong_extension_exactness.tex.
+    graph_type = "ktree-fr" if family_realizable else "ktree"
+    slug = "ktree_fr" if family_realizable else "ktree"
+
     # Encode k in the filename prefix so different k values coexist in the same
     # directory (mirrors gen_benchmarks.py).
-    prefix = f"ktree_k{k}"
+    prefix = f"{slug}_k{k}"
 
     for n in sizes:
         if n < k + 1:
@@ -33,7 +42,7 @@ def generate(output_dir, sizes, num_instances, seed, epsilon,
             continue
         instances = gen.generate(
             num_vars=n,
-            graph_type="ktree",
+            graph_type=graph_type,
             num_instances=num_instances,
             max_vars_per_sentence=max_vars,
             num_extras=num_extras,
@@ -71,9 +80,17 @@ if __name__ == "__main__":
                              "exactly k clique-parents, so the junction-tree "
                              "treewidth is exactly k (default: 2; needs "
                              "n >= k + 1). k=1 is a random rooted tree.")
+    parser.add_argument("--family-realizable", action="store_true",
+                        help="Generate the family-realizable class 'ktree-fr' "
+                             "(extra marginals on root atoms only, so the "
+                             "instance has no non-realizable SENTENCE); files "
+                             "prefixed ktree_fr_. NOTE: for k>=2 this is still "
+                             "NOT Credal VE / Interval BP exact (a k-tree is "
+                             "structurally loopy) -- use CredalJT / "
+                             "ExactInference(solver='global').")
     parser.add_argument("--verbosity", type=int, default=1,
                         help="Verbosity level (default: 1)")
     args = parser.parse_args()
     generate(args.output_dir, args.sizes, args.num_instances, args.seed,
              args.epsilon, args.max_vars, args.num_extras, args.k,
-             args.verbosity)
+             args.verbosity, family_realizable=args.family_realizable)

@@ -29,7 +29,7 @@ TOPOLOGIES = ["chain", "tree", "polytree", "random", "dag", "ktree"]
 # but extra marginals on root atoms only, so Credal VE / Interval BP are exact --
 # see docs/strong_extension_exactness.tex). Both are available via --types but
 # excluded from the default set. See Generator.generate.
-ALL_TYPES = TOPOLOGIES + ["tree-fr", "polytree-fr", "easy"]
+ALL_TYPES = TOPOLOGIES + ["tree-fr", "polytree-fr", "ktree-fr", "easy"]
 
 
 def main():
@@ -49,9 +49,12 @@ examples:
     parser.add_argument(
         "--types", type=str, nargs="+", default=TOPOLOGIES,
         choices=ALL_TYPES,
-        help="instance types to generate (default: chain tree polytree random dag; "
-             "'tree-fr'/'polytree-fr' are the family-realizable classes on which "
-             "Credal VE / Interval BP are exact; 'easy' produces SCIP-easy instances)")
+        help="instance types to generate (default: chain tree polytree random "
+             "dag ktree; 'tree-fr'/'polytree-fr' are the family-realizable "
+             "classes on which Credal VE / Interval BP are exact; 'ktree-fr' has "
+             "root-only extras so it has no non-realizable SENTENCES, but for "
+             "k>=2 it is still not CVE/IBP-exact (structurally loopy); 'easy' "
+             "produces SCIP-easy instances)")
     parser.add_argument(
         "--sizes", type=int, nargs="+", default=[5, 10, 15, 20, 30],
         help="number of variables per instance (default: 5 10 15 20 30)")
@@ -145,8 +148,9 @@ examples:
             # encode k in ktree filenames so different k values coexist.
             if graph_type == "easy":
                 prefix = f"easy_{args.strategy}"
-            elif graph_type == "ktree":
-                prefix = f"ktree_k{args.k}"
+            elif graph_type in ("ktree", "ktree-fr"):
+                # slug is "ktree" or "ktree_fr"; append the k value.
+                prefix = f"{slug}_k{args.k}"
             else:
                 prefix = slug
             for i, lcn in enumerate(instances):

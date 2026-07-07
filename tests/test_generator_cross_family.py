@@ -185,6 +185,62 @@ def test_fr_classes_are_family_realizable(graph_type, seed):
         assert not _cross_family_sentences(lcn)
 
 
+@pytest.mark.parametrize("k", [1, 2, 3])
+@pytest.mark.parametrize("seed", [0, 1, 42])
+def test_ktree_fr_has_no_non_realizable_sentences(k, seed):
+    """The "ktree-fr" class places extra marginals on root atoms only, so no
+    Type-1 sentence lands on a non-root child -- i.e. no non-family-realizable
+    SENTENCE, and no atom-scope cross-family sentence. This holds for every k.
+
+    CAVEAT (see docs/strong_extension_exactness.tex and
+    test_ktree_fr_k_ge_2_is_structurally_loopy below): sentence-realizability
+    does NOT imply Credal VE / Interval BP exactness for k >= 2, because a k-tree
+    with k >= 2 is not singly-connected. This test only pins the SENTENCE-level
+    property that the "-fr" extras placement actually controls."""
+    gen = Generator(seed=seed)
+    instances = gen.generate(
+        num_vars=8,
+        graph_type="ktree-fr",
+        num_instances=3,
+        max_vars_per_sentence=3,
+        num_extras=3,
+        epsilon=0.3,
+        k=k,
+        verbosity=0,
+    )
+    assert instances, f"generator produced no ktree-fr instances (k={k}, seed={seed})"
+    for i, lcn in enumerate(instances):
+        nr = _non_realizable_sentences(lcn)
+        assert not nr, (
+            f"ktree-fr k={k} instance {i} (seed={seed}) has non-realizable "
+            f"Type-1 sentence(s) on non-root atoms: {nr}")
+        assert not _cross_family_sentences(lcn)
+
+
+@pytest.mark.parametrize("k", [2, 3])
+def test_ktree_fr_k_ge_2_is_structurally_loopy(k):
+    """Guard the honest caveat: a k-tree with k >= 2 is NOT singly-connected --
+    the k clique-parents of each atom are moralized into a loop -- so no extras
+    placement can make it family-realizable end-to-end (CVE/IBP stay loose). We
+    assert the moralized atom graph has at least one cycle, distinguishing
+    "ktree-fr" (sentence-realizable but loopy) from the genuinely exact
+    "tree-fr"/"polytree-fr" (singly-connected). For k == 1 the graph is a tree
+    (no cycle) -- excluded here and covered by the tree-like path."""
+    import itertools
+    import networkx as nx
+
+    gen = Generator(seed=7)
+    scopes = gen._graph_ktree(12, k)
+    graph = nx.Graph()
+    graph.add_nodes_from(range(12))
+    for scope in scopes:
+        # Moralize: child + all parents form a clique (parents already a clique).
+        for a, b in itertools.combinations(scope, 2):
+            graph.add_edge(a, b)
+    assert nx.cycle_basis(graph), (
+        f"expected a k-tree with k={k} to be loopy (not singly-connected)")
+
+
 # ----------------------------------------------------------------------
 # 3. No contradictory duplicate marginals + large instances are checked.
 #    Regression for the tree_fr_n20_1 bug: extras stacked several
