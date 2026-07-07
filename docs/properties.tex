@@ -7,12 +7,15 @@
 \usepackage{hyperref}
 \usepackage{tikz}
 \usepackage{xcolor}
+\usepackage{listings}
 \usetikzlibrary{arrows.meta,positioning,fit,backgrounds,shapes.geometric,calc}
 
 \newtheorem{theorem}{Theorem}
 \newtheorem{proposition}{Proposition}
 \newtheorem{lemma}{Lemma}
 \newtheorem{definition}{Definition}
+\theoremstyle{definition}
+\newtheorem{example}{Example}
 
 \newcommand{\lo}{\underline}
 \newcommand{\hi}{\overline}
@@ -355,6 +358,76 @@ assertions do not bind); on \texttt{smokers} the six large-scope LMCs of the und
 $F_1F_2F_3$ are unhostable and unentailed, H3 fails \emph{and bites}, and CredalJT returns the loose
 but valid $P(F_1)=[0,1]$.
 
+\subsection{CredalJT is provably exact on \texttt{ktree-fr}}\label{sec:d5-ktree}
+The \texttt{ktree-fr} benchmark family (\S\ref{sec:topology}, \texttt{lcn/benchmarks/generator.py}) is
+the sharpest test case for Theorem~\ref{thm:d5}, because it is a topology on which the
+strong-extension engines (Credal~VE, Interval~BP) are \emph{not} exact yet CredalJT provably is. A
+\emph{$k$-tree} is the maximal graph of treewidth exactly $k$ (Arnborg--Proskurowski): start with a
+$(k{+}1)$-clique and attach each new vertex to an existing $k$-clique. The generator renders it as a
+DAG in construction order and conditions every atom on the \emph{full conjunction} of its $k$
+clique-parents, so the moralized atom graph has treewidth exactly $k$ independent of $n$. The
+``\texttt{-fr}'' variant places extra marginals only on root atoms, so it contains \emph{no}
+non-family-realizable sentence.
+
+\medskip\noindent\emph{Why this separates CredalJT from Credal~VE/IBP.} For $k\ge 2$ a $k$-tree is
+\emph{not} singly connected: the $k$ clique-parents of each attached vertex are pairwise adjacent, so
+moralization leaves a cycle. By the family-realizable theorem
+(\S\ref{sec:cve},~\S\ref{sec:ibp}; \texttt{strong\_extension\_exactness.tex}) the strong-extension
+engines are exact w.r.t.\ $\DLCN$ only on a singly-connected primal graph, so \texttt{ktree-fr} with
+$k\ge 2$ is a \emph{structural} $\DSE\supsetneq\DLCN$ (Gap~B) that no local-set tightening removes ---
+Credal~VE and Interval~BP are outer-only here. CredalJT is unaffected: it never forms the free
+product; it optimizes the read-off over the cluster-feasible set $\mathcal G$ of one \emph{junction
+tree}, and Theorem~\ref{thm:d5} turns on H1--H4, not on single-connectedness.
+
+\begin{proposition}[\texttt{ktree-fr} exactness]\label{prop:ktree}
+On every \texttt{ktree-fr} instance, hypotheses \textup{H1--H4} of Theorem~\ref{thm:d5} hold, so
+\texttt{CredalJT} returns exactly the $\DLCN$ marginal bounds at cost $O(n\,2^{k+1})$ --- exponential
+in the treewidth $k$, linear in $n$.
+\end{proposition}
+
+\begin{proof}[Proof sketch]
+A $k$-tree is chordal, and the full-conjunction DAG rendering adds only edges already present among
+each vertex's clique-parents, so moralizing introduces \emph{no} extra fill-in and triangulation is a
+no-op: the chordal graph $G^\ast$ built from the elimination order \emph{is} the $k$-tree, and its
+maximal cliques --- the junction-tree clusters --- are exactly the $(k{+}1)$-cliques
+(H1, RIP, by construction). Every LCN sentence is family-scoped (a child with its $\le k$ parents,
+which co-occur in a cluster) or a root marginal, hence hosted (H2). Each LMC assertion
+$(X\indep Y\mid S)$ arising from the Local Markov Condition has $S$ a full clique-separator of the
+$k$-tree, so $S$ separates $X$ from $Y$ in $G^\ast$: the assertion is either hosted or
+\emph{separator-entailed} (H3). Any single query atom lies in a $(k{+}1)$-clique (H4). Theorem
+\ref{thm:d5} then gives exactness.
+\end{proof}
+
+\begin{example}[A small $k{=}2$ \texttt{ktree-fr}, worked end to end]\label{ex:ktree}
+\texttt{benchmarks/ktree\_fr/ktree\_fr\_k2\_n4\_example.lcn} ($n{=}4$, $k{=}2$, generator seed $0$):
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+s0: 0.084382 <= P(x1)                <= 0.684382
+s1: 0.010000 <= P(!x2 | !x1)         <= 0.572656
+s2: 0.092785 <= P(x3 | (x1 and x2))  <= 0.692785
+s3: 0.068242 <= P(x0 | (x1 and x3))  <= 0.668242
+\end{lstlisting}
+The seed $3$-clique is $\{x_1,x_2,x_3\}$ (a directed cascade $x_1\!\to\!x_2\!\to\!x_3$ with the
+clique edges $x_1x_2,x_1x_3,x_2x_3$) and $x_0$ attaches to the $2$-clique $\{x_1,x_3\}$. Moralizing is
+a no-op, so $G^\ast$ has the two maximal $3$-cliques $\{x_1,x_2,x_3\}$ and $\{x_0,x_1,x_3\}$
+(treewidth $2$); it is loopy ($x_1,x_2,x_3$ form a triangle), so Credal~VE/IBP are \emph{not} exact
+here. The Local Markov Condition emits the single assertion $x_0\indep x_2\mid\{x_1,x_3\}$; the
+separator $\{x_1,x_3\}$ splits $x_0$ from $x_2$ in $G^\ast$, so it is separator-entailed (in fact
+RIP-implied by the tree edge) and dropped harmlessly. \texttt{CredalJT} (SCIP) and the certified
+$\DLCN$ oracle \texttt{ExactInference}(\texttt{solver="global"}) agree to the solver tolerance on all
+four atoms, e.g.\ $P(x_1){=}[0.084,0.684]$ and $P(x_2){=}[0.135,0.997]$, with the max discrepancy
+$<10^{-4}$.
+\end{example}
+
+\noindent\emph{Verified at scale.} Across all $51$ shipped \texttt{ktree-fr} instances
+($k{=}3$, $n\in\{10,20,30,40,50\}$, plus Example~\ref{ex:ktree}) the structural certificate holds
+\emph{uniformly}: $G^\ast$ is chordal, the induced width is $k{+}1$ regardless of $n$, and every LMC
+assertion is hosted or separator-entailed (e.g.\ on the seed-$5$ $k{=}3,n{=}6$ probe one assertion
+$x_5\indep\{x_1,x_2\}\mid\{x_0,x_3,x_4\}$ is genuinely \emph{unhostable} but separator-entailed, the
+asia/polytree pattern --- and CredalJT is still exact). This makes \texttt{ktree-fr} the clean
+witness that ``exact at treewidth cost'' is a real, not merely asymptotic, property: it is the
+recommended engine on this family, whereas the strong-extension engines require
+\texttt{ExactInference}-global to be corrected.
+
 \section{The credal-network family: targeting $\DSE$}\label{sec:cnfamily}
 
 All five engines here consume the same \texttt{CredalNetworkVertices}; they differ only in how they
@@ -530,6 +603,7 @@ Tree (\texttt{tree})                 & ex & ex & ex & ex & ex & ex & ex \\
 Polytree (\texttt{polytree})         & ex & ex$^\dagger$ & ex & ex & ex & ex & ex \\
 Chain graph, compound (\texttt{alarm}) & ex$^\ast$ & ex & ex & ex & ex & ex & ex \\
 Cross-family sentence (\texttt{d4\_biting}) & ex & ex & ex & \textbf{in} & ex & ex & out \\
+$k$-tree (\texttt{ktree-fr}, $k{\ge}2$) & ex & \textbf{ex}$^\P$ & out$^\S$ & out$^\S$ & in$^\S$ & out$^\S$ & out \\
 Loopy DAG                            & ex & out & out$^\S$ & out$^\S$ & in$^\S$ & out & out \\
 Undirected clique (\texttt{smokers}) & ex & \textbf{out} & out$^\S$ & out$^\S$ & in$^\S$ & out & out \\
 \bottomrule
@@ -543,7 +617,12 @@ $i$-bound $\ge$ treewidth it matches CredalJT. $^\S$ On a loopy/undirected-cliqu
 \DLCN$; the $\DSE$-family entries are exact-over-$\DSE$ but only \emph{outer} (CVE/CTE/IBP/IJGP) or
 \emph{inner} (ApproxLP) over $\DLCN$. On \texttt{smokers} even CredalJT is outer-only ($P(F_1)=[0,1]$).
 For cross-family / loopy instances the reliable exact route is \texttt{ExactInference}-global or
-\texttt{CredalJT} where H1--H4 hold.
+\texttt{CredalJT} where H1--H4 hold. $^\P$ On \texttt{ktree-fr} ($k{\ge}2$) the $k$-tree is chordal but
+\emph{loopy} (not singly connected), so $\DSE\supsetneq\DLCN$ and the strong-extension engines are
+outer-only over $\DLCN$; \texttt{CredalJT} is nonetheless \emph{provably} exact
+(Prop.~\ref{prop:ktree}) because H1--H4 hold at treewidth $k$ --- the one loopy topology where a
+treewidth-bounded engine is exact without falling back to the $2^n$ oracle. $k{=}1$ is a tree and
+every engine is exact.
 
 \section{Reliability and verification}\label{sec:reliability}
 

@@ -1,0 +1,54 @@
+# Saved LCN instance
+
+s0: 0.40502 <= P(x7) <= 1.0 ; True
+s1: 0.277409 <= P(x36 | !x7) <= 0.877409 ; True
+s2: 0.407462 <= P(x23 | (!x7 and !x36)) <= 1.0 ; True
+s3: 0.081576 <= P(x2 | (!x7 and x36 and !x23)) <= 0.681576 ; True
+s4: 0.644438 <= P(x22 | (!x7 and x23 and x2)) <= 1.0 ; True
+s5: 0.392707 <= P(!x19 | (!x7 and x23 and !x2)) <= 0.992707 ; True
+s6: 0.582649 <= P(!x38 | (x7 and !x23 and x2)) <= 1.0 ; True
+s7: 0.458076 <= P(!x46 | (x23 and x2 and !x38)) <= 1.0 ; True
+s8: 0.562501 <= P(x48 | (!x7 and !x23 and x22)) <= 1.0 ; True
+s9: 0.677389 <= P(x10 | (!x7 and x23 and !x2)) <= 1.0 ; True
+s10: 0.466223 <= P(!x40 | (x7 and x23 and x2)) <= 1.0 ; True
+s11: 0.502178 <= P(x21 | (x7 and x2 and !x22)) <= 1.0 ; True
+s12: 0.01 <= P(x28 | (!x7 and !x23 and x22)) <= 0.38777 ; True
+s13: 0.354811 <= P(x6 | (x7 and x23 and !x19)) <= 0.954811 ; True
+s14: 0.611427 <= P(x34 | (x7 and !x22 and x21)) <= 1.0 ; True
+s15: 0.094246 <= P(x27 | (x23 and !x2 and x40)) <= 0.694246 ; True
+s16: 0.01 <= P(x20 | (x23 and x2 and x46)) <= 0.327174 ; True
+s17: 0.508608 <= P(!x44 | (x7 and x2 and x38)) <= 1.0 ; True
+s18: 0.654666 <= P(!x24 | (x23 and x2 and x40)) <= 1.0 ; True
+s19: 0.072187 <= P(x25 | (x2 and x38 and !x46)) <= 0.672187 ; True
+s20: 0.133957 <= P(x11 | (x23 and x2 and x20)) <= 0.733957 ; True
+s21: 0.01 <= P(!x9 | (!x7 and x23 and x2)) <= 0.564027 ; True
+s22: 0.01 <= P(x35 | (x23 and !x38 and x46)) <= 0.505605 ; True
+s23: 0.01 <= P(x49 | (x7 and x22 and x28)) <= 0.358501 ; True
+s24: 0.425853 <= P(x32 | (x7 and x23 and x6)) <= 1.0 ; True
+s25: 0.253461 <= P(x3 | (!x23 and x2 and x46)) <= 0.853461 ; True
+s26: 0.567964 <= P(x42 | (!x23 and x2 and x11)) <= 1.0 ; True
+s27: 0.094344 <= P(x33 | (x7 and !x23 and x32)) <= 0.694344 ; True
+s28: 0.096926 <= P(x31 | (x7 and x21 and x34)) <= 0.696926 ; True
+s29: 0.01 <= P(x0 | (!x7 and x34 and x31)) <= 0.453103 ; True
+s30: 0.01 <= P(x29 | (x2 and x46 and !x3)) <= 0.606412 ; True
+s31: 0.350101 <= P(x39 | (!x23 and x46 and !x3)) <= 0.950101 ; True
+s32: 0.331553 <= P(x5 | (!x22 and !x28 and x49)) <= 0.931553 ; True
+s33: 0.640645 <= P(!x14 | (x7 and !x23 and !x48)) <= 1.0 ; True
+s34: 0.570833 <= P(x17 | (x38 and !x46 and !x25)) <= 1.0 ; True
+s35: 0.01 <= P(!x26 | (x7 and !x23 and x14)) <= 0.550508 ; True
+s36: 0.426472 <= P(x1 | (x2 and x38 and !x25)) <= 1.0 ; True
+s37: 0.084107 <= P(!x15 | (x23 and x2 and !x20)) <= 0.684107 ; True
+s38: 0.038464 <= P(x43 | (x7 and x23 and !x14)) <= 0.638464 ; True
+s39: 0.01 <= P(x37 | (x23 and x2 and x3)) <= 0.421128 ; True
+s40: 0.131431 <= P(!x45 | (x7 and x2 and x22)) <= 0.731431 ; True
+s41: 0.647747 <= P(x13 | (x22 and x28 and !x49)) <= 1.0 ; True
+s42: 0.01 <= P(!x30 | (!x23 and x2 and !x38)) <= 0.484197 ; True
+s43: 0.243118 <= P(!x41 | (!x7 and x36 and !x2)) <= 0.843118 ; True
+s44: 0.01 <= P(x18 | (x7 and x32 and x33)) <= 0.437639 ; True
+s45: 0.01 <= P(x8 | (x7 and x22 and x45)) <= 0.443421 ; True
+s46: 0.147292 <= P(x16 | (!x21 and x34 and x31)) <= 0.747292 ; True
+s47: 0.264845 <= P(x47 | (x23 and x2 and !x30)) <= 0.864845 ; True
+s48: 0.338155 <= P(x12 | (x7 and x2 and x19)) <= 0.938155 ; True
+s49: 0.538133 <= P(!x4 | (x7 and x6 and x32)) <= 1.0 ; True
+s50: 0.74422 <= P(x7) <= 0.79082 ; True
+s51: 0.755153 <= P(x7) <= 0.785347 ; True
