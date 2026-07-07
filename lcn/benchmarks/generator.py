@@ -61,6 +61,7 @@ class Generator:
         max_retries: int = 100,
         max_component_size: int = 3,
         max_parents: int = 2,
+        k: int = 2,
         consistency_restarts: int = 40,
         consistency_mode: str = "product",
         strategy: str = "linear",
@@ -78,7 +79,12 @@ class Generator:
         Args:
             num_vars: Number of variables in each LCN.
             graph_type: Graph topology — "random", "dag", "polytree", "tree",
-                "tree-fr", "polytree-fr", "chain", or "easy". The "-fr"
+                "tree-fr", "polytree-fr", "chain", "ktree", or "easy". A "ktree"
+                is the maximal graph of treewidth exactly ``k`` (see
+                ``_graph_ktree``); it is oriented as a DAG so every atom
+                conditions on the full conjunction of its ``k`` clique-parents,
+                and its chain-graph junction tree stays at treewidth ``k``. The
+                "-fr"
                 (family-realizable) variants have the same topology as
                 "tree"/"polytree" but place the extra marginal sentences on root
                 atoms only, so every sentence is family-realizable and the
@@ -97,6 +103,10 @@ class Generator:
                 (only used when graph_type="chain").
             max_parents: Maximum number of parents per child node
                 (only used when graph_type="dag" or "polytree").
+            k: Treewidth parameter (only used when graph_type="ktree"). Each
+                non-seed atom conditions on exactly ``k`` clique-parents, so the
+                induced junction-tree treewidth is exactly ``k``. Requires
+                num_vars >= k + 1; k=1 degenerates to a random rooted tree.
             strategy: For graph_type="easy", how to make instances easy:
                 "linear" (default) conditions each atom on its predecessors so
                 most/all Local Markov assertions vanish (coverage controls how
@@ -138,13 +148,16 @@ class Generator:
             A list of consistent LCN instances.
         """
         assert graph_type in ("random", "dag", "polytree", "polytree-fr",
-                              "tree", "tree-fr", "chain", "easy"), \
+                              "tree", "tree-fr", "chain", "ktree", "easy"), \
             f"Unknown graph_type '{graph_type}'. " \
             f"Use 'random', 'dag', 'polytree', 'polytree-fr', 'tree', " \
-            f"'tree-fr', 'chain', or 'easy'."
+            f"'tree-fr', 'chain', 'ktree', or 'easy'."
         assert num_vars >= 3, "Need at least 3 variables."
         assert max_component_size >= 1, "max_component_size must be >= 1."
         assert max_parents >= 1, "max_parents must be >= 1."
+        assert k >= 1, "k must be >= 1."
+        if graph_type == "ktree":
+            assert num_vars >= k + 1, "ktree needs num_vars >= k + 1."
         assert consistency_mode in ("product", "full"), \
             f"Unknown consistency_mode '{consistency_mode}'. Use 'product' or 'full'."
         assert strategy in ("linear", "sparse", "bounded", "verified"), \
@@ -190,13 +203,16 @@ class Generator:
             else:
                 scopes, components = self._make_graph(num_vars, graph_type,
                                                       max_component_size,
-                                                      max_parents)
+                                                      max_parents, k)
                 # The "-fr" (family-realizable) tree/polytree classes keep the
                 # same topology but place extra marginals on root atoms only.
                 extras_on_roots_only = graph_type in ("tree-fr", "polytree-fr")
+                # k-tree scopes must condition on ALL k clique-parents (not a
+                # max_vars subsample) or the treewidth-k guarantee breaks.
                 lcn = self._build_lcn(scopes, components, num_vars, epsilon,
                                       max_vars_per_sentence, num_extras,
-                                      extras_on_roots_only=extras_on_roots_only)
+                                      extras_on_roots_only=extras_on_roots_only,
+                                      full_parents=(graph_type == "ktree"))
             if self._check_and_build(lcn, consistency_restarts, verbosity,
                                      consistency_mode):
                 instances.append(lcn)
@@ -395,7 +411,7 @@ class Generator:
 
     def _make_graph(self, num_vars: int, graph_type: str,
                     max_component_size: int = 3,
-                    max_parents: int = 2):
+                    max_parents: int = 2, k: int = 2):
         """
         Generate scopes for the given topology.
 
@@ -417,6 +433,8 @@ class Generator:
         elif graph_type in ("tree", "tree-fr"):
             # "tree-fr": same topology as "tree", family-realizable extras.
             return self._graph_tree(num_vars), []
+        elif graph_type == "ktree":
+            return self._graph_ktree(num_vars, k), []
         elif graph_type == "chain":
             return self._graph_chain(num_vars, max_component_size)
 
@@ -516,6 +534,55 @@ class Generator:
             # exactly one parent, drawn uniformly from the earlier nodes
             parent = ordering[self.rng.randint(i)]
             scopes.append([parent, v])
+        return scopes
+
+    def _graph_ktree(self, n: int, k: int = 2) -> List[List[int]]:
+        """Random k-tree, oriented as a DAG in construction order.
+
+        A k-tree is the maximal graph of treewidth exactly ``k`` (Arnborg &
+        Proskurowski): start with a (k+1)-clique, then repeatedly add a new
+        vertex adjacent to exactly ``k`` vertices that already form a clique,
+        creating a fresh (k+1)-clique. Its treewidth is exactly ``k``.
+
+        We orient it using the construction order so it fits the LCN
+        ``[parents..., child]`` scope contract:
+
+          * The seed (k+1)-clique {v_0..v_k} is a directed cascade -- v_0 is a
+            Type-1 root prior and each v_i (1<=i<=k) conditions on ALL earlier
+            v_0..v_{i-1}. Every earlier vertex is a parent, so all pairs in the
+            seed are moralized -> the seed alone has treewidth k.
+          * Each later vertex v attaches to a random existing (k+1)-clique with
+            one member dropped, giving exactly ``k`` clique-parents.
+
+        Because every parent set is itself a clique, the moralized graph equals
+        the (undirected) k-tree, so the chain-graph junction tree stays at
+        treewidth ``k``. The child must condition on the FULL conjunction of its
+        k parents (handled via ``_build_lcn(full_parents=True)``) for this to
+        hold. ``k`` is clamped to ``[1, n-1]``; ``k=1`` reduces to a random
+        rooted tree (treewidth 1).
+
+        Returns ``scopes`` (list of ``[parents..., child]``), matching the
+        ``_make_graph`` contract; there are no undirected chain components.
+        """
+        k = max(1, min(k, n - 1))
+        ordering = self._random_ordering(n)
+
+        # Seed (k+1)-clique rendered as a directed cascade.
+        scopes = [[ordering[0]]]  # root prior P(x_{v0})
+        for i in range(1, k + 1):
+            parents = [ordering[j] for j in range(i)]
+            scopes.append(parents + [ordering[i]])
+
+        # Existing (k+1)-cliques we can attach new vertices to (start: the seed).
+        cliques = [[ordering[j] for j in range(k + 1)]]
+        for i in range(k + 1, n):
+            v = ordering[i]
+            base = cliques[self.rng.randint(len(cliques))]  # host clique
+            # Drop one of the k+1 members to get a k-clique parent set.
+            drop = self.rng.randint(len(base))
+            parents = [base[j] for j in range(len(base)) if j != drop]
+            scopes.append(parents + [v])
+            cliques.append(parents + [v])  # the new (k+1)-clique
         return scopes
 
     def _graph_chain(self, n: int,
@@ -766,7 +833,8 @@ class Generator:
                    components: List[List[int]],
                    num_vars: int, epsilon: float, max_vars: int,
                    num_extras: int,
-                   extras_on_roots_only: bool = False) -> LCN:
+                   extras_on_roots_only: bool = False,
+                   full_parents: bool = False) -> LCN:
         """
         Build an LCN instance from scopes and chain components.
 
@@ -783,6 +851,13 @@ class Generator:
                 drawn from all atoms (original behavior); when True they are
                 restricted to root atoms so every sentence is family-realizable
                 (the "-fr" tree/polytree classes). See the loop below.
+            full_parents: when False (default) each Type-2 conditioning formula
+                psi is a random subformula over a max_vars subsample of the
+                parents (original behavior); when True psi is the full
+                ``and``-conjunction of ALL parents (via
+                ``_make_conjunction_formula``). Used by the "ktree" topology,
+                where conditioning on every clique-parent is what keeps the
+                induced junction-tree treewidth equal to k.
         """
         lcn = LCN()
         atoms = [Atom(f"x{i}") for i in range(num_vars)]
@@ -822,7 +897,11 @@ class Generator:
                 child = scope[-1]
                 parents = scope[:-1]
                 phi = self._make_random_formula([child], max_vars)
-                psi = self._make_random_formula(parents, max_vars)
+                if full_parents:
+                    # Condition on ALL parents (k-tree: preserves treewidth k).
+                    psi = self._make_conjunction_formula(parents)
+                else:
+                    psi = self._make_random_formula(parents, max_vars)
 
             lo, hi = self._make_bounds(epsilon)
             sentence = Sentence(

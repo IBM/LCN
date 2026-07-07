@@ -61,8 +61,9 @@ All inference algorithms use **Pyomo** to formulate optimization problems solved
 There is **no** `lcn/inference/legacy/` package — it was removed; the active engines are the ones above.
 
 ### Generator (`lcn/benchmarks/`)
-- `generator.py` — `Generator` class for random LCN instances (chain/dag/polytree/random topologies). `generate(..., consistency_mode="product"|"full")` rejection-samples consistent instances; `"product"` (default) uses a fast, sound product-distribution witness check that guarantees consistency for n ≤ 10.
-- `gen_benchmarks.py`, `gen_chains.py`, `gen_polytrees.py`, `gen_random.py` — benchmark-set generation scripts.
+- `generator.py` — `Generator` class for random LCN instances (chain/dag/polytree/tree/ktree/random topologies). `generate(..., consistency_mode="product"|"full")` rejection-samples consistent instances; `"product"` (default) uses a fast, sound product-distribution witness check that guarantees consistency for n ≤ 10.
+- **`ktree` topology** — the maximal graph of treewidth exactly `k` (Arnborg–Proskurowski): start with a `(k+1)`-clique, then attach each new vertex to an existing `k`-clique. Rendered as a DAG (`_graph_ktree`) so every atom conditions on the **full conjunction** of its `k` clique-parents (via `_build_lcn(full_parents=True)`); the moralized/atom graph then has treewidth exactly `k`, letting inference scaling be studied against treewidth rather than raw `n`. The `k` parameter is a `generate(..., k=…)` arg and the `--k` CLI flag; requires `n ≥ k + 1`; `k=1` is a random rooted tree.
+- `gen_benchmarks.py`, `gen_chains.py`, `gen_polytrees.py`, `gen_trees.py`, `gen_ktrees.py` (`--k` treewidth), `gen_random.py`, `gen_easy.py` — benchmark-set generation scripts.
 
 ### LCN File Format
 Programs are defined in `.lcn` files (see `examples/`). Syntax:

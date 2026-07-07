@@ -23,7 +23,7 @@ import argparse
 
 from lcn.benchmarks.generator import Generator
 
-TOPOLOGIES = ["chain", "tree", "polytree", "random", "dag"]
+TOPOLOGIES = ["chain", "tree", "polytree", "random", "dag", "ktree"]
 # "easy" targets SCIP-easy instances rather than a graph topology; "tree-fr" and
 # "polytree-fr" are the family-realizable classes (same topology as tree/polytree
 # but extra marginals on root atoms only, so Credal VE / Interval BP are exact --
@@ -77,6 +77,11 @@ examples:
         "--max-parents", type=int, default=2,
         help="max parents per child node (default: 2, polytree/dag only)")
     parser.add_argument(
+        "--k", type=int, default=2,
+        help="k-tree treewidth parameter: each atom conditions on exactly k "
+             "clique-parents so the junction-tree treewidth is exactly k "
+             "(default: 2, 'ktree' type only; needs n >= k + 1)")
+    parser.add_argument(
         "--strategy", type=str, default="linear",
         choices=["linear", "sparse", "bounded", "verified"],
         help="easy-instance strategy (default: linear, 'easy' type only)")
@@ -126,6 +131,7 @@ examples:
                 epsilon=args.epsilon,
                 max_component_size=args.max_component_size,
                 max_parents=args.max_parents,
+                k=args.k,
                 strategy=args.strategy,
                 coverage=args.coverage,
                 core=args.core,
@@ -135,9 +141,14 @@ examples:
                 verbosity=max(0, args.verbosity - 1),
             )
             # Encode the strategy in easy filenames (mirrors gen_easy.py) so
-            # linear/bounded/verified sets don't overwrite one another.
-            prefix = (f"easy_{args.strategy}" if graph_type == "easy"
-                      else slug)
+            # linear/bounded/verified sets don't overwrite one another; likewise
+            # encode k in ktree filenames so different k values coexist.
+            if graph_type == "easy":
+                prefix = f"easy_{args.strategy}"
+            elif graph_type == "ktree":
+                prefix = f"ktree_k{args.k}"
+            else:
+                prefix = slug
             for i, lcn in enumerate(instances):
                 fname = os.path.join(
                     type_dir, f"{prefix}_n{n}_{i + 1}.lcn")
