@@ -1,0 +1,357 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{example}{Example}
+
+\title{Lexicographic Reverse Search:\\Extreme-Point Enumeration of Local Credal Sets}
+\author{IBM Research}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+The credal-network family of inference engines in this library (CredalVE, IntervalBP,
+CredalCTE, ApproxLP, CredalIJGP) all consume the \emph{extreme points} (vertices) of the
+local credal sets rather than the interval bounds directly. Converting a set of interval
+bounds $[\ell_i, u_i]$ on a conditional distribution into the vertex representation of the
+corresponding polytope is a \emph{vertex-enumeration} problem, solved here by pyAgrum's
+\texttt{intervalToCredal()} which runs the \textbf{Lexicographic Reverse Search (LRS)}
+algorithm of Avis and Fukuda. This note describes the geometry of the local credal sets,
+the LRS algorithm and its output-sensitive guarantees, works a complete example on the
+compiled credal network of \texttt{alarm.lcn}, and analyses why the enumeration --- cheap
+for narrow families --- becomes the dominant cost for wide or high-cardinality families.
+\end{abstract}
+
+\section{From interval bounds to vertices}
+
+\subsection{The local credal set of a family}
+
+After an LCN is compiled into a credal network (see \texttt{credal\_network.py}), each node
+$X$ with cardinality $d = |\mathcal{D}_X|$ and each configuration $\pi$ of its parents
+carries a \textbf{local credal set}: a convex set of conditional distributions
+$P(X \mid \pi)$. In the interval representation produced by the compiler, this set is
+specified by lower/upper bounds $\ell_i \le P(X{=}i \mid \pi) \le u_i$ for each state
+$i \in \{1, \dots, d\}$. Geometrically it is the \emph{interval-constrained probability
+simplex}
+\begin{equation}
+  K(X \mid \pi) \;=\; \Bigl\{\, p \in \mathbb{R}^d \;:\;
+    \textstyle\sum_{i=1}^d p_i = 1,\quad
+    \ell_i \le p_i \le u_i \ \ (1 \le i \le d) \,\Bigr\}.
+  \label{eq:local}
+\end{equation}
+This is a bounded polytope living in the $(d{-}1)$-dimensional affine hyperplane
+$\sum_i p_i = 1$, cut out by the $2d$ interval facets. Downstream engines need its
+\textbf{V-representation}: the finite set $\mathrm{ext}\,K(X\mid\pi)$ of vertices, each of
+which is a concrete probability distribution over $X$.
+
+\subsection{H- and V-representations}
+
+A convex polytope admits two dual descriptions:
+\begin{itemize}
+  \item the \textbf{H-representation}: an intersection of half-spaces,
+    $\{x : Ax \le b\}$ (here, the $2d$ interval inequalities plus the normalization
+    equality) --- this is what the compiler stores;
+  \item the \textbf{V-representation}: the convex hull of its vertices,
+    $\mathrm{conv}\{v_1, \dots, v_V\}$ --- this is what the engines consume.
+\end{itemize}
+The \textbf{vertex-enumeration problem} is: given the H-representation, output every
+vertex. This is exactly what \texttt{gum.CredalNet.intervalToCredal()} does, once per
+$(X, \pi)$ pair, in \texttt{CredalNetworkVertices.\_build}:
+\begin{verbatim}
+    self.credal_net = gum.CredalNet(self.bn_min, self.bn_max)
+    self.credal_net.intervalToCredal()   # LRS vertex enumeration
+\end{verbatim}
+Note that the enumeration is run \emph{per local credal set}, not on any global joint
+polytope: there is one polytope of the form~\eqref{eq:local} for every parent
+configuration of every node.
+
+\section{The LRS algorithm}
+
+\subsection{Reverse search}
+
+Vertex enumeration can be done by pivoting (Avis--Fukuda's \emph{lrs}) or by the double
+description method (Motzkin's \emph{cdd}). pyAgrum uses \textbf{Lexicographic Reverse
+Search (LRS)}~\cite{avisfukuda}, a pivoting method with a decisive advantage: it uses
+memory independent of the output size and never stores the vertices it has already found.
+
+Reverse search is a general technique for enumerating the nodes of an implicitly defined
+graph. For vertex enumeration the graph is the \textbf{skeleton} of the polytope --- its
+vertices connected by edges. The ingredients are:
+\begin{enumerate}
+  \item A \emph{local search / pivot rule} $f$ that, from any vertex, deterministically
+    moves to a unique ``parent'' vertex. Under Bland's/the lexicographic rule this is
+    the reverse of the simplex pivot, and following $f$ repeatedly from any vertex always
+    terminates at the same unique \emph{root} (the lexicographically-minimal optimal
+    vertex of a chosen objective).
+  \item Because $f$ is deterministic and acyclic, the ``$f$ leads to parent'' relation
+    induces a \textbf{spanning tree} of the skeleton rooted at that vertex.
+  \item Reverse search enumerates the tree by DFS \emph{from the root outward}: at each
+    vertex it tries every adjacent edge (every reverse pivot); a neighbour is accepted
+    as a child iff applying $f$ to it returns to the current vertex.
+\end{enumerate}
+The elegance is that the tree is never materialised. LRS holds only the current vertex
+and the current pivot indices --- $O(d\cdot m)$ working memory --- and reconstructs its
+path by pivoting, so it can enumerate astronomically many vertices in bounded space.
+The ``lexicographic'' qualifier is the perturbation rule that breaks ties consistently
+and thereby handles \textbf{degenerate} polytopes (more than $d$ facets meeting at a
+vertex) --- which the interval simplices~\eqref{eq:local} routinely are, since a vertex
+is pinned by choosing which of the $2d$ bounds are tight.
+
+\begin{algorithm}[t]
+\caption{Reverse search vertex enumeration (schematic)}
+\label{alg:lrs}
+\begin{algorithmic}[1]
+\Procedure{LRS}{$A, b$}\Comment{polytope $\{x : Ax \le b\}$}
+  \State $v \gets$ root vertex (lex-min optimum of a generic objective $c^\top x$)
+  \State $j \gets 0$ \Comment{index of the reverse pivot being tried}
+  \Repeat
+    \State \textbf{output} $v$ when first visited
+    \While{$j <$ number of candidate pivots at $v$}
+      \State $j \gets j+1$
+      \State $w \gets \textsc{ReversePivot}(v, j)$
+      \If{$w$ is a vertex \textbf{and} $f(w) = v$} \Comment{$w$ is a child}
+        \State $v \gets w$; \ $j \gets 0$ \Comment{descend}
+        \State \textbf{break}
+      \EndIf
+    \EndWhile
+    \If{no child was found}\Comment{backtrack via the deterministic pivot $f$}
+      \State $(v, j) \gets f(v)$ and restore the pivot index at the parent
+    \EndIf
+  \Until{back at the root with all pivots exhausted}
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Output-sensitive complexity}
+
+Let a single local polytope~\eqref{eq:local} have
+\begin{itemize}
+  \item dimension $d' = d-1$ (states $d = |\mathcal{D}_X|$, minus the normalization);
+  \item $m \approx 2d$ facets (the interval bounds);
+  \item $V$ output vertices.
+\end{itemize}
+LRS enumerates all $V$ vertices in
+\begin{equation}
+  O\bigl(d' \cdot m \cdot V\bigr) \ \text{time}, \qquad O\bigl(d' \cdot m\bigr)\ \text{space}.
+  \label{eq:lrs-cost}
+\end{equation}
+That is, the cost per vertex is \emph{polynomial} ($O(d' m)$, one pivot table update) and
+the algorithm is \textbf{output-sensitive}: its running time is proportional to the size
+$V$ of the answer it produces, with polynomial overhead and no dependence of the
+\emph{memory} on $V$. This is optimal in the sense that any algorithm must at least write
+its $V$ outputs; LRS adds only a polynomial factor and constant space. (For non-degenerate
+input LRS is provably polynomial-total-time; the lexicographic rule extends this to the
+degenerate case at the cost of processing some ``dictionaries'' that do not emit a new
+vertex, which for the highly-degenerate interval simplices is a real but bounded overhead.)
+
+\section{Worked example: the credal network of \texttt{alarm.lcn}}
+
+\subsection{The model}
+
+The LCN \texttt{examples/alarm.lcn} is
+\begin{align*}
+  s_1&: 0.1 \le P(B) \le 0.2, & s_2&: 0.05 \le P(E) \le 0.1,\\
+  s_3&: 0.6 \le P(A \mid B \vee E) \le 0.9, &
+  s_4&: 0.5 \le P(\neg(C \oplus D) \mid A) \le 0.7,\\
+  s_5&: 0.05 \le P(A) \le 0.1.
+\end{align*}
+Compiling it (\texttt{CredalNetwork.from\_lcn}) yields a chain-graph credal network over
+\textbf{four nodes} $\{A, B, E, C\text{-}D\}$, where $C$ and $D$ are fused into a single
+compound node $C\text{-}D$ of cardinality $4$ because the sentence $s_4$ couples them.
+The directed structure is $B \to A$, $E \to A$, and $A \to C\text{-}D$. The compiled
+interval local credal sets (one row per family interpretation) are:
+
+\begin{center}
+\small
+\begin{tabular}{llcc}
+\toprule
+node & (states, parents) config & $\ell$ & $u$ \\
+\midrule
+$B$ & $B{=}0$ & 0.8000 & 0.9000 \\
+    & $B{=}1$ & 0.1000 & 0.2000 \\
+\midrule
+$E$ & $E{=}0$ & 0.9000 & 0.9500 \\
+    & $E{=}1$ & 0.0500 & 0.1000 \\
+\midrule
+$A$ & $A{=}0 \mid B{=}0,E{=}0$ & 0.9556 & 1.0000 \\
+    & $A{=}1 \mid B{=}0,E{=}0$ & 0.0000 & 0.0444 \\
+    & $\;\cdots\mid$ (other $B,E$ configs) & 0.0000 & 1.0000 \\
+\midrule
+$C\text{-}D$ & $CD \mid A{=}0$ & \multicolumn{2}{c}{$u = (1,0.7,1,0.5)$, $\ell = 0$}\\
+             & $CD \mid A{=}1$ & \multicolumn{2}{c}{$u = (1,0.5,1,0.7)$, $\ell = 0$}\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Enumerating each local credal set}
+
+LRS is run once per (node, parent-config) pair. The results
+(\texttt{cnv.extreme\_points}) are:
+
+\paragraph{Binary root nodes ($d=2$, $d'=1$).} The polytope is a $1$-dimensional
+segment; it has exactly $2$ vertices, its endpoints.
+\begin{align*}
+  K(B) &= \mathrm{conv}\{(0.8,\,0.2),\ (0.9,\,0.1)\},\\
+  K(E) &= \mathrm{conv}\{(0.9,\,0.1),\ (0.95,\,0.05)\}.
+\end{align*}
+
+\paragraph{The binary child $A$ ($d=2$).} Each parent configuration is again a segment
+with $2$ vertices. For $B{=}0,E{=}0$ the interval $P(A{=}0) \in [0.9556, 1]$ gives
+\[
+  K(A \mid B{=}0,E{=}0) = \mathrm{conv}\{(0.9556,\,0.0444),\ (1.0,\,0.0)\},
+\]
+while the three configurations touching $B\vee E$ collapse to the whole edge
+$\mathrm{conv}\{(0,1),(1,0)\}$ (the $[0,1]$ interval is vacuous there).
+
+\paragraph{The compound node $C\text{-}D$ ($d=4$, $d'=3$).} This is where enumeration bites.
+The local set is the $3$-dimensional interval simplex~\eqref{eq:local} with $m=8$ facets.
+\begin{itemize}
+  \item Under $A{=}0$ the upper bounds are $(1, 0.7, 1, 0.5)$; LRS returns the
+    \textbf{4} unit vertices $\{(0,0,0,1),(0,0,1,0),(0,1,0,0),(1,0,0,0)\}$ (the
+    upper bounds are loose enough that only the simplex corners survive).
+  \item Under $A{=}1$ the upper bounds are $(1, 0.5, 1, 0.7)$; these cut the simplex
+    into a polytope with \textbf{11} vertices, e.g.
+    \[
+      (0.5,0.5,0,0),\ (0.7,0,0.3,0),\ (0.3,0,0,0.7),\ (0,0.5,0.5,0),\
+      (0,0,0.3,0.7),\ \dots
+    \]
+    each corresponding to a distinct choice of which interval bounds are active.
+\end{itemize}
+
+\subsection{Why $C\text{-}D$ is the expensive family}
+
+The contrast is the whole point. The three binary nodes each yield $2$ vertices per
+parent config in $O(1)$ work. The single $4$-state node $C\text{-}D$ yields up to
+$11$ vertices for \emph{one} parent configuration --- and it has $2$ parent configs, so
+$4+11 = 15$ vertices come from this one family alone. The Upper Bound Theorem
+(next section) caps a $d'{=}3$, $m{=}8$ polytope at $12$ vertices; the observed $11$ is
+right at that ceiling. Fusing $C$ and $D$ into a cardinality-$4$ node --- forced by the
+cross-atom sentence $s_4$ --- is what pushed the enumeration from trivial to non-trivial.
+
+\section{Complexity for larger credal networks}
+
+\subsection{Two sources of blow-up}
+
+Equation~\eqref{eq:lrs-cost} is polynomial \emph{in the output}, so the real question is
+how large the output $V$ is, and how many polytopes must be enumerated. There are two
+independent exponential factors, both driven by the \textbf{family scope}.
+
+\paragraph{(1) Vertices per polytope, exponential in cardinality $d$.}
+By the \textbf{Upper Bound Theorem} (McMullen), a $d'$-dimensional polytope with $m$
+facets has at most
+\[
+  V_{\max}(d', m) \;=\; \binom{m - \lceil d'/2\rceil}{m - d'}
+    \;+\; \binom{m - \lceil (d'{+}1)/2\rceil}{m - d'}
+\]
+vertices. For a local interval simplex, $d' = d-1$ and $m = 2d$, so $V$ grows
+\emph{super-polynomially in the node cardinality $d$}:
+\begin{center}
+\begin{tabular}{rrrr}
+\toprule
+states $d$ & polytope dim $d'$ & facets $m$ & max vertices $V_{\max}$ \\
+\midrule
+2  & 1  & 4  & 2 \\
+4  & 3  & 8  & 12 \\
+8  & 7  & 16 & 440 \\
+16 & 15 & 32 & 692{,}208 \\
+\bottomrule
+\end{tabular}
+\end{center}
+A node of cardinality $d = 2^{k}$ arises whenever $k$ atoms are fused into one compound
+node (as $C,D \to C\text{-}D$ with $k=2$, $d=4$ above). Thus \emph{each additional fused
+atom roughly squares the worst-case vertex count} of that family's local polytope.
+
+\paragraph{(2) Number of polytopes, exponential in parent scope.}
+LRS is invoked once per parent configuration. A family whose parents have $p$ atoms in
+total has $2^{p}$ parent configurations, hence $2^{p}$ separate polytopes to enumerate.
+The total enumeration cost of the whole network is therefore
+\begin{equation}
+  \underbrace{\sum_{\text{node } X}}_{\text{linear in \#families}}\
+  \underbrace{\sum_{\pi \in \mathrm{cfg}(\mathrm{Pa}(X))}}_{\;2^{\,|\mathrm{Pa\ atoms}|}\;}
+  \ O\bigl(d'_X \cdot m_X \cdot V_{X,\pi}\bigr),
+  \label{eq:total}
+\end{equation}
+which is \textbf{linear in the number of families} but \textbf{exponential in each
+family's scope} through both the $2^{p}$ configurations and the $V_{X,\pi}$ vertices per
+configuration (itself up to $\approx V_{\max}(2^{c}{-}1, 2^{c+1})$ for a $c$-atom child).
+
+\subsection{The controlling parameter is treewidth, not $n$}
+
+Because the exponents in~\eqref{eq:total} are the child cardinality and the parent-scope,
+and both are bounded by the size of the largest family, LRS enumeration cost is governed
+by the \textbf{induced width / treewidth} of the moralized network, \emph{not} by the raw
+number of variables $n$:
+\begin{itemize}
+  \item \textbf{Chains, trees, polytrees} (small, fixed family scope): every family has
+    $O(1)$ atoms, so each polytope is low-dimensional with $O(1)$ vertices, and the total
+    cost is $O(n)$ --- enumeration is essentially free.
+  \item \textbf{$k$-trees} (bounded treewidth $k$): each family conditions on a $k$-clique,
+    so a family spans $O(k)$ atoms, giving $O(2^{k})$ parent configs and up to
+    $V_{\max}(O(2^{k}))$ vertices each. Cost is \emph{linear in $n$ but exponential in
+    $k$} --- exactly why the \texttt{ktree}/\texttt{ktree-fr} benchmark generator
+    parametrizes by treewidth $k$.
+  \item \textbf{Dense / heavily-merged networks} (large families, e.g. under a large
+    \texttt{merge\_budget}, scheme D2): a merged super-family of flattened scope $w$ has a
+    child of cardinality up to $2^{w}$ and $2^{w}$-ish parent configs. Both exponentials
+    fire simultaneously and the enumeration dominates the entire pipeline --- doubly
+    exponential in $w$ in the worst case.
+\end{itemize}
+
+\subsection{Practical consequences in this codebase}
+
+\begin{itemize}
+  \item \textbf{The \texttt{enumerate\_vertices=False} escape hatch.} CredalJT (scheme D5,
+    \texttt{junction\_nlp.py}) formulates its NLP directly from the interval bounds and the
+    LMC equalities, so it \emph{skips} LRS entirely (see
+    \texttt{CredalNetworkVertices.\_build}). For wide families this avoids the
+    exponential~\eqref{eq:total} altogether --- the intervals are $O(2^{\text{scope}})$ to
+    store but the vertex set they would generate is far larger.
+  \item \textbf{Potential clustering.} CredalVE/CredalCTE offer $n\_clusters$ /
+    \texttt{cluster\_representative} knobs that \emph{prune} the enumerated vertex set to a
+    bounded number of representatives, trading tightness for a hard cap on the $V$ that
+    propagates downstream --- a direct mitigation of factor~(1).
+  \item \textbf{The \texttt{.cn} cache pays this cost on every hit.} Loading a compiled
+    \texttt{.cn} restores the interval bounds for free, but the engine still re-runs LRS
+    (the intervals, not the vertices, are cached). Hence a cache hit's reported build time
+    is the stored \texttt{compile\_time} \emph{plus} local vertex enumeration --- cheap for
+    narrow families, non-trivial for wide ones. Caching the V-representation itself is
+    possible but was rejected: it can be exponentially larger than the H-representation and
+    would couple the \texttt{.cn} to pyAgrum.
+\end{itemize}
+
+\section{Summary}
+
+LRS is an \emph{output-sensitive, polynomial-per-vertex, constant-space} vertex-enumeration
+algorithm: enumerating a local credal set with $V$ vertices costs $O(d' m V)$ time and
+$O(d' m)$ memory (Eq.~\eqref{eq:lrs-cost}). The algorithm itself is not the bottleneck ---
+the \emph{number of vertices} $V$ and the \emph{number of local credal sets} are. Both grow
+exponentially in the \textbf{family scope} (Eq.~\eqref{eq:total}): the child cardinality
+inflates $V$ super-polynomially (Upper Bound Theorem: $2\to2$, $4\to12$, $8\to440$,
+$16\to\sim\!700{,}000$ vertices), and the parent scope multiplies the number of polytopes by
+$2^{p}$. Consequently LRS enumeration is linear in $n$ but exponential in treewidth: free on
+chains and trees, tolerable on bounded-treewidth $k$-trees, and prohibitive on dense or
+heavily merged networks --- for which the intended remedy is to skip enumeration (CredalJT)
+or to cap the vertex set (potential clustering).
+
+\begin{thebibliography}{9}
+\bibitem{avisfukuda}
+  D.~Avis and K.~Fukuda.
+  \emph{A pivoting algorithm for convex hulls and vertex enumeration of arrangements
+  and polyhedra.}
+  Discrete \& Computational Geometry, 8:295--313, 1992.
+\bibitem{avis2000}
+  D.~Avis.
+  \emph{A revised implementation of the reverse search vertex enumeration algorithm.}
+  In Polytopes---Combinatorics and Computation, pp.~177--198, Birkh\"auser, 2000.
+\end{thebibliography}
+
+\end{document}

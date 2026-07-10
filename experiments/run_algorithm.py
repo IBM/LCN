@@ -18,6 +18,7 @@ import time
 from lcn.core.model import LCN
 from lcn.inference.marginal.exact import ExactInference
 from lcn.inference.marginal.ariel import ArielInference
+from lcn.inference.marginal.cn.credal_network import CredalNetwork
 from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
 from lcn.inference.marginal.cn.ibp import IntervalBP
 from lcn.inference.marginal.cn.ccte import CredalCTE
@@ -45,25 +46,30 @@ _DEFAULT_NUM_THREADS = 1
 if "OMP_NUM_THREADS" not in os.environ:
     set_num_threads(_DEFAULT_NUM_THREADS)
 
-ALGORITHMS = ["exact_l", "exact_g", "ariel", "ibp",  "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_cp", "cve_cm", "cve_d4", "cjt"]
+ALGORITHMS = ["compile", "enumerate", "exact_l", "exact_g", "ariel", "ibp",  "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_cp", "cve_cm", "cve_d4", "cjt"]
 
 _CVE_ALGORITHMS = {"ibp", "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_cp", "cve_cm", "cve_d4", "cjt"}
 
-def _compute_induced_width(cnv):
-    """Compute the induced width (treewidth upper bound) from a built
-    CredalNetworkVertices.
+def _compute_induced_width(cn):
+    """Compute the induced width (treewidth upper bound) from a CredalNetwork.
+
+    Accepts either a CredalNetwork or a CredalNetworkVertices (the latter's
+    ``.cn`` is used), so it works for a vertex-free build (e.g. CredalJT) and
+    for the compile-only path that never builds vertices.
 
     Replays the min-fill elimination on the interaction graph built from
     the potential scopes.  The induced width is the maximum number of
     neighbours a variable has at the moment it is eliminated.
     """
-    # Collect the per-node CPT scopes [node] + parents. Derived from the
-    # CredalNetwork factors (cnv.cn) so this also works for a vertex-free build
-    # (enumerate_vertices=False, e.g. CredalJT) where extreme_points is None.
-    # The factor/child order and parents match the pyAgrum bn_min arcs, so the
-    # induced width is identical either way.
+    # Unwrap a CredalNetworkVertices to its CredalNetwork.
+    if hasattr(cn, "cn"):
+        cn = cn.cn
+
+    # Collect the per-node CPT scopes [node] + parents from the CredalNetwork
+    # factors. The factor/child order and parents match the pyAgrum bn_min arcs,
+    # so the induced width is identical to a vertex-based derivation.
     scopes = []
-    for factor in cnv.cn.factors:
+    for factor in cn.factors:
         entry = factor[0]
         scopes.append([entry["child"]] + list(entry["parents"]))
 
@@ -235,7 +241,121 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
     try:
         t_start = time.time()
 
-        if algorithm in ("exact_l", "exact_g"):
+        if algorithm == "compile":
+            # Compile the LCN into its credal network (chain-graph factorization
+            # + interval local credal sets) and save it alongside the .lcn as a
+            # .cn, recording the per-family solve wall-clock as compile_time.
+            # The expensive per-family interval solves parallelize over n_jobs.
+            fact_method = kwargs.get("factorization_method", "linear")
+            n_jobs = kwargs.get("n_jobs", 1)
+            cn_solver = kwargs.get("solver", "ipopt")
+            cn_time_limit = kwargs.get("solver_time_limit", None)
+            cn_gap_tol = kwargs.get("gap_tol", 0.0)
+            merge_budget = kwargs.get("merge_budget", 1)
+
+            t_compile = time.perf_counter()
+            cn = CredalNetwork.from_lcn(
+                lcn_model, method=fact_method, solver=cn_solver,
+                time_limit=cn_time_limit, gap_tol=cn_gap_tol,
+                n_jobs=n_jobs, merge_budget=merge_budget,
+                solve_families=True, verbosity=verbosity)
+            compile_time = time.perf_counter() - t_compile
+
+            cn_path = os.path.splitext(lcn_file)[0] + ".cn"
+            cn.save_cn(cn_path, method=fact_method, merge_budget=merge_budget,
+                       solver=cn_solver, compile_time=round(compile_time, 4),
+                       n_jobs=n_jobs)
+
+            result["build_time"] = round(compile_time, 4)
+            result["run_time"] = 0.0
+            result["induced_width"] = _compute_induced_width(cn)
+            result["cn_path"] = cn_path
+            result["compile_time"] = round(compile_time, 4)
+            result["total_time"] = round(compile_time, 4)
+            # No marginals for a compile step.
+            result["marginals"] = {}
+            return result
+
+        elif algorithm == "enumerate":
+            # Enumerate (LRS) the extreme points of every local credal set and
+            # save them alongside the .lcn as a .vtx, recording the enumeration
+            # wall-clock. The per-local-credal-set LRS solves parallelize over
+            # n_jobs. Records both compile_time and enumeration_time so downstream
+            # engines can report build_time = compile_time + enumeration_time.
+            fact_method = kwargs.get("factorization_method", "linear")
+            n_jobs = kwargs.get("n_jobs", 1)
+            cn_solver = kwargs.get("solver", "ipopt")
+            cn_time_limit = kwargs.get("solver_time_limit", None)
+            cn_gap_tol = kwargs.get("gap_tol", 0.0)
+            merge_budget = kwargs.get("merge_budget", 1)
+            use_cache = kwargs.get("cache", True)
+
+            cn_path = os.path.splitext(lcn_file)[0] + ".cn"
+
+            # Step 1: ensure a matching .cn exists on disk (so both artifacts are
+            # produced and the .vtx carries a real compile_time). Reuse a valid
+            # cached .cn; otherwise compile once and save it.
+            compile_time = None
+            cn_meta = (CredalNetwork.cn_metadata(cn_path) if use_cache else None)
+            if cn_meta is not None and cn_meta.get("method") == fact_method \
+                    and (cn_meta.get("merge_budget") or 1) == (merge_budget or 1) \
+                    and cn_meta.get("solver") == cn_solver:
+                compile_time = cn_meta.get("compile_time")
+            else:
+                t_compile = time.perf_counter()
+                cn_obj = CredalNetwork.from_lcn(
+                    lcn_model, method=fact_method, solver=cn_solver,
+                    time_limit=cn_time_limit, gap_tol=cn_gap_tol,
+                    n_jobs=n_jobs, merge_budget=merge_budget,
+                    solve_families=True, verbosity=verbosity)
+                compile_time = time.perf_counter() - t_compile
+                cn_obj.save_cn(cn_path, method=fact_method,
+                               merge_budget=merge_budget, solver=cn_solver,
+                               compile_time=round(compile_time, 4), n_jobs=n_jobs)
+
+            # Step 2: enumerate. With the .cn now present, from_lcn hits the .cn
+            # cache (sets cnv.compile_time) and runs the parallel LRS.
+            cnv = CredalNetworkVertices.from_lcn(
+                lcn_model, method=fact_method, solver=cn_solver,
+                time_limit=cn_time_limit, gap_tol=cn_gap_tol,
+                n_jobs=n_jobs, merge_budget=merge_budget,
+                enumerate_vertices=True, solve_families=True,
+                lcn_file=lcn_file, cache=use_cache, verbosity=verbosity)
+            # Fall back to the locally-measured compile_time if the cache path
+            # did not populate it (e.g. --no-cache).
+            if cnv.compile_time is None:
+                cnv.compile_time = (round(compile_time, 4)
+                                    if compile_time is not None else None)
+
+            vtx_path = os.path.splitext(lcn_file)[0] + ".vtx"
+            cnv.save_vtx(
+                vtx_path, method=fact_method, merge_budget=merge_budget,
+                solver=cn_solver,
+                enumeration_time=(round(cnv.enumeration_time, 4)
+                                  if cnv.enumeration_time is not None else None),
+                compile_time=(round(cnv.compile_time, 4)
+                              if cnv.compile_time is not None else None),
+                n_jobs=n_jobs)
+
+            n_vertices = sum(len(vs) for cfgs in cnv.extreme_points.values()
+                             for vs in cfgs.values())
+            result["build_time"] = round(cnv.build_time, 4)
+            result["run_time"] = 0.0
+            result["induced_width"] = _compute_induced_width(cnv)
+            result["vtx_path"] = vtx_path
+            result["enumeration_time"] = (round(cnv.enumeration_time, 4)
+                                          if cnv.enumeration_time is not None
+                                          else None)
+            result["compile_time"] = (round(cnv.compile_time, 4)
+                                      if cnv.compile_time is not None else None)
+            result["n_vertices"] = n_vertices
+            result["loaded_vertices_from_cache"] = bool(
+                cnv.loaded_vertices_from_cache)
+            result["total_time"] = round(cnv.build_time, 4)
+            result["marginals"] = {}
+            return result
+
+        elif algorithm in ("exact_l", "exact_g"):
             # Two backends of the same full-joint NLP:
             #   exact_l -> "local"  (ipopt + SLSQP fallback; fast, may be loose)
             #   exact_g -> "global" (SCIP spatial branch-and-bound; certified)
@@ -284,14 +404,28 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             is_cjt = (algorithm == "cjt")
             enumerate_vertices = not is_cjt
             solve_families = not is_cjt
+            # Transparent .cn cache: reuse a compiled network next to the .lcn
+            # when its (method, merge_budget, solver) match. Disabled via
+            # --no-cache (kwargs["cache"]=False) and inherently off for cjt
+            # (structure-only build carries no cacheable intervals).
+            use_cache = kwargs.get("cache", True) and solve_families
             cnv = CredalNetworkVertices.from_lcn(
                 lcn_model, method=fact_method, solver=cn_solver,
                 time_limit=cn_time_limit, gap_tol=cn_gap_tol,
                 n_jobs=n_jobs, merge_budget=merge_budget,
                 enumerate_vertices=enumerate_vertices,
-                solve_families=solve_families, verbosity=verbosity)
+                solve_families=solve_families,
+                lcn_file=lcn_file, cache=use_cache, verbosity=verbosity)
             result["build_time"] = round(cnv.build_time, 4)
             result["induced_width"] = _compute_induced_width(cnv)
+            # Surface cache provenance for analysis (both cache layers).
+            result["loaded_from_cache"] = bool(cnv.loaded_from_cache)
+            result["loaded_vertices_from_cache"] = bool(
+                cnv.loaded_vertices_from_cache)
+            if cnv.compile_time is not None:
+                result["compile_time"] = round(cnv.compile_time, 4)
+            if cnv.enumeration_time is not None:
+                result["enumeration_time"] = round(cnv.enumeration_time, 4)
 
             # Run the algorithm — timed separately
             t_run_start = time.time()
@@ -489,6 +623,14 @@ def main():
         choices=["ipopt", "scip"],
         help="Local credal-set solver backend: ipopt (local, default) or scip (global) (default: ipopt)")
     parser.add_argument(
+        "--n-jobs", type=int, default=1,
+        help="Worker processes for the per-family credal-set solves during "
+             "compilation / credal-network build (default: 1)")
+    parser.add_argument(
+        "--no-cache", action="store_true",
+        help="Ignore any compiled .cn next to the .lcn and (re)compute the "
+             "credal network in memory (default: use the cache when present)")
+    parser.add_argument(
         "--time-limit", type=float, default=None,
         help="Time limit in seconds per instance (default: unlimited)")
     parser.add_argument(
@@ -515,6 +657,10 @@ def main():
         kwargs["merge_budget"] = args.merge_budget
     if args.solver != "ipopt":
         kwargs["solver"] = args.solver
+    if args.n_jobs != 1:
+        kwargs["n_jobs"] = args.n_jobs
+    if args.no_cache:
+        kwargs["cache"] = False
     result = run_single(
         args.instance, args.algorithm,
         evidence=evidence, verbosity=args.verbosity,

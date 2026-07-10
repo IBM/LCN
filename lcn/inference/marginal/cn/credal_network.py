@@ -27,7 +27,9 @@
 # is the job of `CredalNetworkVertices` (see vertices.py).
 
 import itertools
+import json
 import logging
+import os
 from concurrent.futures import ProcessPoolExecutor
 from typing import Dict, List
 
@@ -142,6 +144,10 @@ class CredalNetwork:
         self.nodes = nodes
         self.node_atoms = node_atoms
         self.node_card = node_card
+        # Wall-clock cost of the per-family interval solves. Populated by
+        # from_lcn (freshly compiled) or load_cn (read from the .cn header);
+        # None when unknown.
+        self.compile_time = None
 
     @classmethod
     def from_lcn(cls, lcn: LCN, method: str = "linear",
@@ -271,15 +277,168 @@ class CredalNetwork:
         return cls(lcn, factorization, factors, node_names,
                    node_atoms, node_card)
 
+    # ------------------------------------------------------------------
+    # Serialization: the compiled credal network as a portable .cn file
+    # ------------------------------------------------------------------
+
+    # Bump when the on-disk schema changes in a backward-incompatible way.
+    CN_FORMAT_VERSION = 1
+
+    def save_cn(self, file_name: str, method: str = None,
+                merge_budget: int = None, solver: str = None,
+                compile_time: float = None, n_jobs: int = None) -> None:
+        """
+        Serialize this compiled credal network to a JSON ``.cn`` file.
+
+        The document stores the directed structure (nodes/atoms/cardinalities)
+        and the *interval* local credal sets (each factor's per-interpretation
+        ``lobo``/``upbo`` bounds). It does NOT store extreme points -- those are
+        derived cheaply on demand by :class:`CredalNetworkVertices`, so the
+        ``.cn`` stays pyAgrum-free.
+
+        The ``method``/``merge_budget``/``solver`` header is provenance AND the
+        cache-match key: an engine reuses a ``.cn`` only when these match its
+        requested build (see :meth:`cn_metadata`). ``compile_time`` records the
+        wall-clock cost of the per-family interval solves (the expensive step),
+        so a cache hit can report it as build time. ``n_jobs`` is informational
+        only -- results are worker-count invariant, so it is NOT part of the
+        cache-match key.
+
+        Args:
+            file_name: str
+                Full path to the output ``.cn`` file.
+            method, merge_budget, solver:
+                Compilation parameters recorded in the header; the cache-match
+                key.
+            compile_time: float or None
+                Wall-clock seconds spent on the per-family interval solves.
+            n_jobs: int or None
+                Worker-process count used for the solves (informational).
+        """
+        # itertools.product yields tuples; JSON round-trips them to lists.
+        # We keep lists on disk and normalize back to tuples on load so the
+        # in-memory shape stays bit-identical to a freshly built CredalNetwork.
+        doc = {
+            "format": "lcn-credal-network",
+            "version": self.CN_FORMAT_VERSION,
+            "source_lcn": getattr(self.lcn, "file_name", None),
+            "method": method,
+            "merge_budget": merge_budget,
+            "solver": solver,
+            "compile_time": compile_time,
+            "n_jobs": n_jobs,
+            "nodes": self.nodes,
+            "node_atoms": self.node_atoms,
+            "node_card": self.node_card,
+            "factors": self.factors,
+        }
+        with open(file_name, "w") as f:
+            json.dump(doc, f, indent=2)
+
+    @classmethod
+    def cn_metadata(cls, file_name: str) -> Dict:
+        """
+        Read only the header of a ``.cn`` file -- format/version and the
+        compilation provenance (method/merge_budget/solver/compile_time/n_jobs)
+        -- WITHOUT reconstructing the network. Cheap enough to call before every
+        cached build to decide whether the file matches the requested settings.
+
+        Returns:
+            The header dict on success, or ``None`` if the file is absent,
+            unreadable, not valid JSON, or not a recognized ``.cn`` of the
+            current format version.
+        """
+        if not file_name or not os.path.exists(file_name):
+            return None
+        try:
+            with open(file_name) as f:
+                doc = json.load(f)
+        except (OSError, ValueError):
+            return None
+        if not isinstance(doc, dict):
+            return None
+        if doc.get("format") != "lcn-credal-network":
+            return None
+        if doc.get("version") != cls.CN_FORMAT_VERSION:
+            return None
+        return {
+            "format": doc.get("format"),
+            "version": doc.get("version"),
+            "method": doc.get("method"),
+            "merge_budget": doc.get("merge_budget"),
+            "solver": doc.get("solver"),
+            "compile_time": doc.get("compile_time"),
+            "n_jobs": doc.get("n_jobs"),
+        }
+
+    @classmethod
+    def load_cn(cls, file_name: str, lcn: LCN) -> "CredalNetwork":
+        """
+        Reconstruct a CredalNetwork from a ``.cn`` file (produced by
+        :meth:`save_cn`) plus its source LCN.
+
+        The symbolic :class:`ChainGraphFactorization` is rebuilt from the LCN
+        (it is cheap and purely structural); the interval factors are read from
+        the file, so the expensive per-family solves are NOT repeated. The
+        resulting object is bit-identical to the one that produced the file.
+
+        Args:
+            file_name: str
+                Full path to the input ``.cn`` file.
+            lcn: LCN
+                The source LCN the file was compiled from.
+
+        Returns:
+            A CredalNetwork holding the deserialized interval factors.
+        """
+        with open(file_name) as f:
+            doc = json.load(f)
+
+        if doc.get("format") != "lcn-credal-network":
+            raise ValueError(f"{file_name} is not an LCN credal-network file.")
+        if doc.get("version") != cls.CN_FORMAT_VERSION:
+            raise ValueError(
+                f"Unsupported .cn format version {doc.get('version')} "
+                f"(expected {cls.CN_FORMAT_VERSION}).")
+
+        # Rebuild the structural symbolic factorization from the LCN so the
+        # engines that read cn.factorization (e.g. D4 coupling) keep working.
+        if lcn.primal_graph is None:
+            lcn.build_primal_graph()
+        if lcn.structure_graph is None:
+            lcn.build_structure_graph()
+        if lcn.simplified_structure_graph is None:
+            lcn.simplify_structure_graph()
+        if lcn.families is None:
+            lcn.process_chain_graph()
+        factorization = ChainGraphFactorization(lcn)
+        factorization.build(verbosity=0, merge_budget=doc.get("merge_budget") or 1)
+
+        # JSON keys are strings and product-tuples became lists; normalize.
+        factors = []
+        for factor in doc["factors"]:
+            entries = {}
+            for k, entry in factor.items():
+                entry = dict(entry)
+                entry["interpretation"] = tuple(entry["interpretation"])
+                entries[int(k)] = entry
+            factors.append(entries)
+
+        cn = cls(lcn, factorization, factors, doc["nodes"],
+                 doc["node_atoms"],
+                 {k: int(v) for k, v in doc["node_card"].items()})
+        cn.compile_time = doc.get("compile_time")
+        return cn
+
 
 if __name__ == "__main__":
 
     file_name = "examples/alarm.lcn"
-    l = LCN()
-    l.from_lcn(file_name=file_name)
-    print(l)
+    lcn_model = LCN()
+    lcn_model.from_lcn(file_name=file_name)
+    print(lcn_model)
 
-    cn = CredalNetwork.from_lcn(l, method="linear", verbosity=1)
+    cn = CredalNetwork.from_lcn(lcn_model, method="linear", verbosity=1, n_jobs=5)
 
     print(f"\n[CredalNetwork] nodes: {cn.nodes}")
     print("[CredalNetwork] interval factors:")

@@ -119,6 +119,14 @@ Parallel usage — each combination gets its own output file:
         "--evidence", type=str, default="{}",
         help="evidence as JSON string (default: {})")
     parser.add_argument(
+        "--n-jobs", type=int, default=1,
+        help="worker processes for the per-family credal-set solves during "
+             "compilation / credal-network build (default: 1)")
+    parser.add_argument(
+        "--no-cache", action="store_true",
+        help="ignore any compiled .cn next to each .lcn and (re)compute the "
+             "credal network in memory (default: use the cache when present)")
+    parser.add_argument(
         "--time-limit", type=float, default=None,
         help="time limit in seconds per instance per algorithm (default: unlimited)")
     parser.add_argument(
@@ -189,6 +197,10 @@ Parallel usage — each combination gets its own output file:
                     kwargs["merge_budget"] = args.merge_budget
                 if args.solver != "ipopt":
                     kwargs["solver"] = args.solver
+                if args.n_jobs != 1:
+                    kwargs["n_jobs"] = args.n_jobs
+                if args.no_cache:
+                    kwargs["cache"] = False
 
                 result = run_single(
                     instance, algo, evidence=evidence,

@@ -23,15 +23,31 @@
 #
 # All pyAgrum coupling lives here; CredalNetwork itself is pyAgrum-free.
 
+import json
 import logging
+import os
 import re
 import time
+from concurrent.futures import ProcessPoolExecutor
 from typing import Dict
 
 import pyagrum as gum  # noqa: N813
 
 from lcn.core.model import LCN
 from lcn.inference.marginal.cn.credal_network import CredalNetwork
+
+
+def _cache_matches(meta: Dict, method: str, merge_budget: int,
+                   solver: str) -> bool:
+    """
+    Decide whether a compiled .cn (via its cn_metadata header) was produced
+    with the same settings as the requested build. The cache-match key is
+    (method, merge_budget, solver); compile_time / n_jobs are not part of it
+    (n_jobs does not affect the result, and compile_time is an output).
+    """
+    return (meta.get("method") == method
+            and (meta.get("merge_budget") or 1) == (merge_budget or 1)
+            and meta.get("solver") == solver)
 
 
 def _parse_credal_net_vertices(cn: gum.CredalNet) -> Dict:
@@ -70,6 +86,91 @@ def _parse_credal_net_vertices(cn: gum.CredalNet) -> Dict:
     return result
 
 
+def _enumerate_node_credal_set(spec: Dict) -> Dict:
+    """
+    LRS-enumerate the local credal set(s) of ONE target node, in isolation.
+
+    Builds a small pyAgrum CredalNet containing just the target node and its
+    parents (with the SAME cardinalities, arcs, and lower/upper CPTs as the full
+    network), runs ``intervalToCredal()`` on it, and returns the extreme points
+    of the target node only. LRS runs independently per (node, parent-config)
+    row of a CPT, so this yields vertices bit-identical to enumerating the whole
+    network at once (verified) -- which makes per-node sharding a sound way to
+    parallelize the enumeration across worker processes.
+
+    ``spec`` is a JSON-friendly dict (so it ships across the process boundary):
+        - "target":   target node name
+        - "vars":     list of (name, cardinality) for the target and its parents
+        - "arcs":     list of (parent_name, child_name)
+        - "cpt_min":  {name: flat lower-CPT list}
+        - "cpt_max":  {name: flat upper-CPT list}
+
+    Returns ``{parent_config_str: [[v0, v1, ...], ...]}`` for the target node.
+    """
+    target = spec["target"]
+    sub_min = gum.BayesNet("min")
+    sub_max = gum.BayesNet("max")
+    for name, card in spec["vars"]:
+        sub_min.add(gum.LabelizedVariable(name, name, card))
+        sub_max.add(gum.LabelizedVariable(name, name, card))
+    for parent, child in spec["arcs"]:
+        sub_min.addArc(parent, child)
+        sub_max.addArc(parent, child)
+
+    # The target's local credal set is enumerated per parent-configuration, so
+    # only the target's real lower/upper CPT matters. Its parents are roots in
+    # this sub-net (their own CPTs are irrelevant to the target's vertices), so
+    # give them a trivial [0,1] interval CPT of the correct root size.
+    #
+    # The target CPT is transferred by VARIABLE NAME (not by flat index): a raw
+    # flatten()/fillWith(list) would silently mismap when the sub-net orders the
+    # target's parent dimensions differently from the full net (pyAgrum orders
+    # CPT axes by variable id, and parents() iteration order is not guaranteed).
+    # We rebuild a temporary Tensor carrying the source layout and let pyAgrum's
+    # fillWith(Tensor) match dimensions by name.
+    for name, card in spec["vars"]:
+        if name != target:
+            sub_min.cpt(name).fillWith([0.0] * card)
+            sub_max.cpt(name).fillWith([1.0] * card)
+
+    def _named_tensor(src):
+        t = gum.Tensor()
+        for nm, cd in zip(src["names"], src["cards"]):
+            t.add(gum.LabelizedVariable(nm, nm, cd))
+        t.fillWith(src["values"])
+        return t
+
+    sub_min.cpt(target).fillWith(_named_tensor(spec["cpt_min_target"]))
+    sub_max.cpt(target).fillWith(_named_tensor(spec["cpt_max_target"]))
+
+    sub = gum.CredalNet(sub_min, sub_max)
+    sub.intervalToCredal()
+    parsed = _parse_credal_net_vertices(sub)
+    node_vertices = parsed.get(target, {})
+
+    # Canonicalize the parent-config KEY strings to the full network's parent
+    # order. pyAgrum emits "<p:0|q:1|...>" in the sub-net's own variable order,
+    # which may differ from the full net; downstream engines index
+    # extreme_points[node][config] with the full net's ordering, so the vertices
+    # (which match regardless) must be stored under the full net's key strings.
+    order = spec.get("parents_order") or []
+    if not order:
+        return node_vertices
+    remapped = {}
+    for cfg, verts in node_vertices.items():
+        inner = cfg.strip()[1:-1]  # drop the surrounding < >
+        if not inner:
+            remapped[cfg] = verts
+            continue
+        assign = {}
+        for tok in inner.split("|"):
+            k, v = tok.split(":")
+            assign[k.strip()] = v.strip()
+        canon = "<" + "|".join(f"{p}:{assign[p]}" for p in order) + ">"
+        remapped[canon] = verts
+    return remapped
+
+
 class CredalNetworkVertices:
     """
     The extreme-point representation of a CredalNetwork.
@@ -92,6 +193,15 @@ class CredalNetworkVertices:
         self.credal_net = None
         self.extreme_points = None
         self.build_time = None
+        # Cache bookkeeping (set by from_lcn): whether the interval factors came
+        # from a compiled .cn on disk, and the compile_time recorded there.
+        self.loaded_from_cache = False
+        self.compile_time = None
+        # Vertex-cache bookkeeping: whether the extreme points were loaded from a
+        # .vtx on disk, and the enumeration_time recorded there. When freshly
+        # enumerated, enumeration_time is the wall-clock of the LRS section.
+        self.loaded_vertices_from_cache = False
+        self.enumeration_time = None
 
     @property
     def lcn(self) -> LCN:
@@ -132,6 +242,7 @@ class CredalNetworkVertices:
                  merge_budget: int = 1,
                  enumerate_vertices: bool = True,
                  solve_families: bool = True,
+                 lcn_file: str = None, cache: bool = True,
                  verbosity: int = 1) -> "CredalNetworkVertices":
         """
         Build the full pipeline from an LCN: CredalNetwork (chain-graph
@@ -173,6 +284,26 @@ class CredalNetworkVertices:
                 False`` forces ``enumerate_vertices=False`` (there is nothing to
                 enumerate); any engine that consumes the intervals or vertices
                 MUST keep this True.
+            lcn_file: str or None
+                Path to the source ``.lcn`` file. When given (and ``cache`` is
+                True), two on-disk caches next to it (same basename) are reused
+                if their recorded ``method``/``merge_budget``/``solver`` match
+                this build:
+                  - ``.vtx`` (enumerated extreme points, checked FIRST): a hit
+                    skips BOTH the per-family interval solves and the LRS
+                    enumeration -- only the cheap chain-graph structure is
+                    rebuilt (from a matching ``.cn`` if present, else structure-
+                    only from the ``.lcn``). Reported ``build_time`` reuses the
+                    stored ``compile_time + enumeration_time``.
+                  - ``.cn`` (interval local credal sets): a hit skips the
+                    per-family solves; the LRS enumeration still runs.
+                When None the caches are inactive (the LCN object does not store
+                its own source path), so direct library callers keep the
+                uncached behavior.
+            cache: bool
+                Enable the ``.vtx``/``.cn`` caches described under ``lcn_file``
+                (default True). Set False to always recompute in memory even
+                when matching cache files exist.
             verbosity: int
                 Verbosity level. 0 is silent. At verbosity < 2 the ipopt/scip
                 solver warnings/errors emitted during the per-family solves
@@ -191,6 +322,102 @@ class CredalNetworkVertices:
                       "enumerate_vertices=False (no intervals to enumerate).")
             enumerate_vertices = False
 
+        # Transparent VERTEX cache: reuse enumerated extreme points from a .vtx
+        # next to the source .lcn when its recorded settings match. This is the
+        # cheapest path -- it skips BOTH the per-family interval solves and the
+        # LRS enumeration. Only meaningful when vertices are actually wanted.
+        if (cache and solve_families and enumerate_vertices and lcn_file):
+            vtx_path = os.path.splitext(lcn_file)[0] + ".vtx"
+            vmeta = cls.vtx_metadata(vtx_path)
+            if vmeta is not None and _cache_matches(
+                    vmeta, method, merge_budget, solver):
+                t0 = time.perf_counter()
+                loaded = cls.load_extreme_points(vtx_path)
+                extreme_points, _ = loaded
+                # We need cn/bn_min for STRUCTURE only (cardinalities, arcs). Use
+                # a matching compiled .cn if present; otherwise rebuild just the
+                # chain-graph structure (no per-family interval solves, no LRS).
+                cn_path = os.path.splitext(lcn_file)[0] + ".cn"
+                cn_meta = CredalNetwork.cn_metadata(cn_path)
+                if cn_meta is not None and _cache_matches(
+                        cn_meta, method, merge_budget, solver):
+                    cn = CredalNetwork.load_cn(cn_path, lcn)
+                else:
+                    cn = CredalNetwork.from_lcn(
+                        lcn, method=method, solver=solver,
+                        time_limit=time_limit, gap_tol=gap_tol, n_jobs=n_jobs,
+                        merge_budget=merge_budget, solve_families=False,
+                        verbosity=verbosity)
+                cnv = cls(cn)
+                # Build bn_min/bn_max (cheap structure) but SKIP LRS, then inject
+                # the loaded vertices.
+                cnv._build(verbosity=verbosity, enumerate_vertices=False)
+                cnv.extreme_points = extreme_points
+                cnv.credal_net = None
+                struct_time = time.perf_counter() - t0
+                cnv.loaded_from_cache = True
+                cnv.loaded_vertices_from_cache = True
+                cnv.compile_time = vmeta.get("compile_time")
+                cnv.enumeration_time = vmeta.get("enumeration_time")
+                base = (vmeta.get("compile_time") or 0.0) + \
+                       (vmeta.get("enumeration_time") or 0.0)
+                cnv.build_time = base + struct_time
+                if verbosity > 0:
+                    print(f"[CredalNetworkVertices] Loaded vertices from "
+                          f"{vtx_path} (compile_time="
+                          f"{vmeta.get('compile_time') or 0.0:.4f}s, "
+                          f"enumeration_time="
+                          f"{vmeta.get('enumeration_time') or 0.0:.4f}s).")
+                return cnv
+            elif vmeta is not None and verbosity > 0:
+                print(f"[CredalNetworkVertices] Ignoring {vtx_path}: recorded "
+                      f"settings do not match the requested build "
+                      f"(method={method}, merge_budget={merge_budget}, "
+                      f"solver={solver}); re-enumerating.")
+
+        # Transparent cache: reuse a compiled .cn next to the source .lcn when
+        # its recorded settings match this build. Only when families are solved
+        # (a structure-only build carries no intervals to cache) and a source
+        # path was provided.
+        if cache and solve_families and lcn_file:
+            cn_path = os.path.splitext(lcn_file)[0] + ".cn"
+            meta = CredalNetwork.cn_metadata(cn_path)
+            if meta is not None and _cache_matches(
+                    meta, method, merge_budget, solver):
+                t0 = time.perf_counter()
+                cn = CredalNetwork.load_cn(cn_path, lcn)
+                cnv = cls(cn)
+                # The per-family interval solves are what the compile_time
+                # measured; the vertex enumeration still runs here and is added
+                # so build_time stays an honest whole-pipeline wall-clock.
+                pyomo_logger = logging.getLogger('pyomo')
+                prev_level = pyomo_logger.level
+                if verbosity < 2:
+                    pyomo_logger.setLevel(logging.ERROR)
+                try:
+                    cnv._build(verbosity=verbosity,
+                               enumerate_vertices=enumerate_vertices,
+                               n_jobs=n_jobs)
+                finally:
+                    pyomo_logger.setLevel(prev_level)
+                enum_time = time.perf_counter() - t0
+                cnv.loaded_from_cache = True
+                cnv.compile_time = meta.get("compile_time")
+                base = meta.get("compile_time") or 0.0
+                cnv.build_time = base + enum_time
+                if verbosity > 0:
+                    print(f"[CredalNetworkVertices] Loaded compiled network from "
+                          f"{cn_path} (compile_time={base:.4f}s, "
+                          f"enumeration={enum_time:.4f}s).")
+                return cnv
+            elif meta is not None and verbosity > 0:
+                print(f"[CredalNetworkVertices] Ignoring {cn_path}: recorded "
+                      f"settings (method={meta.get('method')}, "
+                      f"merge_budget={meta.get('merge_budget')}, "
+                      f"solver={meta.get('solver')}) do not match the requested "
+                      f"build (method={method}, merge_budget={merge_budget}, "
+                      f"solver={solver}); recompiling.")
+
         t0 = time.perf_counter()
         # Suppress the (benign) Pyomo solver warnings during the build, unless
         # verbosity >= 2 where the user asked to see full solver progress. This
@@ -208,7 +435,8 @@ class CredalNetworkVertices:
                 solve_families=solve_families, verbosity=verbosity)
             cnv = cls(cn)
             cnv._build(verbosity=verbosity,
-                       enumerate_vertices=enumerate_vertices)
+                       enumerate_vertices=enumerate_vertices,
+                       n_jobs=n_jobs)
         finally:
             pyomo_logger.setLevel(prev_level)
         cnv.build_time = time.perf_counter() - t0
@@ -229,9 +457,18 @@ class CredalNetworkVertices:
             "n_vertices": n_vertices,
         }
 
-    def _build(self, verbosity: int = 1, enumerate_vertices: bool = True):
+    def _build(self, verbosity: int = 1, enumerate_vertices: bool = True,
+               n_jobs: int = 1):
         """Build bn_min/bn_max, and (unless enumerate_vertices is False) the
-        CredalNet plus the parsed extreme points."""
+        parsed extreme points.
+
+        The LRS enumeration is timed and stored in ``self.enumeration_time``
+        (0.0 when enumeration is skipped). With ``n_jobs > 1`` the per-node local
+        credal sets are enumerated in parallel worker processes (bit-identical to
+        the serial monolithic ``intervalToCredal()``); in that case
+        ``self.credal_net`` stays ``None`` -- no consumer reads it, only
+        ``extreme_points`` / ``bn_min`` / ``bn_max``.
+        """
         cn = self.cn
         node_names = cn.nodes
         node_card = cn.node_card
@@ -361,21 +598,32 @@ class CredalNetworkVertices:
             # needs; skip the (potentially expensive) LRS enumeration.
             self.credal_net = None
             self.extreme_points = None
+            self.enumeration_time = 0.0
             if verbosity > 0:
                 print("[CredalNetworkVertices] Skipping LRS extreme-point "
                       "enumeration (enumerate_vertices=False).")
             return
 
-        # Create the CredalNet and run LRS vertex enumeration
-        self.credal_net = gum.CredalNet(self.bn_min, self.bn_max)
-        self.credal_net.intervalToCredal()
+        # Run LRS vertex enumeration (timed). n_jobs > 1 shards the per-node
+        # local credal sets across worker processes; n_jobs == 1 uses the
+        # monolithic gum.CredalNet path. Both produce identical extreme points.
+        t_enum = time.perf_counter()
+        if n_jobs and n_jobs > 1 and len(node_names) > 1:
+            specs = [self._node_enumeration_spec(name, node_ids_min)
+                     for name in node_names]
+            self.credal_net = None  # not built/consumed under parallel mode
+            with ProcessPoolExecutor(max_workers=n_jobs) as executor:
+                per_node = list(executor.map(_enumerate_node_credal_set, specs))
+            self.extreme_points = dict(zip(node_names, per_node))
+        else:
+            self.credal_net = gum.CredalNet(self.bn_min, self.bn_max)
+            self.credal_net.intervalToCredal()
+            self.extreme_points = _parse_credal_net_vertices(self.credal_net)
+        self.enumeration_time = time.perf_counter() - t_enum
 
-        if verbosity > 0:
+        if verbosity > 0 and self.credal_net is not None:
             print("[CredalNetworkVertices] CredalNet vertices:")
             print(self.credal_net)
-
-        # Extract and store extreme points
-        self.extreme_points = _parse_credal_net_vertices(self.credal_net)
 
         if verbosity > 0:
             print("[CredalNetworkVertices] Extreme points per node:")
@@ -385,6 +633,141 @@ class CredalNetworkVertices:
                     for v in vertices:
                         v_str = ", ".join(f"{x:.4f}" for x in v)
                         print(f"    [{v_str}]")
+
+    def _node_enumeration_spec(self, target: str, node_ids_min: Dict) -> Dict:
+        """
+        Build the JSON-friendly spec (see :func:`_enumerate_node_credal_set`)
+        for parallel enumeration of one target node's local credal set: the node
+        plus its parents, their cardinalities, arcs, and flattened lower/upper
+        CPT arrays taken from the already-built ``bn_min``/``bn_max``.
+        """
+        nid = node_ids_min[target]
+        parents = [self.bn_min.variable(p).name()
+                   for p in self.bn_min.parents(nid)]
+        members = parents + [target]  # target last; order does not matter
+        vars_ = [(nm, self.bn_min.variable(self.bn_min.idFromName(nm)).domainSize())
+                 for nm in members]
+        arcs = [(p, target) for p in parents]
+        # Canonical parent order as it appears in the FULL network's emitted
+        # config strings: the target CPT's variable order minus the child.
+        parents_order = [nm for nm in self.bn_min.cpt(target).names
+                         if nm != target]
+        return {
+            "target": target,
+            "vars": vars_,
+            "arcs": arcs,
+            "parents_order": parents_order,
+            "cpt_min_target": self._cpt_payload(self.bn_min, target),
+            "cpt_max_target": self._cpt_payload(self.bn_max, target),
+        }
+
+    @staticmethod
+    def _cpt_payload(bn, name: str) -> Dict:
+        """
+        Serialize a CPT into a name-keyed payload {names, cards, values} whose
+        ``values`` are the flattened array in the CPT's OWN variable order
+        (``cpt.names``). Reloaded in the worker via a temporary named Tensor and
+        transferred by :meth:`Tensor.fillWith`, which matches by variable name --
+        robust to the sub-net ordering its axes differently.
+        """
+        cpt = bn.cpt(name)
+        names = list(cpt.names)
+        cards = [cpt.variable(nm).domainSize() for nm in names]
+        return {
+            "names": names,
+            "cards": cards,
+            "values": cpt.toarray().flatten().tolist(),
+        }
+
+    # ------------------------------------------------------------------
+    # Serialization: the enumerated extreme points as a portable .vtx file
+    # ------------------------------------------------------------------
+
+    # Bump when the on-disk .vtx schema changes incompatibly.
+    VTX_FORMAT_VERSION = 1
+
+    def save_vtx(self, file_name: str, method: str = None,
+                 merge_budget: int = None, solver: str = None,
+                 enumeration_time: float = None, compile_time: float = None,
+                 n_jobs: int = None) -> None:
+        """
+        Serialize the enumerated extreme points to a JSON ``.vtx`` file.
+
+        Stores the LRS output (``extreme_points``: {node: {config: [[...]]}}) with
+        a provenance header. The ``(method, merge_budget, solver)`` triple is the
+        cache-match key (an engine reuses a ``.vtx`` only when these match its
+        requested build). ``enumeration_time`` is the LRS wall-clock;
+        ``compile_time`` is carried through from the ``.cn`` so a cache hit can
+        report ``build_time = compile_time + enumeration_time``. ``n_jobs`` is
+        informational (results are worker-count invariant).
+        """
+        assert self.extreme_points is not None, \
+            "No extreme points to save (enumerate_vertices was False)."
+        n_vertices = sum(len(vs) for cfgs in self.extreme_points.values()
+                         for vs in cfgs.values())
+        doc = {
+            "format": "lcn-credal-vertices",
+            "version": self.VTX_FORMAT_VERSION,
+            "method": method,
+            "merge_budget": merge_budget,
+            "solver": solver,
+            "enumeration_time": enumeration_time,
+            "compile_time": compile_time,
+            "n_jobs": n_jobs,
+            "n_vertices": n_vertices,
+            "extreme_points": self.extreme_points,
+        }
+        with open(file_name, "w") as f:
+            json.dump(doc, f, indent=2)
+
+    @classmethod
+    def vtx_metadata(cls, file_name: str) -> Dict:
+        """
+        Read only the header of a ``.vtx`` file (format/version and provenance:
+        method/merge_budget/solver/enumeration_time/compile_time/n_jobs) WITHOUT
+        loading the extreme points. Returns the header dict, or ``None`` if the
+        file is absent, unreadable, not valid JSON, or not a recognized ``.vtx``
+        of the current format version.
+        """
+        if not file_name or not os.path.exists(file_name):
+            return None
+        try:
+            with open(file_name) as f:
+                doc = json.load(f)
+        except (OSError, ValueError):
+            return None
+        if not isinstance(doc, dict):
+            return None
+        if doc.get("format") != "lcn-credal-vertices":
+            return None
+        if doc.get("version") != cls.VTX_FORMAT_VERSION:
+            return None
+        return {
+            "format": doc.get("format"),
+            "version": doc.get("version"),
+            "method": doc.get("method"),
+            "merge_budget": doc.get("merge_budget"),
+            "solver": doc.get("solver"),
+            "enumeration_time": doc.get("enumeration_time"),
+            "compile_time": doc.get("compile_time"),
+            "n_jobs": doc.get("n_jobs"),
+        }
+
+    @classmethod
+    def load_extreme_points(cls, file_name: str):
+        """
+        Load the extreme points and header from a ``.vtx`` file.
+
+        Returns ``(extreme_points, meta)`` on success, or ``None`` if the file is
+        absent/invalid. ``extreme_points`` is the {node: {config: [[...]]}} dict
+        the engines consume; ``meta`` is the header from :meth:`vtx_metadata`.
+        """
+        meta = cls.vtx_metadata(file_name)
+        if meta is None:
+            return None
+        with open(file_name) as f:
+            doc = json.load(f)
+        return doc.get("extreme_points"), meta
 
 
 if __name__ == "__main__":

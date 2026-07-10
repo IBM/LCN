@@ -5,10 +5,13 @@
 #
 # Arguments:
 #   benchmark_dir  - path to benchmark instances (e.g., benchmarks/polytree)
-#   algorithm      - one of: exact_l, exact_g, ariel, ibp, ijgp, ijgp_e,
-#                    ijgp_cp, ijgp_cm, ccte, ccte_e, ccte_cp, ccte_cm, approxlp,
-#                    cve, cve_e, cve_cp, cve_cm, cve_d4, cjt
+#   algorithm      - one of: compile, enumerate, exact_l, exact_g, ariel, ibp,
+#                    ijgp, ijgp_e, ijgp_cp, ijgp_cm, ccte, ccte_e, ccte_cp,
+#                    ccte_cm, approxlp, cve, cve_e, cve_cp, cve_cm, cve_d4, cjt
 #                    (exact_l = local/ipopt backend; exact_g = global/SCIP backend)
+#                    (compile = build & cache the credal network as .cn;
+#                     enumerate = LRS-enumerate & cache the vertices as .vtx;
+#                     both run 16 parallel workers over the local credal sets)
 #   factorization  - the factorization to use (e.g., linear, nlp, exact)
 #
 # Options (positional, after algorithm):
@@ -30,6 +33,8 @@
 #   ./run.sh benchmarks/polytree cve_cp linear 600 "" "" 10
 #   ./run.sh benchmarks/polytree cve_cm linear 600 "" "" 10
 #   ./run.sh benchmarks/chain cjt linear 300
+#   ./run.sh benchmarks/chain compile linear
+#   ./run.sh benchmarks/chain enumerate linear
 
 b=$1
 a=$2
@@ -42,9 +47,9 @@ k=$7
 if [ -z "$b" ] || [ -z "$a" ] || [ -z "$f" ]; then
     echo "Usage: $0 <benchmark_dir> <algorithm> <factorization> [time_limit] [epsilon] [ibound] [n_clusters]"
     echo ""
-    echo "Algorithms: exact_l, exact_g, ariel, ibp, ijgp, ijgp_e, ijgp_cp,"
-    echo "            ijgp_cm, ccte, ccte_e, ccte_cp, ccte_cm, approxlp,"
-    echo "            cve, cve_e, cve_cp, cve_cm, cve_d4, cjt"
+    echo "Algorithms: compile, enumerate, exact_l, exact_g, ariel, ibp, ijgp,"
+    echo "            ijgp_e, ijgp_cp, ijgp_cm, ccte, ccte_e, ccte_cp, ccte_cm,"
+    echo "            approxlp, cve, cve_e, cve_cp, cve_cm, cve_d4, cjt"
     exit 1
 fi
 
@@ -60,7 +65,20 @@ if [ -n "$t" ]; then
     cmd="$cmd --time-limit $t"
 fi
 
-if [ "$a" = "exact_l" ]; then
+if [ "$a" = "compile" ]; then
+    # compile: build the credal network (chain-graph factorization + interval
+    # local credal sets) and cache it alongside each .lcn as a .cn, recording
+    # compile_time. The per-family interval solves run in 16 parallel workers.
+    cmd="$cmd --n-jobs 16"
+
+elif [ "$a" = "enumerate" ]; then
+    # enumerate: LRS-enumerate the extreme points of every local credal set and
+    # cache them alongside each .lcn as a .vtx (also writes the .cn), recording
+    # enumeration_time. The per-local-credal-set LRS solves run in 16 parallel
+    # workers.
+    cmd="$cmd --n-jobs 16"
+
+elif [ "$a" = "exact_l" ]; then
     # exact_l: exact inference with the local backend (ipopt + SLSQP fallback).
     # The backend is selected by the algorithm name; no extra arguments.
     :
@@ -178,9 +196,9 @@ elif [ "$a" = "cjt" ]; then
 
 else
     echo "Unknown algorithm: $a"
-    echo "Allowed: exact_l, exact_g, ariel, ibp, ijgp, ijgp_e, ijgp_cp,"
-    echo "         ijgp_cm, ccte, ccte_e, ccte_cp, ccte_cm, approxlp,"
-    echo "         cve, cve_e, cve_cp, cve_cm, cve_d4, cjt"
+    echo "Allowed: compile, enumerate, exact_l, exact_g, ariel, ibp, ijgp,"
+    echo "         ijgp_e, ijgp_cp, ijgp_cm, ccte, ccte_e, ccte_cp, ccte_cm,"
+    echo "         approxlp, cve, cve_e, cve_cp, cve_cm, cve_d4, cjt"
     exit 1
 fi
 
