@@ -1,9 +1,20 @@
 # Saved LCN instance
+#
+# CONSISTENCY FIX (2026-07-11): the original credit.lcn is INCONSISTENT.
+# Atom x3 has three parents x0, x1, x2, each forcing P(x3 | xi) >= 0.9 (s5, s6,
+# s7) with high parent marginals (P(x0) in [0.65,0.74], etc.). Those conditionals
+# jointly force the marginal P(x3) above 0.7, contradicting the standalone
+# marginal sentence s4: P(x3) <= 0.7. (The conflict was previously masked: credit
+# has n=11, above check_consistency's exact n<=10 cap, so the old oracle returned
+# a vacuous "consistent"; the structure-exploiting junction-tree check with SCIP
+# proves it infeasible.) The conflicting standalone marginal s4 was DROPPED; x3's
+# distribution remains specified by its family conditionals s5/s6/s7. Result
+# verified CONSISTENT by the structured check (SCIP global). All other sentences
+# are unchanged.
 
 s1: 0.65 <= P(x0) <= 0.74 ; True
 s2: 0.31 <= P(x1) <= 0.66 ; True
 s3: 0.44 <= P(x2) <= 0.72 ; True
-s4: 0.6 <= P(x3) <= 0.7 ; True
 s5: 0.9 <= P(x3 | x0) <= 1.0 ; True
 s6: 0.9 <= P(x3 | x1) <= 1.0 ; True
 s7: 0.9 <= P(x3 | x2) <= 1.0 ; True

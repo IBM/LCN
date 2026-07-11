@@ -25,6 +25,7 @@ from lcn.inference.utils.common import (
     check_consistency, check_consistency_product_witness,
     check_consistency_product_witness_scoped,
 )
+from lcn.inference.utils.structured_consistency import is_consistent_structured
 
 
 # Binary connectors supported by the LCN parser
@@ -246,8 +247,9 @@ class Generator:
         assert k >= 1, "k must be >= 1."
         if graph_type in ("ktree", "ktree-fr"):
             assert num_vars >= k + 1, "ktree needs num_vars >= k + 1."
-        assert consistency_mode in ("product", "full"), \
-            f"Unknown consistency_mode '{consistency_mode}'. Use 'product' or 'full'."
+        assert consistency_mode in ("product", "full", "structured"), \
+            f"Unknown consistency_mode '{consistency_mode}'. " \
+            f"Use 'product', 'full', or 'structured'."
         assert strategy in ("linear", "sparse", "bounded", "verified"), \
             f"Unknown strategy '{strategy}'. " \
             f"Use 'linear', 'sparse', 'bounded', or 'verified'."
@@ -1116,7 +1118,7 @@ class Generator:
         silently). Any failure during the check is treated as inconsistent
         (reject), so an inconsistent instance can never be silently accepted.
 
-        Two modes (``consistency_mode``):
+        Three modes (``consistency_mode``):
         - ``"product"`` (default): the fast SOUND product-distribution witness
           (``check_consistency_product_witness``). It searches per-atom marginals
           only (n vars) and relies on the fact that any product distribution
@@ -1128,20 +1130,38 @@ class Generator:
         - ``"full"``: the exact joint-LMC oracle (``check_consistency``), which
           builds the graphs + LMC. Slower (~minutes at n=10) but accepts any
           consistent instance. Only feasible for small n.
+        - ``"structured"``: the structure-exploiting junction-tree feasibility
+          check (``is_consistent_structured``). Decides consistency over JT
+          clusters of size ``2^treewidth`` rather than the ``2^n`` joint, so it
+          is both SOUND and COMPLETE (accepts every genuinely consistent
+          instance, unlike the conservative product witness) and scales to any n
+          whose moralized treewidth is bounded -- which every generator topology
+          is by construction (dag via ``max_treewidth``, ktree via ``k``,
+          chain/tree/polytree are low-width). Uses the fast local solver (ipopt)
+          here: a feasible point is a sound consistency certificate, which is all
+          a rejection-sampling gate needs; an UNDETERMINED result (e.g. tree
+          wider than the cluster budget) is treated as reject and resampled.
 
-        For n > 10 both the unscoped product witness and the full oracle build a
-        2^n table and are intractable, so regardless of ``consistency_mode`` we
-        use the SCOPE-LOCAL product witness
+        For ``"product"``/``"full"`` at n > 10 both the unscoped product witness
+        and the full oracle build a 2^n table and are intractable, so we fall
+        back to the SCOPE-LOCAL product witness
         (``check_consistency_product_witness_scoped``): the same sound,
         complete-for-product-consistency search, but evaluating each sentence over
         its own bounded atom scope so there is no 2^n term. This covers every
         topology (tree/polytree/dag/chain/random), catching multi-atom clique and
         cross-scope contradictions -- not just single-literal marginal collisions.
+        (``"structured"`` has no 2^n term at any n, so it does not use this
+        fallback.)
 
-        ``consistency_restarts`` caps the restart budget of the chosen search.
+        ``consistency_restarts`` caps the restart budget of the product/full
+        searches (ignored by ``"structured"``).
         """
         try:
             n = len(lcn.atoms)
+            if consistency_mode == "structured":
+                # Junction-tree feasibility: sound + complete at bounded
+                # treewidth, any n. None (UNDETERMINED) -> reject and resample.
+                return is_consistent_structured(lcn, solver="ipopt") is True
             if n <= 10:
                 if consistency_mode == "product":
                     # No graph/LMC build needed: the product witness satisfies

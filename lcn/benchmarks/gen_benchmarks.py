@@ -113,6 +113,13 @@ examples:
         "--verify-time-limit", type=float, default=5.0,
         help="per-solve SCIP limit for easy/verified (default: 5.0s)")
     parser.add_argument(
+        "--consistency-mode", type=str, default="product",
+        choices=("product", "full", "structured"),
+        help="consistency gate: 'product' (default, fast sound product "
+             "witness), 'full' (exact 2^n joint-LMC oracle, small n only), or "
+             "'structured' (junction-tree feasibility -- sound AND complete at "
+             "bounded treewidth, scales to any n)")
+    parser.add_argument(
         "--verbosity", type=int, default=1,
         help="verbosity level: 0=silent, 1=summary (default: 1)")
     args = parser.parse_args()
@@ -148,6 +155,7 @@ examples:
                 difficulty_cap=args.difficulty_cap,
                 base_topology=args.base_topology,
                 verify_time_limit=args.verify_time_limit,
+                consistency_mode=args.consistency_mode,
                 verbosity=max(0, args.verbosity - 1),
             )
             # Encode the strategy in easy filenames (mirrors gen_easy.py) so

@@ -1,0 +1,78 @@
+# Title: Clinic Referral Chain
+# Summary: A scalable referral benchmark where each clinic stage has a coordinated review team before passing a decision to the next stage.
+# Benchmark Family: clinic_referral_chain
+#
+# CONSISTENCY FIX (2026-07-11): the original benchmark_scaling_directions_n24_2.lcn
+# is INCONSISTENT. In the chain graph the four reviewers of a stage are mutually
+# independent (no edges among the Review_j_* atoms), so P(Review_j_1 and ... and
+# Review_j_4) must equal the product of their four marginals. That product is
+# bounded by the priors well below what the component_j sentences demanded:
+#   component_1: product in [0.0008, 0.0156] but sentence required >= 0.104
+#   component_2: product in [0.0005, 0.0055] but sentence required >= 0.092
+#   component_4: product in [0.00003, 0.0037] but sentence required >= 0.038
+# (component_3 required >= 0.0, so it was already compatible.) The three
+# incompatible component sentences were DROPPED; all priors, links, and
+# component_3 are unchanged. The result is consistent (verified by the
+# structure-exploiting junction-tree feasibility check, SCIP global).
+#
+# Decision_1: Clinic stage 1 reaches a referral decision.
+# Decision_2: Clinic stage 2 reaches a referral decision.
+# Decision_3: Clinic stage 3 reaches a referral decision.
+# Decision_4: Clinic stage 4 reaches a referral decision.
+# Referral_1: A patient case is referred into clinic stage 1.
+# Referral_2: A patient case is referred into clinic stage 2.
+# Referral_3: A patient case is referred into clinic stage 3.
+# Referral_4: A patient case is referred into clinic stage 4.
+# Review_1_1: Reviewer 1 evaluates the case at clinic stage 1.
+# Review_1_2: Reviewer 2 evaluates the case at clinic stage 1.
+# Review_1_3: Reviewer 3 evaluates the case at clinic stage 1.
+# Review_1_4: Reviewer 4 evaluates the case at clinic stage 1.
+# Review_2_1: Reviewer 1 evaluates the case at clinic stage 2.
+# Review_2_2: Reviewer 2 evaluates the case at clinic stage 2.
+# Review_2_3: Reviewer 3 evaluates the case at clinic stage 2.
+# Review_2_4: Reviewer 4 evaluates the case at clinic stage 2.
+# Review_3_1: Reviewer 1 evaluates the case at clinic stage 3.
+# Review_3_2: Reviewer 2 evaluates the case at clinic stage 3.
+# Review_3_3: Reviewer 3 evaluates the case at clinic stage 3.
+# Review_3_4: Reviewer 4 evaluates the case at clinic stage 3.
+# Review_4_1: Reviewer 1 evaluates the case at clinic stage 4.
+# Review_4_2: Reviewer 2 evaluates the case at clinic stage 4.
+# Review_4_3: Reviewer 3 evaluates the case at clinic stage 4.
+# Review_4_4: Reviewer 4 evaluates the case at clinic stage 4.
+
+prior_1: 0.08 <= P(Decision_1) <= 0.231
+prior_2: 0.161 <= P(Decision_2) <= 0.304
+prior_3: 0.165 <= P(Decision_3) <= 0.312
+prior_4: 0.172 <= P(Decision_4) <= 0.268
+prior_5: 0.057 <= P(Referral_1) <= 0.163
+prior_6: 0.258 <= P(Referral_2) <= 0.323
+prior_7: 0.107 <= P(Referral_3) <= 0.243
+prior_8: 0.16 <= P(Referral_4) <= 0.298
+prior_9: 0.197 <= P(Review_1_1) <= 0.425
+prior_10: 0.185 <= P(Review_1_2) <= 0.282
+prior_11: 0.209 <= P(Review_1_3) <= 0.423
+prior_12: 0.104 <= P(Review_1_4) <= 0.307
+prior_13: 0.203 <= P(Review_2_1) <= 0.434
+prior_14: 0.092 <= P(Review_2_2) <= 0.191
+prior_15: 0.242 <= P(Review_2_3) <= 0.351
+prior_16: 0.12 <= P(Review_2_4) <= 0.188
+prior_17: 0.234 <= P(Review_3_1) <= 0.337
+prior_18: 0.041 <= P(Review_3_2) <= 0.211
+prior_19: 0.002 <= P(Review_3_3) <= 0.203
+prior_20: 0.0 <= P(Review_3_4) <= 0.22
+prior_21: 0.073 <= P(Review_4_1) <= 0.158
+prior_22: 0.106 <= P(Review_4_2) <= 0.304
+prior_23: 0.118 <= P(Review_4_3) <= 0.305
+prior_24: 0.038 <= P(Review_4_4) <= 0.253
+component_3: 0.0 <= P(Review_3_1 and Review_3_2 and Review_3_3 and Review_3_4) <= 0.203
+link_1: 0.356 <= P(Review_1_1 and Review_1_2 and Review_1_3 and Review_1_4 | Referral_1) <= 0.442
+link_2: 0.211 <= P(Decision_1 | Review_1_1 and Review_1_2 and Review_1_3 and Review_1_4) <= 0.347
+link_3: 0.555 <= P(Referral_2 | Decision_1) <= 0.788
+link_4: 0.337 <= P(Review_2_1 and Review_2_2 and Review_2_3 and Review_2_4 | Referral_2) <= 0.412
+link_5: 0.311 <= P(Decision_2 | Review_2_1 and Review_2_2 and Review_2_3 and Review_2_4) <= 0.389
+link_6: 0.338 <= P(Referral_3 | Decision_2) <= 0.628
+link_7: 0.187 <= P(Review_3_1 and Review_3_2 and Review_3_3 and Review_3_4 | Referral_3) <= 0.324
+link_8: 0.675 <= P(Decision_3 | Review_3_1 and Review_3_2 and Review_3_3 and Review_3_4) <= 0.766
+link_9: 0.465 <= P(Referral_4 | Decision_3) <= 0.57
+link_10: 0.308 <= P(Review_4_1 and Review_4_2 and Review_4_3 and Review_4_4 | Referral_4) <= 0.345
+link_11: 0.207 <= P(Decision_4 | Review_4_1 and Review_4_2 and Review_4_3 and Review_4_4) <= 0.32

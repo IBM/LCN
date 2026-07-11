@@ -355,6 +355,29 @@ class MixedGraph:
         """
         return [list(c) for c in nx.find_cliques(self._undirected) if len(c) > 1]
 
+    def get_undirected_components(self):
+        """Return the connected components of the *undirected* subgraph.
+
+        Only undirected edges are considered (directed edges are ignored),
+        and isolated nodes with no undirected edge are excluded -- so each
+        returned component has at least two nodes joined by undirected edges.
+
+        Unlike :meth:`get_undirected_cliques` (which returns *maximal cliques*
+        that may OVERLAP when the undirected subgraph is not a disjoint union
+        of cliques), the components returned here PARTITION the nodes that
+        carry undirected edges: every such node appears in exactly one
+        component. This is the correct granularity for collapsing chain-graph
+        components into meta-nodes -- an undirected connected component is a
+        single chain component and must be collapsed together.
+
+        Returns
+        -------
+        list[list]
+            A list of connected components, each a list of node ids.
+        """
+        return [sorted(c) for c in nx.connected_components(self._undirected)
+                if len(c) > 1]
+
     def is_connected(self):
         G = self._as_undirected()
         return nx.is_connected(G)

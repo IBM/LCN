@@ -667,37 +667,52 @@ class LCN:
     
     def simplify_structure_graph(self) -> MixedGraph:
         """
-        Simplify the structure graph by identifying the undirected cliques and
-        replacing them with a single meta-node. Keep the directed edges from other
-        nodes to the nodes in the clique and from the nodes in the clique to the
+        Simplify the structure graph by identifying the undirected chain-graph
+        components and replacing each with a single meta-node. Keep the directed
+        edges from other nodes into the component and from the component out to
         other nodes. The resulting graph must have only directed edges.
+
+        We collapse each *connected component* of the undirected subgraph, not
+        each maximal clique. When the undirected subgraph is a disjoint union of
+        cliques (the common case) the two coincide, so this is backward
+        compatible; but when a chain component is not a single clique (e.g. the
+        supreme_court instances, whose 9-justice undirected component decomposes
+        into several OVERLAPPING maximal cliques) collapsing per maximal clique
+        is wrong -- a node shared by two cliques cannot live in two meta-nodes,
+        and removing it for the first clique made the second clique's removal
+        raise ``KeyError``. A connected component is the correct unit: it is one
+        chain component and must be collapsed together, and components partition
+        the undirected nodes so no node is touched twice.
         """
         sg = self.structure_graph.copy()
-        cliques = sg.get_undirected_cliques()
+        components = sg.get_undirected_components()
 
-        print("Simplifying the structure by replacing the undirected cliques")
-        for clique in cliques:
-            clique_set = set(clique)
-            meta_node = "-".join(sorted(clique)) #tuple(sorted(clique))
+        print("Simplifying the structure by replacing the undirected components")
+        for component in components:
+            component_set = set(component)
+            meta_node = "-".join(sorted(component))
 
-            # Collect directed edges involving clique members
-            incoming = []
-            outgoing = []
+            # Collect directed edges involving component members. A directed
+            # edge between two members of the same component collapses to a
+            # self-loop on the meta-node and is dropped (deduplicate targets so
+            # co-parents feeding several members are rewired once).
+            incoming = {}
+            outgoing = {}
             for u, v, d in sg.directed_edges(data=True):
-                if v in clique_set and u not in clique_set:
-                    incoming.append((u, d))
-                if u in clique_set and v not in clique_set:
-                    outgoing.append((v, d))
+                if v in component_set and u not in component_set:
+                    incoming.setdefault(u, d)
+                if u in component_set and v not in component_set:
+                    outgoing.setdefault(v, d)
 
             # Add meta-node and rewire directed edges
             sg.add_node(meta_node)
-            for u, d in incoming:
+            for u, d in incoming.items():
                 sg.add_directed_edge(u, meta_node, **d)
-            for v, d in outgoing:
+            for v, d in outgoing.items():
                 sg.add_directed_edge(meta_node, v, **d)
 
-            # Remove original clique nodes (also removes their edges)
-            sg.remove_nodes_from(clique)
+            # Remove original component nodes (also removes their edges)
+            sg.remove_nodes_from(component)
 
         self.simplified_structure_graph = sg
         return self.simplified_structure_graph
