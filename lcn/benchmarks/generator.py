@@ -38,6 +38,69 @@ _CONNECTORS = ["and", "or", "xor"]
 EASY_TOTAL_CAP = 256
 
 
+def moralized_treewidth(scopes: List[List]) -> int:
+    """
+    Min-fill induced-width (treewidth UPPER BOUND) of the moralized chain-graph
+    implied by a list of family scopes.
+
+    Each scope ``[p1, ..., pm, child]`` is a family: moralizing it connects all
+    of ``{p1, ..., pm, child}`` into a clique (co-parents get married, and each
+    parent links to the child). The interaction graph is the union of these
+    cliques -- exactly the graph the inference engines eliminate over, so this
+    matches ``experiments/run_algorithm._compute_induced_width`` (same min-fill
+    algorithm and tie-break) and is a sound bound on the width inference pays.
+
+    Args:
+        scopes: list of family scopes; each is ``[parents..., child]`` (or a
+            singleton ``[var]`` root). Elements may be ints (raw generator
+            scopes) or strings (atom names) -- anything orderable.
+
+    Returns:
+        The maximum cluster size (number of already-connected neighbours at the
+        moment of elimination) over a min-fill ordering.
+    """
+    all_vars = set()
+    for s in scopes:
+        all_vars.update(s)
+    adj = {v: set() for v in all_vars}
+    for s in scopes:
+        for i, u in enumerate(s):
+            for v in s[i + 1:]:
+                adj[u].add(v)
+                adj[v].add(u)
+
+    remaining = set(all_vars)
+    max_width = 0
+    for _ in range(len(all_vars)):
+        # Pick the variable with the fewest fill edges (ties: smallest var).
+        best_var = None
+        best_fill = float('inf')
+        for v in remaining:
+            nbrs = [u for u in adj[v] if u in remaining]
+            fill = sum(1 for i, u in enumerate(nbrs)
+                       for w in nbrs[i + 1:] if w not in adj[u])
+            if fill < best_fill or (fill == best_fill and
+                    (best_var is None or v < best_var)):
+                best_fill = fill
+                best_var = v
+
+        # Cluster at this step = {best_var} + its remaining neighbours.
+        nbrs = [u for u in adj[best_var] if u in remaining]
+        max_width = max(max_width, len(nbrs))
+
+        # Add fill edges among the neighbours, then eliminate best_var.
+        for i, u in enumerate(nbrs):
+            for w in nbrs[i + 1:]:
+                adj[u].add(w)
+                adj[w].add(u)
+        remaining.remove(best_var)
+        for u in adj[best_var]:
+            adj[u].discard(best_var)
+        del adj[best_var]
+
+    return max_width
+
+
 class Generator:
     """
     Generates random LCN instances with different graph topologies.
@@ -61,6 +124,7 @@ class Generator:
         max_retries: int = 100,
         max_component_size: int = 3,
         max_parents: int = 2,
+        max_treewidth: int = 4,
         k: int = 2,
         consistency_restarts: int = 40,
         consistency_mode: str = "product",
@@ -115,8 +179,16 @@ class Generator:
             max_retries: Maximum generation attempts per instance before giving up.
             max_component_size: Maximum number of variables in a chain component
                 (only used when graph_type="chain").
-            max_parents: Maximum number of parents per child node
-                (only used when graph_type="dag" or "polytree").
+            max_parents: Maximum number of parents per child node (>= 1; only
+                used when graph_type="dag" or "polytree"). Fully user-tunable for
+                "dag" -- there is no upper cap; larger fan-in is still bounded in
+                treewidth by ``max_treewidth`` (via rejection sampling).
+            max_treewidth: Cap on the moralized chain-graph induced width for
+                graph_type="dag" (default 4). DAGs are rejection-sampled until
+                ``moralized_treewidth(scopes) <= max_treewidth``, so the produced
+                DAG is unstructured but its treewidth (hence inference cost) is
+                bounded regardless of ``max_parents``. Ignored by every other
+                topology (``ktree`` fixes treewidth exactly via ``k`` instead).
             k: Treewidth parameter (only used when graph_type="ktree"). Each
                 non-seed atom conditions on exactly ``k`` clique-parents, so the
                 induced junction-tree treewidth is exactly ``k``. Requires
@@ -170,6 +242,7 @@ class Generator:
         assert num_vars >= 3, "Need at least 3 variables."
         assert max_component_size >= 1, "max_component_size must be >= 1."
         assert max_parents >= 1, "max_parents must be >= 1."
+        assert max_treewidth >= 1, "max_treewidth must be >= 1."
         assert k >= 1, "k must be >= 1."
         if graph_type in ("ktree", "ktree-fr"):
             assert num_vars >= k + 1, "ktree needs num_vars >= k + 1."
@@ -219,6 +292,22 @@ class Generator:
                 scopes, components = self._make_graph(num_vars, graph_type,
                                                       max_component_size,
                                                       max_parents, k)
+                # DAG: bound the moralized treewidth by rejection. Resample the
+                # scopes until moralized_treewidth <= max_treewidth (a few inner
+                # tries); if the cap can't be met, fall through to the outer
+                # retry loop -- an over-cap DAG is NEVER accepted.
+                if graph_type == "dag":
+                    dag_tries = 0
+                    while (moralized_treewidth(scopes) > max_treewidth
+                           and dag_tries < 200):
+                        scopes = self._graph_dag(num_vars, max_parents)
+                        dag_tries += 1
+                    if moralized_treewidth(scopes) > max_treewidth:
+                        if verbosity > 1:
+                            print(f"[Generator] dag n={num_vars}: could not "
+                                  f"meet treewidth <= {max_treewidth} in "
+                                  f"{dag_tries} tries; retrying.")
+                        continue
                 # The "-fr" classes keep the same topology but place extra
                 # marginals on root atoms only.
                 extras_on_roots_only = graph_type in (
@@ -467,11 +556,19 @@ class Generator:
 
     def _graph_dag(self, n: int, max_parents: int = 2) -> List[List[int]]:
         """Random DAG. Each non-root picks 1..max_parents parents from
-        higher-ordered vars."""
+        higher-ordered vars.
+
+        DAG-ness is guaranteed by construction: parents are drawn only from
+        vertices EARLIER in a random topological ordering, so the induced edges
+        can never form a directed cycle. ``max_parents`` is fully user-tunable
+        (>= 1); larger fan-in raises the moralized treewidth, but the
+        ``generate(max_treewidth=...)`` rejection filter still bounds the
+        accepted instance's treewidth -- higher ``max_parents`` simply means more
+        candidates are rejected before one meets the cap. (``ktree`` remains the
+        way to fix treewidth exactly rather than bound it.)
+        """
+        max_parents = max(1, max_parents)
         ordering = self._random_ordering(n)
-        position = [0] * n
-        for i, v in enumerate(ordering):
-            position[v] = i
 
         scopes = []
         num_roots = max(1, self.rng.randint(1, 3))

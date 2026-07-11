@@ -78,7 +78,13 @@ examples:
         help="max variables per chain component (default: 3, chain only)")
     parser.add_argument(
         "--max-parents", type=int, default=2,
-        help="max parents per child node (default: 2, polytree/dag only)")
+        help="max parents per child node (default: 2, polytree/dag only; "
+             "fully tunable for dag -- treewidth stays bounded by "
+             "--max-treewidth regardless)")
+    parser.add_argument(
+        "--max-treewidth", type=int, default=4,
+        help="cap on the moralized chain-graph treewidth for 'dag' (default: 4; "
+             "DAGs are rejection-sampled to stay at or below this width)")
     parser.add_argument(
         "--k", type=int, default=2,
         help="k-tree treewidth parameter: each atom conditions on exactly k "
@@ -134,6 +140,7 @@ examples:
                 epsilon=args.epsilon,
                 max_component_size=args.max_component_size,
                 max_parents=args.max_parents,
+                max_treewidth=args.max_treewidth,
                 k=args.k,
                 strategy=args.strategy,
                 coverage=args.coverage,
