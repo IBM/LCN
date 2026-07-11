@@ -1,6 +1,20 @@
 # Title: Clinic Referral Chain
 # Summary: A scalable referral benchmark where each clinic stage has a coordinated review team before passing a decision to the next stage.
 # Benchmark Family: clinic_referral_chain
+#
+# CONSISTENCY FIX (2026-07-11): the original benchmark_scaling_directions_n24_2.lcn
+# is INCONSISTENT. In the chain graph the four reviewers of a stage are mutually
+# independent (no edges among the Review_j_* atoms), so P(Review_j_1 and ... and
+# Review_j_4) must equal the product of their four marginals. That product is
+# bounded by the priors well below what the component_j sentences demanded:
+#   component_1: product in [0.0008, 0.0156] but sentence required >= 0.104
+#   component_2: product in [0.0005, 0.0055] but sentence required >= 0.092
+#   component_4: product in [0.00003, 0.0037] but sentence required >= 0.038
+# (component_3 required >= 0.0, so it was already compatible.) The three
+# incompatible component sentences were DROPPED; all priors, links, and
+# component_3 are unchanged. The result is consistent (verified by the
+# structure-exploiting junction-tree feasibility check, SCIP global).
+#
 # Decision_1: Clinic stage 1 reaches a referral decision.
 # Decision_2: Clinic stage 2 reaches a referral decision.
 # Decision_3: Clinic stage 3 reaches a referral decision.
@@ -50,10 +64,7 @@ prior_21: 0.073 <= P(Review_4_1) <= 0.158
 prior_22: 0.106 <= P(Review_4_2) <= 0.304
 prior_23: 0.118 <= P(Review_4_3) <= 0.305
 prior_24: 0.038 <= P(Review_4_4) <= 0.253
-component_1: 0.104 <= P(Review_1_1 and Review_1_2 and Review_1_3 and Review_1_4) <= 0.282
-component_2: 0.092 <= P(Review_2_1 and Review_2_2 and Review_2_3 and Review_2_4) <= 0.188
 component_3: 0.0 <= P(Review_3_1 and Review_3_2 and Review_3_3 and Review_3_4) <= 0.203
-component_4: 0.038 <= P(Review_4_1 and Review_4_2 and Review_4_3 and Review_4_4) <= 0.158
 link_1: 0.356 <= P(Review_1_1 and Review_1_2 and Review_1_3 and Review_1_4 | Referral_1) <= 0.442
 link_2: 0.211 <= P(Decision_1 | Review_1_1 and Review_1_2 and Review_1_3 and Review_1_4) <= 0.347
 link_3: 0.555 <= P(Referral_2 | Decision_1) <= 0.788
