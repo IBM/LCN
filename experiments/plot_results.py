@@ -12,13 +12,12 @@ Usage:
 
 import argparse
 import os
-
+import matplotlib.pyplot as plt
+import pandas as pd
 import matplotlib
+
 matplotlib.rcParams["font.family"] = "serif"
 matplotlib.rcParams["mathtext.fontset"] = "cm"
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 
 
 # Consistent styling per algorithm
@@ -26,16 +25,11 @@ ALGO_STYLE = {
     "ariel":    {"marker": "o", "color": "#1f77b4", "label": "ARIEL"},
     "approxlp": {"marker": "s", "color": "#2ca02c", "label": "CDVE"},
     "ibp":      {"marker": "^", "color": "#d62728", "label": "IBP"},
-    "ccte":     {"marker": "D", "color": "#9467bd", "label": "CCTE"},
-    "ccte_e":   {"marker": "d", "color": "#8c564b", "label": r"CCTE-$\epsilon$"},
-    "ccte_cp":  {"marker": "p", "color": "#e377c2", "label": "CCTE-cp"},
-    "ccte_cm":  {"marker": "h", "color": "#7f7f7f", "label": "CCTE-cm"},
-    "ijgp":     {"marker": "v", "color": "#ff7f0e", "label": "IJGP"},
-    "ijgp_e":   {"marker": "<", "color": "#bcbd22", "label": r"IJGP-$\epsilon$"},
-    "ijgp_cp":  {"marker": ">", "color": "#17becf", "label": "IJGP-cp"},
-    "ijgp_cm":  {"marker": "P", "color": "#aec7e8", "label": "IJGP-cm"},
+    "cve":      {"marker": "D", "color": "#9467bd", "label": "CVE"},
+    "cve_cp":   {"marker": "p", "color": "#e377c2", "label": "CVE-cp"},
+    "cve_cm":   {"marker": "h", "color": "#7f7f7f", "label": "CVE-cm"},
+    "cjt":      {"marker": "v", "color": "#ff7f0e", "label": "CJT"},
 }
-
 
 def _style(algo):
     """Return marker/color/label for an algorithm, with fallback."""
@@ -231,10 +225,10 @@ def main():
         description="Plot inference results from CSV files.")
     parser.add_argument(
         "--exact", type=str, default=None,
-        help="Path to exact-comparison CSV (e.g. results-polytree-exact.csv)")
+        help="Path to exact-comparison CSV (e.g. results-polytree-small.csv)")
     parser.add_argument(
         "--ref", type=str, default=None,
-        help="Path to reference-comparison CSV (e.g. results-polytree-ref.csv)")
+        help="Path to reference-comparison CSV (e.g. results-polytree-small.csv)")
     parser.add_argument(
         "--output", type=str, default="plots/results",
         help="Output prefix for PDF files (default: plots/results)")
