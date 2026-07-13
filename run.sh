@@ -205,4 +205,8 @@ fi
 echo "Running: $cmd"
 echo "Log: $l"
 
-./timeout -m 30000000 $cmd >& $l
+# Run the command and redirect output to log file
+$cmd >& $l
+
+# Running with timeout perl script to avoid memory leaks in Python (e.g., with SCIP)
+# ./timeout -m 30000000 $cmd >& $l
