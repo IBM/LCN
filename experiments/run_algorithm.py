@@ -13,6 +13,7 @@ import os
 import argparse
 import json
 import multiprocessing
+import signal
 import time
 
 from lcn.core.model import LCN
@@ -135,14 +136,60 @@ def _marginals_to_dict(results):
     return out
 
 
-def _run_single_worker(queue, lcn_file, algorithm, evidence, verbosity, kwargs):
-    """Worker function for multiprocessing timeout enforcement."""
-    result = _run_single_impl(lcn_file, algorithm, evidence, verbosity, **kwargs)
+def _set_memory_limit(memory_limit_gb):
+    """Cap this process's virtual address space (RLIMIT_AS) at
+    ``memory_limit_gb`` gigabytes. Best-effort: on platforms where RLIMIT_AS is
+    unsupported or ignored (some macOS configurations) this silently degrades to
+    no limit. Authoritative on Linux/RHEL 9.
+
+    The limit is inherited by any child processes this worker forks (the
+    per-family ``ProcessPoolExecutor`` under ``n_jobs`` and the SLSQP-isolation
+    forks), so it is enforced *per process*: with ``--n-jobs K`` the aggregate
+    peak can reach K x the budget.
+
+    Exceeding the limit makes Python allocations raise ``MemoryError``; native
+    allocations may instead abort the process (SIGKILL/SIGSEGV/SIGABRT), which
+    the parent classifies as an out-of-memory outcome.
+    """
+    if memory_limit_gb is None:
+        return
+    try:
+        import resource
+        nbytes = int(memory_limit_gb * (1024 ** 3))
+        _, hard = resource.getrlimit(resource.RLIMIT_AS)
+        # Do not raise the hard limit; clamp the soft limit to it if needed.
+        if hard != resource.RLIM_INFINITY:
+            nbytes = min(nbytes, hard)
+        resource.setrlimit(resource.RLIMIT_AS, (nbytes, hard))
+    except (ImportError, ValueError, OSError) as e:
+        print(f"[warn] could not set memory limit ({memory_limit_gb} GB): {e}")
+
+
+def _run_single_worker(queue, lcn_file, algorithm, evidence, verbosity, kwargs,
+                       memory_limit_gb=None):
+    """Worker function for multiprocessing time/memory limit enforcement."""
+    # Set the address-space cap FIRST, before any numerical allocation.
+    _set_memory_limit(memory_limit_gb)
+    try:
+        result = _run_single_impl(
+            lcn_file, algorithm, evidence, verbosity, **kwargs)
+    except MemoryError:
+        result = {
+            "algorithm": algorithm,
+            "build_time": 0.0,
+            "run_time": 0.0,
+            "total_time": 0.0,
+            "induced_width": None,
+            "status": "memory",
+            "marginals": {},
+            "error": f"Memory limit exceeded ({memory_limit_gb} GB)",
+            "epsilon": kwargs.get("epsilon", None),
+        }
     queue.put(result)
 
 
 def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
-               time_limit=None, **kwargs):
+               time_limit=None, memory_limit_gb=None, **kwargs):
     """
     Run one algorithm on one LCN instance, with optional time limit.
 
@@ -155,11 +202,17 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
         time_limit: max wall-clock seconds (None=unlimited). Enforced by
                     running the algorithm in a subprocess that is killed
                     if it exceeds the limit.
+        memory_limit_gb: max virtual address space per process, in GB
+                    (None=unlimited). Enforced via RLIMIT_AS inside the
+                    subprocess (best-effort; authoritative on Linux). Applies
+                    per process — with n_jobs>1 the aggregate peak can reach
+                    n_jobs x the budget.
         **kwargs: algorithm-specific params
 
     Returns:
         dict with keys: algorithm, build_time, run_time, total_time,
-        induced_width, status, marginals, error, epsilon
+        induced_width, status, marginals, error, epsilon. status is one of
+        {ok, error, timeout, memory}.
     """
     if evidence is None:
         evidence = {}
@@ -171,15 +224,18 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
             and "exact_time_limit" not in kwargs):
         kwargs["exact_time_limit"] = float(time_limit)
 
-    if time_limit is None:
+    # Fast path: no isolation needed when neither limit is set.
+    if time_limit is None and memory_limit_gb is None:
         return _run_single_impl(
             lcn_file, algorithm, evidence, verbosity, **kwargs)
 
-    # Run in a subprocess with timeout
+    # Run in a subprocess so both the wall-clock watchdog (parent-side join) and
+    # the memory cap (RLIMIT_AS set inside the worker) can be enforced.
     queue = multiprocessing.Queue()
     proc = multiprocessing.Process(
         target=_run_single_worker,
-        args=(queue, lcn_file, algorithm, evidence, verbosity, kwargs))
+        args=(queue, lcn_file, algorithm, evidence, verbosity, kwargs,
+              memory_limit_gb))
     proc.start()
     proc.join(timeout=time_limit)
 
@@ -193,17 +249,42 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
             "algorithm": algorithm,
             "build_time": 0.0,
             "run_time": 0.0,
-            "total_time": round(time_limit, 4),
+            "total_time": round(time_limit, 4) if time_limit else 0.0,
             "induced_width": None,
             "status": "timeout",
             "marginals": {},
-            "error": f"Time limit exceeded ({time_limit}s)",
+            "error": (f"Time limit exceeded ({time_limit}s)"
+                      if time_limit else "Time limit exceeded"),
             "epsilon": kwargs.get("epsilon", None),
         }
 
     if not queue.empty():
         return queue.get_nowait()
 
+    # The worker exited without putting a result. When a memory limit is in
+    # effect and the process was killed by a signal (native allocation abort or
+    # the OOM killer), classify it as an out-of-memory outcome; RLIMIT_AS
+    # breaches typically surface as SIGKILL/SIGSEGV/SIGABRT.
+    exitcode = proc.exitcode
+    killed_by_signal = exitcode is not None and exitcode < 0
+    oom_signals = {-signal.SIGKILL, -signal.SIGSEGV, -signal.SIGABRT}
+    if memory_limit_gb is not None and killed_by_signal \
+            and exitcode in oom_signals:
+        return {
+            "algorithm": algorithm,
+            "build_time": 0.0,
+            "run_time": 0.0,
+            "total_time": 0.0,
+            "induced_width": None,
+            "status": "memory",
+            "marginals": {},
+            "error": (f"Memory limit exceeded ({memory_limit_gb} GB); "
+                      f"worker killed by signal {-exitcode}"),
+            "epsilon": kwargs.get("epsilon", None),
+        }
+
+    sig_note = (f" (killed by signal {-exitcode})" if killed_by_signal
+                else f" (exit code {exitcode})")
     return {
         "algorithm": algorithm,
         "build_time": 0.0,
@@ -212,7 +293,7 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
         "induced_width": None,
         "status": "error",
         "marginals": {},
-        "error": "Worker process exited without result",
+        "error": f"Worker process exited without result{sig_note}",
         "epsilon": kwargs.get("epsilon", None),
     }
 
@@ -632,7 +713,13 @@ def main():
              "credal network in memory (default: use the cache when present)")
     parser.add_argument(
         "--time-limit", type=float, default=None,
-        help="Time limit in seconds per instance (default: unlimited)")
+        help="Wall-clock time limit in seconds per instance (default: unlimited)")
+    parser.add_argument(
+        "--memory-limit", type=float, default=None,
+        help="Memory limit in GB per process, enforced via RLIMIT_AS "
+             "(default: unlimited). Applies per process: with --n-jobs K the "
+             "aggregate peak can reach K x this budget, so prefer --n-jobs 1 "
+             "for a predictable cap. Best-effort off Linux.")
     parser.add_argument(
         "--num-threads", type=int, default=1,
         help="Number of threads for BLAS/LAPACK/ipopt (default: 1)")
@@ -664,7 +751,8 @@ def main():
     result = run_single(
         args.instance, args.algorithm,
         evidence=evidence, verbosity=args.verbosity,
-        time_limit=args.time_limit, **kwargs)
+        time_limit=args.time_limit, memory_limit_gb=args.memory_limit,
+        **kwargs)
 
     print(json.dumps(result, indent=2))
 

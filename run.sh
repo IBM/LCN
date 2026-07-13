@@ -58,7 +58,7 @@ mkdir -p logs
 l="logs/$(basename $b)_$a.log"
 
 # Build the command based on the algorithm
-cmd="python experiments/run_experiment.py --input-dir $b --algorithms $a --factorization-method $f"
+cmd="python experiments/run_experiment.py --input-dir $b --algorithms $a --factorization-method $f --memory-limit 30"
 
 # Add time limit if provided
 if [ -n "$t" ]; then

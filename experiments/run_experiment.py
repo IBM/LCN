@@ -128,7 +128,14 @@ Parallel usage — each combination gets its own output file:
              "credal network in memory (default: use the cache when present)")
     parser.add_argument(
         "--time-limit", type=float, default=None,
-        help="time limit in seconds per instance per algorithm (default: unlimited)")
+        help="wall-clock time limit in seconds per instance per algorithm "
+             "(default: unlimited)")
+    parser.add_argument(
+        "--memory-limit", type=float, default=None,
+        help="memory limit in GB per process, enforced via RLIMIT_AS "
+             "(default: unlimited). Per process: with --n-jobs K the aggregate "
+             "peak can reach K x this budget, so prefer --n-jobs 1. "
+             "Best-effort off Linux.")
     parser.add_argument(
         "--num-threads", type=int, default=1,
         help="number of threads for BLAS/LAPACK/ipopt (default: 1)")
@@ -205,7 +212,8 @@ Parallel usage — each combination gets its own output file:
                 result = run_single(
                     instance, algo, evidence=evidence,
                     verbosity=args.verbosity,
-                    time_limit=args.time_limit, **kwargs)
+                    time_limit=args.time_limit,
+                    memory_limit_gb=args.memory_limit, **kwargs)
 
                 # Enrich with instance metadata
                 result["instance"] = instance
@@ -213,6 +221,7 @@ Parallel usage — each combination gets its own output file:
                 result["graph_type"] = graph_type
                 result["num_vars"] = num_vars
                 result["evidence"] = evidence
+                result["memory_limit_gb"] = args.memory_limit
 
                 # Write to JSONL
                 outf.write(json.dumps(result) + "\n")
