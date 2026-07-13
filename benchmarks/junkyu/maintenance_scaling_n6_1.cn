@@ -1,0 +1,652 @@
+{
+  "format": "lcn-credal-network",
+  "version": 1,
+  "source_lcn": null,
+  "method": "linear",
+  "merge_budget": 1,
+  "solver": "ipopt",
+  "compile_time": 39.8978,
+  "n_jobs": 16,
+  "nodes": [
+    "Repair_1",
+    "Repair_2",
+    "Review_1",
+    "Review_2",
+    "Signal_1",
+    "Signal_2"
+  ],
+  "node_atoms": {
+    "Repair_1": [
+      "Repair_1"
+    ],
+    "Repair_2": [
+      "Repair_2"
+    ],
+    "Review_1": [
+      "Review_1"
+    ],
+    "Review_2": [
+      "Review_2"
+    ],
+    "Signal_1": [
+      "Signal_1"
+    ],
+    "Signal_2": [
+      "Signal_2"
+    ]
+  },
+  "node_card": {
+    "Repair_1": 2,
+    "Repair_2": 2,
+    "Review_1": 2,
+    "Review_2": 2,
+    "Signal_1": 2,
+    "Signal_2": 2
+  },
+  "factors": [
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Repair_1",
+          "Signal_1"
+        ],
+        "child": "Repair_1",
+        "parents": [
+          "Signal_1"
+        ],
+        "parents_lst": [
+          "Signal_1"
+        ],
+        "child_lst": [
+          "Repair_1"
+        ],
+        "lobo": 0.549618320640687,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Repair_1",
+          "Signal_1"
+        ],
+        "child": "Repair_1",
+        "parents": [
+          "Signal_1"
+        ],
+        "parents_lst": [
+          "Signal_1"
+        ],
+        "child_lst": [
+          "Repair_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Repair_1",
+          "Signal_1"
+        ],
+        "child": "Repair_1",
+        "parents": [
+          "Signal_1"
+        ],
+        "parents_lst": [
+          "Signal_1"
+        ],
+        "child_lst": [
+          "Repair_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.45038167935931295
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Repair_1",
+          "Signal_1"
+        ],
+        "child": "Repair_1",
+        "parents": [
+          "Signal_1"
+        ],
+        "parents_lst": [
+          "Signal_1"
+        ],
+        "child_lst": [
+          "Repair_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Repair_2",
+          "Signal_2"
+        ],
+        "child": "Repair_2",
+        "parents": [
+          "Signal_2"
+        ],
+        "parents_lst": [
+          "Signal_2"
+        ],
+        "child_lst": [
+          "Repair_2"
+        ],
+        "lobo": 0.5049180328168853,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Repair_2",
+          "Signal_2"
+        ],
+        "child": "Repair_2",
+        "parents": [
+          "Signal_2"
+        ],
+        "parents_lst": [
+          "Signal_2"
+        ],
+        "child_lst": [
+          "Repair_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Repair_2",
+          "Signal_2"
+        ],
+        "child": "Repair_2",
+        "parents": [
+          "Signal_2"
+        ],
+        "parents_lst": [
+          "Signal_2"
+        ],
+        "child_lst": [
+          "Repair_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.4950819671831147
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Repair_2",
+          "Signal_2"
+        ],
+        "child": "Repair_2",
+        "parents": [
+          "Signal_2"
+        ],
+        "parents_lst": [
+          "Signal_2"
+        ],
+        "child_lst": [
+          "Repair_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_1",
+          "Signal_1"
+        ],
+        "child": "Review_1",
+        "parents": [
+          "Signal_1"
+        ],
+        "parents_lst": [
+          "Signal_1"
+        ],
+        "child_lst": [
+          "Review_1"
+        ],
+        "lobo": 0.6900763359078625,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_1",
+          "Signal_1"
+        ],
+        "child": "Review_1",
+        "parents": [
+          "Signal_1"
+        ],
+        "parents_lst": [
+          "Signal_1"
+        ],
+        "child_lst": [
+          "Review_1"
+        ],
+        "lobo": 0.18473895601114246,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_1",
+          "Signal_1"
+        ],
+        "child": "Review_1",
+        "parents": [
+          "Signal_1"
+        ],
+        "parents_lst": [
+          "Signal_1"
+        ],
+        "child_lst": [
+          "Review_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.3099236640921374
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_1",
+          "Signal_1"
+        ],
+        "child": "Review_1",
+        "parents": [
+          "Signal_1"
+        ],
+        "parents_lst": [
+          "Signal_1"
+        ],
+        "child_lst": [
+          "Review_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.8152610439888576
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_2",
+          "Signal_2"
+        ],
+        "child": "Review_2",
+        "parents": [
+          "Signal_2"
+        ],
+        "parents_lst": [
+          "Signal_2"
+        ],
+        "child_lst": [
+          "Review_2"
+        ],
+        "lobo": 0.39016393445749903,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_2",
+          "Signal_2"
+        ],
+        "child": "Review_2",
+        "parents": [
+          "Signal_2"
+        ],
+        "parents_lst": [
+          "Signal_2"
+        ],
+        "child_lst": [
+          "Review_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_2",
+          "Signal_2"
+        ],
+        "child": "Review_2",
+        "parents": [
+          "Signal_2"
+        ],
+        "parents_lst": [
+          "Signal_2"
+        ],
+        "child_lst": [
+          "Review_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.6098360655425006
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_2",
+          "Signal_2"
+        ],
+        "child": "Review_2",
+        "parents": [
+          "Signal_2"
+        ],
+        "parents_lst": [
+          "Signal_2"
+        ],
+        "child_lst": [
+          "Review_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0
+        ],
+        "scope": [
+          "Signal_1"
+        ],
+        "child": "Signal_1",
+        "parents": [],
+        "parents_lst": [],
+        "child_lst": [
+          "Signal_1"
+        ],
+        "lobo": 0.6550000000119728,
+        "upbo": 0.7509999999900906
+      },
+      "1": {
+        "interpretation": [
+          1
+        ],
+        "scope": [
+          "Signal_1"
+        ],
+        "child": "Signal_1",
+        "parents": [],
+        "parents_lst": [],
+        "child_lst": [
+          "Signal_1"
+        ],
+        "lobo": 0.24900000024109273,
+        "upbo": 0.34499999999
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "Signal_2",
+          "Repair_1",
+          "Review_1"
+        ],
+        "child": "Signal_2",
+        "parents": [
+          "Repair_1",
+          "Review_1"
+        ],
+        "parents_lst": [
+          "Repair_1",
+          "Review_1"
+        ],
+        "child_lst": [
+          "Signal_2"
+        ],
+        "lobo": 0.22310756982111535,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "Signal_2",
+          "Repair_1",
+          "Review_1"
+        ],
+        "child": "Signal_2",
+        "parents": [
+          "Repair_1",
+          "Review_1"
+        ],
+        "parents_lst": [
+          "Repair_1",
+          "Review_1"
+        ],
+        "child_lst": [
+          "Signal_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "Signal_2",
+          "Repair_1",
+          "Review_1"
+        ],
+        "child": "Signal_2",
+        "parents": [
+          "Repair_1",
+          "Review_1"
+        ],
+        "parents_lst": [
+          "Repair_1",
+          "Review_1"
+        ],
+        "child_lst": [
+          "Signal_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "Signal_2",
+          "Repair_1",
+          "Review_1"
+        ],
+        "child": "Signal_2",
+        "parents": [
+          "Repair_1",
+          "Review_1"
+        ],
+        "parents_lst": [
+          "Repair_1",
+          "Review_1"
+        ],
+        "child_lst": [
+          "Signal_2"
+        ],
+        "lobo": 0.7640000000099969,
+        "upbo": 0.829999999990001
+      },
+      "4": {
+        "interpretation": [
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "Signal_2",
+          "Repair_1",
+          "Review_1"
+        ],
+        "child": "Signal_2",
+        "parents": [
+          "Repair_1",
+          "Review_1"
+        ],
+        "parents_lst": [
+          "Repair_1",
+          "Review_1"
+        ],
+        "child_lst": [
+          "Signal_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.7768924301788847
+      },
+      "5": {
+        "interpretation": [
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "Signal_2",
+          "Repair_1",
+          "Review_1"
+        ],
+        "child": "Signal_2",
+        "parents": [
+          "Repair_1",
+          "Review_1"
+        ],
+        "parents_lst": [
+          "Repair_1",
+          "Review_1"
+        ],
+        "child_lst": [
+          "Signal_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "Signal_2",
+          "Repair_1",
+          "Review_1"
+        ],
+        "child": "Signal_2",
+        "parents": [
+          "Repair_1",
+          "Review_1"
+        ],
+        "parents_lst": [
+          "Repair_1",
+          "Review_1"
+        ],
+        "child_lst": [
+          "Signal_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "Signal_2",
+          "Repair_1",
+          "Review_1"
+        ],
+        "child": "Signal_2",
+        "parents": [
+          "Repair_1",
+          "Review_1"
+        ],
+        "parents_lst": [
+          "Repair_1",
+          "Review_1"
+        ],
+        "child_lst": [
+          "Signal_2"
+        ],
+        "lobo": 0.17000000001000556,
+        "upbo": 0.23599999999000226
+      }
+    }
+  ]
+}
