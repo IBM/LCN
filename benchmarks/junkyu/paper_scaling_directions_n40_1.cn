@@ -1,0 +1,3762 @@
+{
+  "format": "lcn-credal-network",
+  "version": 1,
+  "source_lcn": null,
+  "method": "linear",
+  "merge_budget": 1,
+  "solver": "ipopt",
+  "compile_time": 45.82,
+  "n_jobs": 16,
+  "nodes": [
+    "Evacuation_1",
+    "Evacuation_10",
+    "Evacuation_2",
+    "Evacuation_3",
+    "Evacuation_4",
+    "Evacuation_5",
+    "Evacuation_6",
+    "Evacuation_7",
+    "Evacuation_8",
+    "Evacuation_9",
+    "Patrol_1",
+    "Patrol_10",
+    "Patrol_2",
+    "Patrol_3",
+    "Patrol_4",
+    "Patrol_5",
+    "Patrol_6",
+    "Patrol_7",
+    "Patrol_8",
+    "Patrol_9",
+    "Shelter_1",
+    "Shelter_10",
+    "Shelter_2",
+    "Shelter_3",
+    "Shelter_4",
+    "Shelter_5",
+    "Shelter_6",
+    "Shelter_7",
+    "Shelter_8",
+    "Shelter_9",
+    "Smoke_1",
+    "Smoke_10",
+    "Smoke_2",
+    "Smoke_3",
+    "Smoke_4",
+    "Smoke_5",
+    "Smoke_6",
+    "Smoke_7",
+    "Smoke_8",
+    "Smoke_9"
+  ],
+  "node_atoms": {
+    "Evacuation_1": [
+      "Evacuation_1"
+    ],
+    "Evacuation_10": [
+      "Evacuation_10"
+    ],
+    "Evacuation_2": [
+      "Evacuation_2"
+    ],
+    "Evacuation_3": [
+      "Evacuation_3"
+    ],
+    "Evacuation_4": [
+      "Evacuation_4"
+    ],
+    "Evacuation_5": [
+      "Evacuation_5"
+    ],
+    "Evacuation_6": [
+      "Evacuation_6"
+    ],
+    "Evacuation_7": [
+      "Evacuation_7"
+    ],
+    "Evacuation_8": [
+      "Evacuation_8"
+    ],
+    "Evacuation_9": [
+      "Evacuation_9"
+    ],
+    "Patrol_1": [
+      "Patrol_1"
+    ],
+    "Patrol_10": [
+      "Patrol_10"
+    ],
+    "Patrol_2": [
+      "Patrol_2"
+    ],
+    "Patrol_3": [
+      "Patrol_3"
+    ],
+    "Patrol_4": [
+      "Patrol_4"
+    ],
+    "Patrol_5": [
+      "Patrol_5"
+    ],
+    "Patrol_6": [
+      "Patrol_6"
+    ],
+    "Patrol_7": [
+      "Patrol_7"
+    ],
+    "Patrol_8": [
+      "Patrol_8"
+    ],
+    "Patrol_9": [
+      "Patrol_9"
+    ],
+    "Shelter_1": [
+      "Shelter_1"
+    ],
+    "Shelter_10": [
+      "Shelter_10"
+    ],
+    "Shelter_2": [
+      "Shelter_2"
+    ],
+    "Shelter_3": [
+      "Shelter_3"
+    ],
+    "Shelter_4": [
+      "Shelter_4"
+    ],
+    "Shelter_5": [
+      "Shelter_5"
+    ],
+    "Shelter_6": [
+      "Shelter_6"
+    ],
+    "Shelter_7": [
+      "Shelter_7"
+    ],
+    "Shelter_8": [
+      "Shelter_8"
+    ],
+    "Shelter_9": [
+      "Shelter_9"
+    ],
+    "Smoke_1": [
+      "Smoke_1"
+    ],
+    "Smoke_10": [
+      "Smoke_10"
+    ],
+    "Smoke_2": [
+      "Smoke_2"
+    ],
+    "Smoke_3": [
+      "Smoke_3"
+    ],
+    "Smoke_4": [
+      "Smoke_4"
+    ],
+    "Smoke_5": [
+      "Smoke_5"
+    ],
+    "Smoke_6": [
+      "Smoke_6"
+    ],
+    "Smoke_7": [
+      "Smoke_7"
+    ],
+    "Smoke_8": [
+      "Smoke_8"
+    ],
+    "Smoke_9": [
+      "Smoke_9"
+    ]
+  },
+  "node_card": {
+    "Evacuation_1": 2,
+    "Evacuation_10": 2,
+    "Evacuation_2": 2,
+    "Evacuation_3": 2,
+    "Evacuation_4": 2,
+    "Evacuation_5": 2,
+    "Evacuation_6": 2,
+    "Evacuation_7": 2,
+    "Evacuation_8": 2,
+    "Evacuation_9": 2,
+    "Patrol_1": 2,
+    "Patrol_10": 2,
+    "Patrol_2": 2,
+    "Patrol_3": 2,
+    "Patrol_4": 2,
+    "Patrol_5": 2,
+    "Patrol_6": 2,
+    "Patrol_7": 2,
+    "Patrol_8": 2,
+    "Patrol_9": 2,
+    "Shelter_1": 2,
+    "Shelter_10": 2,
+    "Shelter_2": 2,
+    "Shelter_3": 2,
+    "Shelter_4": 2,
+    "Shelter_5": 2,
+    "Shelter_6": 2,
+    "Shelter_7": 2,
+    "Shelter_8": 2,
+    "Shelter_9": 2,
+    "Smoke_1": 2,
+    "Smoke_10": 2,
+    "Smoke_2": 2,
+    "Smoke_3": 2,
+    "Smoke_4": 2,
+    "Smoke_5": 2,
+    "Smoke_6": 2,
+    "Smoke_7": 2,
+    "Smoke_8": 2,
+    "Smoke_9": 2
+  },
+  "factors": [
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Evacuation_1",
+          "Smoke_1"
+        ],
+        "child": "Evacuation_1",
+        "parents": [
+          "Smoke_1"
+        ],
+        "parents_lst": [
+          "Smoke_1"
+        ],
+        "child_lst": [
+          "Evacuation_1"
+        ],
+        "lobo": 0.607130374512038,
+        "upbo": 0.939680998572689
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Evacuation_1",
+          "Smoke_1"
+        ],
+        "child": "Evacuation_1",
+        "parents": [
+          "Smoke_1"
+        ],
+        "parents_lst": [
+          "Smoke_1"
+        ],
+        "child_lst": [
+          "Evacuation_1"
+        ],
+        "lobo": 0.31000000001000005,
+        "upbo": 0.62099999999
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Evacuation_1",
+          "Smoke_1"
+        ],
+        "child": "Evacuation_1",
+        "parents": [
+          "Smoke_1"
+        ],
+        "parents_lst": [
+          "Smoke_1"
+        ],
+        "child_lst": [
+          "Evacuation_1"
+        ],
+        "lobo": 0.06031900147239089,
+        "upbo": 0.39286962548796195
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Evacuation_1",
+          "Smoke_1"
+        ],
+        "child": "Evacuation_1",
+        "parents": [
+          "Smoke_1"
+        ],
+        "parents_lst": [
+          "Smoke_1"
+        ],
+        "child_lst": [
+          "Evacuation_1"
+        ],
+        "lobo": 0.37900000001,
+        "upbo": 0.68999999999
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Evacuation_10",
+          "Smoke_10"
+        ],
+        "child": "Evacuation_10",
+        "parents": [
+          "Smoke_10"
+        ],
+        "parents_lst": [
+          "Smoke_10"
+        ],
+        "child_lst": [
+          "Evacuation_10"
+        ],
+        "lobo": 0.8690450771355753,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Evacuation_10",
+          "Smoke_10"
+        ],
+        "child": "Evacuation_10",
+        "parents": [
+          "Smoke_10"
+        ],
+        "parents_lst": [
+          "Smoke_10"
+        ],
+        "child_lst": [
+          "Evacuation_10"
+        ],
+        "lobo": 0.39500000001,
+        "upbo": 0.73499999999
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Evacuation_10",
+          "Smoke_10"
+        ],
+        "child": "Evacuation_10",
+        "parents": [
+          "Smoke_10"
+        ],
+        "parents_lst": [
+          "Smoke_10"
+        ],
+        "child_lst": [
+          "Evacuation_10"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.13095492286442467
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Evacuation_10",
+          "Smoke_10"
+        ],
+        "child": "Evacuation_10",
+        "parents": [
+          "Smoke_10"
+        ],
+        "parents_lst": [
+          "Smoke_10"
+        ],
+        "child_lst": [
+          "Evacuation_10"
+        ],
+        "lobo": 0.26500000001,
+        "upbo": 0.60499999999
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Evacuation_2",
+          "Smoke_2"
+        ],
+        "child": "Evacuation_2",
+        "parents": [
+          "Smoke_2"
+        ],
+        "parents_lst": [
+          "Smoke_2"
+        ],
+        "child_lst": [
+          "Evacuation_2"
+        ],
+        "lobo": 0.8034813385282228,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Evacuation_2",
+          "Smoke_2"
+        ],
+        "child": "Evacuation_2",
+        "parents": [
+          "Smoke_2"
+        ],
+        "parents_lst": [
+          "Smoke_2"
+        ],
+        "child_lst": [
+          "Evacuation_2"
+        ],
+        "lobo": 0.27700000001,
+        "upbo": 0.46499999976385364
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Evacuation_2",
+          "Smoke_2"
+        ],
+        "child": "Evacuation_2",
+        "parents": [
+          "Smoke_2"
+        ],
+        "parents_lst": [
+          "Smoke_2"
+        ],
+        "child_lst": [
+          "Evacuation_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.1965186614717772
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Evacuation_2",
+          "Smoke_2"
+        ],
+        "child": "Evacuation_2",
+        "parents": [
+          "Smoke_2"
+        ],
+        "parents_lst": [
+          "Smoke_2"
+        ],
+        "child_lst": [
+          "Evacuation_2"
+        ],
+        "lobo": 0.5350000002361464,
+        "upbo": 0.72299999999
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Evacuation_3",
+          "Smoke_3"
+        ],
+        "child": "Evacuation_3",
+        "parents": [
+          "Smoke_3"
+        ],
+        "parents_lst": [
+          "Smoke_3"
+        ],
+        "child_lst": [
+          "Evacuation_3"
+        ],
+        "lobo": 0.5371637427310538,
+        "upbo": 0.7688070166874089
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Evacuation_3",
+          "Smoke_3"
+        ],
+        "child": "Evacuation_3",
+        "parents": [
+          "Smoke_3"
+        ],
+        "parents_lst": [
+          "Smoke_3"
+        ],
+        "child_lst": [
+          "Evacuation_3"
+        ],
+        "lobo": 0.64600000001,
+        "upbo": 0.75499999999
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Evacuation_3",
+          "Smoke_3"
+        ],
+        "child": "Evacuation_3",
+        "parents": [
+          "Smoke_3"
+        ],
+        "parents_lst": [
+          "Smoke_3"
+        ],
+        "child_lst": [
+          "Evacuation_3"
+        ],
+        "lobo": 0.23119298331259097,
+        "upbo": 0.4628362572689462
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Evacuation_3",
+          "Smoke_3"
+        ],
+        "child": "Evacuation_3",
+        "parents": [
+          "Smoke_3"
+        ],
+        "parents_lst": [
+          "Smoke_3"
+        ],
+        "child_lst": [
+          "Evacuation_3"
+        ],
+        "lobo": 0.24500000001,
+        "upbo": 0.35399999999
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Evacuation_4",
+          "Smoke_4"
+        ],
+        "child": "Evacuation_4",
+        "parents": [
+          "Smoke_4"
+        ],
+        "parents_lst": [
+          "Smoke_4"
+        ],
+        "child_lst": [
+          "Evacuation_4"
+        ],
+        "lobo": 0.6644726989486079,
+        "upbo": 0.9599297888919202
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Evacuation_4",
+          "Smoke_4"
+        ],
+        "child": "Evacuation_4",
+        "parents": [
+          "Smoke_4"
+        ],
+        "parents_lst": [
+          "Smoke_4"
+        ],
+        "child_lst": [
+          "Evacuation_4"
+        ],
+        "lobo": 0.7150000000100001,
+        "upbo": 0.84699999999
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Evacuation_4",
+          "Smoke_4"
+        ],
+        "child": "Evacuation_4",
+        "parents": [
+          "Smoke_4"
+        ],
+        "parents_lst": [
+          "Smoke_4"
+        ],
+        "child_lst": [
+          "Evacuation_4"
+        ],
+        "lobo": 0.04007021110807989,
+        "upbo": 0.33552730105139217
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Evacuation_4",
+          "Smoke_4"
+        ],
+        "child": "Evacuation_4",
+        "parents": [
+          "Smoke_4"
+        ],
+        "parents_lst": [
+          "Smoke_4"
+        ],
+        "child_lst": [
+          "Evacuation_4"
+        ],
+        "lobo": 0.15300000001,
+        "upbo": 0.28499999999
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Evacuation_5",
+          "Smoke_5"
+        ],
+        "child": "Evacuation_5",
+        "parents": [
+          "Smoke_5"
+        ],
+        "parents_lst": [
+          "Smoke_5"
+        ],
+        "child_lst": [
+          "Evacuation_5"
+        ],
+        "lobo": 0.6402671480602221,
+        "upbo": 0.883508021266108
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Evacuation_5",
+          "Smoke_5"
+        ],
+        "child": "Evacuation_5",
+        "parents": [
+          "Smoke_5"
+        ],
+        "parents_lst": [
+          "Smoke_5"
+        ],
+        "child_lst": [
+          "Evacuation_5"
+        ],
+        "lobo": 0.3180000000103643,
+        "upbo": 0.40199999999
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Evacuation_5",
+          "Smoke_5"
+        ],
+        "child": "Evacuation_5",
+        "parents": [
+          "Smoke_5"
+        ],
+        "parents_lst": [
+          "Smoke_5"
+        ],
+        "child_lst": [
+          "Evacuation_5"
+        ],
+        "lobo": 0.11649197873389207,
+        "upbo": 0.35973285193977805
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Evacuation_5",
+          "Smoke_5"
+        ],
+        "child": "Evacuation_5",
+        "parents": [
+          "Smoke_5"
+        ],
+        "parents_lst": [
+          "Smoke_5"
+        ],
+        "child_lst": [
+          "Evacuation_5"
+        ],
+        "lobo": 0.59800000001,
+        "upbo": 0.6819999999896358
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Evacuation_6",
+          "Smoke_6"
+        ],
+        "child": "Evacuation_6",
+        "parents": [
+          "Smoke_6"
+        ],
+        "parents_lst": [
+          "Smoke_6"
+        ],
+        "child_lst": [
+          "Evacuation_6"
+        ],
+        "lobo": 0.8690000000333389,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Evacuation_6",
+          "Smoke_6"
+        ],
+        "child": "Evacuation_6",
+        "parents": [
+          "Smoke_6"
+        ],
+        "parents_lst": [
+          "Smoke_6"
+        ],
+        "child_lst": [
+          "Evacuation_6"
+        ],
+        "lobo": 0.09000000289210235,
+        "upbo": 0.43299999998980315
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Evacuation_6",
+          "Smoke_6"
+        ],
+        "child": "Evacuation_6",
+        "parents": [
+          "Smoke_6"
+        ],
+        "parents_lst": [
+          "Smoke_6"
+        ],
+        "child_lst": [
+          "Evacuation_6"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.1309999999666611
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Evacuation_6",
+          "Smoke_6"
+        ],
+        "child": "Evacuation_6",
+        "parents": [
+          "Smoke_6"
+        ],
+        "parents_lst": [
+          "Smoke_6"
+        ],
+        "child_lst": [
+          "Evacuation_6"
+        ],
+        "lobo": 0.5670000000101968,
+        "upbo": 0.9099999971220263
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Evacuation_7",
+          "Smoke_7"
+        ],
+        "child": "Evacuation_7",
+        "parents": [
+          "Smoke_7"
+        ],
+        "parents_lst": [
+          "Smoke_7"
+        ],
+        "child_lst": [
+          "Evacuation_7"
+        ],
+        "lobo": 0.8476923077258255,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Evacuation_7",
+          "Smoke_7"
+        ],
+        "child": "Evacuation_7",
+        "parents": [
+          "Smoke_7"
+        ],
+        "parents_lst": [
+          "Smoke_7"
+        ],
+        "child_lst": [
+          "Evacuation_7"
+        ],
+        "lobo": 0.52700000001,
+        "upbo": 0.6599999999899999
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Evacuation_7",
+          "Smoke_7"
+        ],
+        "child": "Evacuation_7",
+        "parents": [
+          "Smoke_7"
+        ],
+        "parents_lst": [
+          "Smoke_7"
+        ],
+        "child_lst": [
+          "Evacuation_7"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.1523076922741746
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Evacuation_7",
+          "Smoke_7"
+        ],
+        "child": "Evacuation_7",
+        "parents": [
+          "Smoke_7"
+        ],
+        "parents_lst": [
+          "Smoke_7"
+        ],
+        "child_lst": [
+          "Evacuation_7"
+        ],
+        "lobo": 0.3400000000100001,
+        "upbo": 0.47299999999
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Evacuation_8",
+          "Smoke_8"
+        ],
+        "child": "Evacuation_8",
+        "parents": [
+          "Smoke_8"
+        ],
+        "parents_lst": [
+          "Smoke_8"
+        ],
+        "child_lst": [
+          "Evacuation_8"
+        ],
+        "lobo": 0.8835547074227718,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Evacuation_8",
+          "Smoke_8"
+        ],
+        "child": "Evacuation_8",
+        "parents": [
+          "Smoke_8"
+        ],
+        "parents_lst": [
+          "Smoke_8"
+        ],
+        "child_lst": [
+          "Evacuation_8"
+        ],
+        "lobo": 0.20400000000999996,
+        "upbo": 0.40899999999000003
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Evacuation_8",
+          "Smoke_8"
+        ],
+        "child": "Evacuation_8",
+        "parents": [
+          "Smoke_8"
+        ],
+        "parents_lst": [
+          "Smoke_8"
+        ],
+        "child_lst": [
+          "Evacuation_8"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.11644529257722824
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Evacuation_8",
+          "Smoke_8"
+        ],
+        "child": "Evacuation_8",
+        "parents": [
+          "Smoke_8"
+        ],
+        "parents_lst": [
+          "Smoke_8"
+        ],
+        "child_lst": [
+          "Evacuation_8"
+        ],
+        "lobo": 0.59100000001,
+        "upbo": 0.79599999999
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Evacuation_9",
+          "Smoke_9"
+        ],
+        "child": "Evacuation_9",
+        "parents": [
+          "Smoke_9"
+        ],
+        "parents_lst": [
+          "Smoke_9"
+        ],
+        "child_lst": [
+          "Evacuation_9"
+        ],
+        "lobo": 0.7235296912414014,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Evacuation_9",
+          "Smoke_9"
+        ],
+        "child": "Evacuation_9",
+        "parents": [
+          "Smoke_9"
+        ],
+        "parents_lst": [
+          "Smoke_9"
+        ],
+        "child_lst": [
+          "Evacuation_9"
+        ],
+        "lobo": 0.23900000001219057,
+        "upbo": 0.48599999999
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Evacuation_9",
+          "Smoke_9"
+        ],
+        "child": "Evacuation_9",
+        "parents": [
+          "Smoke_9"
+        ],
+        "parents_lst": [
+          "Smoke_9"
+        ],
+        "child_lst": [
+          "Evacuation_9"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.2764703087585986
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Evacuation_9",
+          "Smoke_9"
+        ],
+        "child": "Evacuation_9",
+        "parents": [
+          "Smoke_9"
+        ],
+        "parents_lst": [
+          "Smoke_9"
+        ],
+        "child_lst": [
+          "Evacuation_9"
+        ],
+        "lobo": 0.51400000001,
+        "upbo": 0.7609999999878094
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Patrol_1",
+          "Evacuation_1"
+        ],
+        "child": "Patrol_1",
+        "parents": [
+          "Evacuation_1"
+        ],
+        "parents_lst": [
+          "Evacuation_1"
+        ],
+        "child_lst": [
+          "Patrol_1"
+        ],
+        "lobo": 0.5941080196699345,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Patrol_1",
+          "Evacuation_1"
+        ],
+        "child": "Patrol_1",
+        "parents": [
+          "Evacuation_1"
+        ],
+        "parents_lst": [
+          "Evacuation_1"
+        ],
+        "child_lst": [
+          "Patrol_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Patrol_1",
+          "Evacuation_1"
+        ],
+        "child": "Patrol_1",
+        "parents": [
+          "Evacuation_1"
+        ],
+        "parents_lst": [
+          "Evacuation_1"
+        ],
+        "child_lst": [
+          "Patrol_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.4058919803300654
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Patrol_1",
+          "Evacuation_1"
+        ],
+        "child": "Patrol_1",
+        "parents": [
+          "Evacuation_1"
+        ],
+        "parents_lst": [
+          "Evacuation_1"
+        ],
+        "child_lst": [
+          "Patrol_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Patrol_10",
+          "Evacuation_10"
+        ],
+        "child": "Patrol_10",
+        "parents": [
+          "Evacuation_10"
+        ],
+        "parents_lst": [
+          "Evacuation_10"
+        ],
+        "child_lst": [
+          "Patrol_10"
+        ],
+        "lobo": 0.4610849056903774,
+        "upbo": 0.8962264150643395
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Patrol_10",
+          "Evacuation_10"
+        ],
+        "child": "Patrol_10",
+        "parents": [
+          "Evacuation_10"
+        ],
+        "parents_lst": [
+          "Evacuation_10"
+        ],
+        "child_lst": [
+          "Patrol_10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Patrol_10",
+          "Evacuation_10"
+        ],
+        "child": "Patrol_10",
+        "parents": [
+          "Evacuation_10"
+        ],
+        "parents_lst": [
+          "Evacuation_10"
+        ],
+        "child_lst": [
+          "Patrol_10"
+        ],
+        "lobo": 0.1037735849356604,
+        "upbo": 0.5389150943096226
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Patrol_10",
+          "Evacuation_10"
+        ],
+        "child": "Patrol_10",
+        "parents": [
+          "Evacuation_10"
+        ],
+        "parents_lst": [
+          "Evacuation_10"
+        ],
+        "child_lst": [
+          "Patrol_10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Patrol_2",
+          "Evacuation_2"
+        ],
+        "child": "Patrol_2",
+        "parents": [
+          "Evacuation_2"
+        ],
+        "parents_lst": [
+          "Evacuation_2"
+        ],
+        "child_lst": [
+          "Patrol_2"
+        ],
+        "lobo": 0.7280219780519779,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Patrol_2",
+          "Evacuation_2"
+        ],
+        "child": "Patrol_2",
+        "parents": [
+          "Evacuation_2"
+        ],
+        "parents_lst": [
+          "Evacuation_2"
+        ],
+        "child_lst": [
+          "Patrol_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Patrol_2",
+          "Evacuation_2"
+        ],
+        "child": "Patrol_2",
+        "parents": [
+          "Evacuation_2"
+        ],
+        "parents_lst": [
+          "Evacuation_2"
+        ],
+        "child_lst": [
+          "Patrol_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.27197802194802195
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Patrol_2",
+          "Evacuation_2"
+        ],
+        "child": "Patrol_2",
+        "parents": [
+          "Evacuation_2"
+        ],
+        "parents_lst": [
+          "Evacuation_2"
+        ],
+        "child_lst": [
+          "Patrol_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Patrol_3",
+          "Evacuation_3"
+        ],
+        "child": "Patrol_3",
+        "parents": [
+          "Evacuation_3"
+        ],
+        "parents_lst": [
+          "Evacuation_3"
+        ],
+        "child_lst": [
+          "Patrol_3"
+        ],
+        "lobo": 0.297029703000297,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Patrol_3",
+          "Evacuation_3"
+        ],
+        "child": "Patrol_3",
+        "parents": [
+          "Evacuation_3"
+        ],
+        "parents_lst": [
+          "Evacuation_3"
+        ],
+        "child_lst": [
+          "Patrol_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Patrol_3",
+          "Evacuation_3"
+        ],
+        "child": "Patrol_3",
+        "parents": [
+          "Evacuation_3"
+        ],
+        "parents_lst": [
+          "Evacuation_3"
+        ],
+        "child_lst": [
+          "Patrol_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.7029702969997029
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Patrol_3",
+          "Evacuation_3"
+        ],
+        "child": "Patrol_3",
+        "parents": [
+          "Evacuation_3"
+        ],
+        "parents_lst": [
+          "Evacuation_3"
+        ],
+        "child_lst": [
+          "Patrol_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Patrol_4",
+          "Evacuation_4"
+        ],
+        "child": "Patrol_4",
+        "parents": [
+          "Evacuation_4"
+        ],
+        "parents_lst": [
+          "Evacuation_4"
+        ],
+        "child_lst": [
+          "Patrol_4"
+        ],
+        "lobo": 0.5493150685231507,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Patrol_4",
+          "Evacuation_4"
+        ],
+        "child": "Patrol_4",
+        "parents": [
+          "Evacuation_4"
+        ],
+        "parents_lst": [
+          "Evacuation_4"
+        ],
+        "child_lst": [
+          "Patrol_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Patrol_4",
+          "Evacuation_4"
+        ],
+        "child": "Patrol_4",
+        "parents": [
+          "Evacuation_4"
+        ],
+        "parents_lst": [
+          "Evacuation_4"
+        ],
+        "child_lst": [
+          "Patrol_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.4506849314768493
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Patrol_4",
+          "Evacuation_4"
+        ],
+        "child": "Patrol_4",
+        "parents": [
+          "Evacuation_4"
+        ],
+        "parents_lst": [
+          "Evacuation_4"
+        ],
+        "child_lst": [
+          "Patrol_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Patrol_5",
+          "Evacuation_5"
+        ],
+        "child": "Patrol_5",
+        "parents": [
+          "Evacuation_5"
+        ],
+        "parents_lst": [
+          "Evacuation_5"
+        ],
+        "child_lst": [
+          "Patrol_5"
+        ],
+        "lobo": 0.44500000003,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Patrol_5",
+          "Evacuation_5"
+        ],
+        "child": "Patrol_5",
+        "parents": [
+          "Evacuation_5"
+        ],
+        "parents_lst": [
+          "Evacuation_5"
+        ],
+        "child_lst": [
+          "Patrol_5"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Patrol_5",
+          "Evacuation_5"
+        ],
+        "child": "Patrol_5",
+        "parents": [
+          "Evacuation_5"
+        ],
+        "parents_lst": [
+          "Evacuation_5"
+        ],
+        "child_lst": [
+          "Patrol_5"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.5549999999699999
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Patrol_5",
+          "Evacuation_5"
+        ],
+        "child": "Patrol_5",
+        "parents": [
+          "Evacuation_5"
+        ],
+        "parents_lst": [
+          "Evacuation_5"
+        ],
+        "child_lst": [
+          "Patrol_5"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Patrol_6",
+          "Evacuation_6"
+        ],
+        "child": "Patrol_6",
+        "parents": [
+          "Evacuation_6"
+        ],
+        "parents_lst": [
+          "Evacuation_6"
+        ],
+        "child_lst": [
+          "Patrol_6"
+        ],
+        "lobo": 0.7657894737142105,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Patrol_6",
+          "Evacuation_6"
+        ],
+        "child": "Patrol_6",
+        "parents": [
+          "Evacuation_6"
+        ],
+        "parents_lst": [
+          "Evacuation_6"
+        ],
+        "child_lst": [
+          "Patrol_6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Patrol_6",
+          "Evacuation_6"
+        ],
+        "child": "Patrol_6",
+        "parents": [
+          "Evacuation_6"
+        ],
+        "parents_lst": [
+          "Evacuation_6"
+        ],
+        "child_lst": [
+          "Patrol_6"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.23421052628578945
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Patrol_6",
+          "Evacuation_6"
+        ],
+        "child": "Patrol_6",
+        "parents": [
+          "Evacuation_6"
+        ],
+        "parents_lst": [
+          "Evacuation_6"
+        ],
+        "child_lst": [
+          "Patrol_6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Patrol_7",
+          "Evacuation_7"
+        ],
+        "child": "Patrol_7",
+        "parents": [
+          "Evacuation_7"
+        ],
+        "parents_lst": [
+          "Evacuation_7"
+        ],
+        "child_lst": [
+          "Patrol_7"
+        ],
+        "lobo": 0.5527876631379478,
+        "upbo": 0.8327402134931317
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Patrol_7",
+          "Evacuation_7"
+        ],
+        "child": "Patrol_7",
+        "parents": [
+          "Evacuation_7"
+        ],
+        "parents_lst": [
+          "Evacuation_7"
+        ],
+        "child_lst": [
+          "Patrol_7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Patrol_7",
+          "Evacuation_7"
+        ],
+        "child": "Patrol_7",
+        "parents": [
+          "Evacuation_7"
+        ],
+        "parents_lst": [
+          "Evacuation_7"
+        ],
+        "child_lst": [
+          "Patrol_7"
+        ],
+        "lobo": 0.1672597865068683,
+        "upbo": 0.44721233686205225
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Patrol_7",
+          "Evacuation_7"
+        ],
+        "child": "Patrol_7",
+        "parents": [
+          "Evacuation_7"
+        ],
+        "parents_lst": [
+          "Evacuation_7"
+        ],
+        "child_lst": [
+          "Patrol_7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Patrol_8",
+          "Evacuation_8"
+        ],
+        "child": "Patrol_8",
+        "parents": [
+          "Evacuation_8"
+        ],
+        "parents_lst": [
+          "Evacuation_8"
+        ],
+        "child_lst": [
+          "Patrol_8"
+        ],
+        "lobo": 0.5626598465773145,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Patrol_8",
+          "Evacuation_8"
+        ],
+        "child": "Patrol_8",
+        "parents": [
+          "Evacuation_8"
+        ],
+        "parents_lst": [
+          "Evacuation_8"
+        ],
+        "child_lst": [
+          "Patrol_8"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Patrol_8",
+          "Evacuation_8"
+        ],
+        "child": "Patrol_8",
+        "parents": [
+          "Evacuation_8"
+        ],
+        "parents_lst": [
+          "Evacuation_8"
+        ],
+        "child_lst": [
+          "Patrol_8"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.4373401534226854
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Patrol_8",
+          "Evacuation_8"
+        ],
+        "child": "Patrol_8",
+        "parents": [
+          "Evacuation_8"
+        ],
+        "parents_lst": [
+          "Evacuation_8"
+        ],
+        "child_lst": [
+          "Patrol_8"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Patrol_9",
+          "Evacuation_9"
+        ],
+        "child": "Patrol_9",
+        "parents": [
+          "Evacuation_9"
+        ],
+        "parents_lst": [
+          "Evacuation_9"
+        ],
+        "child_lst": [
+          "Patrol_9"
+        ],
+        "lobo": 0.5918367347238775,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Patrol_9",
+          "Evacuation_9"
+        ],
+        "child": "Patrol_9",
+        "parents": [
+          "Evacuation_9"
+        ],
+        "parents_lst": [
+          "Evacuation_9"
+        ],
+        "child_lst": [
+          "Patrol_9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Patrol_9",
+          "Evacuation_9"
+        ],
+        "child": "Patrol_9",
+        "parents": [
+          "Evacuation_9"
+        ],
+        "parents_lst": [
+          "Evacuation_9"
+        ],
+        "child_lst": [
+          "Patrol_9"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.4081632652761224
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Patrol_9",
+          "Evacuation_9"
+        ],
+        "child": "Patrol_9",
+        "parents": [
+          "Evacuation_9"
+        ],
+        "parents_lst": [
+          "Evacuation_9"
+        ],
+        "child_lst": [
+          "Patrol_9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Shelter_1",
+          "Evacuation_1"
+        ],
+        "child": "Shelter_1",
+        "parents": [
+          "Evacuation_1"
+        ],
+        "parents_lst": [
+          "Evacuation_1"
+        ],
+        "child_lst": [
+          "Shelter_1"
+        ],
+        "lobo": 0.44026186582378074,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Shelter_1",
+          "Evacuation_1"
+        ],
+        "child": "Shelter_1",
+        "parents": [
+          "Evacuation_1"
+        ],
+        "parents_lst": [
+          "Evacuation_1"
+        ],
+        "child_lst": [
+          "Shelter_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Shelter_1",
+          "Evacuation_1"
+        ],
+        "child": "Shelter_1",
+        "parents": [
+          "Evacuation_1"
+        ],
+        "parents_lst": [
+          "Evacuation_1"
+        ],
+        "child_lst": [
+          "Shelter_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.5597381341762192
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Shelter_1",
+          "Evacuation_1"
+        ],
+        "child": "Shelter_1",
+        "parents": [
+          "Evacuation_1"
+        ],
+        "parents_lst": [
+          "Evacuation_1"
+        ],
+        "child_lst": [
+          "Shelter_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Shelter_10",
+          "Evacuation_10"
+        ],
+        "child": "Shelter_10",
+        "parents": [
+          "Evacuation_10"
+        ],
+        "parents_lst": [
+          "Evacuation_10"
+        ],
+        "child_lst": [
+          "Shelter_10"
+        ],
+        "lobo": 0.6839622641809434,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Shelter_10",
+          "Evacuation_10"
+        ],
+        "child": "Shelter_10",
+        "parents": [
+          "Evacuation_10"
+        ],
+        "parents_lst": [
+          "Evacuation_10"
+        ],
+        "child_lst": [
+          "Shelter_10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Shelter_10",
+          "Evacuation_10"
+        ],
+        "child": "Shelter_10",
+        "parents": [
+          "Evacuation_10"
+        ],
+        "parents_lst": [
+          "Evacuation_10"
+        ],
+        "child_lst": [
+          "Shelter_10"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.31603773581905664
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Shelter_10",
+          "Evacuation_10"
+        ],
+        "child": "Shelter_10",
+        "parents": [
+          "Evacuation_10"
+        ],
+        "parents_lst": [
+          "Evacuation_10"
+        ],
+        "child_lst": [
+          "Shelter_10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0000000000063085
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Shelter_2",
+          "Evacuation_2"
+        ],
+        "child": "Shelter_2",
+        "parents": [
+          "Evacuation_2"
+        ],
+        "parents_lst": [
+          "Evacuation_2"
+        ],
+        "child_lst": [
+          "Shelter_2"
+        ],
+        "lobo": 0.5892857143157143,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Shelter_2",
+          "Evacuation_2"
+        ],
+        "child": "Shelter_2",
+        "parents": [
+          "Evacuation_2"
+        ],
+        "parents_lst": [
+          "Evacuation_2"
+        ],
+        "child_lst": [
+          "Shelter_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Shelter_2",
+          "Evacuation_2"
+        ],
+        "child": "Shelter_2",
+        "parents": [
+          "Evacuation_2"
+        ],
+        "parents_lst": [
+          "Evacuation_2"
+        ],
+        "child_lst": [
+          "Shelter_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.4107142856842857
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Shelter_2",
+          "Evacuation_2"
+        ],
+        "child": "Shelter_2",
+        "parents": [
+          "Evacuation_2"
+        ],
+        "parents_lst": [
+          "Evacuation_2"
+        ],
+        "child_lst": [
+          "Shelter_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Shelter_3",
+          "Evacuation_3"
+        ],
+        "child": "Shelter_3",
+        "parents": [
+          "Evacuation_3"
+        ],
+        "parents_lst": [
+          "Evacuation_3"
+        ],
+        "child_lst": [
+          "Shelter_3"
+        ],
+        "lobo": 0.40264026409929077,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Shelter_3",
+          "Evacuation_3"
+        ],
+        "child": "Shelter_3",
+        "parents": [
+          "Evacuation_3"
+        ],
+        "parents_lst": [
+          "Evacuation_3"
+        ],
+        "child_lst": [
+          "Shelter_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Shelter_3",
+          "Evacuation_3"
+        ],
+        "child": "Shelter_3",
+        "parents": [
+          "Evacuation_3"
+        ],
+        "parents_lst": [
+          "Evacuation_3"
+        ],
+        "child_lst": [
+          "Shelter_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.597359735900709
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Shelter_3",
+          "Evacuation_3"
+        ],
+        "child": "Shelter_3",
+        "parents": [
+          "Evacuation_3"
+        ],
+        "parents_lst": [
+          "Evacuation_3"
+        ],
+        "child_lst": [
+          "Shelter_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Shelter_4",
+          "Evacuation_4"
+        ],
+        "child": "Shelter_4",
+        "parents": [
+          "Evacuation_4"
+        ],
+        "parents_lst": [
+          "Evacuation_4"
+        ],
+        "child_lst": [
+          "Shelter_4"
+        ],
+        "lobo": 0.5232876713868932,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Shelter_4",
+          "Evacuation_4"
+        ],
+        "child": "Shelter_4",
+        "parents": [
+          "Evacuation_4"
+        ],
+        "parents_lst": [
+          "Evacuation_4"
+        ],
+        "child_lst": [
+          "Shelter_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Shelter_4",
+          "Evacuation_4"
+        ],
+        "child": "Shelter_4",
+        "parents": [
+          "Evacuation_4"
+        ],
+        "parents_lst": [
+          "Evacuation_4"
+        ],
+        "child_lst": [
+          "Shelter_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.47671232861310675
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Shelter_4",
+          "Evacuation_4"
+        ],
+        "child": "Shelter_4",
+        "parents": [
+          "Evacuation_4"
+        ],
+        "parents_lst": [
+          "Evacuation_4"
+        ],
+        "child_lst": [
+          "Shelter_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Shelter_5",
+          "Evacuation_5"
+        ],
+        "child": "Shelter_5",
+        "parents": [
+          "Evacuation_5"
+        ],
+        "parents_lst": [
+          "Evacuation_5"
+        ],
+        "child_lst": [
+          "Shelter_5"
+        ],
+        "lobo": 0.5966666666966666,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Shelter_5",
+          "Evacuation_5"
+        ],
+        "child": "Shelter_5",
+        "parents": [
+          "Evacuation_5"
+        ],
+        "parents_lst": [
+          "Evacuation_5"
+        ],
+        "child_lst": [
+          "Shelter_5"
+        ],
+        "lobo": 0.06563706824651418,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Shelter_5",
+          "Evacuation_5"
+        ],
+        "child": "Shelter_5",
+        "parents": [
+          "Evacuation_5"
+        ],
+        "parents_lst": [
+          "Evacuation_5"
+        ],
+        "child_lst": [
+          "Shelter_5"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.4033333333033334
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Shelter_5",
+          "Evacuation_5"
+        ],
+        "child": "Shelter_5",
+        "parents": [
+          "Evacuation_5"
+        ],
+        "parents_lst": [
+          "Evacuation_5"
+        ],
+        "child_lst": [
+          "Shelter_5"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.9343629317534858
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Shelter_6",
+          "Evacuation_6"
+        ],
+        "child": "Shelter_6",
+        "parents": [
+          "Evacuation_6"
+        ],
+        "parents_lst": [
+          "Evacuation_6"
+        ],
+        "child_lst": [
+          "Shelter_6"
+        ],
+        "lobo": 0.5868421052931581,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Shelter_6",
+          "Evacuation_6"
+        ],
+        "child": "Shelter_6",
+        "parents": [
+          "Evacuation_6"
+        ],
+        "parents_lst": [
+          "Evacuation_6"
+        ],
+        "child_lst": [
+          "Shelter_6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Shelter_6",
+          "Evacuation_6"
+        ],
+        "child": "Shelter_6",
+        "parents": [
+          "Evacuation_6"
+        ],
+        "parents_lst": [
+          "Evacuation_6"
+        ],
+        "child_lst": [
+          "Shelter_6"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.413157894706842
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Shelter_6",
+          "Evacuation_6"
+        ],
+        "child": "Shelter_6",
+        "parents": [
+          "Evacuation_6"
+        ],
+        "parents_lst": [
+          "Evacuation_6"
+        ],
+        "child_lst": [
+          "Shelter_6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Shelter_7",
+          "Evacuation_7"
+        ],
+        "child": "Shelter_7",
+        "parents": [
+          "Evacuation_7"
+        ],
+        "parents_lst": [
+          "Evacuation_7"
+        ],
+        "child_lst": [
+          "Shelter_7"
+        ],
+        "lobo": 0.6144721233989205,
+        "upbo": 0.9371292997876387
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Shelter_7",
+          "Evacuation_7"
+        ],
+        "child": "Shelter_7",
+        "parents": [
+          "Evacuation_7"
+        ],
+        "parents_lst": [
+          "Evacuation_7"
+        ],
+        "child_lst": [
+          "Shelter_7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Shelter_7",
+          "Evacuation_7"
+        ],
+        "child": "Shelter_7",
+        "parents": [
+          "Evacuation_7"
+        ],
+        "parents_lst": [
+          "Evacuation_7"
+        ],
+        "child_lst": [
+          "Shelter_7"
+        ],
+        "lobo": 0.06287070021234621,
+        "upbo": 0.3855278766010795
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Shelter_7",
+          "Evacuation_7"
+        ],
+        "child": "Shelter_7",
+        "parents": [
+          "Evacuation_7"
+        ],
+        "parents_lst": [
+          "Evacuation_7"
+        ],
+        "child_lst": [
+          "Shelter_7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Shelter_8",
+          "Evacuation_8"
+        ],
+        "child": "Shelter_8",
+        "parents": [
+          "Evacuation_8"
+        ],
+        "parents_lst": [
+          "Evacuation_8"
+        ],
+        "child_lst": [
+          "Shelter_8"
+        ],
+        "lobo": 0.5741687979839643,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Shelter_8",
+          "Evacuation_8"
+        ],
+        "child": "Shelter_8",
+        "parents": [
+          "Evacuation_8"
+        ],
+        "parents_lst": [
+          "Evacuation_8"
+        ],
+        "child_lst": [
+          "Shelter_8"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Shelter_8",
+          "Evacuation_8"
+        ],
+        "child": "Shelter_8",
+        "parents": [
+          "Evacuation_8"
+        ],
+        "parents_lst": [
+          "Evacuation_8"
+        ],
+        "child_lst": [
+          "Shelter_8"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.4258312020160358
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Shelter_8",
+          "Evacuation_8"
+        ],
+        "child": "Shelter_8",
+        "parents": [
+          "Evacuation_8"
+        ],
+        "parents_lst": [
+          "Evacuation_8"
+        ],
+        "child_lst": [
+          "Shelter_8"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Shelter_9",
+          "Evacuation_9"
+        ],
+        "child": "Shelter_9",
+        "parents": [
+          "Evacuation_9"
+        ],
+        "parents_lst": [
+          "Evacuation_9"
+        ],
+        "child_lst": [
+          "Shelter_9"
+        ],
+        "lobo": 0.6778425656276676,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Shelter_9",
+          "Evacuation_9"
+        ],
+        "child": "Shelter_9",
+        "parents": [
+          "Evacuation_9"
+        ],
+        "parents_lst": [
+          "Evacuation_9"
+        ],
+        "child_lst": [
+          "Shelter_9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Shelter_9",
+          "Evacuation_9"
+        ],
+        "child": "Shelter_9",
+        "parents": [
+          "Evacuation_9"
+        ],
+        "parents_lst": [
+          "Evacuation_9"
+        ],
+        "child_lst": [
+          "Shelter_9"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.3221574343723323
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Shelter_9",
+          "Evacuation_9"
+        ],
+        "child": "Shelter_9",
+        "parents": [
+          "Evacuation_9"
+        ],
+        "parents_lst": [
+          "Evacuation_9"
+        ],
+        "child_lst": [
+          "Shelter_9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0
+        ],
+        "scope": [
+          "Smoke_1"
+        ],
+        "child": "Smoke_1",
+        "parents": [],
+        "parents_lst": [],
+        "child_lst": [
+          "Smoke_1"
+        ],
+        "lobo": 0.7210000000109504,
+        "upbo": 0.8119999996597783
+      },
+      "1": {
+        "interpretation": [
+          1
+        ],
+        "scope": [
+          "Smoke_1"
+        ],
+        "child": "Smoke_1",
+        "parents": [],
+        "parents_lst": [],
+        "child_lst": [
+          "Smoke_1"
+        ],
+        "lobo": 0.18800000005009773,
+        "upbo": 0.278999999982321
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Smoke_10",
+          "Evacuation_9"
+        ],
+        "child": "Smoke_10",
+        "parents": [
+          "Evacuation_9"
+        ],
+        "parents_lst": [
+          "Evacuation_9"
+        ],
+        "child_lst": [
+          "Smoke_10"
+        ],
+        "lobo": 0.7274645583734217,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Smoke_10",
+          "Evacuation_9"
+        ],
+        "child": "Smoke_10",
+        "parents": [
+          "Evacuation_9"
+        ],
+        "parents_lst": [
+          "Evacuation_9"
+        ],
+        "child_lst": [
+          "Smoke_10"
+        ],
+        "lobo": 0.29100000001000004,
+        "upbo": 0.5049999999898362
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Smoke_10",
+          "Evacuation_9"
+        ],
+        "child": "Smoke_10",
+        "parents": [
+          "Evacuation_9"
+        ],
+        "parents_lst": [
+          "Evacuation_9"
+        ],
+        "child_lst": [
+          "Smoke_10"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.2725354416265784
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Smoke_10",
+          "Evacuation_9"
+        ],
+        "child": "Smoke_10",
+        "parents": [
+          "Evacuation_9"
+        ],
+        "parents_lst": [
+          "Evacuation_9"
+        ],
+        "child_lst": [
+          "Smoke_10"
+        ],
+        "lobo": 0.4950000000101637,
+        "upbo": 0.70899999999
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Smoke_2",
+          "Evacuation_1"
+        ],
+        "child": "Smoke_2",
+        "parents": [
+          "Evacuation_1"
+        ],
+        "parents_lst": [
+          "Evacuation_1"
+        ],
+        "child_lst": [
+          "Smoke_2"
+        ],
+        "lobo": 0.7087434555273822,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Smoke_2",
+          "Evacuation_1"
+        ],
+        "child": "Smoke_2",
+        "parents": [
+          "Evacuation_1"
+        ],
+        "parents_lst": [
+          "Evacuation_1"
+        ],
+        "child_lst": [
+          "Smoke_2"
+        ],
+        "lobo": 0.2420000195412581,
+        "upbo": 0.5699999999900001
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Smoke_2",
+          "Evacuation_1"
+        ],
+        "child": "Smoke_2",
+        "parents": [
+          "Evacuation_1"
+        ],
+        "parents_lst": [
+          "Evacuation_1"
+        ],
+        "child_lst": [
+          "Smoke_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.29125654447261784
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Smoke_2",
+          "Evacuation_1"
+        ],
+        "child": "Smoke_2",
+        "parents": [
+          "Evacuation_1"
+        ],
+        "parents_lst": [
+          "Evacuation_1"
+        ],
+        "child_lst": [
+          "Smoke_2"
+        ],
+        "lobo": 0.43000000001,
+        "upbo": 0.757999980458742
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Smoke_3",
+          "Evacuation_2"
+        ],
+        "child": "Smoke_3",
+        "parents": [
+          "Evacuation_2"
+        ],
+        "parents_lst": [
+          "Evacuation_2"
+        ],
+        "child_lst": [
+          "Smoke_3"
+        ],
+        "lobo": 0.6279560439910786,
+        "upbo": 0.8250109853099007
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Smoke_3",
+          "Evacuation_2"
+        ],
+        "child": "Smoke_3",
+        "parents": [
+          "Evacuation_2"
+        ],
+        "parents_lst": [
+          "Evacuation_2"
+        ],
+        "child_lst": [
+          "Smoke_3"
+        ],
+        "lobo": 0.5860000000100001,
+        "upbo": 0.83399999999
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Smoke_3",
+          "Evacuation_2"
+        ],
+        "child": "Smoke_3",
+        "parents": [
+          "Evacuation_2"
+        ],
+        "parents_lst": [
+          "Evacuation_2"
+        ],
+        "child_lst": [
+          "Smoke_3"
+        ],
+        "lobo": 0.1749890146900994,
+        "upbo": 0.37204395597909323
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Smoke_3",
+          "Evacuation_2"
+        ],
+        "child": "Smoke_3",
+        "parents": [
+          "Evacuation_2"
+        ],
+        "parents_lst": [
+          "Evacuation_2"
+        ],
+        "child_lst": [
+          "Smoke_3"
+        ],
+        "lobo": 0.16600000001000004,
+        "upbo": 0.41399999999
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Smoke_4",
+          "Evacuation_3"
+        ],
+        "child": "Smoke_4",
+        "parents": [
+          "Evacuation_3"
+        ],
+        "parents_lst": [
+          "Evacuation_3"
+        ],
+        "child_lst": [
+          "Smoke_4"
+        ],
+        "lobo": 0.769342465788436,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Smoke_4",
+          "Evacuation_3"
+        ],
+        "child": "Smoke_4",
+        "parents": [
+          "Evacuation_3"
+        ],
+        "parents_lst": [
+          "Evacuation_3"
+        ],
+        "child_lst": [
+          "Smoke_4"
+        ],
+        "lobo": 0.17000000001000004,
+        "upbo": 0.29399999998877907
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Smoke_4",
+          "Evacuation_3"
+        ],
+        "child": "Smoke_4",
+        "parents": [
+          "Evacuation_3"
+        ],
+        "parents_lst": [
+          "Evacuation_3"
+        ],
+        "child_lst": [
+          "Smoke_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.23065753421156396
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Smoke_4",
+          "Evacuation_3"
+        ],
+        "child": "Smoke_4",
+        "parents": [
+          "Evacuation_3"
+        ],
+        "parents_lst": [
+          "Evacuation_3"
+        ],
+        "child_lst": [
+          "Smoke_4"
+        ],
+        "lobo": 0.706000000011221,
+        "upbo": 0.82999999999
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Smoke_5",
+          "Evacuation_4"
+        ],
+        "child": "Smoke_5",
+        "parents": [
+          "Evacuation_4"
+        ],
+        "parents_lst": [
+          "Evacuation_4"
+        ],
+        "child_lst": [
+          "Smoke_5"
+        ],
+        "lobo": 0.71397260350773,
+        "upbo": 0.9475068492850685
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Smoke_5",
+          "Evacuation_4"
+        ],
+        "child": "Smoke_5",
+        "parents": [
+          "Evacuation_4"
+        ],
+        "parents_lst": [
+          "Evacuation_4"
+        ],
+        "child_lst": [
+          "Smoke_5"
+        ],
+        "lobo": 0.51600000001,
+        "upbo": 0.83999999999
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Smoke_5",
+          "Evacuation_4"
+        ],
+        "child": "Smoke_5",
+        "parents": [
+          "Evacuation_4"
+        ],
+        "parents_lst": [
+          "Evacuation_4"
+        ],
+        "child_lst": [
+          "Smoke_5"
+        ],
+        "lobo": 0.0524931507149315,
+        "upbo": 0.2860273964922702
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Smoke_5",
+          "Evacuation_4"
+        ],
+        "child": "Smoke_5",
+        "parents": [
+          "Evacuation_4"
+        ],
+        "parents_lst": [
+          "Evacuation_4"
+        ],
+        "child_lst": [
+          "Smoke_5"
+        ],
+        "lobo": 0.16000000001000003,
+        "upbo": 0.48399999999
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Smoke_6",
+          "Evacuation_5"
+        ],
+        "child": "Smoke_6",
+        "parents": [
+          "Evacuation_5"
+        ],
+        "parents_lst": [
+          "Evacuation_5"
+        ],
+        "child_lst": [
+          "Smoke_6"
+        ],
+        "lobo": 0.5880000000299999,
+        "upbo": 0.9533333329628875
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Smoke_6",
+          "Evacuation_5"
+        ],
+        "child": "Smoke_6",
+        "parents": [
+          "Evacuation_5"
+        ],
+        "parents_lst": [
+          "Evacuation_5"
+        ],
+        "child_lst": [
+          "Smoke_6"
+        ],
+        "lobo": 0.44500000000949586,
+        "upbo": 0.7129999999900001
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Smoke_6",
+          "Evacuation_5"
+        ],
+        "child": "Smoke_6",
+        "parents": [
+          "Evacuation_5"
+        ],
+        "parents_lst": [
+          "Evacuation_5"
+        ],
+        "child_lst": [
+          "Smoke_6"
+        ],
+        "lobo": 0.04666666703711261,
+        "upbo": 0.4119999999699998
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Smoke_6",
+          "Evacuation_5"
+        ],
+        "child": "Smoke_6",
+        "parents": [
+          "Evacuation_5"
+        ],
+        "parents_lst": [
+          "Evacuation_5"
+        ],
+        "child_lst": [
+          "Smoke_6"
+        ],
+        "lobo": 0.28700000001,
+        "upbo": 0.5549999999406223
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Smoke_7",
+          "Evacuation_6"
+        ],
+        "child": "Smoke_7",
+        "parents": [
+          "Evacuation_6"
+        ],
+        "parents_lst": [
+          "Evacuation_6"
+        ],
+        "child_lst": [
+          "Smoke_7"
+        ],
+        "lobo": 0.8228254665503074,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Smoke_7",
+          "Evacuation_6"
+        ],
+        "child": "Smoke_7",
+        "parents": [
+          "Evacuation_6"
+        ],
+        "parents_lst": [
+          "Evacuation_6"
+        ],
+        "child_lst": [
+          "Smoke_7"
+        ],
+        "lobo": 0.29800000001000004,
+        "upbo": 0.45399999998308005
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Smoke_7",
+          "Evacuation_6"
+        ],
+        "child": "Smoke_7",
+        "parents": [
+          "Evacuation_6"
+        ],
+        "parents_lst": [
+          "Evacuation_6"
+        ],
+        "child_lst": [
+          "Smoke_7"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.1771745334496926
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Smoke_7",
+          "Evacuation_6"
+        ],
+        "child": "Smoke_7",
+        "parents": [
+          "Evacuation_6"
+        ],
+        "parents_lst": [
+          "Evacuation_6"
+        ],
+        "child_lst": [
+          "Smoke_7"
+        ],
+        "lobo": 0.54600000001692,
+        "upbo": 0.70199999999
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Smoke_8",
+          "Evacuation_7"
+        ],
+        "child": "Smoke_8",
+        "parents": [
+          "Evacuation_7"
+        ],
+        "parents_lst": [
+          "Evacuation_7"
+        ],
+        "child_lst": [
+          "Smoke_8"
+        ],
+        "lobo": 0.6148793970293318,
+        "upbo": 0.8936465005631198
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Smoke_8",
+          "Evacuation_7"
+        ],
+        "child": "Smoke_8",
+        "parents": [
+          "Evacuation_7"
+        ],
+        "parents_lst": [
+          "Evacuation_7"
+        ],
+        "child_lst": [
+          "Smoke_8"
+        ],
+        "lobo": 0.20800000000999996,
+        "upbo": 0.43899999998999994
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Smoke_8",
+          "Evacuation_7"
+        ],
+        "child": "Smoke_8",
+        "parents": [
+          "Evacuation_7"
+        ],
+        "parents_lst": [
+          "Evacuation_7"
+        ],
+        "child_lst": [
+          "Smoke_8"
+        ],
+        "lobo": 0.10635349943688016,
+        "upbo": 0.3851206029706683
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Smoke_8",
+          "Evacuation_7"
+        ],
+        "child": "Smoke_8",
+        "parents": [
+          "Evacuation_7"
+        ],
+        "parents_lst": [
+          "Evacuation_7"
+        ],
+        "child_lst": [
+          "Smoke_8"
+        ],
+        "lobo": 0.56100000001,
+        "upbo": 0.79199999999
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Smoke_9",
+          "Evacuation_8"
+        ],
+        "child": "Smoke_9",
+        "parents": [
+          "Evacuation_8"
+        ],
+        "parents_lst": [
+          "Evacuation_8"
+        ],
+        "child_lst": [
+          "Smoke_9"
+        ],
+        "lobo": 0.6616969697318288,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Smoke_9",
+          "Evacuation_8"
+        ],
+        "child": "Smoke_9",
+        "parents": [
+          "Evacuation_8"
+        ],
+        "parents_lst": [
+          "Evacuation_8"
+        ],
+        "child_lst": [
+          "Smoke_9"
+        ],
+        "lobo": 0.11900000001257449,
+        "upbo": 0.3919999998614377
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Smoke_9",
+          "Evacuation_8"
+        ],
+        "child": "Smoke_9",
+        "parents": [
+          "Evacuation_8"
+        ],
+        "parents_lst": [
+          "Evacuation_8"
+        ],
+        "child_lst": [
+          "Smoke_9"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.3383030302681712
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Smoke_9",
+          "Evacuation_8"
+        ],
+        "child": "Smoke_9",
+        "parents": [
+          "Evacuation_8"
+        ],
+        "parents_lst": [
+          "Evacuation_8"
+        ],
+        "child_lst": [
+          "Smoke_9"
+        ],
+        "lobo": 0.6080000000278962,
+        "upbo": 0.8809999999874255
+      }
+    }
+  ]
+}
