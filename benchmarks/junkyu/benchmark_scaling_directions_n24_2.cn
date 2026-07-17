@@ -1,0 +1,6242 @@
+{
+  "format": "lcn-credal-network",
+  "version": 1,
+  "source_lcn": null,
+  "method": "linear",
+  "merge_budget": 1,
+  "solver": "ipopt",
+  "compile_time": 939.9107,
+  "n_jobs": 16,
+  "nodes": [
+    "Decision_1",
+    "Decision_2",
+    "Decision_3",
+    "Decision_4",
+    "Referral_1",
+    "Referral_2",
+    "Referral_3",
+    "Referral_4",
+    "Review_1_1",
+    "Review_1_2",
+    "Review_1_3",
+    "Review_1_4",
+    "Review_2_1",
+    "Review_2_2",
+    "Review_2_3",
+    "Review_2_4",
+    "Review_3_1",
+    "Review_3_2",
+    "Review_3_3",
+    "Review_3_4",
+    "Review_4_1",
+    "Review_4_2",
+    "Review_4_3",
+    "Review_4_4"
+  ],
+  "node_atoms": {
+    "Decision_1": [
+      "Decision_1"
+    ],
+    "Decision_2": [
+      "Decision_2"
+    ],
+    "Decision_3": [
+      "Decision_3"
+    ],
+    "Decision_4": [
+      "Decision_4"
+    ],
+    "Referral_1": [
+      "Referral_1"
+    ],
+    "Referral_2": [
+      "Referral_2"
+    ],
+    "Referral_3": [
+      "Referral_3"
+    ],
+    "Referral_4": [
+      "Referral_4"
+    ],
+    "Review_1_1": [
+      "Review_1_1"
+    ],
+    "Review_1_2": [
+      "Review_1_2"
+    ],
+    "Review_1_3": [
+      "Review_1_3"
+    ],
+    "Review_1_4": [
+      "Review_1_4"
+    ],
+    "Review_2_1": [
+      "Review_2_1"
+    ],
+    "Review_2_2": [
+      "Review_2_2"
+    ],
+    "Review_2_3": [
+      "Review_2_3"
+    ],
+    "Review_2_4": [
+      "Review_2_4"
+    ],
+    "Review_3_1": [
+      "Review_3_1"
+    ],
+    "Review_3_2": [
+      "Review_3_2"
+    ],
+    "Review_3_3": [
+      "Review_3_3"
+    ],
+    "Review_3_4": [
+      "Review_3_4"
+    ],
+    "Review_4_1": [
+      "Review_4_1"
+    ],
+    "Review_4_2": [
+      "Review_4_2"
+    ],
+    "Review_4_3": [
+      "Review_4_3"
+    ],
+    "Review_4_4": [
+      "Review_4_4"
+    ]
+  },
+  "node_card": {
+    "Decision_1": 2,
+    "Decision_2": 2,
+    "Decision_3": 2,
+    "Decision_4": 2,
+    "Referral_1": 2,
+    "Referral_2": 2,
+    "Referral_3": 2,
+    "Referral_4": 2,
+    "Review_1_1": 2,
+    "Review_1_2": 2,
+    "Review_1_3": 2,
+    "Review_1_4": 2,
+    "Review_2_1": 2,
+    "Review_2_2": 2,
+    "Review_2_3": 2,
+    "Review_2_4": 2,
+    "Review_3_1": 2,
+    "Review_3_2": 2,
+    "Review_3_3": 2,
+    "Review_3_4": 2,
+    "Review_4_1": 2,
+    "Review_4_2": 2,
+    "Review_4_3": 2,
+    "Review_4_4": 2
+  },
+  "factors": [
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "15": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.6530000000099991,
+        "upbo": 0.7889999999900016
+      },
+      "16": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "17": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "18": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "19": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "20": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "21": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "22": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "23": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "24": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "25": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "26": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "27": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "28": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "29": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "30": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "31": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_1",
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child": "Decision_1",
+        "parents": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "parents_lst": [
+          "Review_1_1",
+          "Review_1_2",
+          "Review_1_3",
+          "Review_1_4"
+        ],
+        "child_lst": [
+          "Decision_1"
+        ],
+        "lobo": 0.21100000000999905,
+        "upbo": 0.3469999999899983
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "15": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.611000000010594,
+        "upbo": 0.6889999999900029
+      },
+      "16": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "17": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "18": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "19": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "20": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "21": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "22": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "23": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "24": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "25": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "26": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "27": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "28": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "29": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "30": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "31": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_2",
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child": "Decision_2",
+        "parents": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "parents_lst": [
+          "Review_2_1",
+          "Review_2_2",
+          "Review_2_3",
+          "Review_2_4"
+        ],
+        "child_lst": [
+          "Decision_2"
+        ],
+        "lobo": 0.3110000000099734,
+        "upbo": 0.3889999999845559
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "15": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.2340000000115097,
+        "upbo": 0.3249999999494563
+      },
+      "16": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "17": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "18": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "19": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "20": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "21": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "22": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "23": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "24": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "25": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "26": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "27": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "28": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "29": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "30": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "31": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_3",
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child": "Decision_3",
+        "parents": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "parents_lst": [
+          "Review_3_1",
+          "Review_3_2",
+          "Review_3_3",
+          "Review_3_4"
+        ],
+        "child_lst": [
+          "Decision_3"
+        ],
+        "lobo": 0.6750000000397661,
+        "upbo": 0.7659999999182664
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "15": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.6800000000099974,
+        "upbo": 0.7929999999899998
+      },
+      "16": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "17": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "18": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "19": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "20": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "21": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "22": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "23": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "24": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "25": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "26": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "27": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "28": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "29": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "30": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "31": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "Decision_4",
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child": "Decision_4",
+        "parents": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "parents_lst": [
+          "Review_4_1",
+          "Review_4_2",
+          "Review_4_3",
+          "Review_4_4"
+        ],
+        "child_lst": [
+          "Decision_4"
+        ],
+        "lobo": 0.20700000000999977,
+        "upbo": 0.3199999999900071
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0
+        ],
+        "scope": [
+          "Referral_1"
+        ],
+        "child": "Referral_1",
+        "parents": [],
+        "parents_lst": [],
+        "child_lst": [
+          "Referral_1"
+        ],
+        "lobo": 0.8370000000107053,
+        "upbo": 0.9429999999647668
+      },
+      "1": {
+        "interpretation": [
+          1
+        ],
+        "scope": [
+          "Referral_1"
+        ],
+        "child": "Referral_1",
+        "parents": [],
+        "parents_lst": [],
+        "child_lst": [
+          "Referral_1"
+        ],
+        "lobo": 0.05700000001,
+        "upbo": 0.16299999998844728
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Referral_2",
+          "Decision_1"
+        ],
+        "child": "Referral_2",
+        "parents": [
+          "Decision_1"
+        ],
+        "parents_lst": [
+          "Decision_1"
+        ],
+        "child_lst": [
+          "Referral_2"
+        ],
+        "lobo": 0.6971739130734782,
+        "upbo": 0.9012067619955986
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Referral_2",
+          "Decision_1"
+        ],
+        "child": "Referral_2",
+        "parents": [
+          "Decision_1"
+        ],
+        "parents_lst": [
+          "Decision_1"
+        ],
+        "child_lst": [
+          "Referral_2"
+        ],
+        "lobo": 0.21200000001015779,
+        "upbo": 0.44499999998802753
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Referral_2",
+          "Decision_1"
+        ],
+        "child": "Referral_2",
+        "parents": [
+          "Decision_1"
+        ],
+        "parents_lst": [
+          "Decision_1"
+        ],
+        "child_lst": [
+          "Referral_2"
+        ],
+        "lobo": 0.0987932380044014,
+        "upbo": 0.30282608692652174
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Referral_2",
+          "Decision_1"
+        ],
+        "child": "Referral_2",
+        "parents": [
+          "Decision_1"
+        ],
+        "parents_lst": [
+          "Decision_1"
+        ],
+        "child_lst": [
+          "Referral_2"
+        ],
+        "lobo": 0.5550000000119725,
+        "upbo": 0.7879999999898423
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Referral_3",
+          "Decision_2"
+        ],
+        "child": "Referral_3",
+        "parents": [
+          "Decision_2"
+        ],
+        "parents_lst": [
+          "Decision_2"
+        ],
+        "child_lst": [
+          "Referral_3"
+        ],
+        "lobo": 0.7752300360291479,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Referral_3",
+          "Decision_2"
+        ],
+        "child": "Referral_3",
+        "parents": [
+          "Decision_2"
+        ],
+        "parents_lst": [
+          "Decision_2"
+        ],
+        "child_lst": [
+          "Referral_3"
+        ],
+        "lobo": 0.37200000001,
+        "upbo": 0.6619999999870892
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Referral_3",
+          "Decision_2"
+        ],
+        "child": "Referral_3",
+        "parents": [
+          "Decision_2"
+        ],
+        "parents_lst": [
+          "Decision_2"
+        ],
+        "child_lst": [
+          "Referral_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.22476996421314652
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Referral_3",
+          "Decision_2"
+        ],
+        "child": "Referral_3",
+        "parents": [
+          "Decision_2"
+        ],
+        "parents_lst": [
+          "Decision_2"
+        ],
+        "child_lst": [
+          "Referral_3"
+        ],
+        "lobo": 0.3380000000129107,
+        "upbo": 0.62799999999
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Referral_4",
+          "Decision_3"
+        ],
+        "child": "Referral_4",
+        "parents": [
+          "Decision_3"
+        ],
+        "parents_lst": [
+          "Decision_3"
+        ],
+        "child_lst": [
+          "Referral_4"
+        ],
+        "lobo": 0.735000000038494,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Referral_4",
+          "Decision_3"
+        ],
+        "child": "Referral_4",
+        "parents": [
+          "Decision_3"
+        ],
+        "parents_lst": [
+          "Decision_3"
+        ],
+        "child_lst": [
+          "Referral_4"
+        ],
+        "lobo": 0.43000000001000005,
+        "upbo": 0.5349999999878349
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Referral_4",
+          "Decision_3"
+        ],
+        "child": "Referral_4",
+        "parents": [
+          "Decision_3"
+        ],
+        "parents_lst": [
+          "Decision_3"
+        ],
+        "child_lst": [
+          "Referral_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.264999999961506
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Referral_4",
+          "Decision_3"
+        ],
+        "child": "Referral_4",
+        "parents": [
+          "Decision_3"
+        ],
+        "parents_lst": [
+          "Decision_3"
+        ],
+        "child_lst": [
+          "Referral_4"
+        ],
+        "lobo": 0.46500001136850244,
+        "upbo": 0.56999999999
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_1_1",
+          "Referral_1"
+        ],
+        "child": "Review_1_1",
+        "parents": [
+          "Referral_1"
+        ],
+        "parents_lst": [
+          "Referral_1"
+        ],
+        "child_lst": [
+          "Review_1_1"
+        ],
+        "lobo": 0.49223416968352446,
+        "upbo": 0.9593787334799583
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_1_1",
+          "Referral_1"
+        ],
+        "child": "Review_1_1",
+        "parents": [
+          "Referral_1"
+        ],
+        "parents_lst": [
+          "Referral_1"
+        ],
+        "child_lst": [
+          "Review_1_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_1_1",
+          "Referral_1"
+        ],
+        "child": "Review_1_1",
+        "parents": [
+          "Referral_1"
+        ],
+        "parents_lst": [
+          "Referral_1"
+        ],
+        "child_lst": [
+          "Review_1_1"
+        ],
+        "lobo": 0.04062126652003575,
+        "upbo": 0.5077658303164755
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_1_1",
+          "Referral_1"
+        ],
+        "child": "Review_1_1",
+        "parents": [
+          "Referral_1"
+        ],
+        "parents_lst": [
+          "Referral_1"
+        ],
+        "child_lst": [
+          "Review_1_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_1_2",
+          "Referral_1"
+        ],
+        "child": "Review_1_2",
+        "parents": [
+          "Referral_1"
+        ],
+        "parents_lst": [
+          "Referral_1"
+        ],
+        "child_lst": [
+          "Review_1_2"
+        ],
+        "lobo": 0.6630824373059857,
+        "upbo": 0.9737156511152483
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_1_2",
+          "Referral_1"
+        ],
+        "child": "Review_1_2",
+        "parents": [
+          "Referral_1"
+        ],
+        "parents_lst": [
+          "Referral_1"
+        ],
+        "child_lst": [
+          "Review_1_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_1_2",
+          "Referral_1"
+        ],
+        "child": "Review_1_2",
+        "parents": [
+          "Referral_1"
+        ],
+        "parents_lst": [
+          "Referral_1"
+        ],
+        "child_lst": [
+          "Review_1_2"
+        ],
+        "lobo": 0.026284348884749464,
+        "upbo": 0.33691756269401435
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_1_2",
+          "Referral_1"
+        ],
+        "child": "Review_1_2",
+        "parents": [
+          "Referral_1"
+        ],
+        "parents_lst": [
+          "Referral_1"
+        ],
+        "child_lst": [
+          "Review_1_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_1_3",
+          "Referral_1"
+        ],
+        "child": "Review_1_3",
+        "parents": [
+          "Referral_1"
+        ],
+        "parents_lst": [
+          "Referral_1"
+        ],
+        "child_lst": [
+          "Review_1_3"
+        ],
+        "lobo": 0.4946236559439785,
+        "upbo": 0.9450418159912131
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_1_3",
+          "Referral_1"
+        ],
+        "child": "Review_1_3",
+        "parents": [
+          "Referral_1"
+        ],
+        "parents_lst": [
+          "Referral_1"
+        ],
+        "child_lst": [
+          "Review_1_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_1_3",
+          "Referral_1"
+        ],
+        "child": "Review_1_3",
+        "parents": [
+          "Referral_1"
+        ],
+        "parents_lst": [
+          "Referral_1"
+        ],
+        "child_lst": [
+          "Review_1_3"
+        ],
+        "lobo": 0.054958184008784744,
+        "upbo": 0.5053763440560215
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_1_3",
+          "Referral_1"
+        ],
+        "child": "Review_1_3",
+        "parents": [
+          "Referral_1"
+        ],
+        "parents_lst": [
+          "Referral_1"
+        ],
+        "child_lst": [
+          "Review_1_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_1_4",
+          "Referral_1"
+        ],
+        "child": "Review_1_4",
+        "parents": [
+          "Referral_1"
+        ],
+        "parents_lst": [
+          "Referral_1"
+        ],
+        "child_lst": [
+          "Review_1_4"
+        ],
+        "lobo": 0.6332138590503107,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_1_4",
+          "Referral_1"
+        ],
+        "child": "Review_1_4",
+        "parents": [
+          "Referral_1"
+        ],
+        "parents_lst": [
+          "Referral_1"
+        ],
+        "child_lst": [
+          "Review_1_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_1_4",
+          "Referral_1"
+        ],
+        "child": "Review_1_4",
+        "parents": [
+          "Referral_1"
+        ],
+        "parents_lst": [
+          "Referral_1"
+        ],
+        "child_lst": [
+          "Review_1_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.36678614094968925
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_1_4",
+          "Referral_1"
+        ],
+        "child": "Review_1_4",
+        "parents": [
+          "Referral_1"
+        ],
+        "parents_lst": [
+          "Referral_1"
+        ],
+        "child_lst": [
+          "Review_1_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_2_1",
+          "Referral_2"
+        ],
+        "child": "Review_2_1",
+        "parents": [
+          "Referral_2"
+        ],
+        "parents_lst": [
+          "Referral_2"
+        ],
+        "child_lst": [
+          "Review_2_1"
+        ],
+        "lobo": 0.35893648452039867,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_2_1",
+          "Referral_2"
+        ],
+        "child": "Review_2_1",
+        "parents": [
+          "Referral_2"
+        ],
+        "parents_lst": [
+          "Referral_2"
+        ],
+        "child_lst": [
+          "Review_2_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_2_1",
+          "Referral_2"
+        ],
+        "child": "Review_2_1",
+        "parents": [
+          "Referral_2"
+        ],
+        "parents_lst": [
+          "Referral_2"
+        ],
+        "child_lst": [
+          "Review_2_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.6410635154796012
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_2_1",
+          "Referral_2"
+        ],
+        "child": "Review_2_1",
+        "parents": [
+          "Referral_2"
+        ],
+        "parents_lst": [
+          "Referral_2"
+        ],
+        "child_lst": [
+          "Review_2_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_2_2",
+          "Referral_2"
+        ],
+        "child": "Review_2_2",
+        "parents": [
+          "Referral_2"
+        ],
+        "parents_lst": [
+          "Referral_2"
+        ],
+        "child_lst": [
+          "Review_2_2"
+        ],
+        "lobo": 0.7178729690107977,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_2_2",
+          "Referral_2"
+        ],
+        "child": "Review_2_2",
+        "parents": [
+          "Referral_2"
+        ],
+        "parents_lst": [
+          "Referral_2"
+        ],
+        "child_lst": [
+          "Review_2_2"
+        ],
+        "lobo": 0.2596899225933914,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_2_2",
+          "Referral_2"
+        ],
+        "child": "Review_2_2",
+        "parents": [
+          "Referral_2"
+        ],
+        "parents_lst": [
+          "Referral_2"
+        ],
+        "child_lst": [
+          "Review_2_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.28212703098920233
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_2_2",
+          "Referral_2"
+        ],
+        "child": "Review_2_2",
+        "parents": [
+          "Referral_2"
+        ],
+        "parents_lst": [
+          "Referral_2"
+        ],
+        "child_lst": [
+          "Review_2_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.7403100774066086
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_2_3",
+          "Referral_2"
+        ],
+        "child": "Review_2_3",
+        "parents": [
+          "Referral_2"
+        ],
+        "parents_lst": [
+          "Referral_2"
+        ],
+        "child_lst": [
+          "Review_2_3"
+        ],
+        "lobo": 0.48153618909942403,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_2_3",
+          "Referral_2"
+        ],
+        "child": "Review_2_3",
+        "parents": [
+          "Referral_2"
+        ],
+        "parents_lst": [
+          "Referral_2"
+        ],
+        "child_lst": [
+          "Review_2_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_2_3",
+          "Referral_2"
+        ],
+        "child": "Review_2_3",
+        "parents": [
+          "Referral_2"
+        ],
+        "parents_lst": [
+          "Referral_2"
+        ],
+        "child_lst": [
+          "Review_2_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.518463810900576
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_2_3",
+          "Referral_2"
+        ],
+        "child": "Review_2_3",
+        "parents": [
+          "Referral_2"
+        ],
+        "parents_lst": [
+          "Referral_2"
+        ],
+        "child_lst": [
+          "Review_2_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_2_4",
+          "Referral_2"
+        ],
+        "child": "Review_2_4",
+        "parents": [
+          "Referral_2"
+        ],
+        "parents_lst": [
+          "Referral_2"
+        ],
+        "child_lst": [
+          "Review_2_4"
+        ],
+        "lobo": 0.7223042949833752,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_2_4",
+          "Referral_2"
+        ],
+        "child": "Review_2_4",
+        "parents": [
+          "Referral_2"
+        ],
+        "parents_lst": [
+          "Referral_2"
+        ],
+        "child_lst": [
+          "Review_2_4"
+        ],
+        "lobo": 0.27131783052624603,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_2_4",
+          "Referral_2"
+        ],
+        "child": "Review_2_4",
+        "parents": [
+          "Referral_2"
+        ],
+        "parents_lst": [
+          "Referral_2"
+        ],
+        "child_lst": [
+          "Review_2_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.2776957163658641
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_2_4",
+          "Referral_2"
+        ],
+        "child": "Review_2_4",
+        "parents": [
+          "Referral_2"
+        ],
+        "parents_lst": [
+          "Referral_2"
+        ],
+        "child_lst": [
+          "Review_2_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.728682169473754
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_3_1",
+          "Referral_3"
+        ],
+        "child": "Review_3_1",
+        "parents": [
+          "Referral_3"
+        ],
+        "parents_lst": [
+          "Referral_3"
+        ],
+        "child_lst": [
+          "Review_3_1"
+        ],
+        "lobo": 0.5548216644949934,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_3_1",
+          "Referral_3"
+        ],
+        "child": "Review_3_1",
+        "parents": [
+          "Referral_3"
+        ],
+        "parents_lst": [
+          "Referral_3"
+        ],
+        "child_lst": [
+          "Review_3_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_3_1",
+          "Referral_3"
+        ],
+        "child": "Review_3_1",
+        "parents": [
+          "Referral_3"
+        ],
+        "parents_lst": [
+          "Referral_3"
+        ],
+        "child_lst": [
+          "Review_3_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.44517833550500663
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_3_1",
+          "Referral_3"
+        ],
+        "child": "Review_3_1",
+        "parents": [
+          "Referral_3"
+        ],
+        "parents_lst": [
+          "Referral_3"
+        ],
+        "child_lst": [
+          "Review_3_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_3_2",
+          "Referral_3"
+        ],
+        "child": "Review_3_2",
+        "parents": [
+          "Referral_3"
+        ],
+        "parents_lst": [
+          "Referral_3"
+        ],
+        "child_lst": [
+          "Review_3_2"
+        ],
+        "lobo": 0.7212681638344914,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_3_2",
+          "Referral_3"
+        ],
+        "child": "Review_3_2",
+        "parents": [
+          "Referral_3"
+        ],
+        "parents_lst": [
+          "Referral_3"
+        ],
+        "child_lst": [
+          "Review_3_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_3_2",
+          "Referral_3"
+        ],
+        "child": "Review_3_2",
+        "parents": [
+          "Referral_3"
+        ],
+        "parents_lst": [
+          "Referral_3"
+        ],
+        "child_lst": [
+          "Review_3_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.27873183616550856
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_3_2",
+          "Referral_3"
+        ],
+        "child": "Review_3_2",
+        "parents": [
+          "Referral_3"
+        ],
+        "parents_lst": [
+          "Referral_3"
+        ],
+        "child_lst": [
+          "Review_3_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_3_3",
+          "Referral_3"
+        ],
+        "child": "Review_3_3",
+        "parents": [
+          "Referral_3"
+        ],
+        "parents_lst": [
+          "Referral_3"
+        ],
+        "child_lst": [
+          "Review_3_3"
+        ],
+        "lobo": 0.7318361955385865,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_3_3",
+          "Referral_3"
+        ],
+        "child": "Review_3_3",
+        "parents": [
+          "Referral_3"
+        ],
+        "parents_lst": [
+          "Referral_3"
+        ],
+        "child_lst": [
+          "Review_3_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_3_3",
+          "Referral_3"
+        ],
+        "child": "Review_3_3",
+        "parents": [
+          "Referral_3"
+        ],
+        "parents_lst": [
+          "Referral_3"
+        ],
+        "child_lst": [
+          "Review_3_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.26816380446141347
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_3_3",
+          "Referral_3"
+        ],
+        "child": "Review_3_3",
+        "parents": [
+          "Referral_3"
+        ],
+        "parents_lst": [
+          "Referral_3"
+        ],
+        "child_lst": [
+          "Review_3_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_3_4",
+          "Referral_3"
+        ],
+        "child": "Review_3_4",
+        "parents": [
+          "Referral_3"
+        ],
+        "parents_lst": [
+          "Referral_3"
+        ],
+        "child_lst": [
+          "Review_3_4"
+        ],
+        "lobo": 0.7093791281673845,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_3_4",
+          "Referral_3"
+        ],
+        "child": "Review_3_4",
+        "parents": [
+          "Referral_3"
+        ],
+        "parents_lst": [
+          "Referral_3"
+        ],
+        "child_lst": [
+          "Review_3_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_3_4",
+          "Referral_3"
+        ],
+        "child": "Review_3_4",
+        "parents": [
+          "Referral_3"
+        ],
+        "parents_lst": [
+          "Referral_3"
+        ],
+        "child_lst": [
+          "Review_3_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.2906208718326156
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_3_4",
+          "Referral_3"
+        ],
+        "child": "Review_3_4",
+        "parents": [
+          "Referral_3"
+        ],
+        "parents_lst": [
+          "Referral_3"
+        ],
+        "child_lst": [
+          "Review_3_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_4_1",
+          "Referral_4"
+        ],
+        "child": "Review_4_1",
+        "parents": [
+          "Referral_4"
+        ],
+        "parents_lst": [
+          "Referral_4"
+        ],
+        "child_lst": [
+          "Review_4_1"
+        ],
+        "lobo": 0.7749287749653379,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_4_1",
+          "Referral_4"
+        ],
+        "child": "Review_4_1",
+        "parents": [
+          "Referral_4"
+        ],
+        "parents_lst": [
+          "Referral_4"
+        ],
+        "child_lst": [
+          "Review_4_1"
+        ],
+        "lobo": 0.012500000472548456,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_4_1",
+          "Referral_4"
+        ],
+        "child": "Review_4_1",
+        "parents": [
+          "Referral_4"
+        ],
+        "parents_lst": [
+          "Referral_4"
+        ],
+        "child_lst": [
+          "Review_4_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.22507122504122504
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_4_1",
+          "Referral_4"
+        ],
+        "child": "Review_4_1",
+        "parents": [
+          "Referral_4"
+        ],
+        "parents_lst": [
+          "Referral_4"
+        ],
+        "child_lst": [
+          "Review_4_1"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.9874999995274516
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_4_2",
+          "Referral_4"
+        ],
+        "child": "Review_4_2",
+        "parents": [
+          "Referral_4"
+        ],
+        "parents_lst": [
+          "Referral_4"
+        ],
+        "child_lst": [
+          "Review_4_2"
+        ],
+        "lobo": 0.5669515669815669,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_4_2",
+          "Referral_4"
+        ],
+        "child": "Review_4_2",
+        "parents": [
+          "Referral_4"
+        ],
+        "parents_lst": [
+          "Referral_4"
+        ],
+        "child_lst": [
+          "Review_4_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_4_2",
+          "Referral_4"
+        ],
+        "child": "Review_4_2",
+        "parents": [
+          "Referral_4"
+        ],
+        "parents_lst": [
+          "Referral_4"
+        ],
+        "child_lst": [
+          "Review_4_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.43304843301843304
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_4_2",
+          "Referral_4"
+        ],
+        "child": "Review_4_2",
+        "parents": [
+          "Referral_4"
+        ],
+        "parents_lst": [
+          "Referral_4"
+        ],
+        "child_lst": [
+          "Review_4_2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_4_3",
+          "Referral_4"
+        ],
+        "child": "Review_4_3",
+        "parents": [
+          "Referral_4"
+        ],
+        "parents_lst": [
+          "Referral_4"
+        ],
+        "child_lst": [
+          "Review_4_3"
+        ],
+        "lobo": 0.5655270655570657,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_4_3",
+          "Referral_4"
+        ],
+        "child": "Review_4_3",
+        "parents": [
+          "Referral_4"
+        ],
+        "parents_lst": [
+          "Referral_4"
+        ],
+        "child_lst": [
+          "Review_4_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_4_3",
+          "Referral_4"
+        ],
+        "child": "Review_4_3",
+        "parents": [
+          "Referral_4"
+        ],
+        "parents_lst": [
+          "Referral_4"
+        ],
+        "child_lst": [
+          "Review_4_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.43447293444293433
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_4_3",
+          "Referral_4"
+        ],
+        "child": "Review_4_3",
+        "parents": [
+          "Referral_4"
+        ],
+        "parents_lst": [
+          "Referral_4"
+        ],
+        "child_lst": [
+          "Review_4_3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "Review_4_4",
+          "Referral_4"
+        ],
+        "child": "Review_4_4",
+        "parents": [
+          "Referral_4"
+        ],
+        "parents_lst": [
+          "Referral_4"
+        ],
+        "child_lst": [
+          "Review_4_4"
+        ],
+        "lobo": 0.6396011396311396,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "Review_4_4",
+          "Referral_4"
+        ],
+        "child": "Review_4_4",
+        "parents": [
+          "Referral_4"
+        ],
+        "parents_lst": [
+          "Referral_4"
+        ],
+        "child_lst": [
+          "Review_4_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "Review_4_4",
+          "Referral_4"
+        ],
+        "child": "Review_4_4",
+        "parents": [
+          "Referral_4"
+        ],
+        "parents_lst": [
+          "Referral_4"
+        ],
+        "child_lst": [
+          "Review_4_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.3603988603688604
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "Review_4_4",
+          "Referral_4"
+        ],
+        "child": "Review_4_4",
+        "parents": [
+          "Referral_4"
+        ],
+        "parents_lst": [
+          "Referral_4"
+        ],
+        "child_lst": [
+          "Review_4_4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    }
+  ]
+}
