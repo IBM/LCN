@@ -120,7 +120,7 @@ Parallel usage — each combination gets its own output file:
         help="evidence as JSON string (default: {})")
     parser.add_argument(
         "--n-jobs", type=int, default=1,
-        help="worker processes for the per-family credal-set solves during "
+        help="worker threads for the per-family credal-set solves during "
              "compilation / credal-network build (default: 1)")
     parser.add_argument(
         "--no-cache", action="store_true",
@@ -133,9 +133,10 @@ Parallel usage — each combination gets its own output file:
     parser.add_argument(
         "--memory-limit", type=float, default=None,
         help="memory limit in GB per process, enforced via RLIMIT_AS "
-             "(default: unlimited). Per process: with --n-jobs K the aggregate "
-             "peak can reach K x this budget, so prefer --n-jobs 1. "
-             "Best-effort off Linux.")
+             "(default: unlimited). Per process: the per-family solves are "
+             "threaded (one interpreter), so --n-jobs K does not multiply the "
+             "resident Python heap; ipopt subprocesses and the process-based "
+             "enumerate LRS remain outside this cap. Best-effort off Linux.")
     parser.add_argument(
         "--num-threads", type=int, default=1,
         help="number of threads for BLAS/LAPACK/ipopt (default: 1)")

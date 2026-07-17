@@ -110,8 +110,9 @@ class LocalCredalSetSolver:
     a ``solver`` backend ("ipopt" or "scip"); its :meth:`solve` method returns
     the min/max bound for a single factor interpretation.
 
-    The instance holds only the LCN and small config, so it can be pickled and
-    shipped to worker processes for parallel per-family solving.
+    The instance holds only the LCN and small config and each :meth:`solve` call
+    builds its own Pyomo model, so a single instance is safe to share (read-only)
+    across the worker threads that drive the parallel per-family solving.
     """
 
     def __init__(self, lcn: LCN, method: str = "linear", solver: str = "ipopt",
@@ -234,10 +235,12 @@ class LocalCredalSetSolver:
         Assertions spanning families are skipped here -- that residual is what
         schemes D2/D3 close.
 
-        The Local Markov Condition is computed lazily and memoized on the LCN
-        (so repeated family solves reuse it). Under n_jobs>1 each worker holds
-        its own pickled LCN copy and computes it independently; the result is
-        deterministic, so this needs no shared state.
+        The Local Markov Condition is computed lazily and memoized on the LCN (so
+        repeated family solves reuse it). Under n_jobs>1 the worker threads share
+        one LCN, so ``CredalNetwork.from_lcn`` forces this memoization before the
+        thread pool starts (for the "linear-tight" method) to avoid a race on the
+        lazy initialization; the fallback lazy compute here remains for the serial
+        path.
         """
         if self.lcn.primal_graph is None:
             self.lcn.build_primal_graph()

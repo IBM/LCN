@@ -142,10 +142,13 @@ def _set_memory_limit(memory_limit_gb):
     unsupported or ignored (some macOS configurations) this silently degrades to
     no limit. Authoritative on Linux/RHEL 9.
 
-    The limit is inherited by any child processes this worker forks (the
-    per-family ``ProcessPoolExecutor`` under ``n_jobs`` and the SLSQP-isolation
-    forks), so it is enforced *per process*: with ``--n-jobs K`` the aggregate
-    peak can reach K x the budget.
+    The limit is enforced *per process*. For ``compile``/``enumerate``'s
+    per-family interval solves this now bounds the whole build directly: those
+    solves run on a ``ThreadPoolExecutor`` in this one interpreter (not a process
+    pool), so ``--n-jobs K`` no longer multiplies the resident Python heap. The
+    ``enumerate`` step's LRS vertex enumeration also runs in-process (serial), so
+    it too is bounded. The one out-of-band allocator RLIMIT_AS does not cover is
+    the ipopt subprocess each solve spawns.
 
     Exceeding the limit makes Python allocations raise ``MemoryError``; native
     allocations may instead abort the process (SIGKILL/SIGSEGV/SIGABRT), which
@@ -204,9 +207,11 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
                     if it exceeds the limit.
         memory_limit_gb: max virtual address space per process, in GB
                     (None=unlimited). Enforced via RLIMIT_AS inside the
-                    subprocess (best-effort; authoritative on Linux). Applies
-                    per process — with n_jobs>1 the aggregate peak can reach
-                    n_jobs x the budget.
+                    subprocess (best-effort; authoritative on Linux). The
+                    per-family solves are now threaded (one interpreter), so
+                    n_jobs>1 no longer multiplies the resident Python heap;
+                    ipopt subprocesses and the enumerate step's process-based
+                    LRS remain out of RLIMIT_AS scope.
         **kwargs: algorithm-specific params
 
     Returns:
@@ -326,7 +331,9 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             # Compile the LCN into its credal network (chain-graph factorization
             # + interval local credal sets) and save it alongside the .lcn as a
             # .cn, recording the per-family solve wall-clock as compile_time.
-            # The expensive per-family interval solves parallelize over n_jobs.
+            # The expensive per-family interval solves parallelize over n_jobs
+            # worker threads (each min/max solve is one task; ipopt runs as a
+            # GIL-releasing subprocess).
             fact_method = kwargs.get("factorization_method", "linear")
             n_jobs = kwargs.get("n_jobs", 1)
             cn_solver = kwargs.get("solver", "ipopt")
@@ -360,8 +367,10 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
         elif algorithm == "enumerate":
             # Enumerate (LRS) the extreme points of every local credal set and
             # save them alongside the .lcn as a .vtx, recording the enumeration
-            # wall-clock. The per-local-credal-set LRS solves parallelize over
-            # n_jobs. Records both compile_time and enumeration_time so downstream
+            # wall-clock. The LRS enumeration runs serially (it is cheap and
+            # treewidth-bounded, and pyAgrum's LRS holds the GIL and is not
+            # thread-safe); n_jobs affects only the compile-time per-family
+            # solves. Records both compile_time and enumeration_time so downstream
             # engines can report build_time = compile_time + enumeration_time.
             fact_method = kwargs.get("factorization_method", "linear")
             n_jobs = kwargs.get("n_jobs", 1)
@@ -705,7 +714,7 @@ def main():
         help="Local credal-set solver backend: ipopt (local, default) or scip (global) (default: ipopt)")
     parser.add_argument(
         "--n-jobs", type=int, default=1,
-        help="Worker processes for the per-family credal-set solves during "
+        help="Worker threads for the per-family credal-set solves during "
              "compilation / credal-network build (default: 1)")
     parser.add_argument(
         "--no-cache", action="store_true",
@@ -717,9 +726,10 @@ def main():
     parser.add_argument(
         "--memory-limit", type=float, default=None,
         help="Memory limit in GB per process, enforced via RLIMIT_AS "
-             "(default: unlimited). Applies per process: with --n-jobs K the "
-             "aggregate peak can reach K x this budget, so prefer --n-jobs 1 "
-             "for a predictable cap. Best-effort off Linux.")
+             "(default: unlimited). Applies per process: the per-family solves "
+             "are threaded (one interpreter), so --n-jobs K does not multiply "
+             "the resident Python heap; ipopt subprocesses and the process-based "
+             "enumerate LRS remain outside this cap. Best-effort off Linux.")
     parser.add_argument(
         "--num-threads", type=int, default=1,
         help="Number of threads for BLAS/LAPACK/ipopt (default: 1)")

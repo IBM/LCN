@@ -28,7 +28,6 @@ import logging
 import os
 import re
 import time
-from concurrent.futures import ProcessPoolExecutor
 from typing import Dict
 
 import pyagrum as gum  # noqa: N813
@@ -84,91 +83,6 @@ def _parse_credal_net_vertices(cn: gum.CredalNet) -> Dict:
                 vertices.append(vals)
             result[node_name][parent_config] = vertices
     return result
-
-
-def _enumerate_node_credal_set(spec: Dict) -> Dict:
-    """
-    LRS-enumerate the local credal set(s) of ONE target node, in isolation.
-
-    Builds a small pyAgrum CredalNet containing just the target node and its
-    parents (with the SAME cardinalities, arcs, and lower/upper CPTs as the full
-    network), runs ``intervalToCredal()`` on it, and returns the extreme points
-    of the target node only. LRS runs independently per (node, parent-config)
-    row of a CPT, so this yields vertices bit-identical to enumerating the whole
-    network at once (verified) -- which makes per-node sharding a sound way to
-    parallelize the enumeration across worker processes.
-
-    ``spec`` is a JSON-friendly dict (so it ships across the process boundary):
-        - "target":   target node name
-        - "vars":     list of (name, cardinality) for the target and its parents
-        - "arcs":     list of (parent_name, child_name)
-        - "cpt_min":  {name: flat lower-CPT list}
-        - "cpt_max":  {name: flat upper-CPT list}
-
-    Returns ``{parent_config_str: [[v0, v1, ...], ...]}`` for the target node.
-    """
-    target = spec["target"]
-    sub_min = gum.BayesNet("min")
-    sub_max = gum.BayesNet("max")
-    for name, card in spec["vars"]:
-        sub_min.add(gum.LabelizedVariable(name, name, card))
-        sub_max.add(gum.LabelizedVariable(name, name, card))
-    for parent, child in spec["arcs"]:
-        sub_min.addArc(parent, child)
-        sub_max.addArc(parent, child)
-
-    # The target's local credal set is enumerated per parent-configuration, so
-    # only the target's real lower/upper CPT matters. Its parents are roots in
-    # this sub-net (their own CPTs are irrelevant to the target's vertices), so
-    # give them a trivial [0,1] interval CPT of the correct root size.
-    #
-    # The target CPT is transferred by VARIABLE NAME (not by flat index): a raw
-    # flatten()/fillWith(list) would silently mismap when the sub-net orders the
-    # target's parent dimensions differently from the full net (pyAgrum orders
-    # CPT axes by variable id, and parents() iteration order is not guaranteed).
-    # We rebuild a temporary Tensor carrying the source layout and let pyAgrum's
-    # fillWith(Tensor) match dimensions by name.
-    for name, card in spec["vars"]:
-        if name != target:
-            sub_min.cpt(name).fillWith([0.0] * card)
-            sub_max.cpt(name).fillWith([1.0] * card)
-
-    def _named_tensor(src):
-        t = gum.Tensor()
-        for nm, cd in zip(src["names"], src["cards"]):
-            t.add(gum.LabelizedVariable(nm, nm, cd))
-        t.fillWith(src["values"])
-        return t
-
-    sub_min.cpt(target).fillWith(_named_tensor(spec["cpt_min_target"]))
-    sub_max.cpt(target).fillWith(_named_tensor(spec["cpt_max_target"]))
-
-    sub = gum.CredalNet(sub_min, sub_max)
-    sub.intervalToCredal()
-    parsed = _parse_credal_net_vertices(sub)
-    node_vertices = parsed.get(target, {})
-
-    # Canonicalize the parent-config KEY strings to the full network's parent
-    # order. pyAgrum emits "<p:0|q:1|...>" in the sub-net's own variable order,
-    # which may differ from the full net; downstream engines index
-    # extreme_points[node][config] with the full net's ordering, so the vertices
-    # (which match regardless) must be stored under the full net's key strings.
-    order = spec.get("parents_order") or []
-    if not order:
-        return node_vertices
-    remapped = {}
-    for cfg, verts in node_vertices.items():
-        inner = cfg.strip()[1:-1]  # drop the surrounding < >
-        if not inner:
-            remapped[cfg] = verts
-            continue
-        assign = {}
-        for tok in inner.split("|"):
-            k, v = tok.split(":")
-            assign[k.strip()] = v.strip()
-        canon = "<" + "|".join(f"{p}:{assign[p]}" for p in order) + ">"
-        remapped[canon] = verts
-    return remapped
 
 
 class CredalNetworkVertices:
@@ -463,11 +377,12 @@ class CredalNetworkVertices:
         parsed extreme points.
 
         The LRS enumeration is timed and stored in ``self.enumeration_time``
-        (0.0 when enumeration is skipped). With ``n_jobs > 1`` the per-node local
-        credal sets are enumerated in parallel worker processes (bit-identical to
-        the serial monolithic ``intervalToCredal()``); in that case
-        ``self.credal_net`` stays ``None`` -- no consumer reads it, only
-        ``extreme_points`` / ``bn_min`` / ``bn_max``.
+        (0.0 when enumeration is skipped). It runs serially on the monolithic
+        ``gum.CredalNet`` -- it is not parallelized (LRS is cheap and
+        treewidth-bounded, and pyAgrum's LRS holds the GIL and is not
+        thread-safe). ``n_jobs`` is accepted only to drive the compile-time
+        per-family solves in :meth:`CredalNetwork.from_lcn`; it has no effect on
+        enumeration.
         """
         cn = self.cn
         node_names = cn.nodes
@@ -604,21 +519,20 @@ class CredalNetworkVertices:
                       "enumeration (enumerate_vertices=False).")
             return
 
-        # Run LRS vertex enumeration (timed). n_jobs > 1 shards the per-node
-        # local credal sets across worker processes; n_jobs == 1 uses the
-        # monolithic gum.CredalNet path. Both produce identical extreme points.
+        # Run LRS vertex enumeration (timed), serially, on the monolithic
+        # gum.CredalNet. Enumeration is NOT parallelized: it is cheap
+        # (treewidth-bounded per docs/lrs.tex -- typically milliseconds), and
+        # pyAgrum's LRS (intervalToCredal) both holds the GIL and is not
+        # thread-safe (aGrUM vendors classic lrslib.c, whose file-scope globals
+        # lrs_global_list/lrs_global_count are shared across calls), so threads
+        # cannot parallelize it and a process pool was pure overhead (spawn +
+        # per-worker `import pyagrum` + pickling dwarfed the LRS work, and it was
+        # a hang source). n_jobs is retained on the signature only because it
+        # drives the compile-time per-family solves in CredalNetwork.from_lcn.
         t_enum = time.perf_counter()
-        if n_jobs and n_jobs > 1 and len(node_names) > 1:
-            specs = [self._node_enumeration_spec(name, node_ids_min)
-                     for name in node_names]
-            self.credal_net = None  # not built/consumed under parallel mode
-            with ProcessPoolExecutor(max_workers=n_jobs) as executor:
-                per_node = list(executor.map(_enumerate_node_credal_set, specs))
-            self.extreme_points = dict(zip(node_names, per_node))
-        else:
-            self.credal_net = gum.CredalNet(self.bn_min, self.bn_max)
-            self.credal_net.intervalToCredal()
-            self.extreme_points = _parse_credal_net_vertices(self.credal_net)
+        self.credal_net = gum.CredalNet(self.bn_min, self.bn_max)
+        self.credal_net.intervalToCredal()
+        self.extreme_points = _parse_credal_net_vertices(self.credal_net)
         self.enumeration_time = time.perf_counter() - t_enum
 
         if verbosity > 0 and self.credal_net is not None:
@@ -633,51 +547,6 @@ class CredalNetworkVertices:
                     for v in vertices:
                         v_str = ", ".join(f"{x:.4f}" for x in v)
                         print(f"    [{v_str}]")
-
-    def _node_enumeration_spec(self, target: str, node_ids_min: Dict) -> Dict:
-        """
-        Build the JSON-friendly spec (see :func:`_enumerate_node_credal_set`)
-        for parallel enumeration of one target node's local credal set: the node
-        plus its parents, their cardinalities, arcs, and flattened lower/upper
-        CPT arrays taken from the already-built ``bn_min``/``bn_max``.
-        """
-        nid = node_ids_min[target]
-        parents = [self.bn_min.variable(p).name()
-                   for p in self.bn_min.parents(nid)]
-        members = parents + [target]  # target last; order does not matter
-        vars_ = [(nm, self.bn_min.variable(self.bn_min.idFromName(nm)).domainSize())
-                 for nm in members]
-        arcs = [(p, target) for p in parents]
-        # Canonical parent order as it appears in the FULL network's emitted
-        # config strings: the target CPT's variable order minus the child.
-        parents_order = [nm for nm in self.bn_min.cpt(target).names
-                         if nm != target]
-        return {
-            "target": target,
-            "vars": vars_,
-            "arcs": arcs,
-            "parents_order": parents_order,
-            "cpt_min_target": self._cpt_payload(self.bn_min, target),
-            "cpt_max_target": self._cpt_payload(self.bn_max, target),
-        }
-
-    @staticmethod
-    def _cpt_payload(bn, name: str) -> Dict:
-        """
-        Serialize a CPT into a name-keyed payload {names, cards, values} whose
-        ``values`` are the flattened array in the CPT's OWN variable order
-        (``cpt.names``). Reloaded in the worker via a temporary named Tensor and
-        transferred by :meth:`Tensor.fillWith`, which matches by variable name --
-        robust to the sub-net ordering its axes differently.
-        """
-        cpt = bn.cpt(name)
-        names = list(cpt.names)
-        cards = [cpt.variable(nm).domainSize() for nm in names]
-        return {
-            "names": names,
-            "cards": cards,
-            "values": cpt.toarray().flatten().tolist(),
-        }
 
     # ------------------------------------------------------------------
     # Serialization: the enumerated extreme points as a portable .vtx file

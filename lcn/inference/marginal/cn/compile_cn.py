@@ -21,10 +21,12 @@
 # the input (same basename, ``.cn`` extension).
 #
 # The per-family interval solves are the expensive step; they parallelize
-# across worker processes via ``--n-jobs`` (each family is one task, handled by
-# CredalNetwork.from_lcn). Extreme points are NOT enumerated here -- the stored
-# ``.cn`` carries the interval local credal sets only and stays pyAgrum-free;
-# engines derive vertices on demand.
+# across worker threads via ``--n-jobs`` (each individual min/max solve is one
+# task on a shared ThreadPoolExecutor, handled by CredalNetwork.from_lcn -- the
+# solves spend their time in the ipopt subprocess, which releases the GIL).
+# Extreme points are NOT enumerated here -- the stored ``.cn`` carries the
+# interval local credal sets only and stays pyAgrum-free; engines derive
+# vertices on demand.
 #
 # Usage:
 #   python -m lcn.inference.marginal.cn.compile_cn examples/alarm.lcn --n-jobs 5
@@ -61,7 +63,7 @@ def compile_lcn_to_cn(
         method, solver, merge_budget, time_limit, gap_tol:
             Passed through to :meth:`CredalNetwork.from_lcn`.
         n_jobs: int
-            Number of worker processes for the per-family interval solves.
+            Number of worker threads for the per-family interval solves.
         verbosity: int
             Verbosity level (0 is silent).
 
@@ -115,7 +117,7 @@ def main():
         help="Scheme D2 max merged super-family scope (default: 1, no merge).")
     parser.add_argument(
         "--n-jobs", type=int, default=1,
-        help="Worker processes for the per-family solves (default: 1).")
+        help="Worker threads for the per-family solves (default: 1).")
     parser.add_argument(
         "--time-limit", type=float, default=None,
         help="Per-solve wall-clock limit in seconds (default: none).")

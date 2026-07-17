@@ -13,11 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Tests for the enumerate/.vtx layer: parallel LRS enumeration, save_vtx/
+# Tests for the enumerate/.vtx layer: serial LRS enumeration, save_vtx/
 # vtx_metadata/load_extreme_points, and the transparent .vtx cache in
 # CredalNetworkVertices.from_lcn. Properties:
-#   (1) parallel (n_jobs>1) enumeration yields extreme points IDENTICAL to the
-#       serial monolithic enumeration (the key correctness guarantee);
+#   (1) n_jobs>1 yields extreme points IDENTICAL to the n_jobs=1 build (LRS
+#       enumeration is always serial; n_jobs only affects the compile solves);
 #   (2) save_vtx -> vtx_metadata/load_extreme_points round-trips the vertices,
 #       enumeration_time, and compile_time;
 #   (3) vtx_metadata returns None for missing / non-.vtx JSON;
@@ -73,27 +73,24 @@ def compiled(tmp_path_factory):
     return {"dir": d, "src": str(src), "lcn": lcn, "serial": serial}
 
 
-def test_parallel_enumeration_matches_serial(compiled):
-    """n_jobs>1 must yield extreme points identical to the serial enumeration.
+def test_njobs_does_not_affect_enumeration(compiled):
+    """n_jobs>1 must yield extreme points identical to the n_jobs=1 build.
 
-    Both builds reuse the module's cached .cn, so neither re-solves the
-    per-family intervals -- only the LRS enumeration runs (serially in the
-    fixture, in parallel workers here), which is exactly what this compares."""
+    LRS enumeration is always serial now (pyAgrum's LRS holds the GIL and is not
+    thread-safe, and the work is cheap/treewidth-bounded, so it is not
+    parallelized); n_jobs only drives the compile-time per-family solves. This
+    guards that a larger n_jobs is a no-op for the enumerated vertices. Both
+    builds reuse the module's cached .cn, so neither re-solves the intervals."""
     serial = compiled["serial"]
-    # n_jobs=2 is enough to exercise the parallel merge + config-string
-    # canonicalization path (multiple concurrent workers, results merged by
-    # node) while keeping worker-process startup -- the dominant cost on a tiny
-    # net -- to a minimum.
-    parallel = _quiet(CredalNetworkVertices.from_lcn, compiled["lcn"],
-                      method="linear", merge_budget=1, solver="ipopt",
-                      n_jobs=2, lcn_file=compiled["src"], cache=True,
-                      verbosity=0)
-    assert parallel.extreme_points == serial.extreme_points
-    # Parallel mode does not build the monolithic credal_net (no consumer reads
-    # it); the interval BNs are still present for structure.
-    assert parallel.credal_net is None
-    assert parallel.bn_min is not None
-    assert parallel.enumeration_time is not None
+    other = _quiet(CredalNetworkVertices.from_lcn, compiled["lcn"],
+                   method="linear", merge_budget=1, solver="ipopt",
+                   n_jobs=4, lcn_file=compiled["src"], cache=True,
+                   verbosity=0)
+    assert other.extreme_points == serial.extreme_points
+    # The serial monolithic credal_net is always built now (no process pool).
+    assert other.credal_net is not None
+    assert other.bn_min is not None
+    assert other.enumeration_time is not None
 
 
 def test_save_vtx_round_trip(compiled, tmp_path):

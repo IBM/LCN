@@ -30,7 +30,7 @@ import itertools
 import json
 import logging
 import os
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List
 
 from lcn.core.model import LCN
@@ -38,32 +38,38 @@ from lcn.inference.marginal.cn.factorization import ChainGraphFactorization
 from lcn.inference.marginal.cn.local_credal_sets import LocalCredalSetSolver
 
 
-def _solve_family(symbolic_factor: Dict, lcn: LCN, method: str,
-                  solver_backend: str, time_limit, gap_tol: float,
-                  verbosity: int) -> Dict:
+def _entry_shell(symbolic_factor: Dict, interpretation) -> Dict:
+    """Build the structural (bound-less) skeleton of one interval-factor entry.
+
+    Shared by the serial and threaded solve paths so both produce byte-identical
+    factor dicts; callers fill in ``lobo``/``upbo`` afterwards.
     """
-    Compute the interval local credal set for one symbolic factor.
+    return {
+        "interpretation": interpretation,
+        "scope": symbolic_factor["scope"],
+        "child": symbolic_factor["child"],
+        "parents": symbolic_factor["parents"],
+        "parents_lst": symbolic_factor["parents_lst"],
+        "child_lst": symbolic_factor["child_lst"],
+        "lobo": 0.0,
+        "upbo": 1.0,
+    }
+
+
+def _solve_family(symbolic_factor: Dict, solver: "LocalCredalSetSolver") -> Dict:
+    """
+    Compute the interval local credal set for one symbolic factor, serially.
 
     Enumerates all 2^|scope| interpretations of the family scope and solves the
-    min/max problems for each, returning the interval factor dict keyed by
-    interpretation index. This is a module-level function so it can be shipped
-    to worker processes for parallel per-family solving.
+    min/max problems for each with the supplied (stateless, shareable)
+    :class:`LocalCredalSetSolver`, returning the interval factor dict keyed by
+    interpretation index. Used by the ``n_jobs <= 1`` path; the threaded path
+    dispatches the same per-interpretation solves individually across a
+    :class:`~concurrent.futures.ThreadPoolExecutor` (see
+    :meth:`CredalNetwork.from_lcn`).
     """
-    # Suppress the benign Pyomo solver warnings unless full solver progress was
-    # requested (verbosity >= 2). Set here so it also takes effect inside worker
-    # processes under n_jobs > 1 (a parent-process logger level does not carry
-    # across the process boundary).
-    if verbosity < 2:
-        logging.getLogger('pyomo').setLevel(logging.ERROR)
-
-    solver = LocalCredalSetSolver(
-        lcn, method=method, solver=solver_backend,
-        time_limit=time_limit, gap_tol=gap_tol, verbosity=verbosity)
-
     child = symbolic_factor["child"]
-    parents = symbolic_factor["parents"]
     parents_lst = symbolic_factor["parents_lst"]
-    child_lst = symbolic_factor["child_lst"]
     scope = symbolic_factor["scope"]
     sentences = symbolic_factor["sentences"]
 
@@ -73,17 +79,81 @@ def _solve_family(symbolic_factor: Dict, lcn: LCN, method: str,
         literals = dict(zip(scope, interpretation))
         lobo = solver.solve(scope, literals, child, parents_lst, sentences, sense="min")
         upbo = solver.solve(scope, literals, child, parents_lst, sentences, sense="max")
-        factor[i] = {
-            "interpretation": interpretation,
-            "scope": scope,
-            "child": child,
-            "parents": parents,
-            "parents_lst": parents_lst,
-            "child_lst": child_lst,
-            "lobo": lobo if lobo is not None else 0.0,
-            "upbo": upbo if upbo is not None else 1.0,
-        }
+        entry = _entry_shell(symbolic_factor, interpretation)
+        entry["lobo"] = lobo if lobo is not None else 0.0
+        entry["upbo"] = upbo if upbo is not None else 1.0
+        factor[i] = entry
     return factor
+
+
+def _solve_families_threaded(symbolic_factors: List[Dict],
+                             solver: "LocalCredalSetSolver",
+                             n_jobs: int) -> List[Dict]:
+    """
+    Compute every family's interval local credal set concurrently on a thread
+    pool, at *per-solve* granularity.
+
+    Each family contributes ``2 * 2^|scope|`` independent min/max solves; all of
+    them are flattened into one task list and dispatched to a single
+    ``ThreadPoolExecutor(max_workers=n_jobs)``. This load-balances across families
+    -- a large family no longer serializes one worker while the others idle -- and
+    keeps a bounded ``n_jobs`` concurrent ipopt subprocesses in flight. Results are
+    written back by (family, interpretation) index, so the returned list is in the
+    original family order and numerically identical to the serial path.
+
+    The dominant cost of each task is the ipopt subprocess (Pyomo NL/AMPL
+    interface), which blocks on subprocess I/O and thus releases the GIL, so the
+    threads make real progress in parallel. The scipy SLSQP fallback runs
+    in-process (it is only reached on suspicious/failed ipopt results and is always
+    re-verified against the real constraints); see the LCN_ISOLATE_SLSQP note
+    below.
+    """
+    # Pre-shape the output: one dict per family, each pre-populated with the
+    # structural entry skeletons so worker threads only write scalar bounds.
+    factors: List[Dict] = []
+    interps_per_family: List[list] = []
+    for sf in symbolic_factors:
+        interpretations = list(itertools.product([0, 1], repeat=len(sf["scope"])))
+        interps_per_family.append(interpretations)
+        factors.append({i: _entry_shell(sf, interp)
+                        for i, interp in enumerate(interpretations)})
+
+    # Flatten to individual (family_idx, interp_idx, sense) solve tasks.
+    tasks = []
+    for fi, sf in enumerate(symbolic_factors):
+        for ii, interpretation in enumerate(interps_per_family[fi]):
+            literals = dict(zip(sf["scope"], interpretation))
+            for sense in ("min", "max"):
+                tasks.append((fi, ii, sense, sf, literals))
+
+    def _one(task):
+        fi, ii, sense, sf, literals = task
+        val = solver.solve(sf["scope"], literals, sf["child"],
+                           sf["parents_lst"], sf["sentences"], sense=sense)
+        return fi, ii, sense, val
+
+    # Threads must not fork: the SLSQP crash-isolation (run_isolated) forks via
+    # multiprocessing on Linux, and forking from a worker thread of a live pool is
+    # a deadlock hazard. Force it in-process for the duration of the pool. This is
+    # sound: the SLSQP fallback re-verifies every optimum against the real
+    # constraints and degrades to a "no result" sentinel on failure, so we lose
+    # only a native-SIGABRT guard that no longer applies without a child process.
+    prev_isolate = os.environ.get("LCN_ISOLATE_SLSQP")
+    os.environ["LCN_ISOLATE_SLSQP"] = "0"
+    try:
+        with ThreadPoolExecutor(max_workers=n_jobs) as executor:
+            for fut in as_completed(executor.submit(_one, t) for t in tasks):
+                fi, ii, sense, val = fut.result()
+                key = "lobo" if sense == "min" else "upbo"
+                default = 0.0 if sense == "min" else 1.0
+                factors[fi][ii][key] = val if val is not None else default
+    finally:
+        if prev_isolate is None:
+            os.environ.pop("LCN_ISOLATE_SLSQP", None)
+        else:
+            os.environ["LCN_ISOLATE_SLSQP"] = prev_isolate
+
+    return factors
 
 
 def _build_structural_factor(symbolic_factor: Dict) -> Dict:
@@ -178,9 +248,14 @@ class CredalNetwork:
             gap_tol: float
                 SCIP relative optimality gap to stop at (ignored by ipopt).
             n_jobs: int
-                Number of worker processes for the per-family solves. 1 (the
-                default) solves serially. Each family is one task; the result
-                is order-preserving and identical to the serial computation.
+                Number of worker threads for the per-family solves. 1 (the
+                default) solves serially. When > 1, the individual per-family
+                min/max solves are dispatched across a thread pool: each solve
+                spends most of its time in the ipopt subprocess (Pyomo's NL/AMPL
+                interface), which releases the GIL, so threads give real
+                parallelism without the K x interpreter memory, pickling cost, or
+                fork-inside-worker hang of a process pool. The result is
+                order-preserving and numerically identical to the serial path.
             merge_budget: int
                 Scheme D2: maximum flattened scope of a merged super-family. 1
                 (the default) performs no merging (the factors are the LCN
@@ -242,24 +317,35 @@ class CredalNetwork:
                 print("[CredalNetwork] solve_families=False: skipping per-family "
                       "interval solves (structure-only factors).")
             factors = [_build_structural_factor(sf) for sf in symbolic_factors]
-        elif n_jobs and n_jobs > 1 and len(symbolic_factors) > 1:
-            with ProcessPoolExecutor(max_workers=n_jobs) as executor:
-                factors = list(executor.map(
-                    _solve_family,
-                    symbolic_factors,
-                    itertools.repeat(lcn),
-                    itertools.repeat(method),
-                    itertools.repeat(solver),
-                    itertools.repeat(time_limit),
-                    itertools.repeat(gap_tol),
-                    itertools.repeat(verbosity),
-                ))
         else:
-            factors = [
-                _solve_family(sf, lcn, method, solver, time_limit,
-                              gap_tol, verbosity)
-                for sf in symbolic_factors
-            ]
+            # Suppress the benign Pyomo solver warnings unless full solver
+            # progress was requested (verbosity >= 2). All solves now run in this
+            # interpreter (serial or threaded), so a single set here suffices.
+            if verbosity < 2:
+                logging.getLogger('pyomo').setLevel(logging.ERROR)
+
+            # The "linear-tight" path reads the Local Markov Condition, which the
+            # LCN computes lazily and memoizes. Force that compute now (before any
+            # threading) so the workers never race on the lazy initialization.
+            if method == "linear-tight":
+                if lcn.primal_graph is None:
+                    lcn.build_primal_graph()
+                if lcn.independencies is None:
+                    lcn.local_markov_condition()
+
+            # A single stateless LocalCredalSetSolver is shared across all solves
+            # (serial and threaded): it holds only the LCN + config, and each
+            # .solve() builds its own Pyomo model, so there is no shared mutable
+            # solver state to race on.
+            lcs = LocalCredalSetSolver(
+                lcn, method=method, solver=solver, time_limit=time_limit,
+                gap_tol=gap_tol, verbosity=verbosity)
+
+            if n_jobs and n_jobs > 1 and len(symbolic_factors) > 1:
+                factors = _solve_families_threaded(
+                    symbolic_factors, lcs, n_jobs)
+            else:
+                factors = [_solve_family(sf, lcs) for sf in symbolic_factors]
 
         # Step 4: Collect node info from the (possibly merged) symbolic factors,
         # NOT from the simplified structure graph -- under a merge_budget > 1 the

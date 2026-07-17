@@ -130,6 +130,20 @@ def test_parallel_matches_serial(prebuilt):
     assert _factor_bounds(parallel) == prebuilt["bounds"]
 
 
+def test_parallel_matches_serial_linear_tight(prebuilt):
+    """n_jobs>1 must give identical factors to the serial build on the
+    "linear-tight" path too -- this exercises the shared-LCN Local Markov
+    Condition (pre-computed before the thread pool) and the bilinear solves,
+    the paths most sensitive to a threading race."""
+    lcn = prebuilt["lcn"]
+    serial = _quiet(CredalNetwork.from_lcn, lcn, method="linear-tight",
+                    n_jobs=1, verbosity=0)
+    parallel = _quiet(CredalNetwork.from_lcn, lcn, method="linear-tight",
+                      n_jobs=4, verbosity=0)
+    assert parallel.nodes == serial.nodes
+    assert _factor_bounds(parallel) == _factor_bounds(serial)
+
+
 def test_compile_time_round_trips(prebuilt, tmp_path):
     """compile_time survives save->load and is readable via cn_metadata."""
     cn = prebuilt["cn"]
