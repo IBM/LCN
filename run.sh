@@ -197,6 +197,7 @@ elif [ "$a" = "cjt" ]; then
 elif [ "$a" = "cjt_ipopt" ]; then
     # cjt_ipopt: CredalJT junction-tree exact NLP (scheme D5). Use the ipopt
     # backend so the cluster NLP is solved approximately.
+    cmd="python experiments/run_experiment.py --input-dir $b --algorithms cjt --factorization-method $f --memory-limit 30"
     cmd="$cmd --solver ipopt"
 
 else
