@@ -1160,13 +1160,14 @@ if __name__ == "__main__":
 
     # Load the LCN
     # file_name = "examples/chain.lcn"
-    file_name = "benchmarks/tree_large_fr/tree_fr_n10_1.lcn"
+    # file_name = "benchmarks/tree_large_fr/tree_fr_n10_1.lcn"
+    file_name = "benchmarks/real/alarm_consistent.lcn"
     lcn_model = LCN()
     lcn_model.from_lcn(file_name=file_name)
     lcn_model.summary()
     print(lcn_model)
 
-    verbosity = 2
+    verbosity = 1
 
     # Build the credal network for scheme D5. CredalJT formulates its NLP from
     # the LCN sentences and LMC equalities, so it needs only the chain-graph

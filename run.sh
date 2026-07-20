@@ -49,7 +49,7 @@ if [ -z "$b" ] || [ -z "$a" ] || [ -z "$f" ]; then
     echo ""
     echo "Algorithms: compile, enumerate, exact_l, exact_g, ariel, ibp, ijgp,"
     echo "            ijgp_e, ijgp_cp, ijgp_cm, ccte, ccte_e, ccte_cp, ccte_cm,"
-    echo "            approxlp, cve, cve_e, cve_cp, cve_cm, cve_d4, cjt"
+    echo "            approxlp, cve, cve_e, cve_cp, cve_cm, cve_d4, cjt, cjt_ipopt"
     exit 1
 fi
 
@@ -194,11 +194,16 @@ elif [ "$a" = "cjt" ]; then
     # global backend (scip) so the cluster NLP is solved exactly.
     cmd="$cmd --solver scip"
 
+elif [ "$a" = "cjt_ipopt" ]; then
+    # cjt_ipopt: CredalJT junction-tree exact NLP (scheme D5). Use the ipopt
+    # backend so the cluster NLP is solved approximately.
+    cmd="$cmd --solver ipopt"
+
 else
     echo "Unknown algorithm: $a"
     echo "Allowed: compile, enumerate, exact_l, exact_g, ariel, ibp, ijgp,"
     echo "         ijgp_e, ijgp_cp, ijgp_cm, ccte, ccte_e, ccte_cp, ccte_cm,"
-    echo "         approxlp, cve, cve_e, cve_cp, cve_cm, cve_d4, cjt"
+    echo "         approxlp, cve, cve_e, cve_cp, cve_cm, cve_d4, cjt, cjt_ipopt"
     exit 1
 fi
 
