@@ -7,8 +7,12 @@
 #   benchmark_dir  - path to benchmark instances (e.g., benchmarks/polytree)
 #   algorithm      - one of: compile, enumerate, exact_l, exact_g, ariel, ibp,
 #                    ijgp, ijgp_e, ijgp_cp, ijgp_cm, ccte, ccte_e, ccte_cp,
-#                    ccte_cm, approxlp, cve, cve_e, cve_cp, cve_cm, cve_d4, cjt
+#                    ccte_cm, approxlp, cve, cve_e, cve_cp, cve_cm, cve_d4,
+#                    cjt, cjt_l, cjt_g
 #                    (exact_l = local/ipopt backend; exact_g = global/SCIP backend)
+#                    (cjt_l = CredalJT with local/ipopt NLP backend;
+#                     cjt_g = CredalJT with global/SCIP backend;
+#                     cjt = alias for cjt_g)
 #                    (compile = build & cache the credal network as .cn;
 #                     enumerate = LRS-enumerate & cache the vertices as .vtx;
 #                     both run 16 parallel workers over the local credal sets)
@@ -32,7 +36,8 @@
 #   ./run.sh benchmarks/chain cve linear 300
 #   ./run.sh benchmarks/polytree cve_cp linear 600 "" "" 10
 #   ./run.sh benchmarks/polytree cve_cm linear 600 "" "" 10
-#   ./run.sh benchmarks/chain cjt linear 300
+#   ./run.sh benchmarks/chain cjt_g linear 300
+#   ./run.sh benchmarks/chain cjt_l linear 300
 #   ./run.sh benchmarks/chain compile linear
 #   ./run.sh benchmarks/chain enumerate linear
 
@@ -49,7 +54,7 @@ if [ -z "$b" ] || [ -z "$a" ] || [ -z "$f" ]; then
     echo ""
     echo "Algorithms: compile, enumerate, exact_l, exact_g, ariel, ibp, ijgp,"
     echo "            ijgp_e, ijgp_cp, ijgp_cm, ccte, ccte_e, ccte_cp, ccte_cm,"
-    echo "            approxlp, cve, cve_e, cve_cp, cve_cm, cve_d4, cjt, cjt_ipopt"
+    echo "            approxlp, cve, cve_e, cve_cp, cve_cm, cve_d4, cjt, cjt_l, cjt_g"
     exit 1
 fi
 
@@ -189,22 +194,17 @@ elif [ "$a" = "cve_d4" ]; then
     # cve_d4: CVE with cross-family coupling (D4); no extra arguments
     :
 
-elif [ "$a" = "cjt" ]; then
-    # cjt: CredalJT junction-tree exact NLP (scheme D5). Use the certified
-    # global backend (scip) so the cluster NLP is solved exactly.
-    cmd="$cmd --solver scip"
-
-elif [ "$a" = "cjt_ipopt" ]; then
-    # cjt_ipopt: CredalJT junction-tree exact NLP (scheme D5). Use the ipopt
-    # backend so the cluster NLP is solved approximately.
-    cmd="python experiments/run_experiment.py --input-dir $b --algorithms cjt --factorization-method $f --memory-limit 30"
-    cmd="$cmd --solver ipopt"
+elif [ "$a" = "cjt" ] || [ "$a" = "cjt_g" ] || [ "$a" = "cjt_l" ]; then
+    # cjt*: CredalJT junction-tree NLP (scheme D5). The cluster-NLP backend is
+    # selected by the algorithm name (cjt_l -> local/ipopt, cjt_g/cjt ->
+    # global/scip) inside the runner, so no --solver override is needed here.
+    :
 
 else
     echo "Unknown algorithm: $a"
     echo "Allowed: compile, enumerate, exact_l, exact_g, ariel, ibp, ijgp,"
     echo "         ijgp_e, ijgp_cp, ijgp_cm, ccte, ccte_e, ccte_cp, ccte_cm,"
-    echo "         approxlp, cve, cve_e, cve_cp, cve_cm, cve_d4, cjt, cjt_ipopt"
+    echo "         approxlp, cve, cve_e, cve_cp, cve_cm, cve_d4, cjt, cjt_l, cjt_g"
     exit 1
 fi
 

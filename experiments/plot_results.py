@@ -29,6 +29,8 @@ ALGO_STYLE = {
     "cve_cp":   {"marker": "p", "color": "#e377c2", "label": "CVE-cp"},
     "cve_cm":   {"marker": "h", "color": "#7f7f7f", "label": "CVE-cm"},
     "cjt":      {"marker": "v", "color": "#ff7f0e", "label": "CJT"},
+    "cjt_g":    {"marker": "v", "color": "#ff7f0e", "label": "CJT-G"},
+    "cjt_l":    {"marker": "<", "color": "#bcbd22", "label": "CJT-L"},
 }
 
 def _style(algo):

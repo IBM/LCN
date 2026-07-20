@@ -47,9 +47,16 @@ _DEFAULT_NUM_THREADS = 1
 if "OMP_NUM_THREADS" not in os.environ:
     set_num_threads(_DEFAULT_NUM_THREADS)
 
-ALGORITHMS = ["compile", "enumerate", "exact_l", "exact_g", "ariel", "ibp",  "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_cp", "cve_cm", "cve_d4", "cjt"]
+ALGORITHMS = ["compile", "enumerate", "exact_l", "exact_g", "ariel", "ibp",  "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_cp", "cve_cm", "cve_d4", "cjt", "cjt_l", "cjt_g"]
 
-_CVE_ALGORITHMS = {"ibp", "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_cp", "cve_cm", "cve_d4", "cjt"}
+_CVE_ALGORITHMS = {"ibp", "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_cp", "cve_cm", "cve_d4", "cjt", "cjt_l", "cjt_g"}
+
+# CredalJT (D5) algorithm aliases -> junction-tree NLP solver backend.
+#   cjt_l -> "ipopt" (local NLP; fast, may be loose on hard clusters)
+#   cjt_g -> "scip"  (certified global spatial branch-and-bound)
+#   cjt   -> "scip"  (back-compat alias for cjt_g)
+_CJT_ALGORITHMS = {"cjt", "cjt_l", "cjt_g"}
+_CJT_SOLVER = {"cjt": "scip", "cjt_l": "ipopt", "cjt_g": "scip"}
 
 def _compute_induced_width(cn):
     """Compute the induced width (treewidth upper bound) from a CredalNetwork.
@@ -199,7 +206,8 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
     Args:
         lcn_file: path to .lcn file
         algorithm: one of "exact_l", "exact_g", "ariel", "ibp", "ccte",
-                   "ccte_e", "approxlp", "cve", "cjt" (see ALGORITHMS)
+                   "ccte_e", "approxlp", "cve", "cjt_l", "cjt_g" (see
+                   ALGORITHMS; "cjt" is a back-compat alias for "cjt_g")
         evidence: dict of evidence (default: {})
         verbosity: 0=silent
         time_limit: max wall-clock seconds (None=unlimited). Enforced by
@@ -491,7 +499,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             # interval solves (solve_families=False) and the LRS vertex
             # enumeration (which solve_families=False forces off anyway). This
             # keeps the reported build_time to just the symbolic factorization.
-            is_cjt = (algorithm == "cjt")
+            is_cjt = algorithm in _CJT_ALGORITHMS
             enumerate_vertices = not is_cjt
             solve_families = not is_cjt
             # Transparent .cn cache: reuse a compiled network next to the .lcn
@@ -650,8 +658,11 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 raw = algo.run(
                     evidence=evidence, coupling="cross-family",
                     verbosity=verbosity)
-            elif algorithm == "cjt":
-                cjt_solver = kwargs.get("solver", "scip")
+            elif algorithm in _CJT_ALGORITHMS:
+                # The CredalJT NLP backend is selected by the algorithm name
+                # (cjt_l -> ipopt, cjt_g/cjt -> scip), decoupled from the
+                # compile-time --solver (irrelevant here: solve_families=False).
+                cjt_solver = _CJT_SOLVER[algorithm]
                 algo = CredalJT(cnv=cnv)
                 raw = algo.run(
                     evidence=evidence, solver=cjt_solver, verbosity=verbosity)

@@ -64,7 +64,8 @@ from collections import defaultdict
 # plus the special "exact" reference that resolves to exact_g/exact_l per
 # instance.
 _ALGORITHMS = ["exact_l", "exact_g", "ariel", "ibp", "ccte", "ccte_e",
-               "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "cjt"]
+               "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "cjt",
+               "cjt_l", "cjt_g"]
 _REFERENCE_CHOICES = ["exact"] + _ALGORITHMS
 
 # The exact backends, in preference order when the reference is "exact": the
