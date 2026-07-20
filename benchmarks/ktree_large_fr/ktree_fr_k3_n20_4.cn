@@ -1,0 +1,8646 @@
+{
+  "format": "lcn-credal-network",
+  "version": 1,
+  "source_lcn": null,
+  "method": "linear",
+  "merge_budget": 1,
+  "solver": "ipopt",
+  "compile_time": 1535.8746,
+  "n_jobs": 16,
+  "nodes": [
+    "x0",
+    "x1",
+    "x10",
+    "x11",
+    "x12",
+    "x13",
+    "x14",
+    "x15",
+    "x16",
+    "x17",
+    "x18",
+    "x19",
+    "x2",
+    "x3",
+    "x4",
+    "x5",
+    "x6",
+    "x7",
+    "x8",
+    "x9"
+  ],
+  "node_atoms": {
+    "x0": [
+      "x0"
+    ],
+    "x1": [
+      "x1"
+    ],
+    "x10": [
+      "x10"
+    ],
+    "x11": [
+      "x11"
+    ],
+    "x12": [
+      "x12"
+    ],
+    "x13": [
+      "x13"
+    ],
+    "x14": [
+      "x14"
+    ],
+    "x15": [
+      "x15"
+    ],
+    "x16": [
+      "x16"
+    ],
+    "x17": [
+      "x17"
+    ],
+    "x18": [
+      "x18"
+    ],
+    "x19": [
+      "x19"
+    ],
+    "x2": [
+      "x2"
+    ],
+    "x3": [
+      "x3"
+    ],
+    "x4": [
+      "x4"
+    ],
+    "x5": [
+      "x5"
+    ],
+    "x6": [
+      "x6"
+    ],
+    "x7": [
+      "x7"
+    ],
+    "x8": [
+      "x8"
+    ],
+    "x9": [
+      "x9"
+    ]
+  },
+  "node_card": {
+    "x0": 2,
+    "x1": 2,
+    "x10": 2,
+    "x11": 2,
+    "x12": 2,
+    "x13": 2,
+    "x14": 2,
+    "x15": 2,
+    "x16": 2,
+    "x17": 2,
+    "x18": 2,
+    "x19": 2,
+    "x2": 2,
+    "x3": 2,
+    "x4": 2,
+    "x5": 2,
+    "x6": 2,
+    "x7": 2,
+    "x8": 2,
+    "x9": 2
+  },
+  "factors": [
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x0",
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child": "x0",
+        "parents": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "parents_lst": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x0",
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child": "x0",
+        "parents": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "parents_lst": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x0",
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child": "x0",
+        "parents": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "parents_lst": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x0",
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child": "x0",
+        "parents": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "parents_lst": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.41912899999
+      },
+      "4": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x0",
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child": "x0",
+        "parents": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "parents_lst": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x0",
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child": "x0",
+        "parents": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "parents_lst": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x0",
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child": "x0",
+        "parents": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "parents_lst": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x0",
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child": "x0",
+        "parents": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "parents_lst": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x0",
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child": "x0",
+        "parents": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "parents_lst": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x0",
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child": "x0",
+        "parents": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "parents_lst": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x0",
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child": "x0",
+        "parents": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "parents_lst": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x0",
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child": "x0",
+        "parents": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "parents_lst": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.58087100001,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x0",
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child": "x0",
+        "parents": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "parents_lst": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x0",
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child": "x0",
+        "parents": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "parents_lst": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x0",
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child": "x0",
+        "parents": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "parents_lst": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "15": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x0",
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child": "x0",
+        "parents": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "parents_lst": [
+          "x14",
+          "x16",
+          "x4"
+        ],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x1",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x1",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x1",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x1",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x1",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x1",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x1",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x1",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x1",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x1",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x1",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x1",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x1",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x1",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x1",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x1",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.02198400001054602,
+        "upbo": 0.62198399999
+      },
+      "8": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x1",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x1",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x1",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x1",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x1",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x1",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x1",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x1",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x1",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x1",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x1",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x1",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x1",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x1",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "15": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x1",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x1",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.37801600000999996,
+        "upbo": 0.978015999989454
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x10",
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child": "x10",
+        "parents": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x10",
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child": "x10",
+        "parents": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x10",
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child": "x10",
+        "parents": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x10",
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child": "x10",
+        "parents": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x10",
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child": "x10",
+        "parents": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x10",
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child": "x10",
+        "parents": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x10",
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child": "x10",
+        "parents": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x10"
+        ],
+        "lobo": 0.56212800001,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x10",
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child": "x10",
+        "parents": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x10",
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child": "x10",
+        "parents": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x10",
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child": "x10",
+        "parents": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x10",
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child": "x10",
+        "parents": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x10",
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child": "x10",
+        "parents": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x10",
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child": "x10",
+        "parents": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x10",
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child": "x10",
+        "parents": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x10",
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child": "x10",
+        "parents": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x10"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.43787199999000004
+      },
+      "15": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x10",
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child": "x10",
+        "parents": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x12",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x10"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x11",
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child": "x11",
+        "parents": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child_lst": [
+          "x11"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x11",
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child": "x11",
+        "parents": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child_lst": [
+          "x11"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x11",
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child": "x11",
+        "parents": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child_lst": [
+          "x11"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x11",
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child": "x11",
+        "parents": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child_lst": [
+          "x11"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x11",
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child": "x11",
+        "parents": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child_lst": [
+          "x11"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x11",
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child": "x11",
+        "parents": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child_lst": [
+          "x11"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x11",
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child": "x11",
+        "parents": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child_lst": [
+          "x11"
+        ],
+        "lobo": 0.61895400001,
+        "upbo": 0.9899999999791167
+      },
+      "7": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x11",
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child": "x11",
+        "parents": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child_lst": [
+          "x11"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x11",
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child": "x11",
+        "parents": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child_lst": [
+          "x11"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x11",
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child": "x11",
+        "parents": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child_lst": [
+          "x11"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x11",
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child": "x11",
+        "parents": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child_lst": [
+          "x11"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x11",
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child": "x11",
+        "parents": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child_lst": [
+          "x11"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x11",
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child": "x11",
+        "parents": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child_lst": [
+          "x11"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x11",
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child": "x11",
+        "parents": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child_lst": [
+          "x11"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x11",
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child": "x11",
+        "parents": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child_lst": [
+          "x11"
+        ],
+        "lobo": 0.010000000020883335,
+        "upbo": 0.38104599999
+      },
+      "15": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x11",
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child": "x11",
+        "parents": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x12",
+          "x4"
+        ],
+        "child_lst": [
+          "x11"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x12",
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child": "x12",
+        "parents": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x12"
+        ],
+        "lobo": 0.5135620000100001,
+        "upbo": 0.9899999999887201
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x12",
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child": "x12",
+        "parents": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x12"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x12",
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child": "x12",
+        "parents": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x12"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x12",
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child": "x12",
+        "parents": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x12"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x12",
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child": "x12",
+        "parents": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x12"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x12",
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child": "x12",
+        "parents": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x12"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x12",
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child": "x12",
+        "parents": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x12"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x12",
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child": "x12",
+        "parents": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x12"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x12",
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child": "x12",
+        "parents": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x12"
+        ],
+        "lobo": 0.010000000011279845,
+        "upbo": 0.48643799999
+      },
+      "9": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x12",
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child": "x12",
+        "parents": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x12"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x12",
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child": "x12",
+        "parents": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x12"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x12",
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child": "x12",
+        "parents": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x12"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x12",
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child": "x12",
+        "parents": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x12"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x12",
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child": "x12",
+        "parents": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x12"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x12",
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child": "x12",
+        "parents": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x12"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "15": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x12",
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child": "x12",
+        "parents": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x14",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x12"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x13",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x13",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x13"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x13",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x13",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x13"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x13",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x13",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x13"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x13",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x13",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x13"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x13",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x13",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x13"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x13",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x13",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x13"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x13",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x13",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x13"
+        ],
+        "lobo": 0.04154800006384179,
+        "upbo": 0.64154799999
+      },
+      "7": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x13",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x13",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x13"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x13",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x13",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x13"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x13",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x13",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x13"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x13",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x13",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x13"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x13",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x13",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x13"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x13",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x13",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x13"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x13",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x13",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x13"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x13",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x13",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x13"
+        ],
+        "lobo": 0.35845200001,
+        "upbo": 0.9584519999361583
+      },
+      "15": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x13",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x13",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x13"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x14",
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child": "x14",
+        "parents": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x14"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x14",
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child": "x14",
+        "parents": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x14"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x14",
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child": "x14",
+        "parents": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x14"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x14",
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child": "x14",
+        "parents": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x14"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x14",
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child": "x14",
+        "parents": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x14"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x14",
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child": "x14",
+        "parents": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x14"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x14",
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child": "x14",
+        "parents": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x14"
+        ],
+        "lobo": 0.09226300001,
+        "upbo": 0.6922629999900001
+      },
+      "7": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x14",
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child": "x14",
+        "parents": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x14"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x14",
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child": "x14",
+        "parents": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x14"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x14",
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child": "x14",
+        "parents": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x14"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x14",
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child": "x14",
+        "parents": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x14"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x14",
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child": "x14",
+        "parents": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x14"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x14",
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child": "x14",
+        "parents": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x14"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x14",
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child": "x14",
+        "parents": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x14"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x14",
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child": "x14",
+        "parents": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x14"
+        ],
+        "lobo": 0.30773700000999993,
+        "upbo": 0.90773699999
+      },
+      "15": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x14",
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child": "x14",
+        "parents": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x16",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x14"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x15",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x15",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x15"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x15",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x15",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x15"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x15",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x15",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x15"
+        ],
+        "lobo": 0.36488100001,
+        "upbo": 0.9648809999267541
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x15",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x15",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x15"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x15",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x15",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x15"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x15",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x15",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x15"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x15",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x15",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x15"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x15",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x15",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x15"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x15",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x15",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x15"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x15",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x15",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x15"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x15",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x15",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x15"
+        ],
+        "lobo": 0.03511900001,
+        "upbo": 0.63511899999
+      },
+      "11": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x15",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x15",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x15"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x15",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x15",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x15"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x15",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x15",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x15"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x15",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x15",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x15"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "15": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x15",
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child": "x15",
+        "parents": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x4"
+        ],
+        "child_lst": [
+          "x15"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x16",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x16",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x16"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x16",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x16",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x16"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x16",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x16",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x16"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x16",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x16",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x16"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x16",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x16",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x16"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x16",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x16",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x16"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x16",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x16",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x16"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x16",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x16",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x16"
+        ],
+        "lobo": 0.5329659999410848,
+        "upbo": 0.98999999999
+      },
+      "8": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x16",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x16",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x16"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x16",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x16",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x16"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x16",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x16",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x16"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x16",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x16",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x16"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x16",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x16",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x16"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x16",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x16",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x16"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x16",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x16",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x16"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "15": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x16",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x16",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x16"
+        ],
+        "lobo": 0.010000000010000001,
+        "upbo": 0.467033999906545
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x17",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x17",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x17"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x17",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x17",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x17"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x17",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x17",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x17"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x17",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x17",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x17"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x17",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x17",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x17"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x17",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x17",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x17"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.4162139999684109
+      },
+      "6": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x17",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x17",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x17"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x17",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x17",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x17"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x17",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x17",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x17"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x17",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x17",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x17"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x17",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x17",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x17"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x17",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x17",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x17"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x17",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x17",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x17"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x17",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x17",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x17"
+        ],
+        "lobo": 0.5837859999892718,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x17",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x17",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x17"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "15": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x17",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x17",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x17"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x18",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x18",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x18"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x18",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x18",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x18"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x18",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x18",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x18"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x18",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x18",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x18"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x18",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x18",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x18"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x18",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x18",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x18"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x18",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x18",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x18"
+        ],
+        "lobo": 0.29154700001,
+        "upbo": 0.89154699999
+      },
+      "7": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x18",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x18",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x18"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x18",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x18",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x18"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x18",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x18",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x18"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x18",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x18",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x18"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x18",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x18",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x18"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x18",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x18",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x18"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x18",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x18",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x18"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x18",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x18",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x18"
+        ],
+        "lobo": 0.10845300001,
+        "upbo": 0.70845299999
+      },
+      "15": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x18",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x18",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x18"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x19",
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child": "x19",
+        "parents": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "parents_lst": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child_lst": [
+          "x19"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x19",
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child": "x19",
+        "parents": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "parents_lst": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child_lst": [
+          "x19"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x19",
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child": "x19",
+        "parents": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "parents_lst": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child_lst": [
+          "x19"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x19",
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child": "x19",
+        "parents": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "parents_lst": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child_lst": [
+          "x19"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x19",
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child": "x19",
+        "parents": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "parents_lst": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child_lst": [
+          "x19"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x19",
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child": "x19",
+        "parents": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "parents_lst": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child_lst": [
+          "x19"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x19",
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child": "x19",
+        "parents": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "parents_lst": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child_lst": [
+          "x19"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x19",
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child": "x19",
+        "parents": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "parents_lst": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child_lst": [
+          "x19"
+        ],
+        "lobo": 0.002529000019125847,
+        "upbo": 0.60252899999
+      },
+      "8": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x19",
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child": "x19",
+        "parents": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "parents_lst": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child_lst": [
+          "x19"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x19",
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child": "x19",
+        "parents": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "parents_lst": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child_lst": [
+          "x19"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x19",
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child": "x19",
+        "parents": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "parents_lst": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child_lst": [
+          "x19"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x19",
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child": "x19",
+        "parents": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "parents_lst": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child_lst": [
+          "x19"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x19",
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child": "x19",
+        "parents": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "parents_lst": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child_lst": [
+          "x19"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x19",
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child": "x19",
+        "parents": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "parents_lst": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child_lst": [
+          "x19"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x19",
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child": "x19",
+        "parents": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "parents_lst": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child_lst": [
+          "x19"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "15": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x19",
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child": "x19",
+        "parents": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "parents_lst": [
+          "x13",
+          "x17",
+          "x3"
+        ],
+        "child_lst": [
+          "x19"
+        ],
+        "lobo": 0.3974710000100001,
+        "upbo": 0.9974709999808742
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x2",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x2",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x2",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x2",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x2",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x2",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x2",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x2",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x2",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x2",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x2",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x2",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x2",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x2",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.42253899999
+      },
+      "7": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x2",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x2",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x2",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x2",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x2",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x2",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x2",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x2",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x2",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x2",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x2",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x2",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x2",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x2",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x2",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x2",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.57746100001,
+        "upbo": 1.0
+      },
+      "15": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x2",
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child": "x2",
+        "parents": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x7"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x3",
+        "parents": [
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x3",
+        "parents": [
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x3",
+        "parents": [
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x3",
+        "parents": [
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x3"
+        ],
+        "lobo": 0.02035300001235455,
+        "upbo": 0.6203529999899999
+      },
+      "4": {
+        "interpretation": [
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x3",
+        "parents": [
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x3",
+        "parents": [
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x3",
+        "parents": [
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x3"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x3",
+        "parents": [
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x3"
+        ],
+        "lobo": 0.37964700001,
+        "upbo": 0.9796469999876454
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "x4",
+          "x8"
+        ],
+        "child": "x4",
+        "parents": [
+          "x8"
+        ],
+        "parents_lst": [
+          "x8"
+        ],
+        "child_lst": [
+          "x4"
+        ],
+        "lobo": 0.010000001475560192,
+        "upbo": 0.31787399999000004
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "x4",
+          "x8"
+        ],
+        "child": "x4",
+        "parents": [
+          "x8"
+        ],
+        "parents_lst": [
+          "x8"
+        ],
+        "child_lst": [
+          "x4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "x4",
+          "x8"
+        ],
+        "child": "x4",
+        "parents": [
+          "x8"
+        ],
+        "parents_lst": [
+          "x8"
+        ],
+        "child_lst": [
+          "x4"
+        ],
+        "lobo": 0.68212600001,
+        "upbo": 0.9899999985244397
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "x4",
+          "x8"
+        ],
+        "child": "x4",
+        "parents": [
+          "x8"
+        ],
+        "parents_lst": [
+          "x8"
+        ],
+        "child_lst": [
+          "x4"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x5",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x5",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x5"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x5",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x5",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x5"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x5",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x5",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x5"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x5",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x5",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x5"
+        ],
+        "lobo": 0.11758100001000002,
+        "upbo": 0.71758099999
+      },
+      "4": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x5",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x5",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x5"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x5",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x5",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x5"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x5",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x5",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x5"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x5",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x5",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x5"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x5",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x5",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x5"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x5",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x5",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x5"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x5",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x5",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x5"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x5",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x5",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x5"
+        ],
+        "lobo": 0.28241900001,
+        "upbo": 0.88241899999
+      },
+      "12": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x5",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x5",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x5"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x5",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x5",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x5"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x5",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x5",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x5"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "15": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x5",
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child": "x5",
+        "parents": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x8"
+        ],
+        "child_lst": [
+          "x5"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x6",
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child": "x6",
+        "parents": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x6",
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child": "x6",
+        "parents": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x6",
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child": "x6",
+        "parents": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x6",
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child": "x6",
+        "parents": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x6",
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child": "x6",
+        "parents": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x6",
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child": "x6",
+        "parents": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x6"
+        ],
+        "lobo": 0.1951470000198171,
+        "upbo": 0.7951469999815423
+      },
+      "6": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x6",
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child": "x6",
+        "parents": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x6",
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child": "x6",
+        "parents": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x6",
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child": "x6",
+        "parents": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x6",
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child": "x6",
+        "parents": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x6",
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child": "x6",
+        "parents": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x6",
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child": "x6",
+        "parents": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x6",
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child": "x6",
+        "parents": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x6",
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child": "x6",
+        "parents": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x6"
+        ],
+        "lobo": 0.20485300001845777,
+        "upbo": 0.8048529999801828
+      },
+      "14": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x6",
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child": "x6",
+        "parents": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "15": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x6",
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child": "x6",
+        "parents": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "parents_lst": [
+          "x10",
+          "x14",
+          "x4"
+        ],
+        "child_lst": [
+          "x6"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x7",
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child": "x7",
+        "parents": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child_lst": [
+          "x7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x7",
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child": "x7",
+        "parents": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child_lst": [
+          "x7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x7",
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child": "x7",
+        "parents": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child_lst": [
+          "x7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x7",
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child": "x7",
+        "parents": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child_lst": [
+          "x7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x7",
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child": "x7",
+        "parents": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child_lst": [
+          "x7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x7",
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child": "x7",
+        "parents": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child_lst": [
+          "x7"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.5417619999900001
+      },
+      "6": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x7",
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child": "x7",
+        "parents": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child_lst": [
+          "x7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x7",
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child": "x7",
+        "parents": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child_lst": [
+          "x7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x7",
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child": "x7",
+        "parents": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child_lst": [
+          "x7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x7",
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child": "x7",
+        "parents": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child_lst": [
+          "x7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x7",
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child": "x7",
+        "parents": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child_lst": [
+          "x7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x7",
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child": "x7",
+        "parents": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child_lst": [
+          "x7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x7",
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child": "x7",
+        "parents": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child_lst": [
+          "x7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "13": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x7",
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child": "x7",
+        "parents": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child_lst": [
+          "x7"
+        ],
+        "lobo": 0.4582380000099999,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x7",
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child": "x7",
+        "parents": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child_lst": [
+          "x7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "15": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x7",
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child": "x7",
+        "parents": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "parents_lst": [
+          "x17",
+          "x3",
+          "x8"
+        ],
+        "child_lst": [
+          "x7"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0
+        ],
+        "scope": [
+          "x8"
+        ],
+        "child": "x8",
+        "parents": [],
+        "parents_lst": [],
+        "child_lst": [
+          "x8"
+        ],
+        "lobo": 0.30651200403855017,
+        "upbo": 0.4995919999893214
+      },
+      "1": {
+        "interpretation": [
+          1
+        ],
+        "scope": [
+          "x8"
+        ],
+        "child": "x8",
+        "parents": [],
+        "parents_lst": [],
+        "child_lst": [
+          "x8"
+        ],
+        "lobo": 0.50040800001,
+        "upbo": 0.6934879996960123
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x9",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x9",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x9",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x9",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x9",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x9",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x9",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x9",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x9",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x9",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x9"
+        ],
+        "lobo": 0.47618200001,
+        "upbo": 0.98999999999
+      },
+      "5": {
+        "interpretation": [
+          0,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x9",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x9",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x9",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x9",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          0,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x9",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x9",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "8": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x9",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x9",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "9": {
+        "interpretation": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x9",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x9",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "10": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x9",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x9",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "11": {
+        "interpretation": [
+          1,
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x9",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x9",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "12": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x9",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x9",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x9"
+        ],
+        "lobo": 0.010000000010000001,
+        "upbo": 0.52381799999
+      },
+      "13": {
+        "interpretation": [
+          1,
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x9",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x9",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "14": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x9",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x9",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "15": {
+        "interpretation": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x9",
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child": "x9",
+        "parents": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "parents_lst": [
+          "x3",
+          "x4",
+          "x5"
+        ],
+        "child_lst": [
+          "x9"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    }
+  ]
+}
