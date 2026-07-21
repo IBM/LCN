@@ -4,9 +4,9 @@
   "method": "linear",
   "merge_budget": 1,
   "solver": "ipopt",
-  "enumeration_time": 0.0504,
-  "compile_time": 27.6422,
-  "n_jobs": 16,
+  "enumeration_time": 0.0008,
+  "compile_time": 0.0979,
+  "n_jobs": 8,
   "n_vertices": 48,
   "extreme_points": {
     "x0": {
@@ -238,7 +238,7 @@
           0.3
         ]
       ],
-      "<x4:0|x8:1>": [
+      "<x4:1|x8:0>": [
         [
           0.0,
           1.0
@@ -248,7 +248,7 @@
           0.0
         ]
       ],
-      "<x4:1|x8:0>": [
+      "<x4:0|x8:1>": [
         [
           0.0,
           1.0
