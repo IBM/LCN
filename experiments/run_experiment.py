@@ -127,6 +127,12 @@ Parallel usage — each combination gets its own output file:
         help="ignore any compiled .cn next to each .lcn and (re)compute the "
              "credal network in memory (default: use the cache when present)")
     parser.add_argument(
+        "--no-highs", action="store_true",
+        help="force the legacy ipopt subprocess path for the per-family "
+             "linear/ipopt LP solves instead of the in-process HiGHS solver "
+             "(default: use HiGHS). No effect for linear-tight, scip, or a "
+             "cache hit.")
+    parser.add_argument(
         "--time-limit", type=float, default=None,
         help="wall-clock time limit in seconds per instance per algorithm "
              "(default: unlimited)")
@@ -209,6 +215,8 @@ Parallel usage — each combination gets its own output file:
                     kwargs["n_jobs"] = args.n_jobs
                 if args.no_cache:
                     kwargs["cache"] = False
+                if args.no_highs:
+                    kwargs["use_highs"] = False
 
                 result = run_single(
                     instance, algo, evidence=evidence,
