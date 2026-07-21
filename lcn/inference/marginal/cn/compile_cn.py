@@ -49,7 +49,8 @@ def compile_lcn_to_cn(
         n_jobs: int = 1,
         time_limit: float = None,
         gap_tol: float = 0.0,
-        verbosity: int = 1) -> str:
+        verbosity: int = 1,
+        use_highs: bool = True) -> str:
     """
     Compile an LCN file into a credal-network ``.cn`` file.
 
@@ -66,6 +67,11 @@ def compile_lcn_to_cn(
             Number of worker threads for the per-family interval solves.
         verbosity: int
             Verbosity level (0 is silent).
+        use_highs: bool
+            When True (default), solve each "linear"/"ipopt" per-family LP
+            in-process with HiGHS (numerically identical, far faster); set
+            False to force the legacy ipopt subprocess path. No effect for
+            method "linear-tight" or solver "scip".
 
     Returns:
         The path to the written ``.cn`` file.
@@ -86,7 +92,7 @@ def compile_lcn_to_cn(
     cn = CredalNetwork.from_lcn(
         lcn, method=method, solver=solver, time_limit=time_limit,
         gap_tol=gap_tol, n_jobs=n_jobs, merge_budget=merge_budget,
-        solve_families=True, verbosity=verbosity)
+        solve_families=True, verbosity=verbosity, use_highs=use_highs)
     elapsed = time.time() - t0
 
     cn.save_cn(output_file, method=method, merge_budget=merge_budget,
@@ -127,6 +133,10 @@ def main():
     parser.add_argument(
         "-v", "--verbosity", type=int, default=1,
         help="Verbosity level (0 is silent; default: 1).")
+    parser.add_argument(
+        "--no-highs", dest="use_highs", action="store_false",
+        help="Force the legacy ipopt subprocess path for method=linear/"
+             "solver=ipopt (default: use the in-process HiGHS LP).")
     args = parser.parse_args()
 
     compile_lcn_to_cn(
@@ -138,7 +148,8 @@ def main():
         n_jobs=args.n_jobs,
         time_limit=args.time_limit,
         gap_tol=args.gap_tol,
-        verbosity=args.verbosity)
+        verbosity=args.verbosity,
+        use_highs=args.use_highs)
 
 
 if __name__ == "__main__":

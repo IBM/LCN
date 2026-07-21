@@ -157,7 +157,8 @@ class CredalNetworkVertices:
                  enumerate_vertices: bool = True,
                  solve_families: bool = True,
                  lcn_file: str = None, cache: bool = True,
-                 verbosity: int = 1) -> "CredalNetworkVertices":
+                 verbosity: int = 1,
+                 use_highs: bool = True) -> "CredalNetworkVertices":
         """
         Build the full pipeline from an LCN: CredalNetwork (chain-graph
         factorization + interval local credal sets) followed by extreme-point
@@ -226,6 +227,14 @@ class CredalNetworkVertices:
                 benign here -- the hardened multi-restart handles them) are
                 SUPPRESSED. At verbosity >= 2 the solver's own progress log is
                 streamed (ipopt/scip ``tee``) and those messages are shown.
+            use_highs: bool
+                Forwarded to :meth:`CredalNetwork.from_lcn`. When True (default)
+                and method="linear"/solver="ipopt", each per-family LP is solved
+                in-process with HiGHS (numerically identical, far faster than
+                launching ipopt per solve); set False to force the legacy ipopt
+                path (A/B testing). No effect for method "linear-tight",
+                solver "scip", or a cache hit (which skips solving). Not part of
+                the ``.cn``/``.vtx`` provenance key.
         """
         # Placeholder bounds from a structure-only build carry no usable credal
         # set, so there is nothing for LRS to enumerate: force enumerate_vertices
@@ -261,7 +270,7 @@ class CredalNetworkVertices:
                         lcn, method=method, solver=solver,
                         time_limit=time_limit, gap_tol=gap_tol, n_jobs=n_jobs,
                         merge_budget=merge_budget, solve_families=False,
-                        verbosity=verbosity)
+                        verbosity=verbosity, use_highs=use_highs)
                 cnv = cls(cn)
                 # Build bn_min/bn_max (cheap structure) but SKIP LRS, then inject
                 # the loaded vertices.
@@ -346,7 +355,8 @@ class CredalNetworkVertices:
             cn = CredalNetwork.from_lcn(
                 lcn, method=method, solver=solver, time_limit=time_limit,
                 gap_tol=gap_tol, n_jobs=n_jobs, merge_budget=merge_budget,
-                solve_families=solve_families, verbosity=verbosity)
+                solve_families=solve_families, verbosity=verbosity,
+                use_highs=use_highs)
             cnv = cls(cn)
             cnv._build(verbosity=verbosity,
                        enumerate_vertices=enumerate_vertices,

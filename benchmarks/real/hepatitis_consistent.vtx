@@ -4,9 +4,9 @@
   "method": "linear",
   "merge_budget": 1,
   "solver": "ipopt",
-  "enumeration_time": 0.0508,
-  "compile_time": 81.7544,
-  "n_jobs": 16,
+  "enumeration_time": 0.0007,
+  "compile_time": 0.2388,
+  "n_jobs": 8,
   "n_vertices": 66,
   "extreme_points": {
     "x0": {

@@ -348,13 +348,14 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             cn_time_limit = kwargs.get("solver_time_limit", None)
             cn_gap_tol = kwargs.get("gap_tol", 0.0)
             merge_budget = kwargs.get("merge_budget", 1)
+            use_highs = kwargs.get("use_highs", True)
 
             t_compile = time.perf_counter()
             cn = CredalNetwork.from_lcn(
                 lcn_model, method=fact_method, solver=cn_solver,
                 time_limit=cn_time_limit, gap_tol=cn_gap_tol,
                 n_jobs=n_jobs, merge_budget=merge_budget,
-                solve_families=True, verbosity=verbosity)
+                solve_families=True, verbosity=verbosity, use_highs=use_highs)
             compile_time = time.perf_counter() - t_compile
 
             cn_path = os.path.splitext(lcn_file)[0] + ".cn"
@@ -387,6 +388,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             cn_gap_tol = kwargs.get("gap_tol", 0.0)
             merge_budget = kwargs.get("merge_budget", 1)
             use_cache = kwargs.get("cache", True)
+            use_highs = kwargs.get("use_highs", True)
 
             cn_path = os.path.splitext(lcn_file)[0] + ".cn"
 
@@ -405,7 +407,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                     lcn_model, method=fact_method, solver=cn_solver,
                     time_limit=cn_time_limit, gap_tol=cn_gap_tol,
                     n_jobs=n_jobs, merge_budget=merge_budget,
-                    solve_families=True, verbosity=verbosity)
+                    solve_families=True, verbosity=verbosity, use_highs=use_highs)
                 compile_time = time.perf_counter() - t_compile
                 cn_obj.save_cn(cn_path, method=fact_method,
                                merge_budget=merge_budget, solver=cn_solver,
@@ -418,7 +420,8 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 time_limit=cn_time_limit, gap_tol=cn_gap_tol,
                 n_jobs=n_jobs, merge_budget=merge_budget,
                 enumerate_vertices=True, solve_families=True,
-                lcn_file=lcn_file, cache=use_cache, verbosity=verbosity)
+                lcn_file=lcn_file, cache=use_cache, verbosity=verbosity,
+                use_highs=use_highs)
             # Fall back to the locally-measured compile_time if the cache path
             # did not populate it (e.g. --no-cache).
             if cnv.compile_time is None:
@@ -507,13 +510,15 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             # --no-cache (kwargs["cache"]=False) and inherently off for cjt
             # (structure-only build carries no cacheable intervals).
             use_cache = kwargs.get("cache", True) and solve_families
+            use_highs = kwargs.get("use_highs", True)
             cnv = CredalNetworkVertices.from_lcn(
                 lcn_model, method=fact_method, solver=cn_solver,
                 time_limit=cn_time_limit, gap_tol=cn_gap_tol,
                 n_jobs=n_jobs, merge_budget=merge_budget,
                 enumerate_vertices=enumerate_vertices,
                 solve_families=solve_families,
-                lcn_file=lcn_file, cache=use_cache, verbosity=verbosity)
+                lcn_file=lcn_file, cache=use_cache, verbosity=verbosity,
+                use_highs=use_highs)
             result["build_time"] = round(cnv.build_time, 4)
             result["induced_width"] = _compute_induced_width(cnv)
             # Surface cache provenance for analysis (both cache layers).
@@ -732,6 +737,13 @@ def main():
         help="Ignore any compiled .cn next to the .lcn and (re)compute the "
              "credal network in memory (default: use the cache when present)")
     parser.add_argument(
+        "--no-highs", action="store_true",
+        help="Force the legacy ipopt subprocess path for the per-family "
+             "linear/ipopt LP solves instead of the in-process HiGHS solver "
+             "(default: use HiGHS; numerically identical, far faster). No "
+             "effect for --factorization-method linear-tight, --solver scip, "
+             "or a cache hit.")
+    parser.add_argument(
         "--time-limit", type=float, default=None,
         help="Wall-clock time limit in seconds per instance (default: unlimited)")
     parser.add_argument(
@@ -769,6 +781,8 @@ def main():
         kwargs["n_jobs"] = args.n_jobs
     if args.no_cache:
         kwargs["cache"] = False
+    if args.no_highs:
+        kwargs["use_highs"] = False
     result = run_single(
         args.instance, args.algorithm,
         evidence=evidence, verbosity=args.verbosity,

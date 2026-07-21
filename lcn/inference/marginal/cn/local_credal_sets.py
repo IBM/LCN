@@ -52,6 +52,7 @@
 import itertools
 
 import numpy as np
+from scipy.optimize import linprog
 from pyomo.environ import (
     ConcreteModel,
     Set, NonNegativeReals,
@@ -78,6 +79,25 @@ _N_RESTARTS = 4
 # A solved bound this close to 0 (min) or 1 (max) is treated as suspicious
 # (likely a vacuous local-solver artifact) and triggers the fallback.
 _VACUOUS_TOL = 1e-6
+# Constraint-residual tolerance when re-verifying a HiGHS optimum against the
+# `constraint_rows`. A HiGHS solution that violates any row beyond this is
+# rejected and falls through to the hardened ipopt/SLSQP path.
+_HIGHS_FEAS_TOL = 1e-7
+
+
+def _highs_available() -> bool:
+    """True if the installed scipy exposes the HiGHS linprog backend."""
+    try:
+        r = linprog(
+            c=[1.0], A_ub=[[1.0]], b_ub=[1.0], bounds=[(0.0, 1.0)],
+            method="highs")
+        return bool(r.success)
+    except Exception:
+        return False
+
+
+# Cache the one-time capability probe (module import happens once per process).
+_HIGHS_OK = _highs_available()
 # Minimum denominator P(parents) for the SCIP raw-fractional objective. The
 # conditional P(child | parents) is undefined when P(parents)=0, and SCIP's
 # spatial branch-and-bound will otherwise drive the denominator to ~0 and report
@@ -117,7 +137,7 @@ class LocalCredalSetSolver:
 
     def __init__(self, lcn: LCN, method: str = "linear", solver: str = "ipopt",
                  time_limit: float = None, gap_tol: float = 0.0,
-                 verbosity: int = 1):
+                 verbosity: int = 1, use_highs: bool = True):
         assert method in ("linear", "linear-tight"), \
             f"Unknown method '{method}'. Use 'linear' or 'linear-tight'."
         assert solver in ("ipopt", "scip"), \
@@ -128,6 +148,14 @@ class LocalCredalSetSolver:
         self.time_limit = time_limit
         self.gap_tol = gap_tol
         self.verbosity = verbosity
+        # In-process HiGHS LP fast path for method="linear", solver="ipopt".
+        # The per-family "linear" program is an exact LP (a plain LP without
+        # parents, the Charnes-Cooper LP with parents), so HiGHS solves it to
+        # global optimality in-process -- far cheaper than launching ipopt as
+        # an AMPL/NL subprocess per solve. Auto-disabled if the installed scipy
+        # lacks the HiGHS backend; a clean HiGHS optimum is trusted, anything
+        # else falls through to the hardened ipopt/SLSQP path unchanged.
+        self.use_highs = bool(use_highs) and _HIGHS_OK
 
     # ------------------------------------------------------------------
     # Public API
@@ -151,6 +179,35 @@ class LocalCredalSetSolver:
         else:  # "linear-tight"
             return self._solve_linear_tight(
                 scope, literals, child, parents, sentences, sense)
+
+    def solve_both(self, scope, literals, child, parents, sentences):
+        """
+        Solve both the min (lower) and max (upper) bound for one factor
+        interpretation, returning ``(lobo, upbo)`` (each a float or None).
+
+        For ``method="linear"`` this builds the shared program pieces ONCE
+        (:meth:`_linear_rows_and_obj`) and solves both senses from them -- the
+        min and max programs have identical constraint rows, objective numerator
+        A and denominator E, so rebuilding them per sense (as two separate
+        :meth:`solve` calls do) is wasted work. With the LP itself now solved
+        in-process by HiGHS, this per-interpretation row build is the dominant
+        cost, so hoisting it roughly halves the total compile work.
+
+        For ``method="linear-tight"`` the enriched model is built per sense
+        anyway (the bilinear LMC equalities are not shared across senses), so
+        this simply calls :meth:`solve` twice.
+        """
+        if self.method == "linear":
+            rows = self._linear_rows_and_obj(scope, literals, parents, sentences)
+            lo = self._solve_linear_from_rows(rows, "min")
+            hi = self._solve_linear_from_rows(rows, "max")
+            return lo, hi
+        else:  # "linear-tight"
+            lo = self._solve_linear_tight(
+                scope, literals, child, parents, sentences, "min")
+            hi = self._solve_linear_tight(
+                scope, literals, child, parents, sentences, "max")
+            return lo, hi
 
     # ------------------------------------------------------------------
     # Linear factorization (LP / Charnes-Cooper fractional LP)
@@ -206,20 +263,116 @@ class LocalCredalSetSolver:
         return N, interpretations, constraint_rows, A, E
 
     def _solve_linear(self, scope, literals, child, parents, sentences, sense):
-        N, interpretations, constraint_rows, A, E = self._linear_rows_and_obj(
-            scope, literals, parents, sentences)
+        rows = self._linear_rows_and_obj(scope, literals, parents, sentences)
+        return self._solve_linear_from_rows(rows, sense)
+
+    def _solve_linear_from_rows(self, rows, sense):
+        """
+        Solve the "linear" bound for one sense from prebuilt rows, i.e. the tuple
+        (N, interpretations, constraint_rows, A, E) returned by
+        :meth:`_linear_rows_and_obj`. Split out so :meth:`solve_both` can build
+        the rows once and solve both senses (the min/max programs share identical
+        rows, A and E -- only the objective sense differs).
+
+        For solver="ipopt" the in-process HiGHS LP is tried first (the program is
+        an exact LP), and only a non-clean HiGHS result falls through to the
+        hardened ipopt-multistart + SLSQP path.
+        """
+        N, interpretations, constraint_rows, A, E = rows
 
         if self.solver == "scip":
             return self._scip_linear(N, constraint_rows, A, E, sense)
 
-        # ipopt (hardened)
+        # ipopt path -> prefer in-process HiGHS, fall back to hardened ipopt/SLSQP
         if E is None:
             # No parents: standard LP, linear objective A @ p
+            if self.use_highs:
+                val, ok = self._highs_linear_lp(N, A, constraint_rows, sense)
+                if self._highs_accept(val, ok, N, constraint_rows, A=A):
+                    return val
             return self._robust_linear_lp(N, A, constraint_rows, sense)
         else:
             # With parents: fractional objective (A*E @ p) / (E @ p)
             AE = A * E
+            if self.use_highs:
+                val, ok = self._highs_fractional_lp(N, AE, E, constraint_rows, sense)
+                if self._highs_accept(val, ok, N, constraint_rows, AE=AE, E=E):
+                    return val
             return self._robust_fractional_lp(N, AE, E, constraint_rows, sense)
+
+    # ------------------------------------------------------------------
+    # In-process HiGHS LP fast path (solver="ipopt", method="linear")
+    # ------------------------------------------------------------------
+
+    def _highs_linear_lp(self, N, c, constraint_rows, sense):
+        """
+        Solve the parentless LP min/max c @ p s.t. constraint_rows, p in [0,1]
+        with the in-process HiGHS backend. The two simplex rows in
+        constraint_rows already encode sum(p)=1, so they are fed as inequalities
+        (no separate equality). Returns (value_in_original_sense, ok).
+        """
+        cc = np.asarray(c, dtype=float)
+        obj = -cc if sense == "max" else cc
+        A_ub = np.asarray([row[0] for row in constraint_rows], dtype=float)
+        b_ub = np.asarray([row[1] for row in constraint_rows], dtype=float)
+        try:
+            res = linprog(obj, A_ub=A_ub, b_ub=b_ub,
+                          bounds=[(0.0, 1.0)] * N, method="highs")
+        except Exception as ex:
+            if self.verbosity > 1:
+                print(f"[LocalCredalSetSolver] highs exception: {ex}")
+            return None, False
+        ok = bool(res.success and res.status == 0 and res.x is not None)
+        if not ok:
+            return None, False
+        return float(cc @ res.x), True
+
+    def _highs_fractional_lp(self, N, AE, E, constraint_rows, sense):
+        """
+        Solve the Charnes-Cooper transform of (AE @ p) / (E @ p) with HiGHS:
+        min/max AE @ y s.t. coeffs @ y - rhs*t <= 0, E @ y == 1, y,t >= 0.
+        The homogenized variable vector is z = [y_0..y_{N-1}, t] (dim N+1).
+        Returns (value_in_original_sense, ok).
+        """
+        AE = np.asarray(AE, dtype=float)
+        E = np.asarray(E, dtype=float)
+        obj = np.zeros(N + 1)
+        obj[:N] = -AE if sense == "max" else AE
+        A_ub = np.zeros((len(constraint_rows), N + 1))
+        b_ub = np.zeros(len(constraint_rows))
+        for r, (coeffs, rhs) in enumerate(constraint_rows):
+            A_ub[r, :N] = coeffs
+            A_ub[r, N] = -float(rhs)
+        A_eq = np.zeros((1, N + 1))
+        A_eq[0, :N] = E
+        b_eq = np.array([1.0])
+        try:
+            res = linprog(obj, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq,
+                          bounds=[(0.0, None)] * (N + 1), method="highs")
+        except Exception as ex:
+            if self.verbosity > 1:
+                print(f"[LocalCredalSetSolver] highs exception: {ex}")
+            return None, False
+        ok = bool(res.success and res.status == 0 and res.x is not None)
+        if not ok:
+            return None, False
+        # At the optimum E @ y == 1, so the ratio value equals AE @ y.
+        return float(AE @ res.x[:N]), True
+
+    def _highs_accept(self, value, ok, N, constraint_rows, A=None, AE=None, E=None):
+        """
+        Decide whether to trust a HiGHS result. Accept iff it reports a clean
+        optimum (ok) and a finite value. Crucially, the 0/1-extreme
+        ``_VACUOUS_TOL`` "suspicious" test is NOT applied here: that heuristic
+        only detects ipopt *local-solver* artifacts, whereas HiGHS is a globally
+        exact LP solver and a true optimum may legitimately sit at 0 or 1.
+
+        The value already comes verified feasible by HiGHS; we do not re-solve.
+        (A residual re-check against constraint_rows is intentionally omitted to
+        keep the fast path fast -- an infeasible/limit result is reported by ok,
+        which routes to the robust fallback instead.)
+        """
+        return bool(ok and value is not None and np.isfinite(value))
 
     # ------------------------------------------------------------------
     # Tight factorization (D1: in-scope sentences + scope-restricted LMC,

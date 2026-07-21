@@ -77,8 +77,9 @@ def _solve_family(symbolic_factor: Dict, solver: "LocalCredalSetSolver") -> Dict
     interpretations = list(itertools.product([0, 1], repeat=len(scope)))
     for i, interpretation in enumerate(interpretations):
         literals = dict(zip(scope, interpretation))
-        lobo = solver.solve(scope, literals, child, parents_lst, sentences, sense="min")
-        upbo = solver.solve(scope, literals, child, parents_lst, sentences, sense="max")
+        # Solve both senses from one shared row build (see solve_both).
+        lobo, upbo = solver.solve_both(
+            scope, literals, child, parents_lst, sentences)
         entry = _entry_shell(symbolic_factor, interpretation)
         entry["lobo"] = lobo if lobo is not None else 0.0
         entry["upbo"] = upbo if upbo is not None else 1.0
@@ -93,20 +94,24 @@ def _solve_families_threaded(symbolic_factors: List[Dict],
     Compute every family's interval local credal set concurrently on a thread
     pool, at *per-solve* granularity.
 
-    Each family contributes ``2 * 2^|scope|`` independent min/max solves; all of
-    them are flattened into one task list and dispatched to a single
+    Each family contributes ``2^|scope|`` independent tasks -- one per
+    interpretation, each solving BOTH the min and max bound from a single shared
+    row build (see :meth:`LocalCredalSetSolver.solve_both`). All tasks across all
+    families are flattened into one task list and dispatched to a single
     ``ThreadPoolExecutor(max_workers=n_jobs)``. This load-balances across families
     -- a large family no longer serializes one worker while the others idle -- and
-    keeps a bounded ``n_jobs`` concurrent ipopt subprocesses in flight. Results are
-    written back by (family, interpretation) index, so the returned list is in the
+    keeps a bounded ``n_jobs`` concurrent solves in flight. Results are written
+    back by (family, interpretation) index, so the returned list is in the
     original family order and numerically identical to the serial path.
 
-    The dominant cost of each task is the ipopt subprocess (Pyomo NL/AMPL
-    interface), which blocks on subprocess I/O and thus releases the GIL, so the
-    threads make real progress in parallel. The scipy SLSQP fallback runs
-    in-process (it is only reached on suspicious/failed ipopt results and is always
-    re-verified against the real constraints); see the LCN_ISOLATE_SLSQP note
-    below.
+    On the default HiGHS "linear" path each task is a cheap in-process LP, so
+    threads mainly overlap the per-interpretation row build. On the ipopt/scip
+    fallback path (linear-tight, solver="scip", or a declined HiGHS solve) the
+    dominant cost is a solver subprocess (Pyomo NL/AMPL interface) that blocks on
+    subprocess I/O and thus releases the GIL, so the threads make real progress in
+    parallel. The scipy SLSQP fallback runs in-process (it is only reached on
+    suspicious/failed ipopt results and is always re-verified against the real
+    constraints); see the LCN_ISOLATE_SLSQP note below.
     """
     # Pre-shape the output: one dict per family, each pre-populated with the
     # structural entry skeletons so worker threads only write scalar bounds.
@@ -118,19 +123,19 @@ def _solve_families_threaded(symbolic_factors: List[Dict],
         factors.append({i: _entry_shell(sf, interp)
                         for i, interp in enumerate(interpretations)})
 
-    # Flatten to individual (family_idx, interp_idx, sense) solve tasks.
+    # Flatten to individual (family_idx, interp_idx) tasks; each solves BOTH
+    # senses from one shared row build (solve_both).
     tasks = []
     for fi, sf in enumerate(symbolic_factors):
         for ii, interpretation in enumerate(interps_per_family[fi]):
             literals = dict(zip(sf["scope"], interpretation))
-            for sense in ("min", "max"):
-                tasks.append((fi, ii, sense, sf, literals))
+            tasks.append((fi, ii, sf, literals))
 
     def _one(task):
-        fi, ii, sense, sf, literals = task
-        val = solver.solve(sf["scope"], literals, sf["child"],
-                           sf["parents_lst"], sf["sentences"], sense=sense)
-        return fi, ii, sense, val
+        fi, ii, sf, literals = task
+        lobo, upbo = solver.solve_both(sf["scope"], literals, sf["child"],
+                                       sf["parents_lst"], sf["sentences"])
+        return fi, ii, lobo, upbo
 
     # Threads must not fork: the SLSQP crash-isolation (run_isolated) forks via
     # multiprocessing on Linux, and forking from a worker thread of a live pool is
@@ -143,10 +148,9 @@ def _solve_families_threaded(symbolic_factors: List[Dict],
     try:
         with ThreadPoolExecutor(max_workers=n_jobs) as executor:
             for fut in as_completed(executor.submit(_one, t) for t in tasks):
-                fi, ii, sense, val = fut.result()
-                key = "lobo" if sense == "min" else "upbo"
-                default = 0.0 if sense == "min" else 1.0
-                factors[fi][ii][key] = val if val is not None else default
+                fi, ii, lobo, upbo = fut.result()
+                factors[fi][ii]["lobo"] = lobo if lobo is not None else 0.0
+                factors[fi][ii]["upbo"] = upbo if upbo is not None else 1.0
     finally:
         if prev_isolate is None:
             os.environ.pop("LCN_ISOLATE_SLSQP", None)
@@ -225,7 +229,8 @@ class CredalNetwork:
                  gap_tol: float = 0.0, n_jobs: int = 1,
                  merge_budget: int = 1,
                  solve_families: bool = True,
-                 verbosity: int = 1) -> "CredalNetwork":
+                 verbosity: int = 1,
+                 use_highs: bool = True) -> "CredalNetwork":
         """
         Build a CredalNetwork from an LCN: derive the chain-graph structure,
         build the symbolic factorization and compute the interval local credal
@@ -249,13 +254,16 @@ class CredalNetwork:
                 SCIP relative optimality gap to stop at (ignored by ipopt).
             n_jobs: int
                 Number of worker threads for the per-family solves. 1 (the
-                default) solves serially. When > 1, the individual per-family
-                min/max solves are dispatched across a thread pool: each solve
-                spends most of its time in the ipopt subprocess (Pyomo's NL/AMPL
-                interface), which releases the GIL, so threads give real
-                parallelism without the K x interpreter memory, pickling cost, or
-                fork-inside-worker hang of a process pool. The result is
-                order-preserving and numerically identical to the serial path.
+                default) solves serially. When > 1, the per-family
+                interpretation solves are dispatched across a thread pool.
+                Under the default HiGHS "linear" path each solve is a cheap
+                in-process LP (GIL-bound), so threads mainly help by overlapping
+                the row build; under the ipopt/scip fallback path each solve
+                spends most of its time in a GIL-releasing solver subprocess, so
+                threads give real parallelism -- without the K x interpreter
+                memory, pickling cost, or fork-inside-worker hang of a process
+                pool. The result is order-preserving and numerically identical
+                to the serial path.
             merge_budget: int
                 Scheme D2: maximum flattened scope of a merged super-family. 1
                 (the default) performs no merging (the factors are the LCN
@@ -277,6 +285,16 @@ class CredalNetwork:
                 keep this True.
             verbosity: int
                 Verbosity level (0 is silent).
+            use_highs: bool
+                When True (default) and method="linear", solver="ipopt", solve
+                each per-family LP in-process with the HiGHS backend
+                (scipy.optimize.linprog) instead of launching ipopt as an
+                AMPL/NL subprocess. The "linear" program is an exact LP, so the
+                result is numerically identical; a non-clean HiGHS result falls
+                through to the hardened ipopt/SLSQP path. Set False to force the
+                legacy ipopt path (A/B testing). No effect for method
+                "linear-tight" or solver "scip". Not part of the .cn provenance
+                key (a build detail, like n_jobs).
 
         Returns:
             A CredalNetwork holding the interval factors.
@@ -339,7 +357,7 @@ class CredalNetwork:
             # solver state to race on.
             lcs = LocalCredalSetSolver(
                 lcn, method=method, solver=solver, time_limit=time_limit,
-                gap_tol=gap_tol, verbosity=verbosity)
+                gap_tol=gap_tol, verbosity=verbosity, use_highs=use_highs)
 
             if n_jobs and n_jobs > 1 and len(symbolic_factors) > 1:
                 factors = _solve_families_threaded(
