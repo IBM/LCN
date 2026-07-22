@@ -237,18 +237,22 @@ class Potential:
         assignments = np.zeros(n, dtype=int)
 
         for _ in range(max_iters):
-            # Assignment: each function -> nearest centroid (Manhattan)
-            new_assignments = np.empty(n, dtype=int)
-            for i in range(n):
-                dists = np.sum(np.abs(centroids - flat[i]), axis=1)
-                new_assignments[i] = np.argmin(dists)
+            # Assignment: each function -> nearest centroid (Manhattan).
+            # Vectorized: |flat[:,None,:] - centroids[None,:,:]| summed over the
+            # feature axis gives the (n, k) distance matrix in one shot; argmin
+            # over the centroid axis ties to the lowest index, matching the
+            # former per-point np.argmin loop bit-for-bit.
+            dists = np.abs(flat[:, None, :] - centroids[None, :, :]).sum(axis=2)
+            new_assignments = np.argmin(dists, axis=1)
 
             # Check convergence
             if np.array_equal(assignments, new_assignments):
                 break
             assignments = new_assignments
 
-            # Update centroids: mean of assigned functions
+            # Update centroids: mean of assigned functions. Empty clusters keep
+            # their previous centroid (as in the former per-cluster loop, which
+            # skipped the update when a cluster had no members).
             for c in range(n_clusters):
                 members = flat[assignments == c]
                 if len(members) > 0:

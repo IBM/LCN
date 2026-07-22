@@ -302,6 +302,33 @@ class CredalVE:
                 print("[CredalVE] The LCN is most likely INCONSISTENT "
                       "(over-constrained); run check_consistency on the model.")
 
+    @staticmethod
+    def _combine_bucket(bucket, n_clusters, cluster_representative, cap):
+        """
+        Combine every potential in ``bucket`` into a single product potential.
+
+        When ``cap`` is True and ``n_clusters > 0`` the running product is
+        cluster-approximated down to ``n_clusters`` functions after any pairwise
+        combine that pushes it above that cap, so an intermediate potential
+        never grows to tens of thousands of functions only to be clustered back
+        down at the end. The clustering runs on the (still full-scope) product,
+        so it is the same size/accuracy approximation the caller already applies
+        after marginalization, just performed earlier -- it never changes the
+        scope and cannot widen the final bound beyond what ``n_clusters`` already
+        implies.
+
+        With ``cap=False`` (e.g. D4 coupling on, where later feasibility filters
+        need the genuine vertex products) or ``n_clusters == 0`` this is the
+        plain left-fold product, bit-identical to the former inline loop.
+        """
+        combined = bucket[0]
+        for p in bucket[1:]:
+            combined = combined.combine(p)
+            if cap and n_clusters > 0 and len(combined.functions) > n_clusters:
+                combined = combined.cluster_prune(
+                    n_clusters, representative=cluster_representative)
+        return combined
+
     def _run_single_query(self, query, evidence, elim_heuristic, epsilon,
                           coupling, verbosity, n_clusters=0,
                           cluster_representative="plub"):
@@ -445,10 +472,15 @@ class CredalVE:
                 potentials = rest
                 continue
 
-            # Combine all potentials in the bucket
-            combined = bucket[0]
-            for p in bucket[1:]:
-                combined = combined.combine(p)
+            # Combine all potentials in the bucket. When clustering is enabled
+            # (and D4 coupling is off), cap the running product incrementally so
+            # an intermediate potential never blows up past ``n_clusters`` before
+            # anything prunes it -- otherwise two k-parent CPT potentials can
+            # combine to tens of thousands of functions that are then clustered
+            # back down to ``n_clusters`` anyway, wasting the bulk of the time.
+            combined = self._combine_bucket(
+                bucket, n_clusters, cluster_representative,
+                cap=(constraints is None))
 
             # Scheme D4: drop functions whose assembled joint violates a
             # cross-family constraint. This must happen on `combined` (which
@@ -636,9 +668,12 @@ class CredalVE:
                 potentials = rest
                 continue
 
-            combined = bucket[0]
-            for p in bucket[1:]:
-                combined = combined.combine(p)
+            # Combine the bucket, capping the running product to n_clusters
+            # (when clustering is enabled and D4 coupling is off) so no oversized
+            # intermediate forms. See _run_single_query for the rationale.
+            combined = self._combine_bucket(
+                bucket, n_clusters, cluster_representative,
+                cap=(constraints is None))
 
             # Scheme D4: filter on the full bucket scope before marginalizing.
             if constraints is not None:
