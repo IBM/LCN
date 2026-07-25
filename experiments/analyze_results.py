@@ -26,6 +26,9 @@ bound for a variable. The script reports, for each (group, algorithm):
   * ``mae_lb`` -- mean absolute lower-bound error, ``mean |r_lo - a_lo|``.
   * ``mae_ub`` -- mean absolute upper-bound error, ``mean |a_hi - r_hi|``.
         (These two MAEs are the primary accuracy metrics.)
+  * ``std_lb`` / ``std_ub`` -- standard deviation of the same per-variable
+        absolute lower-/upper-bound errors within the group (the spread that
+        pairs with ``mae_lb`` / ``mae_ub``).
   * ``max_lb`` / ``max_ub`` -- the corresponding worst-case absolute errors,
         ``max |r_lo - a_lo|`` and ``max |a_hi - r_hi|``.
   * ``contain`` -- containment rate: the fraction of variables whose algorithm
@@ -43,6 +46,10 @@ bound for a variable. The script reports, for each (group, algorithm):
 
 The reference algorithm itself, and the exact backends when they are not the
 reference, are excluded from the scored rows.
+
+The ``--latex`` file contains two tables: the first reports the mean metrics
+(``mae_lb`` / ``mae_ub`` and timings), the second reports the corresponding
+standard deviations (``std_lb`` / ``std_ub``).
 
 Usage:
     python experiments/analyze_results.py --results-dir results
@@ -231,15 +238,15 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
     print()
     if group_by == "instance":
         header = (f"{'instance':<30} {'algo':<10} "
-                  f"{'mae_lb':>9} {'max_lb':>9} "
-                  f"{'mae_ub':>9} {'max_ub':>9} "
+                  f"{'mae_lb':>9} {'std_lb':>9} {'max_lb':>9} "
+                  f"{'mae_ub':>9} {'std_ub':>9} {'max_ub':>9} "
                   f"{'contain':>8} {'mean_wr':>9} "
                   f"{'build_t':>8} {'run_t':>8} {'total_t':>8} "
                   f"{'ref_t':>8} {'avg_iw':>7}")
     else:
         header = (f"{'type':<12} {'n':>4} {'algo':<10} "
-                  f"{'mae_lb':>9} {'max_lb':>9} "
-                  f"{'mae_ub':>9} {'max_ub':>9} "
+                  f"{'mae_lb':>9} {'std_lb':>9} {'max_lb':>9} "
+                  f"{'mae_ub':>9} {'std_ub':>9} {'max_ub':>9} "
                   f"{'contain':>8} {'mean_wr':>9} "
                   f"{'build_t':>8} {'run_t':>8} {'total_t':>8} "
                   f"{'std_tt':>8} {'ref_t':>8} {'avg_iw':>7}")
@@ -252,8 +259,10 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
             continue
 
         mae_lb = _mean(s["abs_lb_errors"])
+        std_lb = _std(s["abs_lb_errors"])
         max_lb = max(s["abs_lb_errors"])
         mae_ub = _mean(s["abs_ub_errors"])
+        std_ub = _std(s["abs_ub_errors"])
         max_ub = max(s["abs_ub_errors"])
         contain = _mean(s["contained"])
         mean_wr = _mean(s["width_ratios"])
@@ -271,8 +280,8 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
             ref_t = _mean(rt_list)
 
             print(f"{inst_name:<30} {algo:<10} "
-                  f"{mae_lb:>9.6f} {max_lb:>9.6f} "
-                  f"{mae_ub:>9.6f} {max_ub:>9.6f} "
+                  f"{mae_lb:>9.6f} {std_lb:>9.6f} {max_lb:>9.6f} "
+                  f"{mae_ub:>9.6f} {std_ub:>9.6f} {max_ub:>9.6f} "
                   f"{contain:>8.4f} {mean_wr:>9.4f} "
                   f"{mean_bt:>8.3f} {mean_rt:>8.3f} {mean_tt:>8.3f} "
                   f"{ref_t:>8.3f} {iw_str}")
@@ -282,8 +291,10 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
                 "algorithm": algo,
                 "reference": reference,
                 "mae_lb_error": round(mae_lb, 8),
+                "std_lb_error": round(std_lb, 8),
                 "max_lb_error": round(max_lb, 8),
                 "mae_ub_error": round(mae_ub, 8),
+                "std_ub_error": round(std_ub, 8),
                 "max_ub_error": round(max_ub, 8),
                 "containment_rate": round(contain, 6),
                 "mean_width_ratio": round(mean_wr, 6),
@@ -299,8 +310,8 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
             ref_t = _mean(rt_list)
 
             print(f"{graph_type:<12} {num_vars:>4} {algo:<10} "
-                  f"{mae_lb:>9.6f} {max_lb:>9.6f} "
-                  f"{mae_ub:>9.6f} {max_ub:>9.6f} "
+                  f"{mae_lb:>9.6f} {std_lb:>9.6f} {max_lb:>9.6f} "
+                  f"{mae_ub:>9.6f} {std_ub:>9.6f} {max_ub:>9.6f} "
                   f"{contain:>8.4f} {mean_wr:>9.4f} "
                   f"{mean_bt:>8.3f} {mean_rt:>8.3f} {mean_tt:>8.3f} "
                   f"{std_tt:>8.3f} {ref_t:>8.3f} {iw_str}")
@@ -311,8 +322,10 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
                 "algorithm": algo,
                 "reference": reference,
                 "mae_lb_error": round(mae_lb, 8),
+                "std_lb_error": round(std_lb, 8),
                 "max_lb_error": round(max_lb, 8),
                 "mae_ub_error": round(mae_ub, 8),
+                "std_ub_error": round(std_ub, 8),
                 "max_ub_error": round(max_ub, 8),
                 "containment_rate": round(contain, 6),
                 "mean_width_ratio": round(mean_wr, 6),
@@ -336,7 +349,7 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
     # Save LaTeX
     if latex_file and rows:
         _save_latex(rows, latex_file, reference, group_by,
-                    caption=f"Error metrics vs.\\ {reference} reference")
+                    caption=f"error metrics vs.\\ {reference} reference")
         print(f"Saved LaTeX to {latex_file}")
 
 
@@ -348,14 +361,54 @@ def _latex_safe(s):
     return s
 
 
+def _write_latex_table(f, rows, cols, caption):
+    """Write a single LaTeX table block (given its column spec) to file f."""
+    keys = [c[0] for c in cols]
+    headers = [c[1] for c in cols]
+    aligns = "".join(c[2] for c in cols)
+
+    f.write("\\begin{table}[ht]\n")
+    f.write("\\centering\n")
+    f.write("\\scriptsize\n")
+    f.write(f"\\caption{{{caption}}}\n")
+    f.write(f"\\begin{{tabular}}{{{aligns}}}\n")
+    f.write("\\toprule\n")
+    f.write(" & ".join(headers) + " \\\\\n")
+    f.write("\\midrule\n")
+    for row in rows:
+        vals = []
+        for k in keys:
+            v = row.get(k)
+            if v is None:
+                vals.append("--")
+            elif isinstance(v, float):
+                if k.startswith(("mae", "max", "std_lb", "std_ub")):
+                    vals.append(f"{v:.4f}")
+                elif k == "containment_rate":
+                    vals.append(f"{v:.3f}")
+                elif "time" in k:
+                    vals.append(f"{v:.2f}")
+                elif k == "mean_width_ratio":
+                    vals.append(f"{v:.3f}")
+                else:
+                    vals.append(f"{v:.2f}")
+            else:
+                vals.append(_latex_safe(v))
+        f.write(" & ".join(vals) + " \\\\\n")
+    f.write("\\bottomrule\n")
+    f.write("\\end{tabular}\n")
+    f.write("\\end{table}\n")
+
+
 def _save_latex(rows, path, reference, group_by="size", caption="Results"):
-    """Write rows as a LaTeX table."""
+    """Write two LaTeX tables to ``path``: one with mean error metrics and one
+    with the corresponding standard deviations."""
     if group_by == "instance":
-        cols = [
+        id_cols = [
             ("instance", "Instance", "l"),
             ("algorithm", "Algorithm", "l"),
-            ("mae_lb_error", "MAE$_{\\text{lb}}$", "r"),
-            ("mae_ub_error", "MAE$_{\\text{ub}}$", "r"),
+        ]
+        time_cols = [
             ("build_time", "Build", "r"),
             ("run_time", "Run", "r"),
             ("total_time", "Total", "r"),
@@ -363,54 +416,34 @@ def _save_latex(rows, path, reference, group_by="size", caption="Results"):
             ("avg_induced_width", "IW", "r"),
         ]
     else:
-        cols = [
-            ("type", "Type", "l"),
+        id_cols = [
+            ("graph_type", "Type", "l"),
             ("num_vars", "$n$", "r"),
             ("algorithm", "Algorithm", "l"),
-            ("mae_lb_error", "MAE$_{\\text{lb}}$", "r"),
-            ("mae_ub_error", "MAE$_{\\text{ub}}$", "r"),
+        ]
+        time_cols = [
             ("mean_build_time", "Build", "r"),
             ("mean_run_time", "Run", "r"),
             ("mean_total_time", "Total", "r"),
             ("ref_time", "Ref", "r"),
             ("avg_induced_width", "IW", "r"),
         ]
-    keys = [c[0] for c in cols]
-    headers = [c[1] for c in cols]
-    aligns = "".join(c[2] for c in cols)
+
+    mean_cols = id_cols + [
+        ("mae_lb_error", "MAE$_{\\text{lb}}$", "r"),
+        ("mae_ub_error", "MAE$_{\\text{ub}}$", "r"),
+    ] + time_cols
+    std_cols = id_cols + [
+        ("std_lb_error", "SD$_{\\text{lb}}$", "r"),
+        ("std_ub_error", "SD$_{\\text{ub}}$", "r"),
+    ] + time_cols
 
     with open(path, "w") as f:
-        f.write("\\begin{table}[ht]\n")
-        f.write("\\centering\n")
-        f.write("\\scriptsize\n")
-        f.write(f"\\caption{{{caption}}}\n")
-        f.write(f"\\begin{{tabular}}{{{aligns}}}\n")
-        f.write("\\toprule\n")
-        f.write(" & ".join(headers) + " \\\\\n")
-        f.write("\\midrule\n")
-        for row in rows:
-            vals = []
-            for k in keys:
-                v = row.get(k)
-                if v is None:
-                    vals.append("--")
-                elif isinstance(v, float):
-                    if k.startswith("mae") or k.startswith("max"):
-                        vals.append(f"{v:.4f}")
-                    elif k == "containment_rate":
-                        vals.append(f"{v:.3f}")
-                    elif "time" in k:
-                        vals.append(f"{v:.2f}")
-                    elif k == "mean_width_ratio":
-                        vals.append(f"{v:.3f}")
-                    else:
-                        vals.append(f"{v:.2f}")
-                else:
-                    vals.append(_latex_safe(v))
-            f.write(" & ".join(vals) + " \\\\\n")
-        f.write("\\bottomrule\n")
-        f.write("\\end{tabular}\n")
-        f.write("\\end{table}\n")
+        _write_latex_table(f, rows, mean_cols,
+                           caption=f"Mean {caption}")
+        f.write("\n")
+        _write_latex_table(f, rows, std_cols,
+                           caption=f"Standard deviation of {caption}")
 
 
 def main():
