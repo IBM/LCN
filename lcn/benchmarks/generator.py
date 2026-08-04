@@ -143,9 +143,9 @@ class Generator:
 
         Args:
             num_vars: Number of variables in each LCN.
-            graph_type: Graph topology — "random", "dag", "polytree", "tree",
-                "tree-fr", "polytree-fr", "chain", "ktree", "ktree-fr", or
-                "easy". A "ktree" is the maximal graph of treewidth exactly
+            graph_type: Graph topology — "random", "dag", "dag-fr", "polytree",
+                "tree", "tree-fr", "polytree-fr", "chain", "ktree", "ktree-fr",
+                or "easy". A "ktree" is the maximal graph of treewidth exactly
                 ``k`` (see ``_graph_ktree``); it is oriented as a DAG so every
                 atom conditions on the full conjunction of its ``k``
                 clique-parents, and its chain-graph junction tree stays at
@@ -162,13 +162,26 @@ class Generator:
                 non-realizable sentences", NOT "exact for CVE/IBP"; use CredalJT
                 / ExactInference(solver="global") for exact bounds. (Only for
                 ``k == 1``, where the k-tree is a plain tree, is "ktree-fr" fully
-                family-realizable.) The "-fr"
+                family-realizable.) "dag-fr" is the family-realizable DAG class:
+                an unstructured DAG whose moralized treewidth is bounded by
+                ``max_treewidth`` BY CONSTRUCTION (parents are a random subset of
+                a k-clique of an underlying partial k-tree; see
+                ``_graph_dag_bounded``) rather than by rejection as for "dag" --
+                which is what makes large bounded-width DAGs generatable at all,
+                since "dag" acceptance collapses to <1% by n=50. Its extras go on
+                root atoms only and its conditionals use the full parent
+                conjunction, so every *sentence* is family-realizable. CAVEAT: as
+                for "ktree-fr" with ``k >= 2``, this does NOT make Credal VE /
+                Interval BP exact -- any collider with >= 2 parents moralizes into
+                a loop, so the primal graph is not singly connected and condition
+                (i) of the exactness theorem fails. Use CredalJT (D5) /
+                ExactInference(solver="global") for exact bounds. The "-fr"
                 (family-realizable) variants have the same topology as
-                "tree"/"polytree"/"ktree" but place the extra marginal sentences
-                on root atoms only, so every *sentence* is family-realizable; for
-                "tree-fr"/"polytree-fr" (singly-connected) the strong-extension
-                engines (Credal VE, Interval BP) are then exact
-                (see docs/strong_extension_exactness.tex). "easy" produces
+                "tree"/"polytree"/"ktree"/"dag" but place the extra marginal
+                sentences on root atoms only, so every *sentence* is
+                family-realizable; for "tree-fr"/"polytree-fr" (singly-connected)
+                the strong-extension engines (Credal VE, Interval BP) are then
+                exact (see docs/strong_extension_exactness.tex). "easy" produces
                 instances designed to be quick for the SCIP global solver to
                 certify; see the strategy/coverage args below.
             num_instances: Number of consistent instances to generate.
@@ -181,15 +194,20 @@ class Generator:
             max_component_size: Maximum number of variables in a chain component
                 (only used when graph_type="chain").
             max_parents: Maximum number of parents per child node (>= 1; only
-                used when graph_type="dag" or "polytree"). Fully user-tunable for
-                "dag" -- there is no upper cap; larger fan-in is still bounded in
-                treewidth by ``max_treewidth`` (via rejection sampling).
+                used when graph_type="dag", "dag-fr" or "polytree"). Fully
+                user-tunable for "dag"/"dag-fr" -- there is no upper cap; larger
+                fan-in is still bounded in treewidth by ``max_treewidth``.
             max_treewidth: Cap on the moralized chain-graph induced width for
-                graph_type="dag" (default 4). DAGs are rejection-sampled until
-                ``moralized_treewidth(scopes) <= max_treewidth``, so the produced
-                DAG is unstructured but its treewidth (hence inference cost) is
-                bounded regardless of ``max_parents``. Ignored by every other
-                topology (``ktree`` fixes treewidth exactly via ``k`` instead).
+                graph_type="dag"/"dag-fr" (default 4), so the produced DAG is
+                unstructured but its treewidth (hence inference cost) is bounded
+                regardless of ``max_parents``. The two variants reach the cap
+                differently: "dag" is rejection-sampled until
+                ``moralized_treewidth(scopes) <= max_treewidth`` (which becomes
+                impractical as n grows -- <1% acceptance by n=50), whereas
+                "dag-fr" satisfies it by construction and keeps the rejection test
+                only as a safety net against the min-fill upper bound
+                overshooting. Ignored by every other topology (``ktree`` fixes
+                treewidth exactly via ``k`` instead).
             k: Treewidth parameter (only used when graph_type="ktree"). Each
                 non-seed atom conditions on exactly ``k`` clique-parents, so the
                 induced junction-tree treewidth is exactly ``k``. Requires
@@ -234,12 +252,12 @@ class Generator:
         Returns:
             A list of consistent LCN instances.
         """
-        assert graph_type in ("random", "dag", "polytree", "polytree-fr",
-                              "tree", "tree-fr", "chain", "ktree", "ktree-fr",
-                              "easy"), \
+        assert graph_type in ("random", "dag", "dag-fr", "polytree",
+                              "polytree-fr", "tree", "tree-fr", "chain",
+                              "ktree", "ktree-fr", "easy"), \
             f"Unknown graph_type '{graph_type}'. " \
-            f"Use 'random', 'dag', 'polytree', 'polytree-fr', 'tree', " \
-            f"'tree-fr', 'chain', 'ktree', 'ktree-fr', or 'easy'."
+            f"Use 'random', 'dag', 'dag-fr', 'polytree', 'polytree-fr', " \
+            f"'tree', 'tree-fr', 'chain', 'ktree', 'ktree-fr', or 'easy'."
         assert num_vars >= 3, "Need at least 3 variables."
         assert max_component_size >= 1, "max_component_size must be >= 1."
         assert max_parents >= 1, "max_parents must be >= 1."
@@ -293,34 +311,63 @@ class Generator:
             else:
                 scopes, components = self._make_graph(num_vars, graph_type,
                                                       max_component_size,
-                                                      max_parents, k)
+                                                      max_parents, k,
+                                                      max_treewidth)
                 # DAG: bound the moralized treewidth by rejection. Resample the
                 # scopes until moralized_treewidth <= max_treewidth (a few inner
                 # tries); if the cap can't be met, fall through to the outer
                 # retry loop -- an over-cap DAG is NEVER accepted.
-                if graph_type == "dag":
+                #
+                # This applies to BOTH dag variants. "dag-fr" already meets the
+                # cap by construction, so the check is a cheap safety net there
+                # (moralized_treewidth is a min-fill UPPER bound, which can
+                # overshoot by one); "dag" depends on it entirely. Resample with
+                # the SAME generator the type dispatches to, or "dag-fr" would
+                # silently degrade to unstructured sampling on a retry.
+                if graph_type in ("dag", "dag-fr"):
                     dag_tries = 0
                     while (moralized_treewidth(scopes) > max_treewidth
                            and dag_tries < 200):
-                        scopes = self._graph_dag(num_vars, max_parents)
+                        if graph_type == "dag-fr":
+                            scopes = self._graph_dag_bounded(
+                                num_vars, max_parents, max_treewidth)
+                        else:
+                            scopes = self._graph_dag(num_vars, max_parents)
                         dag_tries += 1
                     if moralized_treewidth(scopes) > max_treewidth:
                         if verbosity > 1:
-                            print(f"[Generator] dag n={num_vars}: could not "
-                                  f"meet treewidth <= {max_treewidth} in "
-                                  f"{dag_tries} tries; retrying.")
+                            print(f"[Generator] {graph_type} n={num_vars}: "
+                                  f"could not meet treewidth <= "
+                                  f"{max_treewidth} in {dag_tries} tries; "
+                                  f"retrying.")
                         continue
                 # The "-fr" classes keep the same topology but place extra
                 # marginals on root atoms only.
                 extras_on_roots_only = graph_type in (
-                    "tree-fr", "polytree-fr", "ktree-fr")
-                # k-tree scopes must condition on ALL k clique-parents (not a
-                # max_vars subsample) or the treewidth-k guarantee breaks.
+                    "tree-fr", "polytree-fr", "ktree-fr", "dag-fr")
+                # ``full_parents`` serves TWO distinct purposes:
+                #   (a) treewidth: k-tree scopes must condition on ALL k
+                #       clique-parents (not a max_vars subsample) or the
+                #       treewidth-k guarantee breaks;
+                #   (b) family-realizability: per def:realizable in
+                #       docs/strong_extension_exactness.tex, a Type-2 sentence is
+                #       family-realizable only if psi pins EXACTLY ONE full
+                #       parent configuration. A full conjunction of signed
+                #       literals over all parents does that; the default
+                #       _make_random_formula subsamples parents and may join them
+                #       with or/xor, so psi can be satisfied by several parent
+                #       configs -- which bounds a P(parents)-weighted mixture of
+                #       CPT rows instead of a single row (Gap B). So every "-fr"
+                #       class with multi-parent families needs it.
+                # ("tree-fr" is omitted deliberately: its families have exactly
+                # one parent, so a single signed literal already pins one config
+                # and passing full_parents would be a strict no-op.)
                 lcn = self._build_lcn(scopes, components, num_vars, epsilon,
                                       max_vars_per_sentence, num_extras,
                                       extras_on_roots_only=extras_on_roots_only,
                                       full_parents=graph_type in (
-                                          "ktree", "ktree-fr"))
+                                          "ktree", "ktree-fr", "dag-fr",
+                                          "polytree-fr"))
             if self._check_and_build(lcn, consistency_restarts, verbosity,
                                      consistency_mode):
                 instances.append(lcn)
@@ -519,7 +566,8 @@ class Generator:
 
     def _make_graph(self, num_vars: int, graph_type: str,
                     max_component_size: int = 3,
-                    max_parents: int = 2, k: int = 2):
+                    max_parents: int = 2, k: int = 2,
+                    max_treewidth: int = 4):
         """
         Generate scopes for the given topology.
 
@@ -533,6 +581,14 @@ class Generator:
         """
         if graph_type == "dag":
             return self._graph_dag(num_vars, max_parents), []
+        elif graph_type == "dag-fr":
+            # Same DAG spirit as "dag" but the treewidth cap holds by
+            # construction (partial k-tree), which is what makes large
+            # bounded-width instances generatable at all -- see
+            # _graph_dag_bounded. The "-fr" part (root-only extras + full-
+            # conjunction psi) is handled in generate() / _build_lcn.
+            return self._graph_dag_bounded(num_vars, max_parents,
+                                           max_treewidth), []
         elif graph_type in ("polytree", "polytree-fr"):
             # "polytree-fr" is the same topology as "polytree"; it differs only
             # in that extra marginals are restricted to root atoms (family-
@@ -583,6 +639,84 @@ class Generator:
                 parent_indices = self.rng.choice(i, size=num_parents, replace=False)
                 parents = [ordering[pi] for pi in parent_indices]
                 scopes.append(parents + [v])
+        return scopes
+
+    def _graph_dag_bounded(self, n: int, max_parents: int = 2,
+                           max_treewidth: int = 4,
+                           max_roots: int = 3) -> List[List[int]]:
+        """Random DAG whose moralized treewidth is bounded BY CONSTRUCTION.
+
+        Each new vertex draws its parents from a randomly chosen ``k``-clique of
+        an underlying partial ``k``-tree (``k = max_treewidth``), exactly as
+        ``_graph_ktree`` does -- but takes a random *subset* of size
+        ``1..max_parents`` of that host clique rather than the whole clique. Since
+        every family's moralized clique is then contained in a ``(k+1)``-clique of
+        the underlying k-tree, the moral graph is a SUBGRAPH of a k-tree and hence
+        has treewidth <= ``k``, independently of ``n``.
+
+        This is the difference that matters at scale. The unstructured
+        ``_graph_dag`` relies on rejection sampling to meet the cap, and its
+        acceptance rate collapses as ``n`` grows (measured over 500 samples at
+        ``max_parents=2``, cap 3: 99% at n=10, 60% at n=20, 17% at n=30, 0.6% at
+        n=50; and 0% at n>=30 for ``max_parents=3``), so large bounded-treewidth
+        DAGs are effectively ungeneratable that way. Here the cap holds by
+        construction, so the caller's rejection check is only a cheap safety net
+        against the min-fill *upper bound* in ``moralized_treewidth`` overshooting.
+
+        Compared to the other bounded-width topologies:
+          - ``ktree``: treewidth EXACTLY ``k``; every atom conditions on the FULL
+            ``k``-clique, giving the maximal graph of that width.
+          - here: treewidth <= ``k``; parents are a random subset of the host
+            clique (mean in-degree ~1.5 at ``max_parents=2``), so the result is a
+            genuinely unstructured, sparser DAG.
+
+        Args:
+            n: Number of variables.
+            max_parents: Maximum parents per child (>= 1).
+            max_treewidth: Cap ``k`` on the moralized treewidth.
+            max_roots: Upper bound on the number of root atoms drawn (1..max_roots).
+                Several roots are needed because the family-realizable classes draw
+                their extra marginals from root atoms ONLY -- with a single root
+                every extra would pile onto the same atom, and the nested
+                sub-interval logic in ``_build_lcn`` would shrink it toward a point.
+
+        Returns:
+            Scopes in the standard ``[parents..., child]`` / ``[var]`` form.
+        """
+        max_parents = max(1, max_parents)
+        k = max(1, max_treewidth)
+        ordering = self._random_ordering(n)
+
+        # Roots: several, so the "-fr" extras have more than one atom to land on.
+        num_roots = min(max(1, self.rng.randint(1, max_roots + 1)), n)
+        scopes = [[ordering[i]] for i in range(num_roots)]
+
+        # Seed region: grow up to a (k+1)-clique, drawing parents from earlier
+        # vertices (which are already mutually adjacent, so no width is added).
+        seed = min(k + 1, n)
+        for i in range(num_roots, seed):
+            pool = [ordering[j] for j in range(i)]
+            count = self.rng.randint(1, min(max_parents, len(pool)) + 1)
+            parents = [pool[pi] for pi in
+                       self.rng.choice(len(pool), size=count, replace=False)]
+            scopes.append(parents + [ordering[i]])
+
+        start = max(seed, num_roots)
+        cliques = [[ordering[j] for j in range(start)]]
+        for i in range(start, n):
+            v = ordering[i]
+            base = cliques[self.rng.randint(len(cliques))]
+            # Host k-clique: k members of an existing (k+1)-clique.
+            host_size = min(k, len(base))
+            host = [base[pi] for pi in
+                    self.rng.choice(len(base), size=host_size, replace=False)]
+            # Parents: a random SUBSET of the host clique (this is what keeps the
+            # DAG sparser/less structured than a k-tree while staying inside it).
+            count = self.rng.randint(1, min(max_parents, len(host)) + 1)
+            parents = [host[pi] for pi in
+                       self.rng.choice(len(host), size=count, replace=False)]
+            scopes.append(parents + [v])
+            cliques.append(host + [v])
         return scopes
 
     def _graph_polytree(self, n: int,

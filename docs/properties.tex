@@ -604,6 +604,7 @@ Polytree (\texttt{polytree})         & ex & ex$^\dagger$ & ex & ex & ex & ex & e
 Chain graph, compound (\texttt{alarm}) & ex$^\ast$ & ex & ex & ex & ex & ex & ex \\
 Cross-family sentence (\texttt{d4\_biting}) & ex & ex & ex & \textbf{in} & ex & ex & out \\
 $k$-tree (\texttt{ktree-fr}, $k{\ge}2$) & ex & \textbf{ex}$^\P$ & out$^\S$ & out$^\S$ & in$^\S$ & out$^\S$ & out \\
+Bounded-tw DAG (\texttt{dag-fr})     & ex & ex$^\natural$ & out$^\S$ & out$^\S$ & in$^\S$ & out$^\S$ & out \\
 Loopy DAG                            & ex & out & out$^\S$ & out$^\S$ & in$^\S$ & out & out \\
 Undirected clique (\texttt{smokers}) & ex & \textbf{out} & out$^\S$ & out$^\S$ & in$^\S$ & out & out \\
 \bottomrule
@@ -622,7 +623,57 @@ For cross-family / loopy instances the reliable exact route is \texttt{ExactInfe
 outer-only over $\DLCN$; \texttt{CredalJT} is nonetheless \emph{provably} exact
 (Prop.~\ref{prop:ktree}) because H1--H4 hold at treewidth $k$ --- the one loopy topology where a
 treewidth-bounded engine is exact without falling back to the $2^n$ oracle. $k{=}1$ is a tree and
-every engine is exact.
+every engine is exact. $^\natural$ \texttt{dag-fr} (\S\ref{sec:topology-dagfr}) is fully realizable
+(both halves of the family-realizability definition) and treewidth-bounded \emph{by construction}, but
+--- exactly as \texttt{ktree-fr} with $k{\ge}2$ --- it is \emph{loopy}: any collider with $\ge2$ parents
+is moralized into a cycle, so single-connectedness fails, $\DSE\supsetneq\DLCN$, and the
+strong-extension engines are outer-only over $\DLCN$. The \texttt{CredalJT} entry here is
+\emph{empirical}, not a corollary of Prop.~\ref{prop:ktree}: unlike a $k$-tree, a \texttt{dag-fr} moral
+graph is a \emph{subgraph} of a $k$-tree and need not be chordal, so H1--H4 are not guaranteed a priori
+and must be checked per instance (on the $n{=}6$, tw${=}3$ witness above, \texttt{CredalJT} reproduces
+the certified-global bounds on every atom). Where the certificate fails, fall back to
+\texttt{ExactInference}-global.
+
+\subsection{The \texttt{dag-fr} class: realizable and treewidth-bounded, but loopy}
+\label{sec:topology-dagfr}
+
+\texttt{dag-fr} (\texttt{lcn/benchmarks/generator.py}, \texttt{\_graph\_dag\_bounded}) is the
+family-realizable DAG benchmark class. It differs from the unstructured \texttt{dag} in two ways.
+
+\emph{Treewidth by construction.} Each new vertex draws its parents as a random \emph{subset} (of size
+$1..\texttt{max\_parents}$) of a randomly chosen $k$-clique of an underlying partial $k$-tree, where
+$k=\texttt{max\_treewidth}$. Every family's moralized clique therefore lies inside a $(k{+}1)$-clique of
+that $k$-tree, so the moral graph is a \emph{subgraph} of a $k$-tree and its treewidth is $\le k$ for
+every $n$. The \texttt{moralized\_treewidth} rejection test is retained only as a safety net, since
+min-fill is an \emph{upper} bound and can overshoot by one. This matters because the plain \texttt{dag}
+route --- resample until the cap is met --- does not scale: measured acceptance at
+$\texttt{max\_parents}{=}2$, cap $3$ is $99\%$ at $n{=}10$, $60\%$ at $n{=}20$, $17\%$ at $n{=}30$ and
+$0.6\%$ at $n{=}50$ (and $0\%$ for $n\ge30$ at $\texttt{max\_parents}{=}3$), so large bounded-width DAGs
+are effectively ungeneratable that way, whereas the constructive route meets the cap in $\le3$ tries at
+$n{=}200$. Since parents are a \emph{subset} of the host clique (mean in-degree $\approx1.5$ at
+$\texttt{max\_parents}{=}2$), the result stays genuinely unstructured and sparser than a \texttt{ktree}.
+
+\emph{Full realizability.} Extra marginals go on root atoms only (Type-1 half) and each conditional is
+on the full conjunction of \emph{all} its parents (Type-2 half), so every sentence bounds a single row of
+one family's conditional table. The class draws $1$--$3$ roots rather than one, so the root-only extras
+have more than a single atom to land on.
+
+\emph{But still loopy.} Realizability is only condition~(ii) of the exactness theorem. A collider with
+$\ge2$ parents moralizes into a cycle, so \texttt{dag-fr} is not singly connected and Credal~VE /
+Interval~BP are outer-only over $\DLCN$ --- the same situation as \texttt{ktree-fr} with $k\ge2$, and a
+structural property no extras placement can remove. Unlike a $k$-tree, however, a \texttt{dag-fr} moral
+graph need not be chordal, so Prop.~\ref{prop:ktree} does \emph{not} transfer: H1--H4 must be verified
+per instance rather than assumed. Use \texttt{CredalJT} where the certificate holds and
+\texttt{ExactInference}-global otherwise.
+
+\emph{Cost note (both DAG classes).} On a loopy DAG, Credal~VE is frequently not just loose but
+\emph{impractical}: on $n{=}6$, treewidth-$3$ witnesses it exceeded a $60$\,s budget for \emph{both}
+\texttt{dag} and \texttt{dag-fr}, stalling inside \texttt{Potential.prune}
+(\texttt{lcn/inference/marginal/cn/potentials.py}) during elimination --- \emph{not} in the credal-net
+build, which yields only $256$ vertex combinations across $6$ families. \texttt{CredalJT} solved the same
+two instances in $1$--$2$\,s. This is pre-existing behavior of the elimination/pruning path on loopy
+inputs, independent of the \texttt{"-fr"} construction, and it reinforces the guidance above: treat
+\texttt{CredalJT} (D5) as the default engine for these bounded-treewidth loopy classes.
 
 \section{Reliability and verification}\label{sec:reliability}
 

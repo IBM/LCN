@@ -24,12 +24,18 @@ import argparse
 from lcn.benchmarks.generator import Generator
 
 TOPOLOGIES = ["chain", "tree", "polytree", "random", "dag", "ktree"]
-# "easy" targets SCIP-easy instances rather than a graph topology; "tree-fr" and
-# "polytree-fr" are the family-realizable classes (same topology as tree/polytree
-# but extra marginals on root atoms only, so Credal VE / Interval BP are exact --
-# see docs/strong_extension_exactness.tex). Both are available via --types but
-# excluded from the default set. See Generator.generate.
-ALL_TYPES = TOPOLOGIES + ["tree-fr", "polytree-fr", "ktree-fr", "easy"]
+# "easy" targets SCIP-easy instances rather than a graph topology; the "-fr"
+# entries are the family-realizable classes (extra marginals on root atoms only,
+# and conditionals on the full parent conjunction, so every sentence bounds a
+# single row of one family's conditional table -- see
+# docs/strong_extension_exactness.tex). For the singly-connected "tree-fr" /
+# "polytree-fr" that also makes Credal VE / Interval BP exact; "ktree-fr" (k >= 2)
+# and "dag-fr" are realizable but loopy, so they need CredalJT / global inference.
+# "dag-fr" additionally bounds its treewidth by construction rather than by
+# rejection, which is what makes large bounded-width DAGs generatable.
+# All are available via --types but excluded from the default set.
+# See Generator.generate.
+ALL_TYPES = TOPOLOGIES + ["tree-fr", "polytree-fr", "ktree-fr", "dag-fr", "easy"]
 
 
 def main():
@@ -166,6 +172,10 @@ examples:
             elif graph_type in ("ktree", "ktree-fr"):
                 # slug is "ktree" or "ktree_fr"; append the k value.
                 prefix = f"{slug}_k{args.k}"
+            elif graph_type == "dag-fr":
+                # Encode the treewidth cap (the discriminating topology param
+                # here, as k is for ktree) so different caps coexist.
+                prefix = f"{slug}_tw{args.max_treewidth}"
             else:
                 prefix = slug
             for i, lcn in enumerate(instances):

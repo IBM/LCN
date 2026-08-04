@@ -12,6 +12,18 @@ rejected before one meets the cap). Every accepted instance also passes the
 standard product-witness consistency check (the same one used for
 trees/polytrees/k-trees), so it is both treewidth-bounded and consistent. See
 Generator._graph_dag / Generator.generate.
+
+With ``--family-realizable`` this generates the "dag-fr" class instead, which
+differs in two ways. (1) Family-realizability: extra marginals go on root atoms
+only and each conditional is on the FULL parent conjunction, so every sentence
+bounds a single row of one family's conditional table. (2) The treewidth cap holds
+BY CONSTRUCTION -- parents are drawn from a k-clique of an underlying partial
+k-tree (Generator._graph_dag_bounded) rather than by rejection sampling, whose
+acceptance rate collapses as n grows (<1% at n=50, 0% at n>=30 for 3 parents),
+making large bounded-width DAGs effectively ungeneratable the other way.
+NOTE that "dag-fr" is still NOT singly connected, so Credal VE / Interval BP are
+not exact on it (same caveat as "ktree-fr" for k >= 2); it is a bounded-treewidth,
+fully realizable benchmark class for CredalJT / global exact inference.
 """
 
 import os
@@ -21,14 +33,22 @@ from lcn.benchmarks.generator import Generator
 
 
 def generate(output_dir, sizes, num_instances, seed, epsilon,
-             max_vars, num_extras, max_parents, max_treewidth, verbosity):
+             max_vars, num_extras, max_parents, max_treewidth, verbosity,
+             family_realizable=False):
     os.makedirs(output_dir, exist_ok=True)
     gen = Generator(seed=seed)
+
+    graph_type = "dag-fr" if family_realizable else "dag"
+
+    # The family-realizable class encodes the treewidth cap in the filename so
+    # runs with different --max-treewidth coexist in one directory (mirrors the
+    # _k{k} convention in gen_ktrees.py). Plain "dag" keeps its flat name.
+    prefix = f"dag_fr_tw{max_treewidth}" if family_realizable else "dag"
 
     for n in sizes:
         instances = gen.generate(
             num_vars=n,
-            graph_type="dag",
+            graph_type=graph_type,
             num_instances=num_instances,
             max_vars_per_sentence=max_vars,
             num_extras=num_extras,
@@ -38,7 +58,7 @@ def generate(output_dir, sizes, num_instances, seed, epsilon,
             verbosity=max(0, verbosity - 1),
         )
         for i, lcn in enumerate(instances):
-            fname = os.path.join(output_dir, f"dag_n{n}_{i + 1}.lcn")
+            fname = os.path.join(output_dir, f"{prefix}_n{n}_{i + 1}.lcn")
             gen.save(lcn, fname)
             if verbosity > 0:
                 print(f"Saved {fname} ({len(lcn.sentences)} sentences)")
@@ -71,9 +91,23 @@ if __name__ == "__main__":
                         help="Cap on the moralized chain-graph treewidth "
                              "(default: 4). DAGs are rejection-sampled to stay "
                              "at or below this width; use 3 for a tighter cap.")
+    parser.add_argument("--family-realizable", action="store_true",
+                        help="Generate the family-realizable class 'dag-fr': "
+                             "extra marginals on root atoms only AND conditionals "
+                             "on the full parent conjunction, so every sentence "
+                             "is family-realizable. Its treewidth cap also holds "
+                             "BY CONSTRUCTION rather than by rejection, which is "
+                             "what makes large (n >= 30) bounded-width DAGs "
+                             "generatable at all. Files prefixed "
+                             "dag_fr_tw{max_treewidth}_. CAVEAT: like 'ktree-fr' "
+                             "with k >= 2 this does NOT make Credal VE / Interval "
+                             "BP exact -- a collider with >= 2 parents moralizes "
+                             "into a loop, so use CredalJT / "
+                             "ExactInference(solver='global') for exact bounds.")
     parser.add_argument("--verbosity", type=int, default=1,
                         help="Verbosity level (default: 1)")
     args = parser.parse_args()
     generate(args.output_dir, args.sizes, args.num_instances, args.seed,
              args.epsilon, args.max_vars, args.num_extras, args.max_parents,
-             args.max_treewidth, args.verbosity)
+             args.max_treewidth, args.verbosity,
+             family_realizable=args.family_realizable)

@@ -389,8 +389,20 @@ no product of per-config conditional sets can reproduce the bound. \emph{Neither
 changes this: on the D1 credal network, \texttt{CredalJT} is exact ($[0.092,0.77]$) yet Credal~VE is
 still $[0,1]$, isolating the loss to the per-parent-config \emph{representation}, not the solve. The
 bound returns only by fusing $\{x_0,x_1,x_2\}$ into one joint block (D2 merge) or via the joint NLP of
-\texttt{CredalJT} (D5). This is the witness underlying the loose atom in
-\texttt{benchmarks/polytree\_small\_fr/polytree\_fr\_n5\_6.lcn}.
+\texttt{CredalJT} (D5).
+
+\emph{Historical note.} This was the witness underlying the loose atom in the previously shipped
+\texttt{benchmarks/polytree\_small\_fr/polytree\_fr\_n5\_6.lcn}. Such sentences arose because the
+generator enforced only the Type-1 half of Definition~\ref{def:realizable} (extras on root atoms) while
+drawing each $\psi$ with \texttt{\_make\_random\_formula}, which subsamples the parents and may join
+them with \texttt{or}/\texttt{xor} --- so a multi-parent family could receive a multi-config $\psi$. An
+audit found $19$ such sentences across $16$ of the $60$ shipped \texttt{polytree\_small\_fr} instances.
+The generator now passes \texttt{full\_parents=True} for every \texttt{"-fr"} class with multi-parent
+families (\texttt{polytree-fr}, \texttt{ktree-fr}, \texttt{dag-fr}), emitting $\psi$ as a full
+conjunction of signed literals over \emph{all} parents --- the form that pins exactly one parent
+configuration --- and those sets were regenerated. All $240$ shipped \texttt{"-fr"} instances now
+satisfy both halves of Definition~\ref{def:realizable}. (\texttt{tree-fr} needs no change: its families
+have exactly one parent, so a single signed literal already pins one configuration.)
 \end{example}
 
 \section{The exactness catalogue}\label{sec:catalogue}
@@ -428,10 +440,16 @@ for these rows is scheme~D2 (merge the coupled atoms into one joint block) or th
 A Markov chain, rooted tree, or polytree whose sentences are all root marginals and
 conditional-on-parent Type-2 sentences is fully realizable and singly connected; by
 Theorem~\ref{thm:main} Credal~VE and Interval~BP are exact on it for every atom. This is the regime the
-benchmark generator now targets: \texttt{lcn/benchmarks/generator.py} emits its extra marginal
-sentences only on \emph{root} atoms, so generated tree/polytree instances are fully realizable.
-Hand-authored instances (like \texttt{tree\_n5\_1.lcn}) may contain a non-realizable sentence and
-require the exact engine.
+benchmark generator's \texttt{"-fr"} classes target, and it takes \emph{both} halves of
+Definition~\ref{def:realizable}: \texttt{lcn/benchmarks/generator.py} emits its extra marginal sentences
+only on \emph{root} atoms (Type-1 half) \emph{and} conditions each Type-2 sentence on the full
+conjunction of \emph{all} its parents (Type-2 half, via \texttt{full\_parents=True}). Root-only extras
+alone are not sufficient whenever a family has $\ge2$ parents --- a subsampled or
+\texttt{or}/\texttt{xor}-joined $\psi$ is then satisfied by several parent configurations and is
+non-realizable (Example~\ref{ex:collider}). Note also that realizability is only condition~(ii): the
+\texttt{ktree-fr} ($k\ge2$) and \texttt{dag-fr} classes satisfy it yet are \emph{loopy}, so
+condition~(i) fails and Credal~VE / Interval~BP remain outer-only there. Hand-authored instances (like
+\texttt{tree\_n5\_1.lcn}) may contain a non-realizable sentence and require the exact engine.
 \end{corollary}
 
 \paragraph{Engine-specific consequences and fixes.}

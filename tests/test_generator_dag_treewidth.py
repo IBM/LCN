@@ -25,6 +25,15 @@
 #   (5) every generated "dag" instance is consistent -- i.e. the same
 #       product-witness consistency check used for trees/polytrees/k-trees is
 #       actually applied to dag (it passes on each accepted instance).
+#
+# Properties (2)-(5) are parametrized over BOTH dag variants: the unstructured
+# "dag" (treewidth met by rejection sampling) and the family-realizable "dag-fr"
+# (treewidth met BY CONSTRUCTION via a partial k-tree). Covering "dag-fr" here is
+# what pins the cap for it: the rejection block in generate() is keyed on the
+# graph_type, so a "dag-fr" left out of that condition would silently bypass the
+# cap entirely. Property (6) below covers the reason "dag-fr" exists -- plain
+# "dag" cannot reach large n at all, because its acceptance rate collapses
+# (<1% at n=50, 0% at n>=30 for 3 parents).
 
 import contextlib
 import io
@@ -70,11 +79,12 @@ def test_moralized_treewidth_known_cases():
     assert moralized_treewidth([[0]]) == 0
 
 
+@pytest.mark.parametrize("graph_type", ["dag", "dag-fr"])
 @pytest.mark.parametrize("cap", [3, 4])
-def test_dag_treewidth_bounded(cap):
-    """Every generated dag instance has built family treewidth <= cap."""
+def test_dag_treewidth_bounded(cap, graph_type):
+    """Every generated dag/dag-fr instance has built family treewidth <= cap."""
     gen = Generator(seed=13)
-    insts = _quiet(gen.generate, num_vars=12, graph_type="dag",
+    insts = _quiet(gen.generate, num_vars=12, graph_type=graph_type,
                    num_instances=5, max_treewidth=cap, verbosity=0)
     assert len(insts) == 5
     for lcn in insts:
@@ -107,11 +117,12 @@ def _assert_is_dag(lcn):
     assert seen == len(nodes), "family orientation contains a cycle"
 
 
-def test_dag_is_acyclic_and_respects_max_parents():
-    """Generated dag families respect the (default) max_parents bound and the
-    orientation is acyclic."""
+@pytest.mark.parametrize("graph_type", ["dag", "dag-fr"])
+def test_dag_is_acyclic_and_respects_max_parents(graph_type):
+    """Generated dag/dag-fr families respect the (default) max_parents bound and
+    the orientation is acyclic."""
     gen = Generator(seed=21)
-    insts = _quiet(gen.generate, num_vars=12, graph_type="dag",
+    insts = _quiet(gen.generate, num_vars=12, graph_type=graph_type,
                    num_instances=5, max_parents=2, max_treewidth=4, verbosity=0)
     for lcn in insts:
         if lcn.families is None:
@@ -122,13 +133,14 @@ def test_dag_is_acyclic_and_respects_max_parents():
         _assert_is_dag(lcn)
 
 
-def test_dag_max_parents_is_tunable_above_two():
+@pytest.mark.parametrize("graph_type", ["dag", "dag-fr"])
+def test_dag_max_parents_is_tunable_above_two(graph_type):
     """max_parents > 2 is accepted (no cap): the generated DAG allows higher
     fan-in yet stays acyclic and treewidth-bounded."""
     gen = Generator(seed=99)
     # Larger n and a looser treewidth cap so 3-parent families can appear and
     # still pass the rejection filter.
-    insts = _quiet(gen.generate, num_vars=15, graph_type="dag",
+    insts = _quiet(gen.generate, num_vars=15, graph_type=graph_type,
                    num_instances=5, max_parents=3, max_treewidth=4, verbosity=0)
     assert len(insts) == 5
     max_seen = 0
@@ -146,12 +158,41 @@ def test_dag_max_parents_is_tunable_above_two():
     assert max_seen == 3
 
 
-def test_dag_instances_are_consistent():
+@pytest.mark.parametrize("graph_type", ["dag", "dag-fr"])
+def test_dag_instances_are_consistent(graph_type):
     """The product-witness consistency check (same as tree/polytree/ktree) is
-    applied to dag: every accepted instance passes it."""
+    applied to both dag variants: every accepted instance passes it."""
     gen = Generator(seed=34)
-    insts = _quiet(gen.generate, num_vars=12, graph_type="dag",
+    insts = _quiet(gen.generate, num_vars=12, graph_type=graph_type,
                    num_instances=5, max_treewidth=4, verbosity=0)
     for lcn in insts:
         assert _quiet(check_consistency_product_witness_scoped, lcn,
                       restarts=40) is True
+
+
+@pytest.mark.parametrize("num_vars", [30, 50])
+def test_dag_fr_scales_to_large_n_within_cap(num_vars):
+    """The reason "dag-fr" exists: it must actually GENERATE at sizes where the
+    unstructured "dag" cannot.
+
+    "dag" meets the treewidth cap only by resampling, and its acceptance rate
+    collapses as n grows (measured over 500 samples at max_parents=2, cap 3: 17%
+    at n=30, 0.6% at n=50), so large bounded-width DAGs are effectively
+    ungeneratable that way. "dag-fr" draws parents from a k-clique of an
+    underlying partial k-tree, so the cap holds by construction at any n. Assert
+    we get the full requested count AND every instance respects the cap -- a
+    constructive bug that broke the invariant would otherwise be hidden by the
+    rejection safety net silently dropping instances.
+    """
+    cap = 3
+    gen = Generator(seed=5)
+    insts = _quiet(gen.generate, num_vars=num_vars, graph_type="dag-fr",
+                   num_instances=3, max_parents=2, max_treewidth=cap,
+                   num_extras=2, verbosity=0)
+    assert len(insts) == 3, (
+        f"dag-fr n={num_vars}: got {len(insts)}/3 instances -- the constructive "
+        f"treewidth bound should make these cheap to generate")
+    for lcn in insts:
+        tw = moralized_treewidth(_built_family_scopes(lcn))
+        assert tw <= cap, f"n={num_vars}: treewidth {tw} exceeds cap {cap}"
+        _assert_is_dag(lcn)
