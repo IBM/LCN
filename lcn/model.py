@@ -892,7 +892,11 @@ class LCN:
             tau = False
             if ";" in line:
                 pos = line.find(";")
-                tau = bool(line[pos+1:].strip())
+                tau_str = line[pos+1:].strip()
+                # Parse "tau=true" or "tau=false" correctly — bool() of any
+                # non-empty string (including "False") returns True, so we
+                # must split on "=" to get the actual boolean value.
+                tau = tau_str.split("=")[1].lower() == 'true'
                 line = line[:pos]
 
             # Get the lower and upper bounds
