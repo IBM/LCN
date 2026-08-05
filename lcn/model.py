@@ -51,8 +51,13 @@ class Formula:
         self.label = label # unique identifier of the formula (is the atom if atomic)
         self.input_formula = formula # store the formula
         output, atoms = parse_formula(formula) # parse the formula
-        if output is None or vars is None:
+        if output is None or atoms is None:
             raise ValueError(f"Malformed formula: {formula}")
+
+        # Reject empty / whitespace-only formulas that parse as valid but have no content
+        stripped = formula.strip()
+        if not stripped:
+            raise ValueError(f"Empty formula: {formula!r}")
         
         self.parsed_formula = output # parse tree of the formula
         self.atoms = atoms # a dict indexed by 'Vi' where i is the i-th variable
@@ -892,7 +897,11 @@ class LCN:
             tau = False
             if ";" in line:
                 pos = line.find(";")
-                tau = bool(line[pos+1:].strip())
+                tau_str = line[pos+1:].strip()
+                # Parse "tau=true" or "tau=false" correctly — bool() of any
+                # non-empty string (including "False") returns True, so we
+                # must split on "=" to get the actual boolean value.
+                tau = tau_str.split("=")[1].lower() == 'true'
                 line = line[:pos]
 
             # Get the lower and upper bounds
