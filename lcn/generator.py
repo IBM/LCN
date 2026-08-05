@@ -194,7 +194,7 @@ def make_lcn_random2(
     count = 0
     while count < c:
         child = ordering[np.random.randint(n - p)]
-        if cpts[child] is True:
+        if cpts[child]:
             continue
         cpts[child] = True
         num_higher_vars = n - position[child] - 1
@@ -218,7 +218,7 @@ def make_lcn_random2(
     
     # Add the roots
     for i in range(n):
-        if cpts[i] is False:
+        if not cpts[i]:
             scopes[i] = [i]
     
     # Create extra knowledge: l <= P(x) <= u
@@ -341,7 +341,7 @@ def make_lcn_dag(
     count = 0
     while count < c:
         child = ordering[np.random.randint(n - p)]
-        if cpts[child] is True:
+        if cpts[child]:
             continue
         cpts[child] = True
         num_higher_vars = n - position[child] - 1
@@ -367,7 +367,7 @@ def make_lcn_dag(
     
     # Add the roots
     for i in range(n):
-        if cpts[i] is False:
+        if not cpts[i]:
             scopes[i] = [i]
     
     # Create extra knowledge: l <= P(x) <= u
@@ -489,7 +489,7 @@ def make_lcn_polytree(
             u = ordering[i]
             v = ordering[j]
             edge = (u, v)# if np.random.uniform() <= 0.5 else (v, u)
-            if G.has_edge(edge[0], edge[1]) is False:
+            if not G.has_edge(edge[0], edge[1]):
                 UG = nx.to_undirected(G)
                 paths = list(nx.all_simple_paths(UG, u, v))
                 assert(len(paths) == 1)
