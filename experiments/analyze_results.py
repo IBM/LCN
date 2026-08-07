@@ -66,7 +66,6 @@ import os
 import sys
 from collections import defaultdict
 
-
 # The algorithm names produced by run_algorithm.py (see its ALGORITHMS list),
 # plus the special "exact" reference that resolves to exact_g/exact_l per
 # instance.
