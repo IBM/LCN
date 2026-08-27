@@ -139,3 +139,4 @@ logs/
 *.aux
 *.out
 *.log
+*.toc
