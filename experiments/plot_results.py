@@ -2,12 +2,22 @@
 
 Produces two figures:
   1. MAE (lower bound & upper bound) vs. problem size, one line per algorithm.
-  2. Total runtime vs. problem size, one line per algorithm (log-log scale).
+  2. Mean total time (build + run) vs. problem size, one line per algorithm
+     (log-log scale).
+
+With ``--std``, a lighter shade band of +/- one standard deviation is drawn
+around every curve, read from the ``std_*`` columns written by
+``analyze_results.py``. The band is skipped for any series whose std column is
+absent (older CSVs predate those columns).
+
+By default only the five algorithms in ``DEFAULT_ALGORITHMS`` are plotted
+(CVE, CVE-cm, ARIEL, IBP and approxlp, which is labelled CDVE); override with
+``--algorithms``.
 
 Usage:
     python experiments/plot_results.py --exact results-polytree-exact.csv \
                                        --ref results-polytree-ref.csv \
-                                       --output plots/polytree
+                                       --std --output plots/polytree
 """
 
 import argparse
@@ -33,10 +43,78 @@ ALGO_STYLE = {
     "cjt_l":    {"marker": "<", "color": "#bcbd22", "label": "CJT-L"},
 }
 
+# The algorithms plotted by default, in plot/legend order.
+DEFAULT_ALGORITHMS = ["cve", "cve_cm", "ariel", "ibp", "approxlp"]
+
+# Shading of the +/- 1 std band.
+_BAND_ALPHA = 0.18
+
+# On a log axis the band's lower edge must stay positive. Rather than a fixed
+# absolute floor (which drags the axis down over many empty decades whenever the
+# std exceeds the mean), clip to this fraction of the smallest positive value
+# actually plotted, so bands stay within the data's own range.
+_LOG_FLOOR_FRACTION = 0.5
+
+
 def _style(algo):
     """Return marker/color/label for an algorithm, with fallback."""
     return ALGO_STYLE.get(algo, {"marker": "x", "color": "gray",
                                   "label": algo})
+
+
+def _algos_to_plot(df, requested):
+    """Requested algorithms that are actually present, in requested order."""
+    present = set(df["algorithm"].unique())
+    return [a for a in requested if a in present]
+
+
+def _log_band_floor(df, algos, mean_col):
+    """Positive lower clip for std bands on a log axis, from the data itself.
+
+    Returns a fraction of the smallest positive mean among the series that will
+    actually be plotted, so a band whose std exceeds its mean is truncated just
+    below the lowest curve instead of plunging to an arbitrary absolute floor
+    and stretching the axis over empty decades. None if no positive value
+    exists (the caller then leaves the axis to matplotlib).
+    """
+    if mean_col not in df.columns:
+        return None
+    vals = pd.to_numeric(df.loc[df["algorithm"].isin(algos), mean_col],
+                         errors="coerce").dropna()
+    vals = vals[vals > 0]
+    if vals.empty:
+        return None
+    return float(vals.min()) * _LOG_FLOOR_FRACTION
+
+
+def _plot_series(ax, sub, mean_col, std_col, style, show_std, log_floor=None):
+    """Plot one algorithm's curve, optionally with a +/- 1 std shade band.
+
+    ``log_floor`` clips the band's lower edge to a positive value (for log-scale
+    axes, where a non-positive edge is silently dropped); pass the value from
+    ``_log_band_floor`` so the band stays within the plotted data range. When it
+    is None the lower edge is clipped at 0 instead, since a negative MAE is
+    meaningless.
+    """
+    if mean_col not in sub.columns:
+        return
+
+    ax.plot(sub["num_vars"], sub[mean_col],
+            marker=style["marker"], color=style["color"], label=style["label"],
+            linewidth=1.4, markersize=6)
+
+    if not show_std or std_col is None or std_col not in sub.columns:
+        return
+
+    band = sub[["num_vars", mean_col, std_col]].dropna()
+    if band.empty:
+        return
+
+    lo = band[mean_col] - band[std_col]
+    hi = band[mean_col] + band[std_col]
+    lo = lo.clip(lower=log_floor if log_floor is not None else 0.0)
+    ax.fill_between(band["num_vars"], lo, hi,
+                    color=style["color"], alpha=_BAND_ALPHA, linewidth=0)
 
 
 def load_and_merge(exact_path, ref_path):
@@ -93,13 +171,11 @@ def _set_log_xaxis(ax, sizes):
     ax.minorticks_off()
 
 
-def _plot_mae_panel(df, output_path, suptitle=None):
+def _plot_mae_panel(df, output_path, algorithms, show_std=False):
     """
     Two side-by-side panels: MAE lower bound (left) and upper bound (right).
     """
-    algos = sorted(df["algorithm"].unique(),
-                   key=lambda a: list(ALGO_STYLE.keys()).index(a)
-                   if a in ALGO_STYLE else 999)
+    algos = _algos_to_plot(df, algorithms)
     sizes = sorted(df["num_vars"].unique())
 
     fig, (ax_lb, ax_ub) = plt.subplots(1, 2, figsize=(10, 4), sharey=True)
@@ -109,12 +185,8 @@ def _plot_mae_panel(df, output_path, suptitle=None):
         if sub.empty:
             continue
         s = _style(algo)
-        ax_lb.plot(sub["num_vars"], sub["mae_lb_error"],
-                   marker=s["marker"], color=s["color"], label=s["label"],
-                   linewidth=1.4, markersize=6)
-        ax_ub.plot(sub["num_vars"], sub["mae_ub_error"],
-                   marker=s["marker"], color=s["color"], label=s["label"],
-                   linewidth=1.4, markersize=6)
+        _plot_series(ax_lb, sub, "mae_lb_error", "std_lb_error", s, show_std)
+        _plot_series(ax_ub, sub, "mae_ub_error", "std_ub_error", s, show_std)
 
     for ax, title in [(ax_lb, "Lower bound error"),
                       (ax_ub, "Upper bound error")]:
@@ -137,35 +209,40 @@ def _plot_mae_panel(df, output_path, suptitle=None):
     plt.close(fig)
 
 
-def plot_mae(exact_path, ref_path, output_prefix):
+def plot_mae(exact_path, ref_path, output_prefix, algorithms, show_std=False):
     """
-    Generate separate MAE plots for exact and reference comparisons.
+    Generate the MAE plot from whichever CSV was supplied.
     """
-    if exact_path and os.path.exists(exact_path):
-        df_exact = pd.read_csv(exact_path)
-        _plot_mae_panel(df_exact, f"{output_prefix}_mae_exact.pdf",
-                        "MAE vs. Exact")
-
-    if ref_path and os.path.exists(ref_path):
-        df_ref = pd.read_csv(ref_path)
-        _plot_mae_panel(df_ref, f"{output_prefix}_mae_ref.pdf",
-                        "MAE vs. Reference (ARIEL)")
+    path = exact_path if (exact_path and os.path.exists(exact_path)) \
+        else ref_path
+    if path and os.path.exists(path):
+        df = pd.read_csv(path)
+        _plot_mae_panel(df, f"{output_prefix}_mae.pdf", algorithms,
+                        show_std=show_std)
 
 
-def plot_runtime(df, output_prefix, exact_times, ref_times):
+def plot_runtime(df, output_prefix, exact_times, ref_times, algorithms,
+                 show_std=False):
     """
-    Figure 2: Two side-by-side panels (log-log scale).
-      Left  -- Algorithm run time only (excludes build/factorization).
-      Right -- Total time (build + run), showing end-to-end cost.
-    Exact and reference baselines plotted as separate dashed lines.
+    Figure 2: a single panel with the mean total time (build + run) vs. problem
+    size on a log-log scale, one line per algorithm, optionally with a +/- 1
+    standard deviation shade band (``std_total_time``).
+
+    Where the std exceeds the mean the band's lower edge is clipped to just
+    below the lowest plotted curve (see ``_log_band_floor``) so the log axis
+    stays on the data's own range.
+
+    Exact and reference baselines are drawn as separate dashed lines.
     """
-    algos = sorted(df["algorithm"].unique(),
-                   key=lambda a: list(ALGO_STYLE.keys()).index(a)
-                   if a in ALGO_STYLE else 999)
+    algos = _algos_to_plot(df, algorithms)
     sizes = sorted(df["num_vars"].unique())
 
-    fig, (ax_run, ax_total) = plt.subplots(1, 2, figsize=(10, 4),
-                                           sharey=True)
+    time_col = "mean_total_time" if "mean_total_time" in df.columns \
+        else "total_time"
+    # Clip bands to the plotted data's own range rather than a fixed floor.
+    floor = _log_band_floor(df, algos, time_col)
+
+    fig, ax = plt.subplots(1, 1, figsize=(6, 4.2))
 
     for algo in algos:
         sub = df[df["algorithm"] == algo].sort_values("num_vars")
@@ -173,48 +250,31 @@ def plot_runtime(df, output_prefix, exact_times, ref_times):
             continue
         s = _style(algo)
 
-        # Run time (algorithm only, no build)
-        if "mean_run_time" in sub.columns:
-            ax_run.plot(sub["num_vars"], sub["mean_run_time"],
-                        marker=s["marker"], color=s["color"],
-                        label=s["label"], linewidth=1.4, markersize=6)
+        _plot_series(ax, sub, time_col, "std_total_time", s, show_std,
+                     log_floor=floor)
 
-        # Total time (build + run)
-        time_col = "mean_total_time" if "mean_total_time" in sub.columns \
-            else "total_time"
-        if time_col in sub.columns:
-            ax_total.plot(sub["num_vars"], sub[time_col],
-                          marker=s["marker"], color=s["color"],
-                          label=s["label"], linewidth=1.4, markersize=6)
+    if exact_times is not None and not exact_times.empty:
+        ax.plot(exact_times["num_vars"], exact_times["exact_time"],
+                linestyle="--", color="black", linewidth=1.5,
+                marker="*", markersize=7, label="Exact", alpha=0.7)
+    if ref_times is not None and not ref_times.empty:
+        ax.plot(ref_times["num_vars"], ref_times["ref_time"],
+                linestyle=":", color="dimgray", linewidth=1.5,
+                marker=".", markersize=7, label="Reference", alpha=0.7)
 
-    # Plot baselines on both panels
-    for ax in (ax_run, ax_total):
-        if exact_times is not None and not exact_times.empty:
-            ax.plot(exact_times["num_vars"], exact_times["exact_time"],
-                    linestyle="--", color="black", linewidth=1.5,
-                    marker="*", markersize=7, label="Exact", alpha=0.7)
-        if ref_times is not None and not ref_times.empty:
-            ax.plot(ref_times["num_vars"], ref_times["ref_time"],
-                    linestyle=":", color="dimgray", linewidth=1.5,
-                    marker=".", markersize=7, label="Reference (ARIEL)",
-                    alpha=0.7)
-
-    for ax, title in [(ax_run, "Run time (algorithm only)"),
-                      (ax_total, "Total time (build + run)")]:
-        _set_log_xaxis(ax, sizes)
-        ax.set_xlabel("Number of variables ($n$)")
-        ax.set_title(title, fontsize=11)
-        ax.set_yscale("log")
-        ax.grid(True, alpha=0.25, which="both", linewidth=0.5)
-
-    ax_run.set_ylabel("Time (seconds)")
+    _set_log_xaxis(ax, sizes)
+    ax.set_xlabel("Number of variables ($n$)")
+    ax.set_ylabel("Time (seconds)")
+    ax.set_title("Total time (build + run)", fontsize=11)
+    ax.set_yscale("log")
+    ax.grid(True, alpha=0.25, which="both", linewidth=0.5)
 
     # Shared legend at the top
-    handles, labels = ax_total.get_legend_handles_labels()
+    handles, labels = ax.get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center",
-               ncol=min(len(algos) + 2, 6), frameon=False,
-               bbox_to_anchor=(0.5, 1.02), fontsize=13)
-    fig.tight_layout(rect=[0, 0, 1, 0.91])
+               ncol=min(len(algos) + 2, 5), frameon=False,
+               bbox_to_anchor=(0.5, 1.03), fontsize=13)
+    fig.tight_layout(rect=[0, 0, 1, 0.90])
 
     path = f"{output_prefix}_runtime.pdf"
     fig.savefig(path, bbox_inches="tight", dpi=150)
@@ -234,7 +294,16 @@ def main():
     parser.add_argument(
         "--output", type=str, default="plots/results",
         help="Output prefix for PDF files (default: plots/results)")
+    parser.add_argument(
+        "--std", action="store_true",
+        help="Shade a +/- 1 standard deviation band around each curve")
+    parser.add_argument(
+        "--algorithms", type=str, default=",".join(DEFAULT_ALGORITHMS),
+        help="Comma-separated algorithms to plot, in plot order "
+             f"(default: {','.join(DEFAULT_ALGORITHMS)})")
     args = parser.parse_args()
+
+    algorithms = [a.strip() for a in args.algorithms.split(",") if a.strip()]
 
     df = load_and_merge(args.exact, args.ref)
     exact_times, ref_times = _extract_baselines(args.exact, args.ref)
@@ -242,11 +311,15 @@ def main():
     print(f"Loaded {len(df)} rows, "
           f"algorithms: {sorted(df['algorithm'].unique())}, "
           f"sizes: {sorted(df['num_vars'].unique())}")
+    print(f"Plotting: {_algos_to_plot(df, algorithms)}"
+          f"{' with std bands' if args.std else ''}")
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
 
-    plot_mae(args.exact, args.ref, args.output)
-    plot_runtime(df, args.output, exact_times, ref_times)
+    plot_mae(args.exact, args.ref, args.output, algorithms,
+             show_std=args.std)
+    plot_runtime(df, args.output, exact_times, ref_times, algorithms,
+                 show_std=args.std)
 
 
 if __name__ == "__main__":

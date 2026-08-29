@@ -1,0 +1,393 @@
+% =====================================================================
+% Experimental sections for the LCN credal-inference paper.
+%
+% This file SUPERSEDES the \section{Experiments} currently in
+% docs/paper/neurips_2026.tex (around line 564), which describes an earlier
+% experiment generation (CCTE / CCTE_cm, hand-pasted numbers, figs/small-dag_*
+% figures, Exact/ARIEL references). Everything here is derived from the current
+% results in outputs/ and plots/, with CredalJT as the uniform reference.
+%
+% BUILD (from the repository root, so that plots/ and outputs/ resolve):
+%     TEXINPUTS=docs/paper: pdflatex -interaction=nonstopmode docs/experiments.tex
+%     TEXINPUTS=docs/paper: bibtex   experiments        (if citations are needed)
+%     TEXINPUTS=docs/paper: pdflatex -interaction=nonstopmode docs/experiments.tex
+%
+% Section 1 is the main-paper section and is held to 2 pages in this layout.
+% Section 2 is the appendix section and has no page limit.
+% =====================================================================
+\documentclass{article}
+
+\usepackage{neurips_2026}          % found via TEXINPUTS=docs/paper:
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{times}
+\usepackage{multirow}
+
+\graphicspath{{plots/}{../plots/}{docs/paper/figs/}}
+
+% No \maketitle: these sections are meant to be dropped into the paper body, so
+% the page budget below measures the section content only.
+\pagestyle{plain}
+
+% Allow the two floats of Section 1 to share a page with text rather than
+% spilling onto a third page.
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.6}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.85}
+\setcounter{topnumber}{2}
+\setcounter{bottomnumber}{2}
+\setcounter{totalnumber}{4}
+
+\begin{document}
+
+%% ================================================================
+\section{Experiments}
+\label{sec-experiments}
+%% ================================================================
+
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=0.80\linewidth]{dag_large_fr_mae.pdf}
+    \caption{Large random \texttt{dag} LCNs (loopy, treewidth $\le 3$): MAE against
+    the CredalJT reference, with bands giving one standard deviation over the ten
+    instances per size and curves stopping where the budget was exceeded. Timings
+    and the other three families are in Appendix~\ref{sec-full-results}.}
+    \label{fig:random}
+\end{figure}
+
+\begin{table}[!b]
+\centering
+\footnotesize
+\begin{tabular}{llrrrr}
+\toprule
+Instance & Algorithm & MAE$_{l}$ & MAE$_{u}$ & $w$ & Time (s) \\
+\midrule
+Alarm ($n{=}10$), ref 0.72s & ARIEL & 0.000 & 0.000 & 1.00 & 3.92 \\
+ & IBP & 0.101 & 0.015 & 1.37 & 0.13 \\
+ & CDVE & 0.101 & 0.015 & 1.37 & 0.69 \\
+ & CVE$_{cm}$ & 0.087 & 0.067 & 0.86 & 0.24 \\
+\hline
+Credit ($n{=}11$), ref 1.15s & ARIEL & 0.050 & 0.000 & 1.18 & 3.18 \\
+ & IBP & 0.257 & 0.000 & 1.92 & 0.24 \\
+ & CDVE & 0.257 & 0.000 & 1.92 & 0.69 \\
+ & CVE$_{cm}$ & 0.108 & 0.165 & 0.78 & 1.73 \\
+\hline
+Hepatitis ($n{=}10$), ref 0.56s & ARIEL & 0.008 & 0.008 & 1.02 & 3.91 \\
+ & IBP & 0.069 & 0.080 & 1.86 & 0.75 \\
+ & CDVE & 0.070 & 0.085 & 1.85 & 1.15 \\
+ & CVE$_{cm}$ & 0.114 & 0.184 & 1.49 & 16.53 \\
+\hline
+MScaling ($n{=}12$), ref 0.66s & ARIEL & 0.028 & 0.000 & 1.73 & 8.13 \\
+ & IBP & 0.129 & 0.493 & 7.64 & 0.35 \\
+ & CDVE & 0.129 & 0.501 & 7.72 & 1.23 \\
+ & CVE$_{cm}$ & 0.079 & 0.227 & 2.99 & 0.57 \\
+\hline
+BScaling ($n{=}32$), ref 2.42s & ARIEL & 0.000 & 0.000 & 1.00 & 19.80 \\
+ & IBP & 0.115 & 0.225 & 4.49 & 0.69 \\
+ & CDVE & 0.115 & 0.225 & 4.49 & 20.55 \\
+ & CVE$_{cm}$ & 0.064 & 0.072 & 1.55 & 9.18 \\
+\hline
+PScaling ($n{=}40$), ref 3.27s & ARIEL & 0.000 & 0.000 & 1.00 & 34.72 \\
+ & IBP & 0.129 & 0.263 & 4.43 & 0.91 \\
+ & CDVE & 0.129 & 0.263 & 4.43 & 51.25 \\
+ & CVE$_{cm}$ & 0.070 & 0.057 & 1.20 & 658.84 \\
+\bottomrule
+\end{tabular}
+\caption{Realistic LCNs: three instances derived from real Bayesian networks
+(top) and three Supreme Court chain-graph instances (bottom), all against the
+CredalJT reference. $w$ is the mean interval-width ratio ($>1$ looser than the
+reference, $<1$ tighter). Time is total time including the
+credal-network build; the reference's own time on each instance is given with the
+instance name.}
+\label{tab:real}
+\end{table}
+
+\paragraph{Benchmarks.}
+We evaluate on two groups of instances. \emph{Random LCNs} come in four
+families, each generated so that every sentence is \emph{family-realizable}:
+\texttt{tree}, \texttt{polytree}, \texttt{ktree} ($k{=}3$) and \texttt{dag}
+(moralized treewidth $\le 3$, at most two parents per atom). Family-realizability means each sentence constrains a single family's conditional
+table alone; with the \texttt{linear} factorization the credal-network relaxation
+is exact \emph{iff} the primal graph is singly connected \emph{and} every sentence
+is realizable. So \texttt{tree} and \texttt{polytree} probe the tight regime, while
+\texttt{ktree} and \texttt{dag} are realizable but loopy --- any two-parent collider
+moralizes into a cycle --- and there the methods give outer bounds only. Each family is
+generated at two scales, \emph{small} ($n \in \{5,\dots,10\}$) and \emph{large}
+($n \in \{10,20,30,40,50,100\}$), with $10$ instances per size, giving
+$8 \times 60 = 480$ instances. Sentence bounds are drawn as
+$[\max(0.01, v{-}\varepsilon), \min(1, v{+}\varepsilon)]$ with $v \sim U(0,1)$
+and $\varepsilon = 0.3$; formulas span at most three atoms; two extra marginals
+per instance are placed on root atoms only; the seed is $42$. Every instance is accepted only after a product-distribution
+consistency witness is found (scope-local for $n > 10$, avoiding the $2^n$ term),
+so all $480$ are consistent by construction. \emph{Realistic LCNs} are of two kinds: ten
+instances derived from real Bayesian networks \cite{bn-repo} ($n = 4$--$11$,
+$6$--$24$ sentences), and sixteen instances from the causal chain graphs of the
+US Supreme Court analysis of \cite{ogburn2020causal}. The latter stress two
+different axes: the \texttt{scaling} instances are large and sparse
+($n = 6$--$40$, $11$--$79$ sentences), whereas the \texttt{supreme\_court}
+instances are small but extremely dense ($n{=}10$ with $345$--$1009$ sentences).
+
+\paragraph{Algorithms, reference and metrics.}
+We compare four approximate algorithms: \textbf{ARIEL} \cite{marinescu2023lcn},
+which operates directly on the LCN factor graph ($10$ iterations) and needs no
+credal-network build; \textbf{IBP}, interval belief propagation on the credal
+network ($100$ iterations); \textbf{CDVE}, coordinate descent over extreme points
+($50$ iterations), which by construction returns \emph{inner} bounds; and
+\textbf{CVE$_{cm}$}, Credal Variable Elimination with its intermediate
+potentials clustered to at most $10$ functions using the mean representative.
+Plain \textbf{CVE} (exact over the strong extension, no clustering) is included
+where it terminates. All credal-network methods share the same build:
+the \texttt{linear} factorization, no scope merging, and per-family local credal
+sets solved as linear programs. As the reference we use \textbf{CredalJT}, the junction-tree NLP formulation
+(\texttt{ipopt} backend, falling back to the certified \textsc{scip} one): it is the
+tightest engine tractable at every size here, whereas exact inference over the
+$2^n$ joint solves only $15/60$ of \texttt{tree\_small} and none of the Supreme
+Court instances. For every atom we report the mean
+absolute error of the lower and upper marginal bounds against the reference,
+$\mathrm{MAE}_{l} = \frac{1}{n}\sum_i |\underline{P}^{*}(x_i) -
+\underline{P}(x_i)|$ and $\mathrm{MAE}_{u}$ analogously, the mean interval-width
+ratio $w$ (the algorithm's width divided by the reference's: $w > 1$ is looser,
+$w < 1$ tighter), and wall-clock time in seconds including the credal-network
+build. Note that CredalJT's build is not comparable to the others': it needs only
+the chain-graph structure and skips the vertex enumeration entirely.
+
+\paragraph{Setup.}
+All algorithms are implemented in Python 3.12 and use \texttt{ipopt} 3.14
+\cite{ipopt} for the local programs and \textsc{scip} for the certified global
+ones. Every run is single-threaded with a limit of $3600$ seconds and $30$\,GB of
+memory; a dash in a table means the algorithm did not finish inside that budget.
+
+
+
+\paragraph{Random LCNs.}
+Figure~\ref{fig:random} shows the loopy \texttt{dag} family at the large scale,
+with shaded bands giving one standard deviation over the ten instances per size;
+the other three families are in Appendix~\ref{sec-full-results}. Three findings
+hold across all four families. First, \textbf{IBP dominates}: its error against the reference
+is at or below $4 \times 10^{-3}$ on every family and size --- indistinguishable
+from CredalJT on \texttt{tree} and \texttt{polytree}, as the exactness
+characterization predicts --- while being the fastest method everywhere, by one
+to three orders of magnitude at $n{=}100$. Second, \textbf{CDVE matches that
+accuracy but not that cost}: its mean error stays in the $10^{-3}$ range, yet its
+runtime grows from under a second on the small families to $273$--$614$ seconds
+on the large ones, making it slower than ARIEL at $n{=}100$. ARIEL is likewise
+accurate (exactly zero error on \texttt{tree} and \texttt{polytree}) but pays
+$25$--$35$ seconds at scale. Third, \textbf{clustering buys speed at a real cost
+in quality}: CVE$_{cm}$ runs in a fraction of a second on the small families but
+its error grows with $n$, from $0.08$--$0.11$ on the small families to
+$0.31$--$0.35$ on the large ones, and its width ratio of $0.73$--$0.86$ shows the
+intervals are systematically \emph{too tight} --- the mean cluster representative
+is an interior point and does not preserve the enclosure. Plain CVE is the
+scalability bottleneck: it is essentially exact where it runs but costs
+$226$--$1141$ seconds, times out on all of \texttt{ktree\_small} and
+\texttt{polytree\_large}, and is intractable on the large loopy families.
+
+\paragraph{Realistic LCNs.}
+Table~\ref{tab:real} reports six representative instances. The ordering is
+different here: ARIEL is clearly the tightest method, at or near zero error on
+four of the six instances, because it reasons on the original LCN rather than on
+its credal-network relaxation. IBP and CDVE agree closely and produce widths $1.4$--$7.7\times$ the reference ---
+genuine but loose outer bounds, the gap being the cost of the relaxation rather
+than a defect of the message passing. On running time the picture is again favourable to IBP, which is the
+fastest method on every instance and the only one that stays under a second at
+$n{=}40$, where CDVE needs $51$ seconds and CVE$_{cm}$ $659$. The nine dense \texttt{supreme\_court} instances are omitted because only
+ARIEL and the reference complete on them: at $n{=}10$ with up to $1009$ sentences
+it is the constraint system, not the treewidth, that defeats these methods.
+
+
+
+
+
+\clearpage
+%% ================================================================
+\section{Full Experimental Results}
+\label{sec-full-results}
+%% ================================================================
+
+This appendix reports every measurement behind Section~\ref{sec-experiments}:
+all four random families at both scales, and the complete per-instance results
+for the two realistic suites. Throughout, the reference is CredalJT and the
+budget is $3600$ seconds and $30$\,GB per run.
+
+\subsection{Coverage and exclusions}
+\label{sec-coverage}
+
+Not every algorithm completes on every instance, and reading the figures without
+this in mind would overstate coverage, since a curve simply stops where its
+algorithm ran out of budget. Over the $480$ random instances, ARIEL and IBP
+complete essentially all of them, and CredalJT's \texttt{ipopt} backend completes
+all of the instances it was run on. The exceptions are concentrated in the
+CVE family. Plain CVE, without clustering, is the least scalable: it solves
+$35/60$ of \texttt{tree\_small}, $30/60$ of \texttt{polytree\_small} and $24/60$
+of \texttt{dag\_small}, but \emph{none} of \texttt{ktree\_small} ($21$ timeouts
+and $39$ errors) and none of \texttt{polytree\_large}; on the other three large
+families it was not run at all. It is therefore absent from most plots, and where
+present it covers only the smallest sizes. Clustering restores coverage at small
+scale --- CVE$_{cm}$ and CVE$_{cp}$ solve all $60$ instances of every small
+family --- but degrades on the large loopy ones, where CVE$_{cm}$ reaches only
+$14/60$ on \texttt{ktree\_large} and $30/60$ on \texttt{dag\_large}. Exact
+inference over the $2^n$ joint is viable only at the very smallest sizes
+($15/60$ on \texttt{tree\_small}, $13/60$ on \texttt{polytree\_small}, $2/10$ on
+the Bayesian-network instances, none of the Supreme Court ones), which is why it
+is not used as the reference. Three bookkeeping gaps are worth recording: the
+\texttt{ktree\_large} CDVE log holds $58$ records rather than $60$, the Supreme
+Court exact-inference log holds $12$ rather than $16$, and the
+Bayesian-network CVE log holds $7$ rather than $10$; the corresponding instances
+are simply missing rather than failed, and are excluded from the aggregates.
+
+\subsection{Random LCNs}
+
+Figures~\ref{fig:tree-full}--\ref{fig:dag-full} give the error and timing curves
+for all four families at both scales. The tables that follow them give the
+underlying per-size aggregates; for each family and scale the first table reports
+means and the second the corresponding standard deviations over the ten instances
+at each size.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{subfigure}{0.49\linewidth}
+        \includegraphics[width=\linewidth]{tree_small_fr_mae.pdf}
+        \caption{small, error}
+    \end{subfigure}\hfill
+    \begin{subfigure}{0.49\linewidth}
+        \includegraphics[width=\linewidth]{tree_small_fr_runtime.pdf}
+        \caption{small, time}
+    \end{subfigure}
+    \\[0.3em]
+    \begin{subfigure}{0.49\linewidth}
+        \includegraphics[width=\linewidth]{tree_large_fr_mae.pdf}
+        \caption{large, error}
+    \end{subfigure}\hfill
+    \begin{subfigure}{0.49\linewidth}
+        \includegraphics[width=\linewidth]{tree_large_fr_runtime.pdf}
+        \caption{large, time}
+    \end{subfigure}
+    \caption{Random \texttt{tree} LCNs. Singly connected and fully realizable, so
+    the credal-network relaxation is tight: ARIEL and IBP are indistinguishable
+    from the reference.}
+    \label{fig:tree-full}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \begin{subfigure}{0.49\linewidth}
+        \includegraphics[width=\linewidth]{polytree_small_fr_mae.pdf}
+        \caption{small, error}
+    \end{subfigure}\hfill
+    \begin{subfigure}{0.49\linewidth}
+        \includegraphics[width=\linewidth]{polytree_small_fr_runtime.pdf}
+        \caption{small, time}
+    \end{subfigure}
+    \\[0.3em]
+    \begin{subfigure}{0.49\linewidth}
+        \includegraphics[width=\linewidth]{polytree_large_fr_mae.pdf}
+        \caption{large, error}
+    \end{subfigure}\hfill
+    \begin{subfigure}{0.49\linewidth}
+        \includegraphics[width=\linewidth]{polytree_large_fr_runtime.pdf}
+        \caption{large, time}
+    \end{subfigure}
+    \caption{Random \texttt{polytree} LCNs. Also singly connected; the residual
+    ARIEL error at the small scale comes from instances where the reference
+    itself is the tighter engine.}
+    \label{fig:polytree-full}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \begin{subfigure}{0.49\linewidth}
+        \includegraphics[width=\linewidth]{ktree_small_fr_mae.pdf}
+        \caption{small, error}
+    \end{subfigure}\hfill
+    \begin{subfigure}{0.49\linewidth}
+        \includegraphics[width=\linewidth]{ktree_small_fr_runtime.pdf}
+        \caption{small, time}
+    \end{subfigure}
+    \\[0.3em]
+    \begin{subfigure}{0.49\linewidth}
+        \includegraphics[width=\linewidth]{ktree_large_fr_mae.pdf}
+        \caption{large, error}
+    \end{subfigure}\hfill
+    \begin{subfigure}{0.49\linewidth}
+        \includegraphics[width=\linewidth]{ktree_large_fr_runtime.pdf}
+        \caption{large, time}
+    \end{subfigure}
+    \caption{Random \texttt{ktree} LCNs ($k{=}3$). Loopy despite bounded
+    treewidth, so all credal-network methods give outer bounds only; plain CVE
+    solves none of these instances and CVE$_{cm}$ stops after $n{=}20$.}
+    \label{fig:ktree-full}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \begin{subfigure}{0.49\linewidth}
+        \includegraphics[width=\linewidth]{dag_small_fr_mae.pdf}
+        \caption{small, error}
+    \end{subfigure}\hfill
+    \begin{subfigure}{0.49\linewidth}
+        \includegraphics[width=\linewidth]{dag_small_fr_runtime.pdf}
+        \caption{small, time}
+    \end{subfigure}
+    \\[0.3em]
+    \begin{subfigure}{0.49\linewidth}
+        \includegraphics[width=\linewidth]{dag_large_fr_mae.pdf}
+        \caption{large, error}
+    \end{subfigure}\hfill
+    \begin{subfigure}{0.49\linewidth}
+        \includegraphics[width=\linewidth]{dag_large_fr_runtime.pdf}
+        \caption{large, time}
+    \end{subfigure}
+    \caption{Random \texttt{dag} LCNs (moralized treewidth $\le 3$, at most two
+    parents). The least structured family; CDVE's runtime grows fastest here,
+    exceeding $600$ seconds at $n{=}100$.}
+    \label{fig:dag-full}
+\end{figure}
+
+\clearpage
+\input{outputs/results-tree-small.tex}
+\input{outputs/results-tree-large.tex}
+\clearpage
+\input{outputs/results-polytree-small.tex}
+\input{outputs/results-polytree-large.tex}
+\clearpage
+\input{outputs/results-ktree-small.tex}
+\input{outputs/results-ktree-large.tex}
+\clearpage
+\input{outputs/results-dag-small.tex}
+\input{outputs/results-dag-large.tex}
+
+\clearpage
+\subsection{Realistic LCNs}
+
+The two tables below give the complete per-instance results for the ten
+Bayesian-network-derived LCNs and the sixteen Supreme Court chain-graph LCNs,
+including the nine dense \texttt{supreme\_court} instances omitted from
+Table~\ref{tab:real}. On those nine, only ARIEL and the CredalJT reference
+complete: with $n{=}10$ atoms but $345$--$1009$ sentences, the size of the
+constraint system rather than the treewidth is the binding limit, and IBP, CDVE
+and all CVE variants exhaust the budget. One instance in the suite,
+\texttt{benchmark\_scaling\_directions\_n24\_2}, is a repaired variant of the
+original benchmark: in the chain graph the four reviewers of a stage are mutually
+independent, so the probability of their conjunction is forced to the product of
+their marginals, which the original's \texttt{component} sentences contradicted;
+the three incompatible sentences were dropped and the repaired instance is
+consistent, verified by a junction-tree feasibility check.
+
+\input{outputs/results-real.tex}
+\clearpage
+\input{outputs/results-junkyu.tex}
+
+\bibliography{ref}
+\bibliographystyle{unsrt}
+
+\end{document}

@@ -13,6 +13,12 @@ The reference is selected with ``--reference``:
     ``exact_g`` (SCIP, certified global) and falling back to ``exact_l``
     (ipopt, local) when only that is present. Only instances that were solved
     exactly contribute.
+  * ``cjt_any``: use the CredalJT record, preferring ``cjt_l`` (local/ipopt,
+    which solves essentially every instance) and falling back to ``cjt``
+    (global/SCIP) when only that is present. Both CJT backends are excluded
+    from the scored rows. This is the uniform reference for the random
+    family-realizable benchmark sets, where CredalJT is the tightest engine
+    available at every size.
   * any other algorithm name (e.g. ``cve``, ``cjt``, ``ibp``): use that
     algorithm's record as the reference.
 
@@ -71,12 +77,34 @@ from collections import defaultdict
 # instance.
 _ALGORITHMS = ["exact_l", "exact_g", "ariel", "ibp", "ccte", "ccte_e",
                "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "cjt",
-               "cjt_l", "cjt_g"]
-_REFERENCE_CHOICES = ["exact"] + _ALGORITHMS
+               "cjt_l", "cjt_g", "cve_cm", "cve_cp"]
+_REFERENCE_CHOICES = ["exact", "cjt_any"] + _ALGORITHMS
 
 # The exact backends, in preference order when the reference is "exact": the
 # certified global solver (exact_g) is trusted over the local one (exact_l).
 _EXACT_ALGORITHMS = ("exact_g", "exact_l")
+
+# Display names used in the LaTeX tables (the raw algorithm keys stay in the CSV).
+_LATEX_ALGO_NAMES = {
+    "approxlp": "CDVE",
+    "ariel": "ARIEL",
+    "ibp": "IBP",
+    "cve": "CVE",
+    "cve_cm": "CVE$_{cm}$",
+    "cjt": "CJT",
+    "cjt_l": "CJT",
+    "cjt_g": "CJT",
+    "exact_l": "Exact",
+    "exact_g": "Exact",
+}
+
+# Algorithms omitted from the LaTeX tables (still present in the CSV).
+_LATEX_EXCLUDE = ("cve_cp",)
+
+# The CredalJT backends, in preference order when the reference is "cjt_any":
+# the local/ipopt backend (cjt_l) is preferred because it solves essentially
+# every instance, whereas the global/SCIP backend (cjt) times out on some.
+_CJT_ALGORITHMS = ("cjt_l", "cjt")
 
 
 def _mean(vals):
@@ -135,6 +163,11 @@ def _reference_record(algos, reference):
             if name in algos:
                 return algos[name]
         return None
+    if reference == "cjt_any":
+        for name in _CJT_ALGORITHMS:
+            if name in algos:
+                return algos[name]
+        return None
     return algos.get(reference)
 
 
@@ -147,6 +180,12 @@ def _is_reference_or_exact(algo_name, reference):
     """
     if reference == "exact":
         return algo_name in _EXACT_ALGORITHMS
+    if reference == "cjt_any":
+        # Exclude *both* CJT backends: whichever one was not selected for a
+        # given instance is the same algorithm as the reference, not an
+        # approximation to score against it.
+        return (algo_name in _CJT_ALGORITHMS
+                or algo_name in _EXACT_ALGORITHMS)
     # A named reference: exclude it, and still exclude the exact backends (they
     # are the ground truth and are analyzed separately with --reference exact).
     return algo_name == reference or algo_name in _EXACT_ALGORITHMS
@@ -347,8 +386,10 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
 
     # Save LaTeX
     if latex_file and rows:
+        ref_name = "CJT" if reference == "cjt_any" \
+            else _LATEX_ALGO_NAMES.get(reference, _latex_safe(reference))
         _save_latex(rows, latex_file, reference, group_by,
-                    caption=f"error metrics vs.\\ {reference} reference")
+                    caption=f"error metrics vs.\\ {ref_name} reference")
         print(f"Saved LaTeX to {latex_file}")
 
 
@@ -374,12 +415,25 @@ def _write_latex_table(f, rows, cols, caption):
     f.write("\\toprule\n")
     f.write(" & ".join(headers) + " \\\\\n")
     f.write("\\midrule\n")
-    for row in rows:
+    # Drop the excluded algorithms, then rule between consecutive problem sizes
+    # (or instances, in the per-instance grouping).
+    shown = [r for r in rows
+             if r.get("algorithm") not in _LATEX_EXCLUDE]
+    group_key = "num_vars" if "num_vars" in (shown[0] if shown else {}) \
+        else "instance"
+    prev_group = None
+    for row in shown:
+        cur_group = row.get(group_key)
+        if prev_group is not None and cur_group != prev_group:
+            f.write("\\hline\n")
+        prev_group = cur_group
         vals = []
         for k in keys:
             v = row.get(k)
             if v is None:
                 vals.append("--")
+            elif k == "algorithm":
+                vals.append(_LATEX_ALGO_NAMES.get(v, _latex_safe(v)))
             elif isinstance(v, float):
                 if k.startswith(("mae", "max", "std_lb", "std_ub")):
                     vals.append(f"{v:.4f}")
@@ -457,6 +511,7 @@ def main():
         metavar="ALGO",
         help="Reference algorithm (default: ariel). Use 'exact' for the "
              "ground-truth exact bounds (prefers exact_g then exact_l per "
+             "instance), 'cjt_any' for CredalJT (prefers cjt_l then cjt per "
              "instance), or one of " + ", ".join(_ALGORITHMS))
     parser.add_argument(
         "--output", type=str, default=None,

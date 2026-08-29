@@ -1,60 +1,62 @@
 \begin{table}[ht]
 \centering
 \scriptsize
-\caption{Mean error metrics vs.\ cjt_l reference}
+\caption{Mean error metrics vs.\ CJT reference}
 \begin{tabular}{llrrrrrrr}
 \toprule
 Instance & Algorithm & MAE$_{\text{lb}}$ & MAE$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
 \midrule
-$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & approxlp & 0.1215 & 0.4370 & 1.78 & 22.80 & 24.57 & 1258.24 & 4.00 \\
-$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & ariel & 0.0000 & 0.0000 & 0.00 & 13.42 & 13.42 & 1258.24 & -- \\
-$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 8.35 & 8.36 & 1258.24 & 5.00 \\
-$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & $\text{cve\_cm}$ & 0.1123 & 0.1749 & 1.86 & 2206.67 & 2208.54 & 1258.24 & 4.00 \\
-$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & $\text{cve\_cp}$ & 0.2513 & 0.1868 & 1.93 & 2341.06 & 2342.99 & 1258.24 & 4.00 \\
-$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & ibp & 0.1215 & 0.4370 & 1.91 & 685.00 & 686.91 & 1258.24 & 4.00 \\
-$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & approxlp & 0.1148 & 0.2247 & 0.57 & 19.98 & 20.55 & 2.42 & 1.00 \\
-$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & ariel & 0.0000 & 0.0000 & 0.00 & 19.80 & 19.80 & 2.42 & -- \\
-$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 2.69 & 2.70 & 2.42 & 3.00 \\
-$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & $\text{cve\_cm}$ & 0.0643 & 0.0716 & 0.59 & 8.59 & 9.18 & 2.42 & 1.00 \\
-$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & $\text{cve\_cp}$ & 0.1248 & 0.0999 & 0.58 & 8.56 & 9.14 & 2.42 & 1.00 \\
-$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & ibp & 0.1148 & 0.2247 & 0.64 & 0.05 & 0.69 & 2.42 & 1.00 \\
-$\text{maintenance\_scaling\_n12\_3.lcn}$ & approxlp & 0.1287 & 0.5013 & 0.29 & 0.94 & 1.23 & 0.66 & 2.00 \\
-$\text{maintenance\_scaling\_n12\_3.lcn}$ & ariel & 0.0284 & 0.0000 & 0.00 & 8.13 & 8.13 & 0.66 & -- \\
-$\text{maintenance\_scaling\_n12\_3.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 2.64 & 2.65 & 0.66 & 3.00 \\
-$\text{maintenance\_scaling\_n12\_3.lcn}$ & $\text{cve\_cm}$ & 0.0793 & 0.2270 & 0.31 & 0.25 & 0.57 & 0.66 & 2.00 \\
-$\text{maintenance\_scaling\_n12\_3.lcn}$ & $\text{cve\_cp}$ & 0.1452 & 0.1711 & 0.32 & 0.21 & 0.53 & 0.66 & 2.00 \\
-$\text{maintenance\_scaling\_n12\_3.lcn}$ & ibp & 0.1286 & 0.4926 & 0.31 & 0.04 & 0.35 & 0.66 & 2.00 \\
-$\text{maintenance\_scaling\_n6\_1.lcn}$ & approxlp & 0.1029 & 0.3972 & 0.17 & 0.10 & 0.27 & 0.28 & 2.00 \\
-$\text{maintenance\_scaling\_n6\_1.lcn}$ & ariel & 0.0000 & 0.0000 & 0.00 & 4.16 & 4.16 & 0.28 & -- \\
-$\text{maintenance\_scaling\_n6\_1.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 0.45 & 0.46 & 0.28 & 3.00 \\
-$\text{maintenance\_scaling\_n6\_1.lcn}$ & cve & 0.1029 & 0.4017 & 0.14 & 789.77 & 789.91 & 0.28 & 2.00 \\
-$\text{maintenance\_scaling\_n6\_1.lcn}$ & $\text{cve\_cm}$ & 0.1021 & 0.2685 & 0.14 & 0.05 & 0.19 & 0.28 & 2.00 \\
-$\text{maintenance\_scaling\_n6\_1.lcn}$ & $\text{cve\_cp}$ & 0.1470 & 0.1974 & 0.15 & 0.04 & 0.19 & 0.28 & 2.00 \\
-$\text{maintenance\_scaling\_n6\_1.lcn}$ & ibp & 0.1029 & 0.4017 & 0.15 & 0.01 & 0.16 & 0.28 & 2.00 \\
-$\text{maintenance\_scaling\_n9\_2.lcn}$ & approxlp & 0.1447 & 0.4748 & 0.21 & 0.48 & 0.69 & 0.44 & 2.00 \\
-$\text{maintenance\_scaling\_n9\_2.lcn}$ & ariel & 0.0398 & 0.0000 & 0.00 & 6.09 & 6.09 & 0.44 & -- \\
-$\text{maintenance\_scaling\_n9\_2.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 2.00 & 2.01 & 0.44 & 3.00 \\
-$\text{maintenance\_scaling\_n9\_2.lcn}$ & $\text{cve\_cm}$ & 0.1095 & 0.2437 & 0.20 & 0.12 & 0.32 & 0.44 & 2.00 \\
-$\text{maintenance\_scaling\_n9\_2.lcn}$ & $\text{cve\_cp}$ & 0.1499 & 0.1704 & 0.24 & 0.11 & 0.35 & 0.44 & 2.00 \\
-$\text{maintenance\_scaling\_n9\_2.lcn}$ & ibp & 0.1447 & 0.4662 & 0.23 & 0.02 & 0.25 & 0.44 & 2.00 \\
-$\text{paper\_scaling\_directions\_n35\_2.lcn}$ & approxlp & 0.1506 & 0.4467 & 7.59 & 190.48 & 198.07 & 1342.14 & 5.00 \\
-$\text{paper\_scaling\_directions\_n35\_2.lcn}$ & ariel & 0.0064 & 0.0047 & 0.00 & 36.58 & 36.58 & 1342.14 & -- \\
-$\text{paper\_scaling\_directions\_n35\_2.lcn}$ & cjt & 0.0000 & 0.0000 & 0.02 & 103.01 & 103.03 & 1342.14 & 6.00 \\
-$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & approxlp & 0.1288 & 0.2631 & 0.70 & 50.55 & 51.25 & 3.27 & 1.00 \\
-$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & ariel & 0.0000 & 0.0000 & 0.00 & 34.72 & 34.72 & 3.27 & -- \\
-$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 3.50 & 3.51 & 3.27 & 3.00 \\
-$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & $\text{cve\_cm}$ & 0.0696 & 0.0566 & 0.74 & 658.10 & 658.84 & 3.27 & 1.00 \\
-$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & $\text{cve\_cp}$ & 0.1625 & 0.1081 & 0.73 & 667.02 & 667.74 & 3.27 & 1.00 \\
-$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & ibp & 0.1288 & 0.2631 & 0.82 & 0.09 & 0.91 & 3.27 & 1.00 \\
-$\text{supreme\_court\_judicial\_power\_credal\_source\_comparison\_n10\_1.lcn}$ & ariel & 0.0532 & 0.1234 & 0.00 & 115.72 & 115.72 & 348.07 & -- \\
-$\text{supreme\_court\_judicial\_power\_credal\_source\_comparison\_n10\_2.lcn}$ & ariel & 0.0321 & 0.1107 & 0.00 & 76.72 & 76.72 & 337.23 & -- \\
-$\text{supreme\_court\_judicial\_power\_credal\_source\_comparison\_n10\_3.lcn}$ & ariel & 0.0259 & 0.0972 & 0.00 & 527.92 & 527.92 & 426.93 & -- \\
-$\text{supreme\_court\_judicial\_power\_dual\_source\_credal\_n10\_1.lcn}$ & ariel & 0.0259 & 0.0972 & 0.00 & 523.64 & 523.64 & 435.71 & -- \\
-$\text{supreme\_court\_judicial\_power\_release\_comparison\_n10\_1.lcn}$ & ariel & 0.0317 & 0.0860 & 0.00 & 68.03 & 68.03 & 346.18 & -- \\
-$\text{supreme\_court\_judicial\_power\_release\_comparison\_n10\_2.lcn}$ & ariel & 0.0532 & 0.1234 & 0.00 & 117.31 & 117.31 & 337.95 & -- \\
-$\text{supreme\_court\_judicial\_power\_release\_comparison\_n10\_3.lcn}$ & ariel & 0.0259 & 0.0972 & 0.00 & 562.73 & 562.73 & 426.77 & -- \\
-$\text{supreme\_court\_judicial\_power\_source\_variants\_n10\_1.lcn}$ & ariel & 0.0317 & 0.0860 & 0.00 & 71.64 & 71.64 & 338.65 & -- \\
-$\text{supreme\_court\_judicial\_power\_source\_variants\_n10\_2.lcn}$ & ariel & 0.0176 & 0.0913 & 0.00 & 70.58 & 70.58 & 357.82 & -- \\
+$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & CDVE & 0.1215 & 0.4370 & 1.78 & 22.80 & 24.57 & 1258.24 & 4.00 \\
+$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 13.42 & 13.42 & 1258.24 & -- \\
+$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & CVE$_{cm}$ & 0.1123 & 0.1749 & 1.86 & 2206.67 & 2208.54 & 1258.24 & 4.00 \\
+$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & IBP & 0.1215 & 0.4370 & 1.91 & 685.00 & 686.91 & 1258.24 & 4.00 \\
+\hline
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & CDVE & 0.1148 & 0.2247 & 0.57 & 19.98 & 20.55 & 2.42 & 1.00 \\
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 19.80 & 19.80 & 2.42 & -- \\
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & CVE$_{cm}$ & 0.0643 & 0.0716 & 0.59 & 8.59 & 9.18 & 2.42 & 1.00 \\
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & IBP & 0.1148 & 0.2247 & 0.64 & 0.05 & 0.69 & 2.42 & 1.00 \\
+\hline
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & CDVE & 0.1287 & 0.5013 & 0.29 & 0.94 & 1.23 & 0.66 & 2.00 \\
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & ARIEL & 0.0284 & 0.0000 & 0.00 & 8.13 & 8.13 & 0.66 & -- \\
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & CVE$_{cm}$ & 0.0793 & 0.2270 & 0.31 & 0.25 & 0.57 & 0.66 & 2.00 \\
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & IBP & 0.1286 & 0.4926 & 0.31 & 0.04 & 0.35 & 0.66 & 2.00 \\
+\hline
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & CDVE & 0.1029 & 0.3972 & 0.17 & 0.10 & 0.27 & 0.28 & 2.00 \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 4.16 & 4.16 & 0.28 & -- \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & CVE & 0.1029 & 0.4017 & 0.14 & 789.77 & 789.91 & 0.28 & 2.00 \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & CVE$_{cm}$ & 0.1021 & 0.2685 & 0.14 & 0.05 & 0.19 & 0.28 & 2.00 \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & IBP & 0.1029 & 0.4017 & 0.15 & 0.01 & 0.16 & 0.28 & 2.00 \\
+\hline
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & CDVE & 0.1447 & 0.4748 & 0.21 & 0.48 & 0.69 & 0.44 & 2.00 \\
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & ARIEL & 0.0398 & 0.0000 & 0.00 & 6.09 & 6.09 & 0.44 & -- \\
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & CVE$_{cm}$ & 0.1095 & 0.2437 & 0.20 & 0.12 & 0.32 & 0.44 & 2.00 \\
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & IBP & 0.1447 & 0.4662 & 0.23 & 0.02 & 0.25 & 0.44 & 2.00 \\
+\hline
+$\text{paper\_scaling\_directions\_n35\_2.lcn}$ & CDVE & 0.1506 & 0.4467 & 7.59 & 190.48 & 198.07 & 1342.14 & 5.00 \\
+$\text{paper\_scaling\_directions\_n35\_2.lcn}$ & ARIEL & 0.0064 & 0.0047 & 0.00 & 36.58 & 36.58 & 1342.14 & -- \\
+\hline
+$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & CDVE & 0.1288 & 0.2631 & 0.70 & 50.55 & 51.25 & 3.27 & 1.00 \\
+$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 34.72 & 34.72 & 3.27 & -- \\
+$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & CVE$_{cm}$ & 0.0696 & 0.0566 & 0.74 & 658.10 & 658.84 & 3.27 & 1.00 \\
+$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & IBP & 0.1288 & 0.2631 & 0.82 & 0.09 & 0.91 & 3.27 & 1.00 \\
+\hline
+$\text{supreme\_court\_judicial\_power\_credal\_source\_comparison\_n10\_1.lcn}$ & ARIEL & 0.0532 & 0.1234 & 0.00 & 115.72 & 115.72 & 348.07 & -- \\
+\hline
+$\text{supreme\_court\_judicial\_power\_credal\_source\_comparison\_n10\_2.lcn}$ & ARIEL & 0.0321 & 0.1107 & 0.00 & 76.72 & 76.72 & 337.23 & -- \\
+\hline
+$\text{supreme\_court\_judicial\_power\_credal\_source\_comparison\_n10\_3.lcn}$ & ARIEL & 0.0259 & 0.0972 & 0.00 & 527.92 & 527.92 & 426.93 & -- \\
+\hline
+$\text{supreme\_court\_judicial\_power\_dual\_source\_credal\_n10\_1.lcn}$ & ARIEL & 0.0259 & 0.0972 & 0.00 & 523.64 & 523.64 & 435.71 & -- \\
+\hline
+$\text{supreme\_court\_judicial\_power\_release\_comparison\_n10\_1.lcn}$ & ARIEL & 0.0317 & 0.0860 & 0.00 & 68.03 & 68.03 & 346.18 & -- \\
+\hline
+$\text{supreme\_court\_judicial\_power\_release\_comparison\_n10\_2.lcn}$ & ARIEL & 0.0532 & 0.1234 & 0.00 & 117.31 & 117.31 & 337.95 & -- \\
+\hline
+$\text{supreme\_court\_judicial\_power\_release\_comparison\_n10\_3.lcn}$ & ARIEL & 0.0259 & 0.0972 & 0.00 & 562.73 & 562.73 & 426.77 & -- \\
+\hline
+$\text{supreme\_court\_judicial\_power\_source\_variants\_n10\_1.lcn}$ & ARIEL & 0.0317 & 0.0860 & 0.00 & 71.64 & 71.64 & 338.65 & -- \\
+\hline
+$\text{supreme\_court\_judicial\_power\_source\_variants\_n10\_2.lcn}$ & ARIEL & 0.0176 & 0.0913 & 0.00 & 70.58 & 70.58 & 357.82 & -- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -62,60 +64,62 @@ $\text{supreme\_court\_judicial\_power\_source\_variants\_n10\_2.lcn}$ & ariel &
 \begin{table}[ht]
 \centering
 \scriptsize
-\caption{Standard deviation of error metrics vs.\ cjt_l reference}
+\caption{Standard deviation of error metrics vs.\ CJT reference}
 \begin{tabular}{llrrrrrrr}
 \toprule
 Instance & Algorithm & SD$_{\text{lb}}$ & SD$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
 \midrule
-$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & approxlp & 0.0648 & 0.1928 & 1.78 & 22.80 & 24.57 & 1258.24 & 4.00 \\
-$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & ariel & 0.0000 & 0.0000 & 0.00 & 13.42 & 13.42 & 1258.24 & -- \\
-$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 8.35 & 8.36 & 1258.24 & 5.00 \\
-$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & $\text{cve\_cm}$ & 0.0780 & 0.1686 & 1.86 & 2206.67 & 2208.54 & 1258.24 & 4.00 \\
-$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & $\text{cve\_cp}$ & 0.1282 & 0.1168 & 1.93 & 2341.06 & 2342.99 & 1258.24 & 4.00 \\
-$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & ibp & 0.0648 & 0.1928 & 1.91 & 685.00 & 686.91 & 1258.24 & 4.00 \\
-$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & approxlp & 0.0657 & 0.1463 & 0.57 & 19.98 & 20.55 & 2.42 & 1.00 \\
-$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & ariel & 0.0000 & 0.0000 & 0.00 & 19.80 & 19.80 & 2.42 & -- \\
-$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 2.69 & 2.70 & 2.42 & 3.00 \\
-$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & $\text{cve\_cm}$ & 0.0430 & 0.0738 & 0.59 & 8.59 & 9.18 & 2.42 & 1.00 \\
-$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & $\text{cve\_cp}$ & 0.0808 & 0.0669 & 0.58 & 8.56 & 9.14 & 2.42 & 1.00 \\
-$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & ibp & 0.0657 & 0.1463 & 0.64 & 0.05 & 0.69 & 2.42 & 1.00 \\
-$\text{maintenance\_scaling\_n12\_3.lcn}$ & approxlp & 0.0795 & 0.2363 & 0.29 & 0.94 & 1.23 & 0.66 & 2.00 \\
-$\text{maintenance\_scaling\_n12\_3.lcn}$ & ariel & 0.0514 & 0.0000 & 0.00 & 8.13 & 8.13 & 0.66 & -- \\
-$\text{maintenance\_scaling\_n12\_3.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 2.64 & 2.65 & 0.66 & 3.00 \\
-$\text{maintenance\_scaling\_n12\_3.lcn}$ & $\text{cve\_cm}$ & 0.0491 & 0.1572 & 0.31 & 0.25 & 0.57 & 0.66 & 2.00 \\
-$\text{maintenance\_scaling\_n12\_3.lcn}$ & $\text{cve\_cp}$ & 0.0992 & 0.1146 & 0.32 & 0.21 & 0.53 & 0.66 & 2.00 \\
-$\text{maintenance\_scaling\_n12\_3.lcn}$ & ibp & 0.0794 & 0.2313 & 0.31 & 0.04 & 0.35 & 0.66 & 2.00 \\
-$\text{maintenance\_scaling\_n6\_1.lcn}$ & approxlp & 0.0729 & 0.2197 & 0.17 & 0.10 & 0.27 & 0.28 & 2.00 \\
-$\text{maintenance\_scaling\_n6\_1.lcn}$ & ariel & 0.0000 & 0.0000 & 0.00 & 4.16 & 4.16 & 0.28 & -- \\
-$\text{maintenance\_scaling\_n6\_1.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 0.45 & 0.46 & 0.28 & 3.00 \\
-$\text{maintenance\_scaling\_n6\_1.lcn}$ & cve & 0.0729 & 0.2232 & 0.14 & 789.77 & 789.91 & 0.28 & 2.00 \\
-$\text{maintenance\_scaling\_n6\_1.lcn}$ & $\text{cve\_cm}$ & 0.0710 & 0.1599 & 0.14 & 0.05 & 0.19 & 0.28 & 2.00 \\
-$\text{maintenance\_scaling\_n6\_1.lcn}$ & $\text{cve\_cp}$ & 0.1069 & 0.0679 & 0.15 & 0.04 & 0.19 & 0.28 & 2.00 \\
-$\text{maintenance\_scaling\_n6\_1.lcn}$ & ibp & 0.0729 & 0.2232 & 0.15 & 0.01 & 0.16 & 0.28 & 2.00 \\
-$\text{maintenance\_scaling\_n9\_2.lcn}$ & approxlp & 0.0953 & 0.2482 & 0.21 & 0.48 & 0.69 & 0.44 & 2.00 \\
-$\text{maintenance\_scaling\_n9\_2.lcn}$ & ariel & 0.0496 & 0.0000 & 0.00 & 6.09 & 6.09 & 0.44 & -- \\
-$\text{maintenance\_scaling\_n9\_2.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 2.00 & 2.01 & 0.44 & 3.00 \\
-$\text{maintenance\_scaling\_n9\_2.lcn}$ & $\text{cve\_cm}$ & 0.0699 & 0.1858 & 0.20 & 0.12 & 0.32 & 0.44 & 2.00 \\
-$\text{maintenance\_scaling\_n9\_2.lcn}$ & $\text{cve\_cp}$ & 0.0864 & 0.1444 & 0.24 & 0.11 & 0.35 & 0.44 & 2.00 \\
-$\text{maintenance\_scaling\_n9\_2.lcn}$ & ibp & 0.0952 & 0.2428 & 0.23 & 0.02 & 0.25 & 0.44 & 2.00 \\
-$\text{paper\_scaling\_directions\_n35\_2.lcn}$ & approxlp & 0.0682 & 0.1408 & 7.59 & 190.48 & 198.07 & 1342.14 & 5.00 \\
-$\text{paper\_scaling\_directions\_n35\_2.lcn}$ & ariel & 0.0250 & 0.0276 & 0.00 & 36.58 & 36.58 & 1342.14 & -- \\
-$\text{paper\_scaling\_directions\_n35\_2.lcn}$ & cjt & 0.0000 & 0.0000 & 0.02 & 103.01 & 103.03 & 1342.14 & 6.00 \\
-$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & approxlp & 0.0656 & 0.1334 & 0.70 & 50.55 & 51.25 & 3.27 & 1.00 \\
-$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & ariel & 0.0000 & 0.0000 & 0.00 & 34.72 & 34.72 & 3.27 & -- \\
-$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 3.50 & 3.51 & 3.27 & 3.00 \\
-$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & $\text{cve\_cm}$ & 0.0672 & 0.0365 & 0.74 & 658.10 & 658.84 & 3.27 & 1.00 \\
-$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & $\text{cve\_cp}$ & 0.0955 & 0.0693 & 0.73 & 667.02 & 667.74 & 3.27 & 1.00 \\
-$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & ibp & 0.0656 & 0.1334 & 0.82 & 0.09 & 0.91 & 3.27 & 1.00 \\
-$\text{supreme\_court\_judicial\_power\_credal\_source\_comparison\_n10\_1.lcn}$ & ariel & 0.0620 & 0.2451 & 0.00 & 115.72 & 115.72 & 348.07 & -- \\
-$\text{supreme\_court\_judicial\_power\_credal\_source\_comparison\_n10\_2.lcn}$ & ariel & 0.0407 & 0.2477 & 0.00 & 76.72 & 76.72 & 337.23 & -- \\
-$\text{supreme\_court\_judicial\_power\_credal\_source\_comparison\_n10\_3.lcn}$ & ariel & 0.0414 & 0.2514 & 0.00 & 527.92 & 527.92 & 426.93 & -- \\
-$\text{supreme\_court\_judicial\_power\_dual\_source\_credal\_n10\_1.lcn}$ & ariel & 0.0414 & 0.2514 & 0.00 & 523.64 & 523.64 & 435.71 & -- \\
-$\text{supreme\_court\_judicial\_power\_release\_comparison\_n10\_1.lcn}$ & ariel & 0.0624 & 0.2550 & 0.00 & 68.03 & 68.03 & 346.18 & -- \\
-$\text{supreme\_court\_judicial\_power\_release\_comparison\_n10\_2.lcn}$ & ariel & 0.0620 & 0.2451 & 0.00 & 117.31 & 117.31 & 337.95 & -- \\
-$\text{supreme\_court\_judicial\_power\_release\_comparison\_n10\_3.lcn}$ & ariel & 0.0414 & 0.2514 & 0.00 & 562.73 & 562.73 & 426.77 & -- \\
-$\text{supreme\_court\_judicial\_power\_source\_variants\_n10\_1.lcn}$ & ariel & 0.0624 & 0.2550 & 0.00 & 71.64 & 71.64 & 338.65 & -- \\
-$\text{supreme\_court\_judicial\_power\_source\_variants\_n10\_2.lcn}$ & ariel & 0.0442 & 0.2536 & 0.00 & 70.58 & 70.58 & 357.82 & -- \\
+$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & CDVE & 0.0648 & 0.1928 & 1.78 & 22.80 & 24.57 & 1258.24 & 4.00 \\
+$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 13.42 & 13.42 & 1258.24 & -- \\
+$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & CVE$_{cm}$ & 0.0780 & 0.1686 & 1.86 & 2206.67 & 2208.54 & 1258.24 & 4.00 \\
+$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & IBP & 0.0648 & 0.1928 & 1.91 & 685.00 & 686.91 & 1258.24 & 4.00 \\
+\hline
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & CDVE & 0.0657 & 0.1463 & 0.57 & 19.98 & 20.55 & 2.42 & 1.00 \\
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 19.80 & 19.80 & 2.42 & -- \\
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & CVE$_{cm}$ & 0.0430 & 0.0738 & 0.59 & 8.59 & 9.18 & 2.42 & 1.00 \\
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & IBP & 0.0657 & 0.1463 & 0.64 & 0.05 & 0.69 & 2.42 & 1.00 \\
+\hline
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & CDVE & 0.0795 & 0.2363 & 0.29 & 0.94 & 1.23 & 0.66 & 2.00 \\
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & ARIEL & 0.0514 & 0.0000 & 0.00 & 8.13 & 8.13 & 0.66 & -- \\
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & CVE$_{cm}$ & 0.0491 & 0.1572 & 0.31 & 0.25 & 0.57 & 0.66 & 2.00 \\
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & IBP & 0.0794 & 0.2313 & 0.31 & 0.04 & 0.35 & 0.66 & 2.00 \\
+\hline
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & CDVE & 0.0729 & 0.2197 & 0.17 & 0.10 & 0.27 & 0.28 & 2.00 \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 4.16 & 4.16 & 0.28 & -- \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & CVE & 0.0729 & 0.2232 & 0.14 & 789.77 & 789.91 & 0.28 & 2.00 \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & CVE$_{cm}$ & 0.0710 & 0.1599 & 0.14 & 0.05 & 0.19 & 0.28 & 2.00 \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & IBP & 0.0729 & 0.2232 & 0.15 & 0.01 & 0.16 & 0.28 & 2.00 \\
+\hline
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & CDVE & 0.0953 & 0.2482 & 0.21 & 0.48 & 0.69 & 0.44 & 2.00 \\
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & ARIEL & 0.0496 & 0.0000 & 0.00 & 6.09 & 6.09 & 0.44 & -- \\
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & CVE$_{cm}$ & 0.0699 & 0.1858 & 0.20 & 0.12 & 0.32 & 0.44 & 2.00 \\
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & IBP & 0.0952 & 0.2428 & 0.23 & 0.02 & 0.25 & 0.44 & 2.00 \\
+\hline
+$\text{paper\_scaling\_directions\_n35\_2.lcn}$ & CDVE & 0.0682 & 0.1408 & 7.59 & 190.48 & 198.07 & 1342.14 & 5.00 \\
+$\text{paper\_scaling\_directions\_n35\_2.lcn}$ & ARIEL & 0.0250 & 0.0276 & 0.00 & 36.58 & 36.58 & 1342.14 & -- \\
+\hline
+$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & CDVE & 0.0656 & 0.1334 & 0.70 & 50.55 & 51.25 & 3.27 & 1.00 \\
+$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 34.72 & 34.72 & 3.27 & -- \\
+$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & CVE$_{cm}$ & 0.0672 & 0.0365 & 0.74 & 658.10 & 658.84 & 3.27 & 1.00 \\
+$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & IBP & 0.0656 & 0.1334 & 0.82 & 0.09 & 0.91 & 3.27 & 1.00 \\
+\hline
+$\text{supreme\_court\_judicial\_power\_credal\_source\_comparison\_n10\_1.lcn}$ & ARIEL & 0.0620 & 0.2451 & 0.00 & 115.72 & 115.72 & 348.07 & -- \\
+\hline
+$\text{supreme\_court\_judicial\_power\_credal\_source\_comparison\_n10\_2.lcn}$ & ARIEL & 0.0407 & 0.2477 & 0.00 & 76.72 & 76.72 & 337.23 & -- \\
+\hline
+$\text{supreme\_court\_judicial\_power\_credal\_source\_comparison\_n10\_3.lcn}$ & ARIEL & 0.0414 & 0.2514 & 0.00 & 527.92 & 527.92 & 426.93 & -- \\
+\hline
+$\text{supreme\_court\_judicial\_power\_dual\_source\_credal\_n10\_1.lcn}$ & ARIEL & 0.0414 & 0.2514 & 0.00 & 523.64 & 523.64 & 435.71 & -- \\
+\hline
+$\text{supreme\_court\_judicial\_power\_release\_comparison\_n10\_1.lcn}$ & ARIEL & 0.0624 & 0.2550 & 0.00 & 68.03 & 68.03 & 346.18 & -- \\
+\hline
+$\text{supreme\_court\_judicial\_power\_release\_comparison\_n10\_2.lcn}$ & ARIEL & 0.0620 & 0.2451 & 0.00 & 117.31 & 117.31 & 337.95 & -- \\
+\hline
+$\text{supreme\_court\_judicial\_power\_release\_comparison\_n10\_3.lcn}$ & ARIEL & 0.0414 & 0.2514 & 0.00 & 562.73 & 562.73 & 426.77 & -- \\
+\hline
+$\text{supreme\_court\_judicial\_power\_source\_variants\_n10\_1.lcn}$ & ARIEL & 0.0624 & 0.2550 & 0.00 & 71.64 & 71.64 & 338.65 & -- \\
+\hline
+$\text{supreme\_court\_judicial\_power\_source\_variants\_n10\_2.lcn}$ & ARIEL & 0.0442 & 0.2536 & 0.00 & 70.58 & 70.58 & 357.82 & -- \\
 \bottomrule
 \end{tabular}
 \end{table}

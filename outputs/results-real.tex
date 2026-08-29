@@ -1,67 +1,125 @@
 \begin{table}[ht]
 \centering
 \scriptsize
-\caption{Error metrics vs.\ cjt reference}
+\caption{Mean error metrics vs.\ CJT reference}
 \begin{tabular}{llrrrrrrr}
 \toprule
 Instance & Algorithm & MAE$_{\text{lb}}$ & MAE$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
 \midrule
-$\text{alarm\_consistent.lcn}$ & approxlp & 0.1008 & 0.0146 & 0.10 & 0.59 & 0.69 & 0.59 & 2.00 \\
-$\text{alarm\_consistent.lcn}$ & ariel & 0.0000 & 0.0000 & 0.00 & 3.92 & 3.92 & 0.59 & -- \\
-$\text{alarm\_consistent.lcn}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 0.71 & 0.72 & 0.59 & 3.00 \\
-$\text{alarm\_consistent.lcn}$ & $\text{cve\_cm}$ & 0.0866 & 0.0670 & 0.10 & 0.14 & 0.24 & 0.59 & 2.00 \\
-$\text{alarm\_consistent.lcn}$ & $\text{cve\_cp}$ & 0.0920 & 0.1278 & 0.10 & 0.14 & 0.25 & 0.59 & 2.00 \\
-$\text{alarm\_consistent.lcn}$ & ibp & 0.1008 & 0.0149 & 0.10 & 0.03 & 0.13 & 0.59 & 2.00 \\
-$\text{asia\_consistent.lcn}$ & approxlp & 0.0033 & 0.0073 & 0.08 & 0.24 & 0.32 & 0.46 & 2.00 \\
-$\text{asia\_consistent.lcn}$ & ariel & 0.0000 & 0.0000 & 0.00 & 2.86 & 2.86 & 0.46 & -- \\
-$\text{asia\_consistent.lcn}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 0.44 & 0.45 & 0.46 & 3.00 \\
-$\text{asia\_consistent.lcn}$ & $\text{cve\_cm}$ & 0.0323 & 0.0291 & 0.08 & 0.08 & 0.16 & 0.46 & 2.00 \\
-$\text{asia\_consistent.lcn}$ & $\text{cve\_cp}$ & 0.0625 & 0.0208 & 0.08 & 0.09 & 0.17 & 0.46 & 2.00 \\
-$\text{asia\_consistent.lcn}$ & ibp & 0.0035 & 0.0063 & 0.08 & 0.01 & 0.10 & 0.46 & 2.00 \\
-$\text{cancer\_consistent.lcn}$ & approxlp & 0.0653 & 0.0272 & 0.06 & 0.06 & 0.12 & 0.76 & 2.00 \\
-$\text{cancer\_consistent.lcn}$ & ariel & 0.0013 & 0.0139 & 0.00 & 2.10 & 2.10 & 0.76 & -- \\
-$\text{cancer\_consistent.lcn}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 0.37 & 0.37 & 0.76 & 3.00 \\
-$\text{cancer\_consistent.lcn}$ & cve & 0.0653 & 0.0272 & 0.06 & 42.46 & 42.52 & 0.76 & 2.00 \\
-$\text{cancer\_consistent.lcn}$ & $\text{cve\_cm}$ & 0.0491 & 0.0267 & 0.06 & 0.03 & 0.09 & 0.76 & 2.00 \\
-$\text{cancer\_consistent.lcn}$ & $\text{cve\_cp}$ & 0.0439 & 0.0475 & 0.06 & 0.03 & 0.09 & 0.76 & 2.00 \\
-$\text{cancer\_consistent.lcn}$ & ibp & 0.0639 & 0.0392 & 0.06 & 0.01 & 0.07 & 0.76 & 2.00 \\
-$\text{credit\_consistent.lcn}$ & approxlp & 0.2570 & 0.0000 & 0.11 & 0.58 & 0.69 & 12.85 & 3.00 \\
-$\text{credit\_consistent.lcn}$ & ariel & 0.0496 & 0.0000 & 0.00 & 3.18 & 3.18 & 12.85 & -- \\
-$\text{credit\_consistent.lcn}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 1.15 & 1.15 & 12.85 & 4.00 \\
-$\text{credit\_consistent.lcn}$ & $\text{cve\_cm}$ & 0.1079 & 0.1650 & 0.11 & 1.62 & 1.73 & 12.85 & 3.00 \\
-$\text{credit\_consistent.lcn}$ & $\text{cve\_cp}$ & 0.0694 & 0.2432 & 0.11 & 1.07 & 1.19 & 12.85 & 3.00 \\
-$\text{credit\_consistent.lcn}$ & ibp & 0.2570 & 0.0000 & 0.11 & 0.13 & 0.24 & 12.85 & 3.00 \\
-$\text{earthquake\_consistent.lcn}$ & approxlp & 0.0041 & 0.0000 & 0.05 & 0.05 & 0.10 & 1.39 & 2.00 \\
-$\text{earthquake\_consistent.lcn}$ & ariel & 0.0002 & 0.0000 & 0.00 & 1.88 & 1.88 & 1.39 & -- \\
-$\text{earthquake\_consistent.lcn}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 0.53 & 0.53 & 1.39 & 3.00 \\
-$\text{earthquake\_consistent.lcn}$ & cve & 0.0041 & 0.0000 & 0.05 & 7.63 & 7.68 & 1.39 & 2.00 \\
-$\text{earthquake\_consistent.lcn}$ & $\text{cve\_cm}$ & 0.0019 & 0.0036 & 0.05 & 0.03 & 0.08 & 1.39 & 2.00 \\
-$\text{earthquake\_consistent.lcn}$ & $\text{cve\_cp}$ & 0.0219 & 0.0021 & 0.05 & 0.02 & 0.07 & 1.39 & 2.00 \\
-$\text{earthquake\_consistent.lcn}$ & ibp & 0.0041 & 0.0000 & 0.05 & 0.01 & 0.06 & 1.39 & 2.00 \\
-$\text{engine\_consistent.lcn}$ & approxlp & 0.0591 & 0.0104 & 0.10 & 0.43 & 0.53 & 0.53 & 2.00 \\
-$\text{engine\_consistent.lcn}$ & ariel & 0.0000 & 0.0000 & 0.00 & 3.25 & 3.25 & 0.53 & -- \\
-$\text{engine\_consistent.lcn}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 0.52 & 0.53 & 0.53 & 3.00 \\
-$\text{engine\_consistent.lcn}$ & $\text{cve\_cm}$ & 0.1234 & 0.0839 & 0.10 & 0.32 & 0.42 & 0.53 & 2.00 \\
-$\text{engine\_consistent.lcn}$ & $\text{cve\_cp}$ & 0.1443 & 0.2027 & 0.11 & 0.28 & 0.38 & 0.53 & 2.00 \\
-$\text{engine\_consistent.lcn}$ & ibp & 0.0591 & 0.0104 & 0.10 & 0.01 & 0.12 & 0.53 & 2.00 \\
-$\text{hepatitis\_consistent.lcn}$ & approxlp & 0.0703 & 0.0851 & 0.24 & 0.90 & 1.15 & 0.62 & 3.00 \\
-$\text{hepatitis\_consistent.lcn}$ & ariel & 0.0084 & 0.0075 & 0.00 & 3.91 & 3.91 & 0.62 & -- \\
-$\text{hepatitis\_consistent.lcn}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 0.55 & 0.56 & 0.62 & 4.00 \\
-$\text{hepatitis\_consistent.lcn}$ & $\text{cve\_cm}$ & 0.1137 & 0.1838 & 0.24 & 16.29 & 16.53 & 0.62 & 3.00 \\
-$\text{hepatitis\_consistent.lcn}$ & $\text{cve\_cp}$ & 0.1704 & 0.2542 & 0.25 & 16.90 & 17.15 & 0.62 & 3.00 \\
-$\text{hepatitis\_consistent.lcn}$ & ibp & 0.0686 & 0.0797 & 0.24 & 0.50 & 0.75 & 0.62 & 3.00 \\
-$\text{suicide\_consistent.lcn}$ & approxlp & 0.0849 & 0.0302 & 0.10 & 0.52 & 0.62 & 0.57 & 2.00 \\
-$\text{suicide\_consistent.lcn}$ & ariel & 0.0000 & 0.0000 & 0.00 & 3.74 & 3.74 & 0.57 & -- \\
-$\text{suicide\_consistent.lcn}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 0.86 & 0.87 & 0.57 & 3.00 \\
-$\text{suicide\_consistent.lcn}$ & $\text{cve\_cm}$ & 0.0970 & 0.0513 & 0.10 & 0.13 & 0.23 & 0.57 & 2.00 \\
-$\text{suicide\_consistent.lcn}$ & $\text{cve\_cp}$ & 0.1295 & 0.0974 & 0.10 & 0.12 & 0.21 & 0.57 & 2.00 \\
-$\text{suicide\_consistent.lcn}$ & ibp & 0.0849 & 0.0302 & 0.10 & 0.02 & 0.12 & 0.57 & 2.00 \\
-$\text{toy\_consistent.lcn}$ & approxlp & 0.0891 & 0.0745 & 0.09 & 0.03 & 0.12 & 0.33 & 2.00 \\
-$\text{toy\_consistent.lcn}$ & ariel & 0.0000 & 0.0000 & 0.00 & 1.60 & 1.60 & 0.33 & -- \\
-$\text{toy\_consistent.lcn}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 0.16 & 0.16 & 0.33 & 3.00 \\
-$\text{toy\_consistent.lcn}$ & $\text{cve\_cm}$ & 0.0742 & 0.0294 & 0.09 & 0.01 & 0.10 & 0.33 & 2.00 \\
-$\text{toy\_consistent.lcn}$ & $\text{cve\_cp}$ & 0.0752 & 0.0448 & 0.09 & 0.01 & 0.10 & 0.33 & 2.00 \\
-$\text{toy\_consistent.lcn}$ & ibp & 0.0891 & 0.0745 & 0.09 & 0.01 & 0.09 & 0.33 & 2.00 \\
+$\text{alarm\_consistent.lcn}$ & CDVE & 0.1008 & 0.0146 & 0.10 & 0.59 & 0.69 & 0.72 & 2.00 \\
+$\text{alarm\_consistent.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 3.92 & 3.92 & 0.72 & -- \\
+$\text{alarm\_consistent.lcn}$ & CVE$_{cm}$ & 0.0866 & 0.0670 & 0.10 & 0.14 & 0.24 & 0.72 & 2.00 \\
+$\text{alarm\_consistent.lcn}$ & IBP & 0.1008 & 0.0149 & 0.10 & 0.03 & 0.13 & 0.72 & 2.00 \\
+\hline
+$\text{asia\_consistent.lcn}$ & CDVE & 0.0033 & 0.0073 & 0.08 & 0.24 & 0.32 & 0.45 & 2.00 \\
+$\text{asia\_consistent.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 2.86 & 2.86 & 0.45 & -- \\
+$\text{asia\_consistent.lcn}$ & CVE$_{cm}$ & 0.0323 & 0.0291 & 0.08 & 0.08 & 0.16 & 0.45 & 2.00 \\
+$\text{asia\_consistent.lcn}$ & IBP & 0.0035 & 0.0063 & 0.08 & 0.01 & 0.10 & 0.45 & 2.00 \\
+\hline
+$\text{cancer\_consistent.lcn}$ & CDVE & 0.0653 & 0.0272 & 0.06 & 0.06 & 0.12 & 0.37 & 2.00 \\
+$\text{cancer\_consistent.lcn}$ & ARIEL & 0.0013 & 0.0139 & 0.00 & 2.10 & 2.10 & 0.37 & -- \\
+$\text{cancer\_consistent.lcn}$ & CVE & 0.0653 & 0.0272 & 0.06 & 42.46 & 42.52 & 0.37 & 2.00 \\
+$\text{cancer\_consistent.lcn}$ & CVE$_{cm}$ & 0.0491 & 0.0267 & 0.06 & 0.03 & 0.09 & 0.37 & 2.00 \\
+$\text{cancer\_consistent.lcn}$ & IBP & 0.0639 & 0.0392 & 0.06 & 0.01 & 0.07 & 0.37 & 2.00 \\
+\hline
+$\text{credit\_consistent.lcn}$ & CDVE & 0.2570 & 0.0000 & 0.11 & 0.58 & 0.69 & 1.15 & 3.00 \\
+$\text{credit\_consistent.lcn}$ & ARIEL & 0.0496 & 0.0000 & 0.00 & 3.18 & 3.18 & 1.15 & -- \\
+$\text{credit\_consistent.lcn}$ & CVE$_{cm}$ & 0.1079 & 0.1650 & 0.11 & 1.62 & 1.73 & 1.15 & 3.00 \\
+$\text{credit\_consistent.lcn}$ & IBP & 0.2570 & 0.0000 & 0.11 & 0.13 & 0.24 & 1.15 & 3.00 \\
+\hline
+$\text{earthquake\_consistent.lcn}$ & CDVE & 0.0041 & 0.0000 & 0.05 & 0.05 & 0.10 & 0.53 & 2.00 \\
+$\text{earthquake\_consistent.lcn}$ & ARIEL & 0.0002 & 0.0000 & 0.00 & 1.88 & 1.88 & 0.53 & -- \\
+$\text{earthquake\_consistent.lcn}$ & CVE & 0.0041 & 0.0000 & 0.05 & 7.63 & 7.68 & 0.53 & 2.00 \\
+$\text{earthquake\_consistent.lcn}$ & CVE$_{cm}$ & 0.0019 & 0.0036 & 0.05 & 0.03 & 0.08 & 0.53 & 2.00 \\
+$\text{earthquake\_consistent.lcn}$ & IBP & 0.0041 & 0.0000 & 0.05 & 0.01 & 0.06 & 0.53 & 2.00 \\
+\hline
+$\text{engine\_consistent.lcn}$ & CDVE & 0.0591 & 0.0104 & 0.10 & 0.43 & 0.53 & 0.53 & 2.00 \\
+$\text{engine\_consistent.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 3.25 & 3.25 & 0.53 & -- \\
+$\text{engine\_consistent.lcn}$ & CVE$_{cm}$ & 0.1234 & 0.0839 & 0.10 & 0.32 & 0.42 & 0.53 & 2.00 \\
+$\text{engine\_consistent.lcn}$ & IBP & 0.0591 & 0.0104 & 0.10 & 0.01 & 0.12 & 0.53 & 2.00 \\
+\hline
+$\text{hepatitis\_consistent.lcn}$ & CDVE & 0.0703 & 0.0851 & 0.24 & 0.90 & 1.15 & 0.56 & 3.00 \\
+$\text{hepatitis\_consistent.lcn}$ & ARIEL & 0.0084 & 0.0075 & 0.00 & 3.91 & 3.91 & 0.56 & -- \\
+$\text{hepatitis\_consistent.lcn}$ & CVE$_{cm}$ & 0.1137 & 0.1838 & 0.24 & 16.29 & 16.53 & 0.56 & 3.00 \\
+$\text{hepatitis\_consistent.lcn}$ & IBP & 0.0686 & 0.0797 & 0.24 & 0.50 & 0.75 & 0.56 & 3.00 \\
+\hline
+$\text{suicide\_consistent.lcn}$ & CDVE & 0.0849 & 0.0302 & 0.10 & 0.52 & 0.62 & 0.87 & 2.00 \\
+$\text{suicide\_consistent.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 3.74 & 3.74 & 0.87 & -- \\
+$\text{suicide\_consistent.lcn}$ & CVE$_{cm}$ & 0.0970 & 0.0513 & 0.10 & 0.13 & 0.23 & 0.87 & 2.00 \\
+$\text{suicide\_consistent.lcn}$ & IBP & 0.0849 & 0.0302 & 0.10 & 0.02 & 0.12 & 0.87 & 2.00 \\
+\hline
+$\text{tank\_consistent.lcn}$ & CDVE & 0.1149 & 0.0751 & 0.30 & 0.87 & 1.18 & 0.77 & 3.00 \\
+$\text{tank\_consistent.lcn}$ & ARIEL & 0.0048 & 0.0034 & 0.00 & 5.02 & 5.02 & 0.77 & -- \\
+$\text{tank\_consistent.lcn}$ & CVE$_{cm}$ & 0.0653 & 0.0802 & 0.31 & 0.19 & 0.50 & 0.77 & 3.00 \\
+$\text{tank\_consistent.lcn}$ & IBP & 0.1163 & 0.0739 & 0.30 & 0.02 & 0.32 & 0.77 & 3.00 \\
+\hline
+$\text{toy\_consistent.lcn}$ & CDVE & 0.0891 & 0.0745 & 0.09 & 0.03 & 0.12 & 0.16 & 2.00 \\
+$\text{toy\_consistent.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 1.60 & 1.60 & 0.16 & -- \\
+$\text{toy\_consistent.lcn}$ & CVE$_{cm}$ & 0.0742 & 0.0294 & 0.09 & 0.01 & 0.10 & 0.16 & 2.00 \\
+$\text{toy\_consistent.lcn}$ & IBP & 0.0891 & 0.0745 & 0.09 & 0.01 & 0.09 & 0.16 & 2.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\scriptsize
+\caption{Standard deviation of error metrics vs.\ CJT reference}
+\begin{tabular}{llrrrrrrr}
+\toprule
+Instance & Algorithm & SD$_{\text{lb}}$ & SD$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+\midrule
+$\text{alarm\_consistent.lcn}$ & CDVE & 0.1476 & 0.0203 & 0.10 & 0.59 & 0.69 & 0.72 & 2.00 \\
+$\text{alarm\_consistent.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 3.92 & 3.92 & 0.72 & -- \\
+$\text{alarm\_consistent.lcn}$ & CVE$_{cm}$ & 0.1279 & 0.0854 & 0.10 & 0.14 & 0.24 & 0.72 & 2.00 \\
+$\text{alarm\_consistent.lcn}$ & IBP & 0.1476 & 0.0208 & 0.10 & 0.03 & 0.13 & 0.72 & 2.00 \\
+\hline
+$\text{asia\_consistent.lcn}$ & CDVE & 0.0043 & 0.0172 & 0.08 & 0.24 & 0.32 & 0.45 & 2.00 \\
+$\text{asia\_consistent.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 2.86 & 2.86 & 0.45 & -- \\
+$\text{asia\_consistent.lcn}$ & CVE$_{cm}$ & 0.0308 & 0.0359 & 0.08 & 0.08 & 0.16 & 0.45 & 2.00 \\
+$\text{asia\_consistent.lcn}$ & IBP & 0.0047 & 0.0144 & 0.08 & 0.01 & 0.10 & 0.45 & 2.00 \\
+\hline
+$\text{cancer\_consistent.lcn}$ & CDVE & 0.0374 & 0.0320 & 0.06 & 0.06 & 0.12 & 0.37 & 2.00 \\
+$\text{cancer\_consistent.lcn}$ & ARIEL & 0.0026 & 0.0278 & 0.00 & 2.10 & 2.10 & 0.37 & -- \\
+$\text{cancer\_consistent.lcn}$ & CVE & 0.0374 & 0.0320 & 0.06 & 42.46 & 42.52 & 0.37 & 2.00 \\
+$\text{cancer\_consistent.lcn}$ & CVE$_{cm}$ & 0.0397 & 0.0233 & 0.06 & 0.03 & 0.09 & 0.37 & 2.00 \\
+$\text{cancer\_consistent.lcn}$ & IBP & 0.0369 & 0.0323 & 0.06 & 0.01 & 0.07 & 0.37 & 2.00 \\
+\hline
+$\text{credit\_consistent.lcn}$ & CDVE & 0.2149 & 0.0000 & 0.11 & 0.58 & 0.69 & 1.15 & 3.00 \\
+$\text{credit\_consistent.lcn}$ & ARIEL & 0.0414 & 0.0000 & 0.00 & 3.18 & 3.18 & 1.15 & -- \\
+$\text{credit\_consistent.lcn}$ & CVE$_{cm}$ & 0.1401 & 0.1170 & 0.11 & 1.62 & 1.73 & 1.15 & 3.00 \\
+$\text{credit\_consistent.lcn}$ & IBP & 0.2149 & 0.0000 & 0.11 & 0.13 & 0.24 & 1.15 & 3.00 \\
+\hline
+$\text{earthquake\_consistent.lcn}$ & CDVE & 0.0035 & 0.0000 & 0.05 & 0.05 & 0.10 & 0.53 & 2.00 \\
+$\text{earthquake\_consistent.lcn}$ & ARIEL & 0.0003 & 0.0000 & 0.00 & 1.88 & 1.88 & 0.53 & -- \\
+$\text{earthquake\_consistent.lcn}$ & CVE & 0.0035 & 0.0000 & 0.05 & 7.63 & 7.68 & 0.53 & 2.00 \\
+$\text{earthquake\_consistent.lcn}$ & CVE$_{cm}$ & 0.0029 & 0.0043 & 0.05 & 0.03 & 0.08 & 0.53 & 2.00 \\
+$\text{earthquake\_consistent.lcn}$ & IBP & 0.0035 & 0.0000 & 0.05 & 0.01 & 0.06 & 0.53 & 2.00 \\
+\hline
+$\text{engine\_consistent.lcn}$ & CDVE & 0.1131 & 0.0131 & 0.10 & 0.43 & 0.53 & 0.53 & 2.00 \\
+$\text{engine\_consistent.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 3.25 & 3.25 & 0.53 & -- \\
+$\text{engine\_consistent.lcn}$ & CVE$_{cm}$ & 0.1318 & 0.0677 & 0.10 & 0.32 & 0.42 & 0.53 & 2.00 \\
+$\text{engine\_consistent.lcn}$ & IBP & 0.1131 & 0.0131 & 0.10 & 0.01 & 0.12 & 0.53 & 2.00 \\
+\hline
+$\text{hepatitis\_consistent.lcn}$ & CDVE & 0.1232 & 0.1429 & 0.24 & 0.90 & 1.15 & 0.56 & 3.00 \\
+$\text{hepatitis\_consistent.lcn}$ & ARIEL & 0.0252 & 0.0167 & 0.00 & 3.91 & 3.91 & 0.56 & -- \\
+$\text{hepatitis\_consistent.lcn}$ & CVE$_{cm}$ & 0.1580 & 0.1630 & 0.24 & 16.29 & 16.53 & 0.56 & 3.00 \\
+$\text{hepatitis\_consistent.lcn}$ & IBP & 0.1236 & 0.1445 & 0.24 & 0.50 & 0.75 & 0.56 & 3.00 \\
+\hline
+$\text{suicide\_consistent.lcn}$ & CDVE & 0.1160 & 0.0430 & 0.10 & 0.52 & 0.62 & 0.87 & 2.00 \\
+$\text{suicide\_consistent.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 3.74 & 3.74 & 0.87 & -- \\
+$\text{suicide\_consistent.lcn}$ & CVE$_{cm}$ & 0.1147 & 0.0637 & 0.10 & 0.13 & 0.23 & 0.87 & 2.00 \\
+$\text{suicide\_consistent.lcn}$ & IBP & 0.1160 & 0.0430 & 0.10 & 0.02 & 0.12 & 0.87 & 2.00 \\
+\hline
+$\text{tank\_consistent.lcn}$ & CDVE & 0.1337 & 0.1096 & 0.30 & 0.87 & 1.18 & 0.77 & 3.00 \\
+$\text{tank\_consistent.lcn}$ & ARIEL & 0.0144 & 0.0102 & 0.00 & 5.02 & 5.02 & 0.77 & -- \\
+$\text{tank\_consistent.lcn}$ & CVE$_{cm}$ & 0.0659 & 0.0555 & 0.31 & 0.19 & 0.50 & 0.77 & 3.00 \\
+$\text{tank\_consistent.lcn}$ & IBP & 0.1351 & 0.1089 & 0.30 & 0.02 & 0.32 & 0.77 & 3.00 \\
+\hline
+$\text{toy\_consistent.lcn}$ & CDVE & 0.1363 & 0.0751 & 0.09 & 0.03 & 0.12 & 0.16 & 2.00 \\
+$\text{toy\_consistent.lcn}$ & ARIEL & 0.0000 & 0.0000 & 0.00 & 1.60 & 1.60 & 0.16 & -- \\
+$\text{toy\_consistent.lcn}$ & CVE$_{cm}$ & 0.1190 & 0.0345 & 0.09 & 0.01 & 0.10 & 0.16 & 2.00 \\
+$\text{toy\_consistent.lcn}$ & IBP & 0.1363 & 0.0751 & 0.09 & 0.01 & 0.09 & 0.16 & 2.00 \\
 \bottomrule
 \end{tabular}
 \end{table}

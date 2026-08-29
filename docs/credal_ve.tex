@@ -6,9 +6,28 @@
 \usepackage{booktabs}
 \usepackage{hyperref}
 
-\newtheorem{definition}{Definition}
 \newtheorem{theorem}{Theorem}
+% Upright body text for definitions/examples/remarks: the worked example spans
+% several paragraphs and is unreadable in the default italic theorem style.
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
 \newtheorem{example}{Example}
+\newtheorem{remark}{Remark}
+
+% Local copies of the shared macros in docs/macros.tex (same definitions), so
+% this document stays standalone while text can be moved verbatim to/from
+% docs/neurips_2026.tex.
+\newcommand{\cK}{\mathcal{K}}
+\newcommand{\bX}{\mathbf{X}}
+\newcommand{\bY}{\mathbf{Y}}
+\newcommand{\bZ}{\mathbf{Z}}
+\newcommand{\by}{\mathbf{y}}
+\newcommand{\bz}{\mathbf{z}}
+\newcommand{\bo}{\mathbf{o}}
+\newcommand{\pa}{\mathrm{pa}}
+\newcommand{\scope}{\mathrm{scope}}
+\newcommand{\ext}{\mathrm{ext}}
+\newcommand{\prune}{\mathrm{prune}}
 
 \title{Credal Variable Elimination:\\Exact Marginal Inference for Credal Networks}
 \author{IBM Research}
@@ -100,123 +119,306 @@ The sum-marginal of $\phi(\mathbf{Y})$ with respect to $X \subseteq \mathbf{Y}$ 
 producing functions over $\mathbf{Y} \setminus \{X\}$.
 
 \paragraph{Pruning.}
-The pruning operation removes dominated functions:
+The pruning operation removes dominated functions. We say $g$ \emph{dominates}
+$f$ when $g$ is pointwise at least $f$ and strictly greater somewhere:
+\begin{definition}[Dominance and pruning]\label{def:prune}
 \[
-  \mathrm{prune}(\phi) = \{f \in \phi : \nexists\, g \in \phi \setminus \{f\}
-  \text{ s.t.\ } g(\mathbf{y}) \geq f(\mathbf{y})\; \forall\, \mathbf{y}\}.
+  \prune(\phi) = \bigl\{f \in \phi : \nexists\, g \in \phi \setminus \{f\}
+  \text{ s.t.\ } g(\by) \geq f(\by)\;\forall\, \by
+  \;\text{ and }\; g(\by') > f(\by') \text{ for some } \by' \bigr\}.
 \]
-This reduces the cardinality of potentials without affecting the min/max bounds.
+\end{definition}
+Because a dominated $f$ can only ever attain the min (resp.\ a dominating $g$
+the max) of a quantity that is monotone in the function values, discarding $f$
+reduces the cardinality of the potential without affecting the min/max bounds.
+
+\begin{remark}[What the implementation does]\label{rem:prune}
+The strictness requirement ``$g > f$ somewhere'' matters, and three properties of
+\texttt{Potential.prune} (\texttt{potentials.py:124--148}) are worth recording.
+(i)~Two \emph{identical} functions never dominate each other, so $\prune$ is not
+a deduplicator: exact duplicates both survive. (ii)~The test is a single greedy
+double loop that skips functions already marked dominated, both as candidates and
+as dominators, so the surviving set depends on the enumeration order (it is
+Pareto-correct, but not a canonical Pareto frontier). (iii)~The comparison is
+made on raw floating-point values with \emph{no} tolerance, so numerically
+near-identical vertices are retained as distinct functions.
+\end{remark}
 
 \section{Algorithm}
+\label{sec:algorithm}
+
+CVE answers a query on one variable $Z$ by a single bucket-elimination pass in
+which $Z$ is eliminated \emph{last}. Algorithm~\ref{alg:cve} states the pass in
+full; the paragraphs that follow it explain the three steps that carry the credal
+content.
+
+One structural fact must be stated first, because it shapes the input and the
+output. The variables of the credal network are \emph{chain-graph node families},
+not the individual atoms of the underlying LCN: a variable $X$ carries a set of
+atoms $\mathrm{atoms}(X)$ and has domain size $2^{|\mathrm{atoms}(X)|}$ (the
+truth table over its atoms, most-significant bit first). A variable with a single
+atom is called \emph{singleton}; one with several is \emph{compound}. The pass
+therefore returns bounds on the \emph{states} of $Z$; when $Z$ is singleton its
+state-1 bound is the atom marginal directly, and when $Z$ is compound a further
+projection is needed to report per-atom marginals
+(Section~\ref{sec:projection}).
 
 \begin{algorithm}[H]
 \caption{Credal Variable Elimination (CVE)}
 \label{alg:cve}
 \begin{algorithmic}[1]
-\Require Extreme points $\mathrm{ext}\,K(X_i \mid \mathrm{Pa}(X_i))$ for each node $X_i$,
-         query variable $Z$, evidence $\mathbf{Y} = \mathbf{y}$
-\Ensure Lower and upper bounds $[\underline{P}(Z{=}z \mid \mathbf{y}),\;
-        \overline{P}(Z{=}z \mid \mathbf{y})]$ for each state $z$
+\Require Extreme points $\ext\,\cK(X_i \mid \pa(X_i))$ for each variable $X_i$;
+         query variable $Z$; evidence $\bY = \by$
+\Ensure Lower and upper bounds $[\underline{P}(Z{=}z \mid \by),\;
+        \overline{P}(Z{=}z \mid \by)]$ for each state $z$ of $Z$
 \Statex
 \State $\Gamma \gets \emptyset$
-\Comment{Set of potentials}
-\For{each variable $X_i \in \mathbf{X}$}
-  \State $\phi_{X_i} \gets \{p : p \in \mathrm{ext}\,K(X_i \mid \mathrm{Pa}(X_i))\}$
+  \Comment{the set of potentials}
+\For{each variable $X_i \in \bX$}
+  \State $\phi_{X_i} \gets \bigl\{ \text{one chosen }
+         P(X_i \mid \pi) \in \ext\,\cK(X_i \mid \pi)
+         \text{ per parent config } \pi \bigr\}$
   \State $\Gamma \gets \Gamma \cup \{\phi_{X_i}\}$
+    \Comment{$|\phi_{X_i}| = \prod_{\pi} |\ext\,\cK(X_i \mid \pi)|$ CPT vertices}
 \EndFor
-\For{each evidence variable $Y_j \in \mathbf{Y}$}
-  \State $\phi'_{Y_j} \gets \{\delta_{y_j}\}$
-  \Comment{Indicator function}
-  \State $\Gamma \gets \Gamma \cup \{\phi'_{Y_j}\}$
+\For{each evidence variable $Y_j \in \bY$}
+  \State $\Gamma \gets \Gamma \cup \bigl\{ \{\delta_{y_j}\} \bigr\}$
+    \Comment{indicator potential; the CPTs are not sliced}
 \EndFor
 \Statex
-\State Compute elimination ordering $\mathbf{o} = (X_{\sigma(1)}, \dots, X_{\sigma(n-1)})$
-       excluding $Z$
-\For{each $X_i$ in ordering $\mathbf{o}$}
-  \State $\Gamma_{X_i} \gets \{\phi \in \Gamma : X_i \in \mathrm{scope}(\phi)\}$
+\State $\bo \gets (X_{\sigma(1)}, \dots, X_{\sigma(n-1)})$, an elimination
+       ordering over $\bX \setminus \{Z\}$
+  \Comment{\emph{excludes} $Z$}
+\For{each $X_i$ in ordering $\bo$}
+  \State $\Gamma_{X_i} \gets \{\phi \in \Gamma : X_i \in \scope(\phi)\}$
   \State $\Gamma \gets \Gamma \setminus \Gamma_{X_i}$
+  \If{$\Gamma_{X_i} = \emptyset$}
+    \State \textbf{continue}
+  \EndIf
   \State $\psi \gets \prod \{\phi \in \Gamma_{X_i}\}$
-  \Comment{Combine all potentials in bucket}
+    \Comment{combine all potentials in the bucket}
   \State $\psi' \gets \sum_{X_i} \psi$
-  \Comment{Marginalize out $X_i$}
-  \State $\psi'' \gets \mathrm{prune}(\psi')$
-  \Comment{Remove dominated functions}
+    \Comment{marginalize out $X_i$; cardinality unchanged}
+  \State $\psi'' \gets \prune(\psi')$
+    \Comment{remove dominated functions (Def.~\ref{def:prune})}
   \State $\Gamma \gets \Gamma \cup \{\psi''\}$
 \EndFor
 \Statex
 \State $\phi_{\mathrm{final}} \gets \prod \{\phi \in \Gamma\}$
-\Comment{Remaining potentials over $Z$}
+  \Comment{remaining potentials, scope $\{Z\}$}
 \State $\underline{P}(z) \gets 1,\; \overline{P}(z) \gets 0$ for each state $z$
-\For{each $f \in \phi_{\mathrm{final}}$}
+\For{each $f \in \phi_{\mathrm{final}}$ with $\sum_{z'} f(z') > 0$}
   \State $\mathbf{p} \gets f / \sum_{z'} f(z')$
-  \Comment{Normalize}
+    \Comment{normalize \emph{this} vertex}
   \For{each state $z$}
     \State $\underline{P}(z) \gets \min(\underline{P}(z),\; \mathbf{p}(z))$
     \State $\overline{P}(z) \gets \max(\overline{P}(z),\; \mathbf{p}(z))$
   \EndFor
 \EndFor
-\State \Return $[\underline{P}(z),\; \overline{P}(z)]$ for each $z$
+\State \Return $[\underline{P}(z),\; \overline{P}(z)]$ for each state $z$
 \end{algorithmic}
 \end{algorithm}
 
+\paragraph{Initial potentials are explicit vertex enumerations.}
+Line 3 is where the credal information enters. A family $X_i$ with parent
+configurations $\pi_1, \dots, \pi_r$ contributes one function per element of
+$\ext\,\cK(X_i \mid \pi_1) \times \cdots \times \ext\,\cK(X_i \mid \pi_r)$: each
+function is a complete CPT obtained by choosing one extreme point in every
+column, so $|\phi_{X_i}|$ is the \emph{product} of the per-column vertex counts.
+The potential is therefore an explicit enumeration of that family's contribution
+to the strong extension, which is what makes CVE a strong-extension method.
+
+\paragraph{The query is eliminated last.}\label{sec:querylast}
+The ordering on line 9 omits $Z$ entirely, so no step ever marginalizes the query
+and its bucket survives to the end. This is the decisive scheduling choice: it is
+what makes the answer exact with respect to the strong extension, and it is
+exactly what a single shared two-pass ordering (as in CCTE) gives up. Answering
+all marginals means repeating the pass once per target, each with its own
+ordering, since nothing is shared between targets.
+
+\paragraph{Normalization \emph{is} the evidence conditioning.}
+There is no separate division by $P(\by)$. With the indicator potentials of
+line 7 in the product, a surviving function of $\phi_{\mathrm{final}}$ satisfies
+$f(z) = P(Z{=}z, \by)$ for one selection of extreme points, so
+$f(z) / \sum_{z'} f(z') = P(Z{=}z \mid \by)$ for that same selection. Because
+each vertex is normalized \emph{before} the min/max is taken, the result is the
+correct set of per-vertex conditionals --- not the invalid ratio
+$\min P(Z,\by) / \max P(\by)$ of a separately minimized numerator and maximized
+denominator. Vertices of zero mass are skipped.
+
 \subsection{Elimination Ordering}
 
-Two heuristics are supported:
+Two heuristics are supported; both exclude the query $Z$, which is what keeps
+$Z$'s bucket alive.
 
 \begin{itemize}
-  \item \textbf{Topological order}: Variables are eliminated in topological order of the
-        DAG (non-evidence, non-query variables first, then evidence variables).
-  \item \textbf{Min-fill}: At each step, eliminate the variable that introduces the
-        fewest new edges (fill-in) in the interaction graph. This heuristic minimizes
-        the width of the resulting tree decomposition.
+  \item \textbf{Topological order}: the DAG's \emph{forward} topological order,
+        restricted to the non-query, non-evidence variables, with the evidence
+        variables appended at the end. Evidence variables are still eliminated
+        --- they are pinned by their indicator potentials rather than removed
+        from the problem.
+  \item \textbf{Min-fill}: the greedy interaction-graph heuristic, eliminating at
+        each step the variable that adds the fewest fill-in edges, with an
+        alphabetical tiebreak, and with $Z$ held out of the ordering (it still
+        counts as a neighbour when fill is scored). This aims at a small induced
+        width $w^*$.
 \end{itemize}
 
+\subsection{Projecting a Compound Query onto its Atoms}
+\label{sec:projection}
+
+When $Z$ is singleton, its atom marginal is the state-1 entry of the bounds
+returned by Algorithm~\ref{alg:cve}. When $Z$ is compound, with $m$ atoms and
+$k = 2^m$ states, each atom $a$ is recovered from the state bounds
+$[\underline{P}(z), \overline{P}(z)]$ by two linear programs over the states
+$S_a$ in which $a$ is true:
+\[
+  \underline{P}(a) = \min \Bigl\{ \sum_{z \in S_a} p_z \;:\;
+    \sum_{z} p_z = 1, \;\;
+    \underline{P}(z) \le p_z \le \overline{P}(z) \Bigr\},
+\]
+and symmetrically $\overline{P}(a)$ with $\max$. The feasible region is the box
+$\prod_z [\underline{P}(z), \overline{P}(z)]$ intersected with the probability
+simplex, which is an \emph{outer relaxation} of the true state polytope of $Z$.
+Atom bounds on a compound query can therefore be looser than the state bounds
+CVE actually computed; the running example in Section~\ref{sec:example} shows
+this at its most extreme.
+
 \section{Running Example}
+\label{sec:example}
 
 \begin{example}[Alarm Network]
-Consider the LCN with variables $B$ (Burglary), $E$ (Earthquake), $A$ (Alarm),
-and compound variable $CD$ (representing $C$ and $D$). The DAG structure is:
+The LCN \texttt{examples/alarm.lcn} over atoms $A, B, C, D, E$ factorizes into
+four credal-network nodes: the singletons $B$ (Burglary), $E$ (Earthquake),
+$A$ (Alarm), and the \emph{compound} node $C\text{-}D$ carrying the two atoms
+$C, D$ (they are merged because the sentence
+$0.5 \le P(\neg(C \oplus D) \mid A) \le 0.7$ constrains them jointly). The
+compound node has $2^2 = 4$ states, ordered $CD \in \{00, 01, 10, 11\}$
+most-significant bit first. The DAG is
 \[
-  B \to A, \quad E \to A, \quad A \to CD.
+  B \to A, \quad E \to A, \quad A \to C\text{-}D .
 \]
 The local credal sets (extreme points from LRS vertex enumeration) are:
 
 \begin{center}
-\begin{tabular}{lll}
+\begin{tabular}{llr@{\hskip 1em}l}
 \toprule
-\textbf{Node} & \textbf{Parent Config} & \textbf{Vertices} \\
+\textbf{Node} & \textbf{Parent Config} & \textbf{\#} & \textbf{Vertices} \\
 \midrule
-$B$ & --- & $[0.8, 0.2]$, $[0.9, 0.1]$ \\
-$E$ & --- & $[0.9, 0.1]$, $[0.95, 0.05]$ \\
-$A$ & $B{=}0, E{=}0$ & $[0.956, 0.044]$, $[1.0, 0.0]$ \\
-$A$ & $B{=}1, E{=}0$ & $[0.0, 1.0]$, $[1.0, 0.0]$ \\
-$A$ & $B{=}0, E{=}1$ & $[0.0, 1.0]$, $[1.0, 0.0]$ \\
-$A$ & $B{=}1, E{=}1$ & $[0.0, 1.0]$, $[1.0, 0.0]$ \\
+$B$ & --- & 2 & $[0.8, 0.2]$, $[0.9, 0.1]$ \\
+$E$ & --- & 2 & $[0.9, 0.1]$, $[0.95, 0.05]$ \\
+$A$ & $B{=}0, E{=}0$ & 2 & $[0.956, 0.044]$, $[1.0, 0.0]$ \\
+$A$ & $B{=}1, E{=}0$ & 2 & $[0.0, 1.0]$, $[1.0, 0.0]$ \\
+$A$ & $B{=}0, E{=}1$ & 2 & $[0.0, 1.0]$, $[1.0, 0.0]$ \\
+$A$ & $B{=}1, E{=}1$ & 2 & $[0.0, 1.0]$, $[1.0, 0.0]$ \\
+$C\text{-}D$ & $A{=}0$ & 4 & $[0,0,0,1]$, $[0,0,1,0]$, $[0,1,0,0]$, $[1,0,0,0]$ \\
+$C\text{-}D$ & $A{=}1$ & 11 & $[0,0,0.3,0.7]$, $[0,0.3,0,0.7]$, \dots, $[0.7,0,0,0.3]$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 
+\paragraph{Initial potentials.}
+Line 3 of Algorithm~\ref{alg:cve} takes one extreme point per parent
+configuration, so the potential sizes are the \emph{products} of the counts
+above:
+\[
+  |\phi_B| = 2, \quad |\phi_E| = 2, \quad
+  |\phi_A| = 2^4 = 16, \quad
+  |\phi_{C\text{-}D}| = 4 \times 11 = 44 ,
+\]
+for $2 + 2 + 16 + 44 = 64$ functions in total across the four potentials.
+
 \paragraph{Query: $P(B{=}1)$ (no evidence).}
-Elimination order (topological): $E, A, CD$.
+The forward topological order with the target removed is
+$\bo = (E, A, C\text{-}D)$; note $B$ never appears in it.
 
-\textbf{Step 1: Eliminate $E$.}
-Potentials involving $E$: $\phi_E$ (scope $\{E\}$, 2 functions) and $\phi_A$
-(scope $\{A, B, E\}$, $2^3 = 8$ functions for the separately specified A).
-Combine: $\psi = \phi_E \cdot \phi_A$ produces $2 \times 8 = 16$ functions
-over $\{A, B, E\}$. Marginalize $E$: sum over $E$'s domain, producing 16
-functions over $\{A, B\}$. Prune: remove dominated functions.
+\textbf{Step 1: eliminate $E$.}
+The bucket is $\phi_E$ (scope $\{E\}$, 2 functions) and $\phi_A$ (scope
+$\{A,B,E\}$, 16 functions). Their product has $2 \times 16 = 32$ functions over
+$\{A,B,E\}$; summing out $E$ leaves 32 functions over $\{A,B\}$, and pruning
+removes none of them.
 
-\textbf{Step 2: Eliminate $A$.}
-Combine with $CD$ factor, marginalize $A$, prune.
+\textbf{Step 2: eliminate $A$.}
+The bucket is the new potential over $\{A,B\}$ (32 functions) together with
+$\phi_{C\text{-}D}$ (scope $\{C\text{-}D, A\}$, 44 functions), giving
+$32 \times 44 = 1408$ functions over $\{C\text{-}D, A, B\}$. Summing out $A$
+leaves 1408 functions over $\{C\text{-}D, B\}$; again none are dominated.
 
-\textbf{Step 3: Eliminate $CD$.}
-Marginalize $CD$, leaving functions over $\{B\}$ only.
+\textbf{Step 3: eliminate $C\text{-}D$.}
+Summing out $C\text{-}D$ leaves 1408 functions over $\{B\}$, and here pruning
+bites: only $328$ survive.
 
-\textbf{Result.} Each surviving function $f(B)$ is normalized:
-$p(B{=}1) = f(1) / (f(0) + f(1))$. The minimum across all functions gives
-$\underline{P}(B{=}1) = 0.10$ and the maximum gives
-$\overline{P}(B{=}1) = 0.20$.
+\textbf{Result.} Each surviving $f$ over $\{B\}$ is normalized,
+$p(B{=}1) = f(1)/(f(0)+f(1))$, and the componentwise min/max over the $328$
+normalized vectors gives
+\[
+  \underline{P}(B{=}1) = 0.10, \qquad \overline{P}(B{=}1) = 0.20 ,
+\]
+recovering exactly the interval asserted by the sentence
+$0.1 \le P(B) \le 0.2$, as it must since $B$ is a root.
+
+\paragraph{The compound node illustrates the projection gap.}
+Running the driver over all four nodes returns $P(A{=}1) \in [0, 0.312]$ and
+$P(E{=}1) \in [0.05, 0.10]$, but the state bounds for $C\text{-}D$ come out
+vacuous, $[\underline{p}, \overline{p}] = [\mathbf{0}, \mathbf{1}]$ on all four
+states. The per-atom linear programs of Section~\ref{sec:projection} can then
+only return $P(C{=}1), P(D{=}1) \in [0,1]$: with every
+state interval equal to $[0,1]$, the box--simplex relaxation carries no
+information, even though the joint constraint on $C \oplus D$ does. This is the
+outer relaxation of the compound-node projection at its worst.
 \end{example}
+
+% =====================================================================
+% --- self-contained; safe to lift into a paper submission ---
+% Everything below is written to stand alone: it repeats the definitions it
+% needs and refers to no other part of this document. Wording is kept aligned
+% with docs/neurips_2026.tex, Section "Credal Variable Elimination", so the two
+% cannot drift apart. Prose only -- no pseudocode, no floats; requires only the
+% \newcommand macros in the preamble (or docs/macros.tex).
+% =====================================================================
+\section{Succinct Description (paper-ready)}
+\label{sec:succinct}
+
+% When lifting into a paper, replace the author-year mention below with
+% \cite{dechter1999bucket}.
+Credal Variable Elimination (CVE) extends classical bucket elimination
+(Dechter, 1999) to credal networks by replacing every factor with a
+\emph{potential}: a finite \emph{set} of non-negative functions over a common
+scope, each member being one extreme point of the corresponding local credal set.
+Potentials support three operations. Their \emph{product} is the elementwise
+product of every pair, $\phi \cdot \psi = \{f \cdot g : f \in \phi,\,
+g \in \psi\}$, so cardinalities multiply; the \emph{sum-marginal}
+$\sum_X \phi = \{\sum_x f : f \in \phi\}$ sums each member separately and leaves
+the cardinality unchanged; and \emph{pruning} discards any $f$ for which some
+$g \in \phi$ satisfies $g \geq f$ pointwise with $g > f$ somewhere, which shrinks
+the set without affecting its extremes, since a dominated function attains
+neither. To answer a query on $Z$ under evidence $\bY = \by$, CVE builds one
+potential per family --- enumerating the conditional probability tables obtained
+by choosing one extreme point in each parent configuration, so the potential
+explicitly lists that family's contribution to the strong extension --- adds a
+single-function indicator potential for each observation, and then eliminates the
+variables one at a time along an ordering that \emph{excludes} $Z$: at each step
+it multiplies together all potentials whose scope contains the current variable,
+sums that variable out, and prunes the result.
+
+Because $Z$ is never eliminated, its bucket survives to the end, and the final
+product is a potential over $Z$ alone. Each of its members equals
+$P(Z, \by)$ under one selection of extreme points, so dividing that member by its
+own sum yields $P(Z \mid \by)$ for the same selection; taking the componentwise
+minimum and maximum \emph{after} normalizing each member therefore gives bounds
+that are exact with respect to the strong extension --- and not the invalid ratio
+of a separately minimized numerator and a separately maximized denominator.
+Never eliminating the query is what buys this exactness, and it is precisely what
+a single shared two-pass ordering gives up; the price is that bounds for all
+variables require one pass per target, with nothing reused between them. The cost
+of a pass is $O(n \cdot C \cdot k^{w^*})$ for $n$ variables of domain size at
+most $k$, an ordering of induced width $w^*$, and $C$ bounding the cardinality of
+the intermediate potentials. Pruning is what keeps $C$ in check: it can still
+grow exponentially in the number of extreme points in the worst case, but remains
+manageable in practice on networks of moderate induced width.
+% =====================================================================
+% --- end of self-contained block ---
+% =====================================================================
 
 \section{Complexity}
 
@@ -237,6 +439,11 @@ keeps $C$ manageable in practice for networks of moderate treewidth.
       126:133--157, 2020.
 \item R.\ Marinescu, R.\ Dechter, A.\ Ihler. Credal Marginal MAP. \emph{NeurIPS}, 2023.
 \item F.G.\ Cozman. Credal networks. \emph{Artificial Intelligence}, 120(2):199--233, 2000.
+\item R.\ Dechter. Bucket elimination: A unifying framework for reasoning.
+      \emph{Artificial Intelligence}, 113(1--2):41--85, 1999.
+\item D.D.\ Mau\'a, C.P.\ de Campos, A.\ Benavoli, A.\ Antonucci. Probabilistic
+      inference in credal networks: New complexity results. \emph{Journal of
+      Artificial Intelligence Research}, 50:603--637, 2014.
 \end{enumerate}
 
 \end{document}
