@@ -1,0 +1,1315 @@
+% cjt.tex -- CredalJT (scheme D5): algorithm, worked example, exactness theory.
+%
+% Standalone: own preamble and notation; compiles on its own with two pdflatex
+% passes and no bibtex step (this repository's exactness notes cite external
+% results inline in prose rather than through a .bib; see docs/properties.tex).
+%
+% Exposition follows NeurIPS practice: the algorithm is described
+% mathematically, not as an account of the implementation. An implementation
+% detail appears only where it changes a stated guarantee (the local-solution
+% inner bound, the denominator floor, the uncertified fallback).
+%
+% The NeurIPS class file is not vendored in this repository, so the document
+% class is plain `article', matching the sibling notes docs/properties.tex and
+% docs/cjt_exactness.tex.
+%
+% Macros are declared locally rather than via \input{macros.tex}: that file
+% targets neurips_2026.tex and its \pa/\ext would collide with the definitions
+% below.
+
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,shapes.geometric,calc}
+
+% Long \texttt{} file names are unbreakable; allow a little extra interword
+% stretch so they do not overflow the text block.
+\setlength{\emergencystretch}{3em}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{example}{Example}
+\newtheorem{remark}{Remark}
+
+\newcommand{\lo}{\underline}
+\newcommand{\hi}{\overline}
+\newcommand{\indep}{\perp\!\!\!\perp}
+\newcommand{\DSE}{\mathcal{D}_{\mathrm{SE}}}
+\newcommand{\DLCN}{\mathcal{D}_{\mathrm{LCN}}}
+\newcommand{\ch}{\mathrm{ch}}
+\newcommand{\pa}{\mathrm{pa}}
+\newcommand{\atoms}{\mathrm{atoms}}
+\newcommand{\scope}{\mathrm{scope}}
+\newcommand{\restr}{\!\restriction\!}
+\newcommand{\readoff}{\rho}
+
+
+\title{\textsc{CredalJT}: Exact Marginal Inference in Logical Credal Networks\\
+at Treewidth Cost\\
+\large Algorithm, a fully worked example, and the exactness theory}
+\author{IBM Research}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Marginal inference in a Logical Credal Network (LCN) is the problem of computing
+tight lower and upper bounds on the probability of a query atom over the credal
+set $\DLCN$ that the program's sentences and independence assumptions induce.
+The direct formulation optimizes over the full $2^n$ joint and does not scale;
+the credal-network engines scale but optimize over a strictly larger set, the
+strong extension $\DSE$, and are therefore loose in ways that are hard to
+predict. This note presents \textsc{CredalJT} (scheme~D5), which occupies
+neither position: it targets $\DLCN$ \emph{directly}, yet its cost is
+exponential in the treewidth $w$ rather than in $n$.
+
+\textsc{CredalJT} builds a single junction tree over the chain-graph moral graph,
+assigns each cluster a variable vector over the joint of its atoms, ties adjacent
+clusters by separator-consistency equalities, hosts every sentence and every
+non-redundant independence equality on a cluster containing its scope, and
+optimizes the query read-off with a certified global solver. We give the
+algorithm in full (Section~\ref{sec:algo}), write the resulting nonlinear program
+formally (Section~\ref{sec:nlp}), work a complete four-atom example end to end
+including every one of its $22$ variables and $22$ constraints
+(Section~\ref{sec:example}), and consolidate the exactness theory with complete
+proofs (Section~\ref{sec:theory}): a repaired running-intersection
+reconstruction lemma, the exactness theorem under hypotheses H1--H4, the
+unconditional outer-bound guarantee that survives when H2 and H3 fail, and a
+corollary giving exactness on the \texttt{ktree-fr} benchmark family at
+$O(n2^{k+1})$. Section~\ref{sec:paper} is a self-contained subsection ready for
+inclusion in a paper. Every numerical value reported here was computed on the
+stated instance and independently cross-checked (Section~\ref{sec:provenance}).
+\end{abstract}
+
+\tableofcontents
+
+\section{Introduction}\label{sec:intro}
+
+A Logical Credal Network specifies imprecise probabilistic knowledge by
+bounding the probabilities of propositional formulas: a \emph{sentence} is either
+$\ell\le P(\varphi)\le u$ (Type-1) or $\ell\le P(\varphi\mid\psi)\le u$
+(Type-2), over propositional formulas $\varphi,\psi$ on binary atoms. Together
+with the independence assumptions that the Local Markov Condition derives from
+the program's structure, a set of sentences determines a closed set $\DLCN$ of
+joint distributions, and the inference task is to compute
+$\lo P(a)=\min_{p\in\DLCN}P_p(a)$ and $\hi P(a)=\max_{p\in\DLCN}P_p(a)$ for each
+atom $a$.
+
+Two families of engines exist. The \emph{direct} formulation writes one variable
+per joint state and optimizes over $\DLCN$ itself; it is exact when the solver
+certifies global optimality, but its $2^n$ size confines it to small instances,
+and even there the certificate sometimes fails to materialize
+(Remark~\ref{rem:oracle}). The
+\emph{credal-network} family (Credal~VE, Credal~CTE, ApproxLP, Interval~BP,
+Credal~IJGP) compiles the program into a chain-graph credal network with interval
+local credal sets, and propagates; it scales, but it optimizes over the strong
+extension $\DSE\supseteq\DLCN$ and so inherits two distinct looseness gaps
+(Section~\ref{sec:prelim-gaps}).
+
+\textsc{CredalJT} belongs to neither family. It does not compile a credal
+network: it never reads the per-family interval bounds and never enumerates
+extreme points, consuming only the chain graph's \emph{structure} and the LCN's
+own sentences and independence assertions. Consequently it optimizes over a
+relaxation of $\DLCN$ built from cluster marginals, not over $\DSE$ --- and
+under the hypotheses of Theorem~\ref{thm:d5} that relaxation is exact. Its cost
+is $\sum_C 2^{|C|}=O(n\,2^{w+1})$, exponential in treewidth rather than in $n$.
+
+\paragraph{Contributions.}
+\begin{enumerate}
+  \item A complete specification of the algorithm (Section~\ref{sec:algo},
+    Algorithm~\ref{alg:cjt}), including the constraint-hosting triage that keeps
+    the treewidth small and the query-independence property that lets one
+    constraint program serve every atom.
+  \item The nonlinear program written formally (Section~\ref{sec:nlp}), with the
+    marginalization operator, the cleared Type-2 encoding, and the joint
+    (non-decomposed) form of the independence equalities made explicit.
+  \item A four-atom example worked end to end (Section~\ref{sec:example}): the
+    junction tree, all $22$ decision variables, all $22$ constraints
+    transcribed individually, the resulting bounds, and an independent
+    cross-check against a certified global reference on every atom.
+  \item The exactness theory consolidated with complete proofs
+    (Section~\ref{sec:theory}): Lemma~\ref{lem:rip} (running-intersection
+    reconstruction, stated correctly in the presence of zero separator cells),
+    Theorem~\ref{thm:d5} (exactness under H1--H4, and the unconditional
+    outer-bound half), Remark~\ref{rem:denfloor} (a genuine soundness caveat for
+    conditional queries), and Corollary~\ref{cor:ktree} (\texttt{ktree-fr}
+    exactness at $O(n2^{k+1})$).
+  \item A one-page self-contained subsection for direct inclusion in a paper
+    (Section~\ref{sec:paper}).
+\end{enumerate}
+
+\section{Preliminaries}\label{sec:prelim}
+
+Throughout, $\mathbf V$ is a set of $n$ binary atoms, $\Delta(2^{\mathbf V})$ the
+simplex of joint distributions over the $2^n$ truth assignments, and
+$p\restr A$ the marginal of $p$ on an atom subset $A\subseteq\mathbf V$. For a
+propositional formula $\varphi$ we write $\atoms(\varphi)$ for its atoms and
+$\omega\models\varphi$ for satisfaction.
+
+\subsection{The credal set \texorpdfstring{$\DLCN$}{D\_LCN}}\label{sec:prelim-dlcn}
+
+A Type-1 sentence $\ell\le P(\varphi)\le u$ contributes the two linear rows
+$\ell\le\sum_{\omega\models\varphi}p(\omega)\le u$. A Type-2 sentence
+$\ell\le P(\varphi\mid\psi)\le u$ is read in \emph{cleared} form,
+\begin{equation}\label{eq:cleared}
+  \ell\cdot P(\psi)\;\le\;P(\varphi\wedge\psi)\;\le\;u\cdot P(\psi),
+\end{equation}
+which avoids a division and is the form imposed throughout.
+
+\begin{remark}[The cleared reading is the one in force]\label{rem:cleared}
+The cleared rows \eqref{eq:cleared} are vacuously satisfied on
+$\{p:P(\psi)=0\}$, so they admit joints that the ratio reading
+$\ell\le P(\varphi\wedge\psi)/P(\psi)\le u$ excludes. The two readings therefore
+define different credal sets. Every statement in this note is made for the
+cleared reading.
+\end{remark}
+
+The Local Markov Condition attaches to the program a set of conditional
+independence assertions $(X\indep Y\mid S)$ with $X$ a singleton. Each is imposed
+as the family of \emph{joint} equalities
+\begin{equation}\label{eq:lmc}
+  P(\mathbf x,\mathbf y,\mathbf s)\,P(\mathbf s)
+  =P(\mathbf x,\mathbf s)\,P(\mathbf y,\mathbf s),
+\end{equation}
+one for each configuration $(\mathbf y,\mathbf s)$ of $Y\cup S$. Writing $g_s$
+for the functional of a sentence $s$ and $h_\iota$ for the residual of an
+assertion $\iota$,
+\begin{equation}\label{eq:dlcn}
+  \DLCN=\bigl\{\,p\in\Delta(2^{\mathbf V})\;:\;
+    \ell_s\le g_s(p)\le u_s\ \forall s,\qquad h_\iota(p)=0\ \forall \iota\,\bigr\},
+\end{equation}
+and the inference targets are
+$\lo P(a)=\min_{p\in\DLCN}P(a)$, $\hi P(a)=\max_{p\in\DLCN}P(a)$.
+
+The following elementary lemma is the workhorse of Section~\ref{sec:theory}: it
+is what licenses imposing a constraint on a single cluster.
+
+\begin{lemma}[Locality]\label{lem:locality}
+Every constraint in \eqref{eq:dlcn} depends on $p$ only through its marginal on a
+fixed atom set, its \emph{scope}: a sentence $s$ through $p\restr\atoms(s)$, and
+an LMC assertion $(X\indep Y\mid S)$ through $p\restr(X\cup Y\cup S)$.
+Consequently, if $p$ and $p'$ satisfy $p\restr A=p'\restr A$ for the scope $A$ of
+a constraint $c$, then $c$ holds for $p$ iff it holds for $p'$.
+\end{lemma}
+
+\begin{proof}
+Let $c$ be a constraint with scope $A$. There are three cases.
+
+\emph{Type-1.} $P(\varphi)=\sum_{\omega\models\varphi}p(\omega)$. Since
+$\atoms(\varphi)\subseteq A$, the truth value of $\varphi$ at $\omega$ is
+determined by $\omega\restr A$; grouping the sum by the value of $\omega\restr A$
+gives $P(\varphi)=\sum_{\alpha\models\varphi}(p\restr A)(\alpha)$, where
+$\alpha$ ranges over assignments of $A$. This is a function of $p\restr A$ alone.
+
+\emph{Type-2.} By the previous case both $P(\varphi\wedge\psi)$ and $P(\psi)$
+are functions of $p\restr A$ with
+$A\supseteq\atoms(\varphi)\cup\atoms(\psi)$; the rows \eqref{eq:cleared} are
+therefore functions of $p\restr A$.
+
+\emph{LMC.} Each factor in \eqref{eq:lmc} is a probability of a conjunction of
+literals over $X\cup Y\cup S$, hence by the Type-1 case a function of
+$p\restr(X\cup Y\cup S)$; a product of such functions is again one.
+
+In each case the constraint's truth value is determined by $p\restr A$, which is
+precisely the stated consequence.
+\end{proof}
+
+\subsection{Chain graph, strong extension, and the two gaps}\label{sec:prelim-gaps}
+
+The LCN pipeline moralizes and simplifies the program's structure graph into a
+\emph{chain graph} whose nodes are chain components; an undirected component
+collapses into a single \emph{compound} node (rendered with a \texttt{-}-joined
+name, e.g.\ \texttt{C-D}). This yields a factorization
+\begin{equation}\label{eq:factor}
+  P(\mathbf V)=\prod_v P(\ch_v\mid\pa_v),
+\end{equation}
+one factor per node $v$, where $\ch_v$ is the (possibly multi-atom) chain
+component at $v$ and $\pa_v$ its parents. The \emph{family scope} at $v$ is
+$\ch_v\cup\pa_v$; root families have $\pa_v=\varnothing$.
+
+The credal-network engines replace each factor by an interval local credal set
+$K_{v,\pi}$ per parent configuration $\pi$ and propagate over the \emph{strong
+extension}
+\begin{equation}\label{eq:se}
+  \DSE=\Bigl\{\textstyle\prod_v P_v\;:\;P_v\in K_{v,\pi}
+  \text{ chosen independently for each parent configuration }\pi\Bigr\}
+  \;\supseteq\;\DLCN .
+\end{equation}
+The inclusion is generally strict, for two reasons that it is worth naming since
+they are exactly what \textsc{CredalJT} avoids:
+\begin{itemize}
+  \item \textbf{Gap~A (local-set widening).} Each $K_v$ is computed per family in
+    isolation, so it may admit conditionals that no global $p\in\DLCN$ realizes:
+    it ignores sentences on \emph{other} families and the cross-family LMC
+    equalities.
+  \item \textbf{Gap~B (strong-extension widening).} Even with exact local sets,
+    the free product in \eqref{eq:se} lets each family pick its row
+    independently, which can violate a sentence whose scope spans several
+    families.
+\end{itemize}
+\textsc{CredalJT} reads neither the interval bounds nor the extreme points of any
+$K_{v,\pi}$; it uses \eqref{eq:factor} only for its \emph{scopes}. Neither gap
+therefore arises, and the target is $\DLCN$ itself. This is the
+structural reason it is the only engine in the credal-network directory whose
+bound character is stated against $\DLCN$ rather than $\DSE$.
+
+\begin{definition}[Bound character]\label{def:char}
+Let $\mathcal R$ be a reference set (here $\DLCN$ or $\DSE$) with true bounds
+$[\lo q^\star,\hi q^\star]$ for the query at hand. An engine's interval
+$[\lo q,\hi q]$ is \emph{exact w.r.t.\ $\mathcal R$} if
+$[\lo q,\hi q]=[\lo q^\star,\hi q^\star]$; a valid \emph{outer} bound if
+$[\lo q,\hi q]\supseteq[\lo q^\star,\hi q^\star]$; an \emph{inner} bound if
+$[\lo q,\hi q]\subseteq[\lo q^\star,\hi q^\star]$; and \emph{unreliable} if
+neither containment is guaranteed. An outer bound is sound as a guarantee; an
+inner bound is not.
+\end{definition}
+
+\section{The \textsc{CredalJT} algorithm}\label{sec:algo}
+
+\subsection{Overview}\label{sec:algo-overview}
+
+\textsc{CredalJT} proceeds in four steps. It builds a cluster tree over the atoms
+from the family scopes of the chain graph \eqref{eq:factor}; it assigns every
+sentence and every non-redundant independence assertion to a cluster containing
+its scope; it writes a single constraint system whose variables are one
+distribution per cluster; and it reads the query off a cluster containing it,
+minimizing and maximizing over that system. Algorithm~\ref{alg:cjt} states the
+procedure; Section~\ref{sec:nlp} writes the constraint system formally.
+
+The only input the algorithm takes from the chain graph is the collection of
+family \emph{scopes} $\{\ch_v\cup\pa_v\}_v$, together with the LCN's own
+sentences and assertions. It never forms the local credal sets $K_{v,\pi}$ of
+\eqref{eq:se}, and never enumerates their extreme points. This is the structural
+reason its target is $\DLCN$ rather than $\DSE$: neither Gap~A nor Gap~B can
+arise from a construction that does not build the objects in which those gaps
+live.
+
+Throughout, $\mathcal C$ denotes the clusters, $A(C)\subseteq\mathbf V$ the atoms
+of cluster $C$, $S_{CD}=A(C)\cap A(D)$ the separator on a tree edge, and
+\begin{equation}\label{eq:width}
+  w+1=\max_{C\in\mathcal C}|A(C)|,
+\end{equation}
+so $w$ is the treewidth of the triangulated graph and $w+1$ the largest cluster
+measured in atoms. Cluster sizes are always reported in atoms below.
+
+\begin{algorithm}[t]
+\caption{\textsc{CredalJT}: marginal bounds at treewidth cost}
+\label{alg:cjt}
+\begin{algorithmic}[1]
+\Require sentences $\Sigma$, LMC assertions $\Lambda$, family scopes $\mathcal F$,
+  evidence $e$, width budget $b$
+\Ensure $[\lo P(a\mid e),\ \hi P(a\mid e)]$ for every atom $a\notin\atoms(e)$
+\State $\mathcal S\gets\mathcal F\cup\{\atoms(s):s\in\Sigma\text{ cross-family}\}$
+  \Comment{assertions do not augment}
+\State $T\gets\textsc{BucketTree}(\mathcal S,\textsc{MinFillOrder}(\mathcal S))$;
+  \ $A(C)\gets\bigcup_{v\in C}\atoms(v)$
+  \Comment{RIP holds \hfill [H1]}
+\State remove subsumed leaves; \ $S_{CD}\gets A(C)\cap A(D)$ for each edge
+\ForAll{$s\in\Sigma$}
+  \Comment{every sentence must be hosted \hfill [H2]}
+  \State host $s$ on a cluster $C$ with $\atoms(s)\subseteq A(C)$, if one exists
+\EndFor
+\If{$\max_C|A(C)|>b$ \textbf{or} some $s\in\Sigma$ was not hosted}
+  \State \Return $\textsc{Direct}(a,e)$ for every atom $a\notin\atoms(e)$
+    \Comment{$2^n$, uncertified; Rem.~\ref{rem:oracle}}
+\EndIf
+\ForAll{$\iota=(X\indep Y\mid S)\in\Lambda$}
+  \Comment{three-way triage \hfill [H3]}
+  \If{$S$ separates $X$ from $Y$ in $G^\ast$} \State skip $\iota$
+    \Comment{entailed by the separators}
+  \ElsIf{$X\cup Y\cup S\subseteq A(C)$ for some $C$} \State host $\iota$ on $C$
+  \Else \State drop $\iota$ \Comment{bound stays outer, may be loose}
+  \EndIf
+\EndFor
+\State build $\mathcal G$: \ $q_C\in\Delta(2^{|A(C)|})$,
+  \ $q_C\restr S_{CD}=q_D\restr S_{CD}$, \ and \eqref{eq:nlp-t1}--\eqref{eq:nlp-lmc}
+  on each host \Comment{once}
+\ForAll{atoms $a\notin\atoms(e)$}
+  \If{$\{a\}\cup\atoms(e)\subseteq A(C_a)$ for some $C_a$}
+    \Comment{objective only \hfill [H4]}
+    \State $\lo P\gets\min_{q\in\mathcal G}\readoff_a(q)$, \
+      $\hi P\gets\max_{q\in\mathcal G}\readoff_a(q)$
+      \Comment{\eqref{eq:nlp-obj}, \eqref{eq:nlp-obj-ev}}
+  \Else
+    \State $[\lo P,\hi P]\gets\textsc{Direct}(a,e)$
+  \EndIf
+  \State clamp $[\lo P,\hi P]$ to $[0,1]$
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Constructing the cluster tree}\label{sec:algo-jt}
+
+The scopes to be covered are the family scopes, augmented by one clique per
+\emph{cross-family sentence} --- a sentence whose atoms fit inside no single
+family scope. Augmenting forces such a sentence's atoms to co-occur in a cluster,
+which is what guarantees it a host in Section~\ref{sec:algo-host}.
+
+Independence assertions are deliberately \emph{not} used to augment. They are
+structural, and a cluster tree with the running-intersection property already
+enforces them through its separators (Section~\ref{sec:algo-host}); adding them
+as cliques would inflate the width for no gain. A Markov chain, for instance,
+would collapse from width~$2$ to a single cluster containing all $n$ atoms.
+
+Given the scopes, an elimination order is computed greedily by \emph{min-fill} on
+the interaction graph --- the graph in which two nodes are adjacent when they
+co-occur in some scope --- eliminating at each step a vertex whose elimination
+adds fewest fill-in edges. Buckets are then formed along that order, each scope
+placed in the bucket of the first order variable it contains; a bucket's cluster
+is the union of its scopes, and its parent is the first later order variable
+appearing in the cluster after the bucket variable is removed. This is standard
+bucket elimination, so \textbf{the resulting tree has the running-intersection
+property by construction}, discharging hypothesis~H1 of
+Theorem~\ref{thm:d5} without further argument.
+
+Each cluster's atom set $A(C)$ is the union of the atoms of its nodes; a compound
+node contributes all atoms of its chain component at once, so a cluster may be
+wider in atoms than in nodes. Finally, any \emph{leaf} whose atom set is contained
+in its parent's is removed, repeatedly: such a leaf is redundant, since the parent
+already carries that joint, and removing it is safe because a leaf has no children
+to reattach. Only subsumed leaves are removed, so the tree is not claimed to be
+minimal --- a non-maximal cluster may survive in the interior.
+
+\subsection{Hosting and the assertion triage}\label{sec:algo-host}
+
+Say a constraint is \emph{hosted} on a cluster $C$ when $\scope(c)\subseteq A(C)$;
+by Lemma~\ref{lem:locality} its value is then a function of $q_C$ alone. Hosting
+each constraint on a single cluster suffices: separator consistency propagates its
+effect to the rest of the tree, as the reconstruction argument of
+Theorem~\ref{thm:d5} makes precise.
+
+Every sentence is hosted if it can be. A sentence with no host cannot be
+represented exactly on this tree, and the algorithm falls back to the direct
+formulation (Section~\ref{sec:algo-solve}).
+
+Independence assertions admit a three-way triage, and this is the algorithm's most
+consequential step:
+\begin{enumerate}
+  \item \textbf{Separator-entailed $\Rightarrow$ omitted.} If the conditioning set
+    $S$ separates $X$ from $Y$ in the chordal graph $G^\ast$ (Definition~\ref{def:d5}),
+    every separator-consistent family of cluster marginals already satisfies
+    $(X\indep Y\mid S)$, so imposing it would be redundant. This is what keeps a
+    chain at width~$2$.
+  \item \textbf{Hosted $\Rightarrow$ imposed} as the bilinear equalities
+    \eqref{eq:lmc} on the host cluster.
+  \item \textbf{Neither $\Rightarrow$ dropped.}
+\end{enumerate}
+Case~3 is the algorithm's only source of looseness, and it is exactly the failure
+of hypothesis~H3. The bound remains valid --- the projection half of
+Theorem~\ref{thm:d5} requires neither H2 nor H3 --- but it can be strictly loose;
+Remark~\ref{rem:d5reading} exhibits an instance where it is.
+
+\subsection{Solving}\label{sec:algo-solve}
+
+The constraint system of Step~3 mentions no query, and every atom lies in some
+cluster because each family scope is itself a clique. One system therefore serves
+all marginals: per atom, only the objective changes, and two optimizations are
+solved. This is the sense in which the construction is \emph{query-independent}.
+
+\paragraph{Global solution.}
+The system is nonconvex: the assertion equalities \eqref{eq:nlp-lmc} are bilinear,
+and under evidence so is the ratio equality \eqref{eq:nlp-obj-ev}. Exactness in
+Theorem~\ref{thm:d5} refers to the global optimum, so the bounds reported here
+were computed with a spatial branch-and-bound solver at gap tolerance $0$.
+
+\begin{remark}[A local solver yields an inner bound]\label{rem:ipoptinner}
+Solved instead by a local method from a finite set of starting points --- keeping
+the smallest minimum and largest maximum found --- the procedure returns a value
+no more extreme than the true optimum in each direction. The resulting interval is
+therefore contained in the exact one: an \emph{inner} bound in the sense of
+Definition~\ref{def:char}, and not a guarantee. Global solution is what makes
+Theorem~\ref{thm:d5} applicable.
+\end{remark}
+
+\paragraph{Fallback.}
+Two conditions divert a query to the direct $2^n$ formulation: some cluster
+exceeding the width budget $b$, and a sentence or query having no host. The first
+is global to the instance; the second may be local to one atom, arising when that
+atom and the evidence share no cluster, i.e.\ when H4 fails for it alone.
+
+\begin{remark}[The fallback is exact in formulation, not in certificate]\label{rem:oracle}
+The fallback optimizes the true $2^n$ program over $\DLCN$, but by a local method,
+so its output carries no global guarantee and can be over-tight. Conversely, on
+instances where the $2^n$ formulation is solvable but its global solver fails to
+certify some endpoint, the cluster program of Section~\ref{sec:nlp} is often the
+more reliable route to a bound, even at $n$ small enough for the joint to be
+written down.
+\end{remark}
+
+A failed optimization is reported as the corresponding vacuous endpoint ($0$ for a
+minimum, $1$ for a maximum): uninformative, never unsound. If every marginal
+returns vacuous, the instance or the evidence is likely inconsistent.
+
+\subsection{Complexity}\label{sec:algo-complexity}
+
+\emph{Variables.} One per cluster state, so by \eqref{eq:width}
+\begin{equation}\label{eq:cost}
+  \sum_{C\in\mathcal C}2^{|A(C)|}\;=\;O\!\bigl(n\,2^{w+1}\bigr),
+\end{equation}
+since $|\mathcal C|=O(n)$, plus one auxiliary scalar per atom under evidence.
+Against $2^n$ for the direct formulation, this is the algorithm's reason for
+being: the cost is exponential in the treewidth, not in the number of atoms.
+
+\emph{Constraints.} There are $|\mathcal C|$ normalization equalities;
+$\sum_{(C,D),\,S_{CD}\ne\varnothing}2^{|S_{CD}|}=O(n2^{w})$ separator equalities;
+two rows per hosted sentence; and, per hosted assertion $(X\indep Y\mid S)$,
+\begin{equation}\label{eq:lmcrows}
+  2^{|Y|}\cdot\max\bigl(1,2^{|S|}\bigr)\quad\text{equalities.}
+\end{equation}
+
+\begin{remark}[Which rows are nonconvex, and why the width bound survives]\label{rem:counting}
+(a) Only the assertion equalities \eqref{eq:nlp-lmc} and, under evidence, the
+ratio equality \eqref{eq:nlp-obj-ev} are nonconvex. The cleared Type-2 rows
+\eqref{eq:nlp-t2} are \emph{linear} in $q$, since $\ell$ and $u$ are constants.
+Consequently an instance with no evidence and no hosted assertion yields a
+\emph{linear} program --- which is exactly the situation in
+Section~\ref{sec:example}, despite that instance being loopy.
+(b) The count \eqref{eq:lmcrows} appears unbounded in $|Y|$, but a \emph{hosted}
+assertion satisfies $X\cup Y\cup S\subseteq A(C)$, so it contributes at most
+$2^{w+1}$ rows and \eqref{eq:cost} is unaffected. An assertion with a wide $Y$ is
+precisely one that the triage of Section~\ref{sec:algo-host} either discharges
+structurally or drops.
+\end{remark}
+
+Per atom the cost is two optimizations over the shared system, hence $2|\mathbf V|$
+in total.
+
+\section{The nonlinear program}\label{sec:nlp}
+
+Fix a cluster $C$ and index the $2^{|A(C)|}$ assignments of $A(C)$ by
+$i$, writing $\omega^C_i$ for the $i$-th. For a formula $\varphi$ with
+$\atoms(\varphi)\subseteq A(C)$ let $A^{(C)}_\varphi\in\{0,1\}^{2^{|A(C)|}}$ be
+its indicator vector, $A^{(C)}_\varphi[i]=\mathbf 1[\omega^C_i\models\varphi]$,
+and abbreviate $\langle v,q_C\rangle=\sum_i v_iq_{C,i}$; thus
+$\langle A^{(C)}_\varphi,q_C\rangle=P(\varphi)$ whenever $q_C$ is the marginal of
+a joint on $A(C)$.
+
+\paragraph{Variables and normalization.}
+One distribution per cluster,
+\begin{equation}\label{eq:nlp-var}
+  q_C\in[0,1]^{2^{|A(C)|}},\qquad
+  \sum_{i=0}^{2^{|A(C)|}-1}q_{C,i}=1
+  \qquad\forall C\in\mathcal C .
+\end{equation}
+There are no separator variables, no per-family conditional variables and no
+global joint variable; the tree structure enters only through the equalities
+below.
+
+\paragraph{Marginalization.}
+Let $\pi_{C\to S}$ map a state of $C$ to its restriction to $S\subseteq A(C)$,
+and define the $0/1$ aggregation matrix
+\begin{equation}\label{eq:nlp-M}
+  M^{C\to S}_{r,j}=\mathbf 1\bigl[\pi_{C\to S}(j)=r\bigr],
+  \qquad\text{so}\qquad
+  \bigl(M^{C\to S}q_C\bigr)[r]=(q_C\restr S)(r).
+\end{equation}
+
+\paragraph{Separator consistency.}
+For every edge with a non-empty separator, the two endpoints must agree on it:
+\begin{equation}\label{eq:nlp-sep}
+  \sum_{j:\,\pi_{C\to S}(j)=r}q_{C,j}
+  \;=\;\sum_{k:\,\pi_{D\to S}(k)=r}q_{D,k}
+  \qquad\forall(C,D)\in E,\ \forall r\in\{0,\dots,2^{|S_{CD}|}-1\},
+\end{equation}
+equivalently $q_C\restr S_{CD}=q_D\restr S_{CD}$: linear equalities,
+$2^{|S_{CD}|}$ per edge. No messages are computed; the consistency conditions are
+imposed simultaneously with all others, which is what distinguishes this
+formulation from message passing.
+
+\paragraph{Sentences.}
+A Type-1 sentence hosted on $C_h\supseteq\atoms(\varphi)$ contributes
+\begin{equation}\label{eq:nlp-t1}
+  \ell\;\le\;\bigl\langle A^{(C_h)}_{\varphi},\,q_{C_h}\bigr\rangle\;\le\;u,
+\end{equation}
+and a Type-2 sentence contributes the cleared pair
+\begin{equation}\label{eq:nlp-t2}
+  \ell\,\bigl\langle A^{(C_h)}_{\psi},q_{C_h}\bigr\rangle
+  \;\le\;\bigl\langle A^{(C_h)}_{\varphi\wedge\psi},q_{C_h}\bigr\rangle
+  \;\le\;u\,\bigl\langle A^{(C_h)}_{\psi},q_{C_h}\bigr\rangle .
+\end{equation}
+No division appears, and consistently with Remark~\ref{rem:cleared} the rows
+\eqref{eq:nlp-t2} are vacuously satisfied when $P(\psi)=0$: a Type-2 sentence
+constrains nothing on a null conditioning event.
+
+\paragraph{Independence assertions.}
+For a hosted $(X\indep Y\mid S)$ with $X=\{x\}$, one equality per configuration
+$(\mathbf y,\mathbf s)$. With $S\ne\varnothing$, writing the four indicators for
+$\{x{=}1,Y{=}\mathbf y,S{=}\mathbf s\}$, $\{S{=}\mathbf s\}$,
+$\{x{=}1,S{=}\mathbf s\}$, $\{Y{=}\mathbf y,S{=}\mathbf s\}$ as
+$A_a,A_b,A_c,A_d$:
+\begin{equation}\label{eq:nlp-lmc}
+  \langle A_a,q_{C_h}\rangle\,\langle A_b,q_{C_h}\rangle
+  -\langle A_c,q_{C_h}\rangle\,\langle A_d,q_{C_h}\rangle=0 ,
+\end{equation}
+which is \eqref{eq:lmc} verbatim; and with $S=\varnothing$ the marginal form
+$\langle A_a,q\rangle-\langle A_b,q\rangle\langle A_c,q\rangle=0$ for
+$P(x,\mathbf y)=P(x)P(\mathbf y)$. These rows are bilinear, hence nonconvex, and
+are the reason a global solver is required.
+
+Two features of this encoding matter. First, only the $x{=}1$ slice is needed:
+with $(\mathbf y,\mathbf s)$ fixed a binary $X$ has one degree of freedom, so the
+$x{=}0$ equality follows. Second, the configurations $\mathbf y$ must range over
+\emph{whole} assignments of $Y$. Replacing $(X\indep Y\mid S)$ by the pairwise
+family $\{(X\indep t\mid S)\}_{t\in Y}$ is strictly weaker for $|Y|\ge2$ ---
+pairwise independence does not imply joint independence --- and under-constrains
+the program, yielding spuriously loose bounds.
+
+\paragraph{Objective.}\label{sec:nlp-obj}
+Let $C_a$ be a cluster containing the query atom $a$ and all evidence atoms
+(hypothesis H4). Without evidence the read-off is linear,
+\begin{equation}\label{eq:nlp-obj}
+  \readoff_a(q)=\bigl\langle A^{(C_a)}_{a=1},\,q_{C_a}\bigr\rangle=P(a{=}1).
+\end{equation}
+With evidence $e$ the ratio is reformulated with one auxiliary $t\in[0,1]$,
+\begin{equation}\label{eq:nlp-obj-ev}
+  \readoff_a(q)=t,\qquad
+  t\cdot\bigl\langle A^{(C_a)}_{e},q_{C_a}\bigr\rangle
+  =\bigl\langle A^{(C_a)}_{a=1}\!\cdot\!A^{(C_a)}_{e},\,q_{C_a}\bigr\rangle ,
+\end{equation}
+so $t=P(a{=}1\mid e)$ whenever $P(e)>0$. Since $t$ is unconstrained where
+$P(e)=0$, a global solver must be prevented from exploiting that degeneracy, and a
+denominator floor
+\begin{equation}\label{eq:nlp-floor}
+  \bigl\langle A^{(C_a)}_{e},q_{C_a}\bigr\rangle\;\ge\;\varepsilon
+\end{equation}
+is imposed for a small $\varepsilon>0$. Remark~\ref{rem:denfloor} shows this
+floor is a soundness hypothesis, not a numerical convenience.
+
+\paragraph{The program.}
+Collecting \eqref{eq:nlp-var}--\eqref{eq:nlp-obj-ev},
+\begin{equation}\label{eq:nlp-all}
+\begin{aligned}
+\lo P(a),\ \hi P(a)\;=\;\min/\max\quad &\readoff_a(q)\\
+\text{s.t.}\quad
+&\textstyle\sum_i q_{C,i}=1,\quad q_{C,i}\in[0,1] && \forall C\in\mathcal C\\
+&q_C\restr S_{CD}=q_D\restr S_{CD} && \forall (C,D)\in E,\ S_{CD}\ne\varnothing\\
+&\text{\eqref{eq:nlp-t1}, \eqref{eq:nlp-t2}} && \forall\text{ hosted sentence}\\
+&\text{\eqref{eq:nlp-lmc}} && \forall\text{ hosted assertion.}
+\end{aligned}
+\end{equation}
+
+\section{A worked example}\label{sec:example}
+
+We work \texttt{examples/ktree\_fr\_k2\_n4\_example.lcn} completely. It is a
+$k$-tree with $k=2$ on four atoms --- \emph{loopy} after moralization, so the
+example is not a degenerate singly-connected case --- yet small enough that every
+variable and every constraint can be written down.
+
+\subsection{The instance}
+
+\begin{align*}
+s_0:&\quad 0.084382 \le P(x_1) \le 0.684382\\
+s_1:&\quad 0.01 \le P(\lnot x_2 \mid \lnot x_1) \le 0.572656\\
+s_2:&\quad 0.092785 \le P(x_3 \mid x_1\wedge x_2) \le 0.692785\\
+s_3:&\quad 0.068242 \le P(x_0 \mid x_1\wedge x_3) \le 0.668242
+\end{align*}
+The chain-graph families, in construction order, are
+\[
+  x_1\mid\varnothing,\qquad x_2\mid x_1,\qquad x_3\mid x_1,x_2,\qquad
+  x_0\mid x_1,x_3,
+\]
+and the Local Markov Condition yields exactly one assertion,
+\[
+  (x_0\indep x_2\mid x_1,x_3).
+\]
+
+\subsection{The junction tree}
+
+Min-fill elimination produces four clusters of at most three atoms, arranged in a
+path (Figure~\ref{fig:jt}). In the convention \eqref{eq:width} this is
+$w+1=3$, i.e.\ treewidth $w=2=k$, as expected for a $k$-tree:
+\[
+  \underbrace{\{x_3\}}_{C_4}\ -\
+  \underbrace{\{x_2,x_3\}}_{C_3}\ -\
+  \underbrace{\{x_1,x_2,x_3\}}_{C_2}\ -\
+  \underbrace{\{x_1,x_3,x_0\}}_{C_1},
+\]
+with separators $S_{12}=\{x_1,x_3\}$, $S_{23}=\{x_2,x_3\}$, $S_{34}=\{x_3\}$.
+Hosting assigns $s_0,s_3$ to $C_1$ and $s_1,s_2$ to $C_2$.
+
+\begin{figure}[ht]\centering
+\begin{tikzpicture}[
+  atom/.style={circle,draw,minimum size=8mm,inner sep=0pt,font=\small},
+  clus/.style={rectangle,draw,rounded corners=2pt,minimum height=8mm,
+               minimum width=26mm,inner sep=4pt,font=\small,fill=blue!5},
+  sep/.style={rectangle,draw,dashed,minimum height=6mm,minimum width=15mm,
+              inner sep=2pt,font=\scriptsize,fill=gray!10},
+  panel/.style={font=\small}]
+
+% ---- panel (a): moral graph ----
+\begin{scope}[shift={(0,0)}]
+  \node[atom] (x0) at (0,3.3)    {$x_0$};
+  \node[atom] (x1) at (-1.0,1.9) {$x_1$};
+  \node[atom] (x3) at (1.0,1.9)  {$x_3$};
+  \node[atom] (x2) at (0,0.5)    {$x_2$};
+  \draw (x0)--(x1); \draw (x0)--(x3); \draw (x1)--(x3);
+  \draw (x1)--(x2); \draw (x2)--(x3);
+  \node[panel] at (0,-0.55) {(a) moral graph (loopy)};
+\end{scope}
+
+% ---- panel (b): junction tree, separators as on-edge nodes ----
+\begin{scope}[shift={(7.4,0)}]
+  \node[clus] (c4) at (0,4.05)  {$C_4{:}\ \{x_3\}$};
+  \node[sep]  (s34) at (0,3.05) {$\{x_3\}$};
+  \node[clus] (c3) at (0,2.05)  {$C_3{:}\ \{x_2,x_3\}$};
+  \node[sep]  (s23) at (0,1.05) {$\{x_2,x_3\}$};
+  \node[clus] (c2) at (0,0.05)  {$C_2{:}\ \{x_1,x_2,x_3\}$};
+  \node[sep]  (s12) at (0,-0.95){$\{x_1,x_3\}$};
+  \node[clus] (c1) at (0,-1.95) {$C_1{:}\ \{x_1,x_3,x_0\}$};
+  \draw (c4)--(s34); \draw (s34)--(c3);
+  \draw (c3)--(s23); \draw (s23)--(c2);
+  \draw (c2)--(s12); \draw (s12)--(c1);
+  \node[panel,align=center] at (0,-2.95)
+    {(b) cluster tree; separators\\ dashed, on the edges};
+\end{scope}
+\end{tikzpicture}
+\caption{The example instance. Moralization makes $\{x_1,x_2,x_3\}$ and
+$\{x_0,x_1,x_3\}$ triangles, so the graph is loopy; the cluster tree nonetheless
+has width $2$. The separator $S_{12}=\{x_1,x_3\}$ equals the conditioning set of
+the sole assertion $(x_0\indep x_2\mid x_1,x_3)$, which is therefore
+separator-entailed and never imposed.}
+\label{fig:jt}
+\end{figure}
+
+\subsection{Separator-entailment discharges the assertion}
+
+The chordal graph $G^\ast$ of Definition~\ref{def:d5} --- two atoms adjacent iff
+they co-occur in a cluster --- has edge set
+\[
+  x_0x_1,\quad x_0x_3,\quad x_1x_2,\quad x_1x_3,\quad x_2x_3,
+\]
+and in particular $x_0x_2\notin G^\ast$. Deleting $S=\{x_1,x_3\}$ therefore
+disconnects $x_0$ from $x_2$: the only paths between them run through $x_1$ or
+$x_3$. So $S$ separates $x_0$ from $x_2$ in $G^\ast$, and the sole assertion
+$(x_0\indep x_2\mid x_1,x_3)$ is separator-entailed --- case~1 of the triage in
+Section~\ref{sec:algo-host}. It is \emph{not} imposed, and the constraint count
+below shows zero assertion rows. By Remark~\ref{rem:counting}(a) the program is
+consequently a \emph{linear} program, even though the instance is loopy.
+
+This is the mechanism of Theorem~\ref{thm:d5} in its clearest form: the
+independence is enforced by the tree's \emph{topology} --- through
+Lemma~\ref{lem:rip}'s reconstruction, which produces a joint factorizing over
+the chordal graph and hence satisfying its global Markov property --- rather than
+by any algebraic row.
+
+\subsection{The program in full}
+
+\paragraph{Variables ($22$).}
+$q_{C_1}\in\Delta(8)$ over $(x_1,x_3,x_0)$; $q_{C_2}\in\Delta(8)$ over
+$(x_1,x_2,x_3)$; $q_{C_3}\in\Delta(4)$ over $(x_2,x_3)$;
+$q_{C_4}\in\Delta(2)$ over $(x_3)$. Total $8+8+4+2=22$.
+
+\paragraph{Simplex ($4$).}
+$\sum_i q_{C_k,i}=1$ for $k=1,\dots,4$.
+
+\paragraph{Separator consistency ($4+4+2=10$).}
+Writing $q_{C}[\,\cdot\,]$ for a cell of cluster $C$, edge $C_1\!-\!C_2$ over
+$\{x_1,x_3\}$ gives four equalities,
+\[
+\begin{aligned}
+q_{C_1}[x_1{=}0,x_3{=}0,x_0{=}0]+q_{C_1}[x_1{=}0,x_3{=}0,x_0{=}1]
+ &= q_{C_2}[x_1{=}0,x_2{=}0,x_3{=}0]+q_{C_2}[x_1{=}0,x_2{=}1,x_3{=}0],\\
+q_{C_1}[x_1{=}0,x_3{=}1,x_0{=}0]+q_{C_1}[x_1{=}0,x_3{=}1,x_0{=}1]
+ &= q_{C_2}[x_1{=}0,x_2{=}0,x_3{=}1]+q_{C_2}[x_1{=}0,x_2{=}1,x_3{=}1],\\
+q_{C_1}[x_1{=}1,x_3{=}0,x_0{=}0]+q_{C_1}[x_1{=}1,x_3{=}0,x_0{=}1]
+ &= q_{C_2}[x_1{=}1,x_2{=}0,x_3{=}0]+q_{C_2}[x_1{=}1,x_2{=}1,x_3{=}0],\\
+q_{C_1}[x_1{=}1,x_3{=}1,x_0{=}0]+q_{C_1}[x_1{=}1,x_3{=}1,x_0{=}1]
+ &= q_{C_2}[x_1{=}1,x_2{=}0,x_3{=}1]+q_{C_2}[x_1{=}1,x_2{=}1,x_3{=}1];
+\end{aligned}
+\]
+edge $C_2\!-\!C_3$ over $\{x_2,x_3\}$ gives four more,
+\[
+  q_{C_2}[x_1{=}0,x_2{=}\beta,x_3{=}\gamma]+q_{C_2}[x_1{=}1,x_2{=}\beta,x_3{=}\gamma]
+  = q_{C_3}[x_2{=}\beta,x_3{=}\gamma],
+  \qquad \beta,\gamma\in\{0,1\};
+\]
+and edge $C_3\!-\!C_4$ over $\{x_3\}$ gives two,
+\[
+  q_{C_3}[x_2{=}0,x_3{=}\gamma]+q_{C_3}[x_2{=}1,x_3{=}\gamma]
+  = q_{C_4}[x_3{=}\gamma],\qquad \gamma\in\{0,1\}.
+\]
+
+\paragraph{Sentence rows ($8$).}
+On $C_1$, from $s_0$ (Type-1) and $s_3$ (Type-2, cleared per
+\eqref{eq:nlp-t2}):
+\[
+\begin{aligned}
+0.084382&\le\bigl\langle A^{(C_1)}_{x_1},q_{C_1}\bigr\rangle\le 0.684382,\\
+0.068242\,\bigl\langle A^{(C_1)}_{x_1\wedge x_3},q_{C_1}\bigr\rangle
+&\le\bigl\langle A^{(C_1)}_{x_0\wedge x_1\wedge x_3},q_{C_1}\bigr\rangle
+\le 0.668242\,\bigl\langle A^{(C_1)}_{x_1\wedge x_3},q_{C_1}\bigr\rangle .
+\end{aligned}
+\]
+On $C_2$, from $s_1$ and $s_2$ (both Type-2):
+\[
+\begin{aligned}
+0.01\,\bigl\langle A^{(C_2)}_{\lnot x_1},q_{C_2}\bigr\rangle
+&\le\bigl\langle A^{(C_2)}_{\lnot x_2\wedge\lnot x_1},q_{C_2}\bigr\rangle
+\le 0.572656\,\bigl\langle A^{(C_2)}_{\lnot x_1},q_{C_2}\bigr\rangle,\\
+0.092785\,\bigl\langle A^{(C_2)}_{x_1\wedge x_2},q_{C_2}\bigr\rangle
+&\le\bigl\langle A^{(C_2)}_{x_3\wedge x_1\wedge x_2},q_{C_2}\bigr\rangle
+\le 0.692785\,\bigl\langle A^{(C_2)}_{x_1\wedge x_2},q_{C_2}\bigr\rangle .
+\end{aligned}
+\]
+
+\paragraph{Independence rows ($0$).}
+None, by separator-entailment as argued above.
+
+\paragraph{Totals.}
+$22$ variables and $22$ constraints ($4$ simplex, $10$ separator, $8$ sentence,
+$0$ LMC), against a joint formulation's $2^4=16$ variables. The example is
+deliberately small enough that the treewidth formulation is not yet a saving; the
+saving is asymptotic, $O(n2^{w+1})$ against $2^n$, and Table~\ref{tab:contrast}
+shows the same machinery on two five-atom instances.
+
+\subsection{Results}
+
+Solving \eqref{eq:nlp-all} for each atom with SCIP (global, gap $0$) and
+comparing against the independent $2^n$ global engine:
+
+\begin{center}\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+engine & $P(x_0)$ & $P(x_1)$ & $P(x_2)$ & $P(x_3)$ \\
+\midrule
+direct $2^n$ formulation, global & $[0,1]$ & $[0.084382,0.684382]$
+  & $[0.134877,0.996844]$ & $[0,1]$ \\
+\textsc{CredalJT} (D5, SCIP)              & $[0,1]$ & $[0.084382,0.684382]$
+  & $[0.134877,0.996844]$ & $[0,1]$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The two engines agree on every atom to every digit reported, with all
+eight of the reference optimizations certified at optimality gap $0$. \textsc{CredalJT} reports \texttt{d5\_exact} true, maximum
+cluster $3$ atoms, and a total time of about $1.8$\,s.
+
+The vacuous $[0,1]$ on $x_0$ and $x_3$ is genuine rather than a solver artifact,
+and the independent oracle confirms it: no sentence constrains $P(x_3)$ except
+through conditioning events that can themselves be driven to probability zero,
+at which point \eqref{eq:nlp-t2} becomes vacuous (Remark~\ref{rem:cleared}) and
+frees the atom. Setting $P(x_1\wedge x_3)=0$ likewise releases $s_3$ and hence
+$x_0$. Both endpoints are thus attained by feasible witnesses.
+
+The separator marginals attained at an optimum make the mechanism concrete.
+Table~\ref{tab:msgs} lists them at the maximizer of $P(x_1)$. Both endpoints of
+every edge agree on these values by \eqref{eq:nlp-sep}; this is the calibrated
+family of cluster marginals that Lemma~\ref{lem:rip} reassembles into a joint of
+$\DLCN$ attaining the bound.
+
+\begin{table}[ht]\centering\small
+\caption{Separator marginals $q_C\restr S$ at the maximizer of $P(x_1)$, listed
+over the assignments of $S$. Both clusters incident to an edge realize the same
+vector, by \eqref{eq:nlp-sep}.}\label{tab:msgs}
+\begin{tabular}{@{}llcccc@{}}
+\toprule
+edge & separator $S$ & \multicolumn{4}{c}{$q\restr S$ by assignment of $S$}\\
+\midrule
+$C_1\!-\!C_2$ & $\{x_1,x_3\}$ & $00{:}\,0.3125$ & $01{:}\,0.0032$
+  & $10{:}\,0.6844$ & $11{:}\,0.0000$\\
+$C_2\!-\!C_3$ & $\{x_2,x_3\}$ & $00{:}\,0.6844$ & $01{:}\,0.0032$
+  & $10{:}\,0.3125$ & $11{:}\,0.0000$\\
+$C_3\!-\!C_4$ & $\{x_3\}$     & $0{:}\,0.9968$  & $1{:}\,0.0032$
+  & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Two contrasting structures}
+
+The running example imposes no assertion row. Table~\ref{tab:contrast} reports two
+five-atom instances that do, so that the bilinear rows are exercised rather than
+discharged; one of them also exhibits a compound node.
+
+\begin{table}[ht]\centering\small
+\caption{Program size on two further instances, measured. \texttt{asia} has a
+hosted \emph{conditional} assertion $(C\indep B\mid S)$ contributing
+$2^{|Y|}2^{|S|}=4$ bilinear rows; \texttt{alarm} has a hosted \emph{marginal}
+assertion $(B\indep E)$ with $S=\varnothing$ contributing $2^{|Y|}=2$ rows, and
+its undirected component becomes the compound node \texttt{C-D} whose cluster
+carries atoms $\{A,C,D\}$.}\label{tab:contrast}
+\begin{tabular}{@{}lcccrrrrrr@{}}
+\toprule
+instance & clus. & max $|A(C)|$ & edges & vars & constr. & simplex & sep. &
+  sent. & LMC \\
+\midrule
+\texttt{examples/asia.lcn}  & 5 & 3 & 4 & 30 & 33 & 5 & 14 & 10 & 4 \\
+\texttt{examples/alarm.lcn} & 4 & 3 & 3 & 22 & 24 & 4 &  8 & 10 & 2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For \texttt{asia} the tree is the path
+$\{X\}-\{D,X\}-\{C,D,X\}-\{B,C,D\}-\{B,S,C\}$ with separators
+$\{X\},\{D,X\},\{C,D\},\{B,C\}$, so the separator count is
+$2+4+4+4=14$, as \eqref{eq:nlp-sep} predicts. For \texttt{alarm} the tree
+branches: $\{E\}-\{E,A\}$ with children $\{B,E,A\}$ and $\{A,C,D\}$, giving
+$2+4+2=8$.
+
+\section{Exactness}\label{sec:theory}
+
+This section states and proves the guarantees. The development is closed: it uses
+only Lemma~\ref{lem:locality} from Section~\ref{sec:prelim} and
+Lemma~\ref{lem:rip} below, and in particular needs no notion of realizability, no
+property of the strong extension, and no result about any other engine.
+
+\begin{definition}[Cluster-feasible set, hosting, separator-entailment, read-off]\label{def:d5}
+Let $T$ be a clique tree over clusters $\mathcal C$, built by the standard
+moralize~$\to$~triangulate~$\to$~clique-tree pipeline, and let $G^\ast$ be the
+chordal graph whose maximal cliques are the clusters (two atoms adjacent iff they
+co-occur in a cluster).
+\begin{itemize}
+  \item The \emph{cluster-feasible set} is
+  \begin{align*}
+    \mathcal G=\bigl\{(q_C)_{C\in\mathcal C}\;:\;
+      &q_C\in\Delta(2^{|C|})\ \text{for each }C;\\
+      &q_C\restr S=q_D\restr S\ \text{for every edge }(C,D)\in T,\ S=C\cap D;\\
+      &\text{every hosted constraint holds on its host cluster}\bigr\}.
+  \end{align*}
+  \item A constraint $c$ is \emph{hosted} if some cluster
+    $C_h\supseteq\scope(c)$ exists; its row is then imposed on $q_{C_h}$'s
+    marginal.
+  \item An LMC assertion $(X\indep Y\mid S)$ is \emph{separator-entailed} if $S$
+    separates $X$ from $Y$ in $G^\ast$.
+  \item For a query atom $a$ and evidence $e$ lying together in a cluster $C_a$,
+    the \emph{read-off} is $\readoff_a(q)=\sum_{i:a=1}q_{C_a}[i]$ (no evidence),
+    or $\readoff_a(q)=\bigl(\sum_{i:a=1,e}q_{C_a}[i]\bigr)/
+    \bigl(\sum_{i:e}q_{C_a}[i]\bigr)$ (with evidence).
+  \item $\pi(p)=(p\restr C)_{C\in\mathcal C}$ is the \emph{projection} of a joint
+    onto the clusters.
+\end{itemize}
+\end{definition}
+
+The reconstruction direction needs the following lemma, whose usual statement
+contains two defects we must repair: it is normally asserted with a
+\emph{uniqueness} claim that is false in the presence of zero separator cells,
+and the division in the product formula is left unaddressed.
+
+\begin{lemma}[RIP reconstruction, with zeros]\label{lem:rip}
+Let $T$ be a clique tree with the running-intersection property over clusters
+$\mathcal C$, and let $(q_C)\in\prod_C\Delta(2^{|C|})$ be separator-consistent:
+$q_C\restr S=q_D\restr S$ for every edge $(C,D)$ with $S=C\cap D$. Then there
+exists a joint distribution $p\in\Delta(2^{\mathbf V})$ with $p\restr C=q_C$ for
+every $C\in\mathcal C$, and $p$ factorizes over the cliques of $G^\ast$. Such $p$
+is unique if every separator marginal is strictly positive, but \emph{not} in
+general.
+\end{lemma}
+
+\begin{proof}
+Induction on $|\mathcal C|$. If $|\mathcal C|=1$ take $p=q_C$.
+
+Let $|\mathcal C|\ge2$ and pick a leaf cluster $C$ of $T$ with neighbour $D$ and
+separator $S=C\cap D$. Let $T'=T-C$; by the running-intersection property
+$C\setminus S$ meets no cluster of $T'$, and $(q_{C'})_{C'\in T'}$ is still
+separator-consistent, so the inductive hypothesis gives a joint $p'$ over
+$\mathbf V'=\bigcup_{C'\in T'}C'$ with $p'\restr C'=q_{C'}$ for all
+$C'\in T'$. Note
+$p'\restr S=(p'\restr D)\restr S=q_D\restr S=q_C\restr S=:q_S$, using separator
+consistency.
+
+Define a conditional kernel on the fresh atoms $C\setminus S$: for each
+assignment $s$ of $S$,
+\[
+  \kappa(\,\cdot\mid s)=
+  \begin{cases}
+    q_C(\,\cdot\,,s)/q_S(s), & q_S(s)>0,\\
+    \delta_{c_0}, & q_S(s)=0,
+  \end{cases}
+\]
+where $c_0$ is any fixed assignment of $C\setminus S$. This is well defined: when
+$q_S(s)>0$ the right-hand side is non-negative and sums over $C\setminus S$ to
+$q_S(s)/q_S(s)=1$, so it is a distribution. Now set
+$p(x)=p'(x_{\mathbf V'})\cdot\kappa(x_{C\setminus S}\mid x_S)$.
+
+$p$ is a distribution: it is non-negative, and summing over $x_{C\setminus S}$
+first gives $p'$, which sums to $1$.
+
+\emph{The arbitrary choice is irrelevant.} On $\{x:q_S(x_S)=0\}$ we have
+$p'(x_{\mathbf V'})=0$, because $p'\restr S=q_S$ assigns zero mass to that event
+and $p'\ge0$. Hence $p$ vanishes there regardless of $\kappa$, so $p$ does not
+depend on $c_0$. (This is also the precise sense in which the familiar quotient
+formula $p=\prod_C q_C/\prod_{(C,D)}q_S$ is legitimate: a zero separator cell
+forces every contributing cluster cell to zero, since $q_S=q_C\restr S$ is a sum
+of non-negative $q_C$ entries, so numerator and denominator vanish together and
+the term is assigned $0$.)
+
+\emph{Cluster marginals.} For $C'\in T'$: summing $p$ over $x_{C\setminus S}$
+gives $p'$, so $p\restr C'=p'\restr C'=q_{C'}$. For $C$ itself:
+$p\restr C(c,s)=\bigl(\sum$ of $p$ over $\mathbf V'\setminus S$ at fixed
+$x_S=s\bigr)\cdot\kappa(c\mid s)=p'\restr S(s)\,\kappa(c\mid s)
+=q_S(s)\kappa(c\mid s)$, which equals $q_C(c,s)$ when $q_S(s)>0$ and equals
+$0=q_C(c,s)$ when $q_S(s)=0$. So $p\restr C=q_C$.
+
+\emph{Factorization.} Unwinding the induction, $p$ is a product of one
+non-negative factor per cluster (namely $q_C$ or the kernel $\kappa$ derived from
+it, each a function of the atoms of that cluster only), hence factorizes over the
+cliques of $G^\ast$.
+
+\emph{Non-uniqueness.} If some separator cell $q_S(s)=0$, then
+$\kappa(\cdot\mid s)$ was chosen arbitrarily; any other choice yields a joint
+with the same cluster marginals, since all such joints vanish on that event.
+Hence $p$ is not unique. When all separator marginals are positive the kernels
+are forced and the induction determines $p$ uniquely.
+\end{proof}
+
+\begin{theorem}[\textsc{CredalJT} exactness]\label{thm:d5}
+Suppose \textup{(H1)} $T$ has the running-intersection property (true by
+construction); \textup{(H2)} every LCN sentence is hosted; \textup{(H3)} every
+LMC assertion is either hosted or separator-entailed in $G^\ast$; \textup{(H4)}
+the query atom and all evidence atoms lie together in some cluster. Then for
+every such atom $a$,
+\[
+  \min_{q\in\mathcal G}\readoff_a(q)=\min_{p\in\DLCN}\readoff_a(\pi(p))=\lo P(a),
+  \qquad
+  \max_{q\in\mathcal G}\readoff_a(q)=\max_{p\in\DLCN}\readoff_a(\pi(p))=\hi P(a),
+\]
+and likewise for a conditional query $P(a\mid e)$ subject to
+Remark~\ref{rem:denfloor}. Moreover the \emph{projection} half holds without
+\textup{(H2)}/\textup{(H3)}, so \textsc{CredalJT} is always a valid \emph{outer}
+bound.
+\end{theorem}
+
+\begin{proof}
+First note the read-off identity: for any joint $p$,
+$\readoff_a(\pi(p))=P_p(a)$ (resp.\ $P_p(a\mid e)$), because $\readoff_a$ sums
+the cells of $\pi(p)_{C_a}=p\restr C_a$ in which $a$ (and $e$) hold, which by
+definition of a marginal equals $P_p(a)$ (resp.\ the ratio). So both sides
+optimize the \emph{same} functional.
+
+\emph{Projection $\DLCN\to\mathcal G$ (needs only H1, H4).} Let $p\in\DLCN$ and
+set $q_C:=p\restr C$, i.e.\ $q=\pi(p)$. Each $q_C$ is a distribution (a marginal
+of one). Each separator equality holds because both $q_C\restr S$ and
+$q_D\restr S$ equal $p\restr S$. Each hosted constraint $c$ holds: by
+Lemma~\ref{lem:locality} its value depends on $p$ only through
+$p\restr\scope(c)$, and since $\scope(c)\subseteq C_h$ we have
+$q_{C_h}\restr\scope(c)=p\restr\scope(c)$, so $c$ holds on the host exactly
+because it holds for $p$. Hence $q\in\mathcal G$, with
+$\readoff_a(q)=P_p(a)$. Therefore every value achievable over $\DLCN$ is
+achievable over $\mathcal G$, giving
+$\min_{\mathcal G}\readoff_a\le\min_{\DLCN}$ and
+$\max_{\mathcal G}\readoff_a\ge\max_{\DLCN}$: the cluster interval
+\emph{contains} the true interval. This is the outer-bound claim, and it used
+neither H2 nor H3.
+
+\emph{Reconstruction $\mathcal G\to\DLCN$ (needs H2, H3).} Let
+$q\in\mathcal G$. By H1 and Lemma~\ref{lem:rip} there is a joint $p$ with
+$p\restr C=q_C$ for every cluster, factorizing over the cliques of $G^\ast$. We
+check $p\in\DLCN$.
+
+Sub-scope consistency: if $A\subseteq C$ for some cluster $C$, then
+$p\restr A=(p\restr C)\restr A=q_C\restr A$, since marginalizing in stages agrees
+with marginalizing at once.
+
+\emph{Hosted constraints} (H2 and the hosted part of H3): let $c$ be hosted on
+$C_h$. By the previous paragraph $p\restr\scope(c)=q_{C_h}\restr\scope(c)$, and
+$q$ satisfies $c$ on $C_h$ by definition of $\mathcal G$; by
+Lemma~\ref{lem:locality} $c$ therefore holds for $p$.
+
+\emph{Separator-entailed LMC} (the other part of H3): let
+$(X\indep Y\mid S)$ be separator-entailed, so $S$ separates $X$ from $Y$ in
+$G^\ast$. Since $p$ factorizes over the cliques of $G^\ast$, it satisfies the
+\emph{global Markov property} of $G^\ast$: factorization implies global Markov
+for any undirected graph, and crucially this direction requires \emph{no}
+positivity assumption (Lauritzen, \emph{Graphical Models}, Prop.~3.8; only the
+converse, global Markov $\Rightarrow$ factorization, needs $p>0$ via
+Hammersley--Clifford). Global Markov states that if $S$ separates $A$ from $B$ in
+$G^\ast$ then $A\indep B\mid S$ under $p$; applying it to the connected
+components separated by $S$ and then restricting to the subsets $X$ and $Y$ of
+those components (conditional independence is preserved under taking subsets, by
+the decomposition property of conditional independence) gives
+$X\indep Y\mid S$ under $p$, i.e.\ \eqref{eq:lmc} holds. Note this assertion was
+never imposed on $\mathcal G$: it holds automatically for the reconstructed $p$.
+
+Hence $p\in\DLCN$, and $\readoff_a(q)=\readoff_a(\pi(p))=P_p(a)$ because
+$\pi(p)=q$ on the host cluster. So every value achievable over $\mathcal G$ is
+achievable over $\DLCN$, giving the reverse inequalities. Combined with the
+projection half, the optima coincide. For a conditional query, by H4 the read-off
+is a functional of the single cluster $C_a$ and both maps preserve $q_{C_a}$, so
+the same argument applies verbatim.
+\end{proof}
+
+\begin{remark}[Reading the proof]\label{rem:d5reading}
+(a) The argument never mentions chains: exactness is a property of the
+\emph{junction tree}, via RIP, hosting, separator-entailment and locality. It is
+in particular \emph{not} a statement about singly-connected topologies --- the
+worked example of Section~\ref{sec:example} is loopy and exact.
+(b) The projection half is unconditional, so \textsc{CredalJT} is \emph{never
+unsound}: its interval always contains the truth, and H2/H3 decide only
+tightness. (c) H3 is \emph{sufficient, not necessary}: on
+\texttt{examples/asia.lcn} and \texttt{examples/polytree.lcn} some assertions are
+neither hosted nor separator-entailed, yet \textsc{CredalJT} is empirically exact
+--- the unentailed assertions simply do not bind. Where H3 fails \emph{and}
+binds, the result is a valid but loose outer bound: on
+\texttt{examples/smokers.lcn} the six large-scope LMCs of the undirected
+component $F_1F_2F_3$ are unhostable and unentailed (within the width-$6$ cluster
+$\{F_1,F_2,F_3,S_1,S_2,S_3\}$ no separator divides $S_3$ from $F_1$), and
+\textsc{CredalJT} returns $P(F_1)=[0,1]$.
+\end{remark}
+
+\begin{remark}[The denominator floor is a soundness hypothesis]\label{rem:denfloor}
+The conditional read-off is linearized by the auxiliary equality
+\eqref{eq:nlp-obj-ev} together with the denominator floor \eqref{eq:nlp-floor}.
+The floor is an extra constraint on $\mathcal G$ that $\DLCN$ does not have, so
+the projection half of Theorem~\ref{thm:d5} --- and with it the outer-bound
+guarantee --- holds only for joints with $P(e)\ge\varepsilon$. If
+$\min_{p\in\DLCN}P(e)<\varepsilon$, the returned conditional interval can be
+\emph{unsound}. This is a soundness caveat, not merely a tightness one, and it is
+the price of admitting conditional queries into a globally solved formulation.
+\end{remark}
+
+\begin{corollary}[Exactness on \texttt{ktree-fr} at treewidth cost]\label{cor:ktree}
+On every \texttt{ktree-fr} instance, H1--H4 hold, so \textsc{CredalJT} returns
+the exact $\DLCN$ marginal bounds at cost $O(n\,2^{k+1})$.
+\end{corollary}
+
+\begin{proof}
+A $k$-tree is chordal, and in the \texttt{ktree-fr} class it is oriented as a DAG
+in construction order, every atom conditioning on the \emph{full conjunction} of
+its $k$ clique-parents. Those parents are pairwise adjacent in the $k$-tree, so
+moralization adds no edge and triangulation is a no-op: $G^\ast$ is the $k$-tree
+itself and its maximal cliques --- the clusters --- are exactly the
+$(k{+}1)$-cliques, giving H1 by construction. Every sentence is either a root
+marginal or scoped to a child with its $\le k$ parents, which co-occur in a
+cluster: H2. Each LMC assertion produced by the Local Markov Condition has as its
+conditioning set a full clique-separator of the $k$-tree, which separates the two
+sides in $G^\ast$, so each is hosted or separator-entailed: H3. Any single query
+atom lies in a $(k{+}1)$-clique: H4. Theorem~\ref{thm:d5} applies, and the cost
+is $\sum_C2^{|C|}=O(n)\cdot2^{k+1}$, over $O(n)$ clusters each of size $k{+}1$.
+\end{proof}
+
+\begin{remark}[What the \texttt{ktree-fr} corollary does and does not claim]\label{rem:ktreehonest}
+Corollary~\ref{cor:ktree} is a statement about \emph{cost}: exactness at
+$O(n2^{k+1})$ rather than $2^n$. It should \emph{not} be read as ``the one loopy
+topology where a treewidth-bounded engine beats the strong-extension engines on
+accuracy''. On the loopy realizable $k$-tree of Section~\ref{sec:example} Credal
+VE is also exact, atom for atom. On a larger $k{=}3$ instance
+(\texttt{ktree\_fr\_k3\_n5\_1.lcn}) Credal VE fails not by being loose but by not
+finishing: the credal network there is tiny ($512$ vertex combinations across
+five families), yet elimination did not terminate within $200$\,s, stalling
+inside potential pruning, while \textsc{CredalJT} solved the instance in about a
+second. The separation between \textsc{CredalJT} and Credal VE on this family is
+therefore one of \emph{tractability}, not of accuracy. Loopiness alone is not a
+reason to expect looseness.
+\end{remark}
+
+\begin{example}[Verified end to end]\label{ex:d5verified}
+Section~\ref{sec:example} is the worked case at $k=2$. Independently:
+on \texttt{ktree\_fr\_k3\_n5\_1.lcn} the two maximal cliques are
+$\{x_0,x_1,x_3,x_4\}$ and $\{x_1,x_2,x_3,x_4\}$ (treewidth $3$), the sole LMC
+assertion $(x_0\indep x_2\mid x_1,x_3,x_4)$ has conditioning set equal to the
+separator between them, and \textsc{CredalJT} reproduces the certified
+certified global $2^n$ bounds on all five atoms; on
+\texttt{examples/chain.lcn} the clusters are the $7$ edge-pairs (treewidth $1$:
+$28$ program variables against a $2^8=256$ joint); and on
+\texttt{examples/polytree.lcn} the collider cliques $\{x_0,x_1,x_2\}$ and
+$\{x_3,x_4,x_5\}$ give treewidth $2$.
+\end{example}
+
+\subsection{Position among the engines}\label{sec:theory-position}
+
+Table~\ref{tab:master} places \textsc{CredalJT} against the other shipped
+engines, and Table~\ref{tab:topo} reports the observed bound character by
+topology.
+
+\begin{table}[ht]\centering\footnotesize
+\caption{Bound character per engine. ``Targets'' is the feasible set the engine
+optimizes; ``character'' is per Definition~\ref{def:char} \emph{against that
+set}. The fourth column gives the condition for the returned interval to equal
+the $\DLCN$ truth.}\label{tab:master}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lllll@{}}
+\toprule
+Engine & Targets & Character (vs.\ target) & Exact w.r.t.\ $\DLCN$ when & Cost \\
+\midrule
+Direct $2^n$, global & $\DLCN$ & exact if certified &
+  endpoint certified & $2^n$, global \\
+Direct $2^n$, local  & $\DLCN$ & unreliable &
+  --- (may over-tighten) & $2^n$, ipopt \\
+\textbf{\textsc{CredalJT}} (D5)  & $\DLCN$ & outer always; exact if H1--H4 &
+  H1--H4 (Thm.~\ref{thm:d5}) & $O(n2^{w+1})$ \\
+\midrule
+Credal~VE                        & $\DSE$ & exact (unconditional queries) &
+  no Gap~A and no Gap~B & per-target elim.\ \\
+Credal~CTE ($\epsilon{=}0$)      & $\DSE$ & \textbf{inner} &
+  clean s.c.; no cross-family sent. & two-pass tree \\
+ApproxLP                         & $\DSE$ & \emph{inner} &
+  no gaps $+$ no stall & coord.\ descent \\
+Interval~BP (interval)  & $\DSE$ & outer; exact on tree &
+  tree $+$ no gaps & loopy messages \\
+Credal~IJGP                      & $\DSE$ & outer; exact if $i\ge w$ &
+  $i\ge w$ $+$ no gaps & $2^i$/cluster \\
+\midrule
+ARIEL                            & $\DLCN$ & outer always &
+  see the ARIEL note & factor messages \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[ht]\centering\footnotesize
+\caption{Bound character by topology, unconditional marginals. ``ex'' $=$ exact
+w.r.t.\ $\DLCN$, ``out'' $=$ valid outer bound, ``in'' $=$ inner (unsound as a
+guarantee), ``n/f'' $=$ did not finish.}\label{tab:topo}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+Topology & Exact-glob & \textsc{CredalJT} & CVE & CTE & ApproxLP & IBP-int \\
+\midrule
+Markov chain, tree, polytree (realizable) & ex & ex & ex & ex & ex & ex \\
+Chain graph with blocks (\texttt{alarm})  & ex$^\ast$ & ex & ex & ex & ex & ex \\
+Cross-family sentence (\texttt{d4\_biting}) & ex & ex & ex & \textbf{in} & ex & ex \\
+Non-realizable Type-1                     & ex & ex & out & out & out & out \\
+Non-realizable Type-2                     & ex & ex & out & out & out & out \\
+Loopy $k$-tree, realizable, $k{=}2$ (\S\ref{sec:example}) & ex & ex & \textbf{ex} & --- & --- & --- \\
+Loopy $k$-tree, realizable, $k{=}3$       & ex & ex & \textbf{n/f} & --- & --- & --- \\
+Undirected block (\texttt{smokers})       & ex & \textbf{out} & out & out & in & out \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent$^\ast$ On \texttt{alarm} the global backend leaves several endpoints
+uncertified and the \emph{local} variant over-tightens; the certified
+values come from the dedicated verifiers.
+
+In summary: on bounded-treewidth instances \textsc{CredalJT} is exact under
+H1--H4 and a valid outer bound otherwise, at $O(n2^{w+1})$ rather than $2^n$; it
+remains applicable on instances where the direct formulation is solvable but its
+global solver certifies no endpoint. For conditional queries
+Remark~\ref{rem:denfloor} applies.
+
+\section{A self-contained subsection for a paper}\label{sec:paper}
+
+% ======================================================================
+% BEGIN LIFTABLE BLOCK -- self-contained; no dependence on the rest of
+% this document. Renumber the theorem and adjust the appendix pointer.
+% ======================================================================
+
+\subsection*{Exact inference at treewidth cost}
+
+Let an LCN over binary atoms $\mathbf V$ consist of sentences bounding
+$P(\varphi)$ or $P(\varphi\mid\psi)$, read in cleared form
+$\ell P(\psi)\le P(\varphi\wedge\psi)\le uP(\psi)$, together with the
+independence assertions $(X\indep Y\mid S)$ derived by the Local Markov
+Condition, imposed as $P(\mathbf x,\mathbf y,\mathbf s)P(\mathbf s)
+=P(\mathbf x,\mathbf s)P(\mathbf y,\mathbf s)$. These determine a credal set
+$\DLCN\subseteq\Delta(2^{\mathbf V})$, and inference seeks
+$\lo P(a)=\min_{\DLCN}P(a)$ and $\hi P(a)=\max_{\DLCN}P(a)$. Optimizing over
+$\DLCN$ directly costs $2^n$ variables; compiling to a credal network and
+propagating is cheaper but optimizes a strictly larger set, the strong extension.
+
+\textsc{CredalJT} avoids both. Moralize the chain graph induced by the program's
+families, triangulate, and build a clique tree $T$ over clusters $\mathcal C$
+with the running-intersection property; let $G^\ast$ be the associated chordal
+graph. Give each cluster a variable vector $q_C\in\Delta(2^{|C|})$ over the joint
+of its atoms and solve
+\[
+\begin{aligned}
+\min/\max\quad & \readoff_a(q)\\
+\text{s.t.}\quad
+&\textstyle\sum_i q_{C,i}=1,\ q_{C,i}\ge0 && \forall C\in\mathcal C,\\
+&q_C\restr S=q_D\restr S && \forall (C,D)\in T,\ S=C\cap D,\\
+&\ell\langle A_{\psi},q_{C_h}\rangle\le\langle A_{\varphi\wedge\psi},q_{C_h}\rangle
+   \le u\langle A_{\psi},q_{C_h}\rangle && \forall\text{ sentence hosted on }C_h,\\
+&\langle A_a,q\rangle\langle A_b,q\rangle=\langle A_c,q\rangle\langle A_d,q\rangle
+   && \forall\text{ assertion hosted,}
+\end{aligned}
+\]
+where $A_\varphi$ is the $0/1$ indicator of $\varphi$ over the host cluster's
+states, a constraint is \emph{hosted} on any cluster containing its scope, and
+$\readoff_a$ reads $P(a)$ (or $P(a\mid e)$, via one auxiliary variable) off a
+cluster containing $a$ and the evidence. An assertion whose conditioning set
+separates its two sides in $G^\ast$ is \emph{separator-entailed} and is omitted:
+the tree's topology already enforces it. The program is nonconvex through the
+bilinear assertion rows and is solved globally.
+
+\begin{theorem}\label{thm:paper}
+Assume \textup{(H1)} $T$ has the running-intersection property; \textup{(H2)}
+every sentence is hosted; \textup{(H3)} every assertion is hosted or
+separator-entailed in $G^\ast$; \textup{(H4)} the query and evidence atoms share
+a cluster. Then the program's optima equal $\lo P(a)$ and $\hi P(a)$ exactly.
+Moreover the direction giving containment of the true interval requires only
+\textup{H1} and \textup{H4}, so the returned interval is always a valid outer
+bound.
+\end{theorem}
+
+The proof has two halves. Projection: for $p\in\DLCN$, the cluster marginals
+$p\restr C$ are separator-consistent and satisfy every hosted row, because a
+constraint's value depends on $p$ only through its scope, which lies inside the
+host; hence every value attained on $\DLCN$ is attained on the relaxation, which
+is the outer-bound claim. Reconstruction: a separator-consistent family of
+cluster marginals reassembles, by running intersection, into a joint $p$ with
+those marginals which factorizes over the cliques of $G^\ast$ (the reassembly
+needs care where separator cells vanish: the conditional kernels are then
+arbitrary but immaterial, since $p$ vanishes there regardless). Hosted rows
+transfer back to $p$ by locality, and separator-entailed assertions hold
+automatically, since factorization implies the global Markov property of
+$G^\ast$ with no positivity assumption. Full proofs are in the appendix.
+
+The cost is $\sum_C2^{|C|}=O(n2^{w+1})$ variables in the treewidth $w$, against
+$2^n$ for the direct formulation, plus $O(n2^w)$ separator equalities. The
+constraint system is query-independent, so all marginals are obtained from one
+program by swapping the objective. As a consequence, on a $k$-tree rendered so
+that each atom conditions on the full conjunction of its $k$ clique-parents,
+moralization and triangulation are no-ops, every hypothesis holds, and exact
+bounds are obtained at $O(n2^{k+1})$. Empirically, on a loopy four-atom $k$-tree
+the formulation reproduces a certified global $2^n$ reference on every atom,
+using $22$ variables and $22$ constraints.
+
+% ======================================================================
+% END LIFTABLE BLOCK
+% ======================================================================
+
+\section{Experimental setup}\label{sec:repro}
+
+All reported bounds were computed on the stated instances with the cluster program
+of Section~\ref{sec:nlp}, solved by a spatial branch-and-bound global solver at
+gap tolerance $0$, and independently cross-checked against the direct $2^n$
+formulation over $\DLCN$ under the same global solver. On the instance of
+Section~\ref{sec:example} the reference reported status \emph{confirmed} at
+optimality gap $0$ for all eight endpoint optimizations, and the two formulations
+agreed on every atom to the precision displayed.
+
+The junction trees, separator equalities and constraint counts of
+Section~\ref{sec:example} and Table~\ref{tab:contrast} were read off the
+constructed cluster tree and constraint system directly rather than reconstructed
+by hand. All instances are shipped with the library: the running example is a
+$k$-tree with $k=2$ on four atoms, generated in the family-realizable regime, and
+the two instances of Table~\ref{tab:contrast} are the standard \texttt{asia} and
+\texttt{alarm} programs.
+
+\section{Provenance}\label{sec:provenance}
+
+Every interval and every program-size figure in this document was computed as
+described in Section~\ref{sec:repro}. A value attributed to the global $2^n$
+reference is reported as exact only where that optimization was certified at gap
+$0$.
+
+Two classes of statement are cited rather than re-derived here. The
+\texttt{smokers} and \texttt{asia}/\texttt{polytree} observations of
+Remark~\ref{rem:d5reading}, the \texttt{alarm} certification caveat under
+Table~\ref{tab:topo}, and the comparative rows of Tables~\ref{tab:master}
+and~\ref{tab:topo} are taken from the consolidated reference
+\texttt{docs/properties.tex}, which reports them with its own provenance. The
+non-termination of Credal VE on the $k{=}3$ instance in
+Remark~\ref{rem:ktreehonest} is likewise cited from that document.
+
+Related notes in \texttt{docs/}: \texttt{properties.tex} consolidates the
+exactness results for all engines and is the source of the theory reproduced in
+Section~\ref{sec:theory}; \texttt{cjt\_exactness.tex} is a forensic companion
+investigating a reported \textsc{CredalJT}-versus-oracle discrepancy on
+\texttt{ktree\_fr\_k3\_n5\_1.lcn} that does not reproduce;
+\texttt{tighter\_approximation.tex} defines the D1--D5 scheme taxonomy in which
+\textsc{CredalJT} is D5; and \texttt{lrs.tex} covers the vertex enumeration that
+\textsc{CredalJT}, uniquely among the credal-network engines, does not need.
+
+\end{document}
