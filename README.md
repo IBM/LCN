@@ -1,26 +1,27 @@
 ![Static Badge](https://img.shields.io/badge/build-passing-brightgreen?style=flat)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/)
-![Static Badge](https://img.shields.io/badge/version-1.0.0-red?style=flat)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
+![Static Badge](https://img.shields.io/badge/version-1.5.0-red?style=flat)
 
 # Logical Credal Networks
-Logical Credal Networks (LCNs) is an expressive probabilistic logic that 
-generalizes prior formalisms that combine logic and probability. Given imprecise information represented by probability bounds and conditional probability bounds 
-on logic formulas, an LCN specifies a set of probability distributions over all 
-its interpretations. LCNs allow propositional logic formulas with few 
-restrictions, e.g., without requiring acyclicity and are endowed with a 
-generalized Markov condition that allows us to identify implicit independence 
-relationships between propositions. The package provides novel exact and 
-approximate inference algorithms for computing posterior probability bounds on 
-given query formulas as well as for generating most probable (partial) explanations of observed evidence in the network. 
+
+Logical Credal Networks (LCNs) is an expressive probabilistic logic that
+generalizes prior formalisms that combine logic and probability. Given imprecise information represented by probability bounds and conditional probability bounds
+on logic formulas, an LCN specifies a set of probability distributions over all
+its interpretations. LCNs allow propositional logic formulas with few
+restrictions, e.g., without requiring acyclicity and are endowed with a
+generalized Markov condition that allows us to identify implicit independence
+relationships between propositions. The package provides novel exact and
+approximate inference algorithms for computing posterior probability bounds on
+given query formulas as well as for generating most probable (partial) explanations of observed evidence in the network.
 
 An LCN program consists of two types of *probability-labeled sentences*:
 
 $$l \le P(\phi) \le u$$
 $$l \le P(\phi|\psi) \le u$$
 
-where $l$ and $u$ are the lower and upper probability bounds, while $\phi$ and 
-$\psi$ denote propositional logic formulas. 
+where $l$ and $u$ are the lower and upper probability bounds, while $\phi$ and
+$\psi$ denote propositional logic formulas.
 
 For example the following two sentences represent a valid LCN program defined
 over propositions `A, B` and `C`.
@@ -30,25 +31,39 @@ over propositions `A, B` and `C`.
 0.4 <= P(!B or C | A) <= 0.7
 ```
 
-
 ## Installation Instructions
-The LCN solver requires a `Python 3.10` environment with the corresponding dependencies. This can be done easily by cloning the git repository, creating a conda environment with Python 3.10 and installing the `LCN` package in that environment, as follows:
+
+The LCN solver requires `Python 3.10` or newer together with its dependencies; `Python 3.12` is the recommended version. The package is built with the [hatchling](https://hatch.pypa.io/) backend and is installable with the [uv](https://docs.astral.sh/uv/) toolchain (recommended) or with plain `pip`.
+
+### Using uv (recommended)
 
 ```
 git clone git@github.com:IBM/LCN.git
 cd LCN
-conda create -n lcn python=3.10
+uv sync
+```
+
+This creates a virtual environment and installs `lcn` together with all its dependencies from the locked `uv.lock` file. Commands can then be run inside the environment with `uv run`, for example `uv run pytest tests/`.
+
+### Using pip and conda
+
+Alternatively, create a conda environment with the recommended Python 3.12 and install the package in editable mode:
+
+```
+git clone git@github.com:IBM/LCN.git
+cd LCN
+conda create -n lcn python=3.12
 conda activate lcn
 pip install -e .
 ```
 
-The LCN inference algorithms require the non-linear solver `ipopt`. To install 
+The LCN inference algorithms require the non-linear solver `ipopt`. To install
 the solver, follow the instructions below for `Linux` and `MacOS`. Unfortunately,
 the LCN package is currently not supported on `Windows` systems.
 
 ### Installing ipopt on Linux
 
-To install the `ipopt` solver on Linux, you can use the `coinbrew` tool. Simply download the `coinbrew` script from https://coin-or.github.io/coinbrew/ (make sure to also run `chmod u+x coinbrew`). `coinbrew` automates the download of the source code for ASL, MUMPS, and `Ipopt` and the sequential build and installation of these three packages. The
+To install the `ipopt` solver on Linux, you can use the `coinbrew` tool. Simply download the `coinbrew` script from <https://coin-or.github.io/coinbrew/> (make sure to also run `chmod u+x coinbrew`). `coinbrew` automates the download of the source code for ASL, MUMPS, and `Ipopt` and the sequential build and installation of these three packages. The
 Linux installation requires the following dependencies before running the `coinbrew` tool.
 
 * Ubuntu: `sudo apt-get install gcc g++ gfortran git cmake liblapack-dev pkg-config --install-recommends`
@@ -71,20 +86,54 @@ export PATH="/dir/to/install/bin:$PATH"
 
 ### Installing ipopt on MacOS
 
-Install `ipopt` on MacOS is straightforward by just running `brew install ipopt`
+Install `ipopt` on MacOS is straightforward by just running `brew install ipopt`.
 
+### Installing the SCIP global solver (optional)
+
+A subset of the inference engines can optionally use the [SCIP](https://www.scipopt.org/) spatial branch-and-bound solver to compute *globally certified* probability bounds (as opposed to the *local* bounds returned by `ipopt`). SCIP is used by:
+
+* the exact marginal inference engine `ExactInference` when called with `solver="global"` (see below);
+* the credal-network factorization pipeline `CredalNetworkVertices.from_lcn(..., solver="scip")`;
+* the cross-check verifier `lcn.inference.marginal.verify_scip`.
+
+SCIP is **not** required for the default (`ipopt`-based) inference. If you do not install it, simply leave the SCIP-related options at their defaults.
+
+In all cases the LCN package drives SCIP through Pyomo's AMPL/NL interface (`SolverFactory('scip')`), so all that is required is that the **`scip` command-line binary is on your `PATH`**. The local install used during development is SCIP `10.0.2`.
+
+#### Installing SCIP on MacOS
+
+```
+brew install scip
+```
+
+#### Installing SCIP on Linux
+
+The easiest option is a conda environment:
+
+```
+conda install -c conda-forge scip
+```
+
+Alternatively, download one of the official precompiled installers (the `SCIPOptSuite-*-Linux.sh` script) or the source archive from <https://www.scipopt.org/> and follow the bundled instructions. After installing, make sure the `scip` binary is reachable on your `PATH`, for example:
+
+```
+export PATH="/path/to/scip/bin:$PATH"
+```
+
+You can confirm that SCIP is visible to the package by running `scip --version` in the same shell.
 
 ### LCN Syntax
-The LCN package supports the following basic syntax for LCN programs. An LCN program can be easily specified in a `.lcn` file. 
+
+The LCN package supports the following basic syntax for LCN programs. An LCN program can be easily specified in a `.lcn` file.
 
 * An LCN *proposition* can be specified by any string as long as it starts with a letter
 and does not contain spaces. For example `A`, `x1` or `Abc12` are valid LCN
-propositions. 
+propositions.
 
 * An LCN *formula* can be specified by a set of propositions connected by logical connectors. The following connectors can be used: `and`, `or`, `xor`, `nand`, and `not`. The
-connectors can be specified by the following char symbols: `&`, `|`, `^`, `/` and `!`, 
+connectors can be specified by the following char symbols: `&`, `|`, `^`, `/` and `!`,
 respectively. In addition, it is possible to use paranthesis `()` for a more
-readable formula. Furthermore, for increased readability we recommend using the 
+readable formula. Furthermore, for increased readability we recommend using the
 long form logical connectors instead of their short form counterparts (i.e., use `and` instead of `&`).
 
 The two types of LCN sentences can be specified as follows:
@@ -96,7 +145,7 @@ label: lb <= P(formula | formula) <= ub
 
 where `label` is any string that starts with a letter and does not contain spaces. Note that each LCN sentence must have a unique label.
 
-The LCN below encodes the following simple example: *Bronchitis* (`B`) is more likely than *Smoking* (`S`); *Smoking* may cause *Cancer* (`C`) or *Bronchitis*; *Dyspnea* (`D`) or shortness of breadth is a common symptom for *Cancer* and *Bronchitis*; in case of *Cancer* we have either a positive *X-Ray* result (`X`) and *Dyspnea*, or a negative *X-Ray* and no *Dyspnea*. 
+The LCN below encodes the following simple example: *Bronchitis* (`B`) is more likely than *Smoking* (`S`); *Smoking* may cause *Cancer* (`C`) or *Bronchitis*; *Dyspnea* (`D`) or shortness of breadth is a common symptom for *Cancer* and *Bronchitis*; in case of *Cancer* we have either a positive *X-Ray* result (`X`) and *Dyspnea*, or a negative *X-Ray* and no *Dyspnea*.
 
 ```
 # This line is a comment
@@ -113,10 +162,23 @@ The folder `examples` contains additional LCN examples specified in the `.lcn`
 file format described above.
 
 ## Exact Marginal Inference for LCNs
-Given an LCN file and a query formula $\phi$, *marginal inference* means computing exact posterior lower and upper bounds on $P(\phi)$. An exact marginal inference algorithm is implemented by the `ExactInference` class (located in `lcn.inference.exact_marginal` module) and can be used to compute the probability bounds on the query formula. We give next a small example:
 
-```
-import lcn.inference.exact_marginal.ExactInference
+Given an LCN file and a query formula $\phi$, *marginal inference* means computing exact posterior lower and upper bounds on $P(\phi)$. An exact marginal inference algorithm is implemented by the `ExactInference` class (located in the `lcn.inference.marginal.exact` module) and can be used to compute the probability bounds on the query formula.
+
+`ExactInference` exposes two solver backends through the `solver=` argument of its `run()` method:
+
+* `solver="local"` (default) — `ipopt` backed by a two-phase SLSQP fallback. The underlying marginal NLP is nonconvex (conditional-probability ratios plus quadratic Local Markov Condition equalities), so this is a *local* method and the returned bounds may be loose.
+* `solver="global"` — the optional **SCIP** spatial branch-and-bound solver, which either certifies the global optimum or, on a time-out, returns the best bound found together with the optimality gap. This requires the SCIP binary on `PATH` (see the installation section above). After a global run, the per-atom verdicts are available in `algo.status`.
+
+Both backends share the same controls: a per-solve `time_limit` (seconds), a `lightning` speed preset, a `progress_bar` toggle, and a `verbosity` level (`2` streams the solver log). The accuracy `mode` (`"slow"` / `"fast"`) applies to the local backend only.
+
+We give next a small example using the default local solver:
+
+`ExactInference.run()` computes the posterior lower/upper bounds for **all** singleton variables at once (optionally conditioned on `evidence`) and returns a dictionary mapping each variable to its `(lower, upper)` bound arrays `[P(=0), P(=1)]`.
+
+```python
+from lcn.core.model import LCN
+from lcn.inference.marginal.exact import ExactInference
 
 # Specify the LCN program
 file_name = "examples/asia.lcn"
@@ -125,13 +187,17 @@ file_name = "examples/asia.lcn"
 l = LCN()
 l.from_lcn(file_name)
 
-# Specify the query formula as a string
-query = "(B and !C)"
+# Run exact marginal inference (local solver, no evidence)
+algo = ExactInference(lcn=l)
+results = algo.run(evidence={}, verbosity=1, solver="local", mode="slow")
 
-# Run exact marginal inference
-algo = ExactInferece(l)
-algo.run(query, debug=True)
+# Inspect the bounds for a particular variable
+lo, hi = results["B"]
+print(f"P(B=1) in [{lo[1]:.6f}, {hi[1]:.6f}]")
 ```
+
+To condition on observed truth values, pass them in `evidence`, e.g. `algo.run(evidence={"S": 1})`. To request globally certified bounds via SCIP, pass `solver="global"` (see the SCIP installation section above).
+
 The output of the exact algorithm is shown below:
 
 ```
@@ -139,40 +205,33 @@ Parsed LCN format with 5 sentences.
 Build the LCN's primal graph.
 Build the LCN's structure graph.
 Build the LCN's independence assumptions (LMC).
-LCN
-s2: 0.05 <= P(B) <= 0.1
-s3: 0.3 <= P(S) <= 0.4
-s4: 0.1 <= P((B or C) | S) <= 0.2
-s5: 0.6 <= P(D | B and C) <= 0.7
-s6: 0.7 <= P(!(X xor D) | C) <= 0.8
-
-Local Markov Condition yields 2 independencies.
-independence: (D ⟂ S | C, B, X)
-independence: (X ⟂ B, S | D, C)
-Solver status: ok
-[Ipopt] objective=1.0, optimal=True
-CONSISTENT
-[Local Markov Condition: 2 independencies]
-(D ⟂ S | C, B, X)
-(X ⟂ B, S | D, C)
-adding constraints for independence: (D ⟂ S | C, B, X)
-adding constraints for independence: (X ⟂ B, S | D, C)
-Solver status: ok
-[Ipopt] objective=-7.927970481842095e-08, optimal=True
-adding constraints for independence: (D ⟂ S | C, B, X)
-adding constraints for independence: (X ⟂ B, S | D, C)
-Solver status: ok
-[Ipopt] objective=0.10000007033870394, optimal=True
-[ExactInference] Result for (B and !C) is: [ 7.927970481842095e-08, 0.10000007033870394 ]
-[ExactInference] Feasibility: lb=True, ub=True, all=True
-[ExactInference] Time elapsed: 0.21419095993041992 sec
+[ExactInference] Computing all marginals (solver=local)
+[ExactInference] Evidence: {}
+[ExactInference] Local Markov Condition: 4 independencies
+[ExactInference] Singleton variable marginals:
+  P(B=0): [0.900036, 0.919595]
+  P(B=1): [0.080405, 0.099964]
+  P(C=0): [0.729078, 1.000000]
+  P(C=1): [0.000000, 0.270922]
+  P(D=0): [0.000000, 1.000000]
+  P(D=1): [0.000000, 1.000000]
+  P(S=0): [0.600119, 0.645158]
+  P(S=1): [0.354842, 0.399881]
+  P(X=0): [0.000000, 1.000000]
+  P(X=1): [0.000000, 1.000000]
+[ExactInference] Feasible: True
+[ExactInference] Atoms solved: 5 | SLSQP fallback used: 5 | infeasible: 0 | vacuous: 2
+[ExactInference] Time elapsed: 40.4743 sec
+P(B=1) in [0.080405, 0.099964]
 ```
 
 ## Approximate Marginal Inference for LCNs
-For approximate marginal inferece, we can use the ARIEL message-passing scheme implemented in the `ApproximateInference` class available in the `lcn.inference.approx_marginal` module. The algorithm computes approximate lower and upper probability bounds on the posterior probability of the LCN's propositions. As before, we can use the following example:
 
-```
-import lcn.inference.approx_marginal.ApproximateInference
+For approximate marginal inference, we can use the ARIEL message-passing scheme implemented in the `ArielInference` class available in the `lcn.inference.marginal.ariel` module. The algorithm computes approximate lower and upper probability bounds on the posterior probability of the LCN's propositions. As before, we can use the following example:
+
+```python
+from lcn.core.model import LCN
+from lcn.inference.marginal.ariel import ArielInference
 
 # Specify the LCN program
 file_name = "examples/asia.lcn"
@@ -181,8 +240,8 @@ file_name = "examples/asia.lcn"
 l = LCN()
 l.from_lcn(file_name)
 
-# Run exact marginal inference
-algo = ApproximateInferece(l)
+# Run approximate marginal inference
+algo = ArielInference(l)
 algo.run(n_iters=10, threshold=0.000001, debug=False)
 ```
 
@@ -237,14 +296,62 @@ X: [6.919372188563531e-08, 0.9999999356848208]
 [ApproximateInference] Time elapsed: 1.4968690872192383 sec
 ```
 
+### Credal Network Inference Algorithms
+
+In addition to ARIEL, the package provides a family of marginal inference algorithms that operate on the **chain-graph factorization** of an LCN by first compiling it into a credal network and then enumerating the extreme points of its local credal sets. These algorithms live in the `lcn.inference.marginal.cn` package.
+
+The chain-graph factorization pipeline is split into focused, decoupled stages (all of the core stages are free of any `pyAgrum` coupling):
+
+* `ChainGraphFactorization` (`cn.factorization`) — the purely *symbolic* factorization. For each family of the chain graph it records the child, its parents and the constraining LCN sentences, but computes no probabilities.
+* `LocalCredalSetSolver` (`cn.local_credal_sets`) — solves the per-family optimization problem to obtain the lower/upper bounds of each local credal set. Two factorization `method`s are supported: `"linear"` (each family solved in isolation as an LP / linear-fractional program) and `"nlp"` (additionally imposing pairwise marginal independence between parents, which makes the program nonconvex).
+* `CredalNetwork` (`cn.credal_network`) — pairs the directed chain graph with the *interval* local credal sets produced by the solver above. Pure data, no `pyAgrum`.
+* `CredalNetworkVertices` (`cn.vertices`) — builds the `pyAgrum` credal net and enumerates the extreme points (vertices) of every local credal set. This is the common input consumed by all of the inference algorithms below.
+* `Potential` and `min_fill_order` (`cn.potentials`) — shared data structures and the elimination-ordering heuristic used by the elimination-based engines.
+
+The inference algorithms themselves all consume a built `CredalNetworkVertices`:
+
+* `CredalVE` (`cn.cve`) — Credal Variable Elimination (the exact engine over the extreme points).
+* `IntervalBP` (`cn.ibp`) — Interval Belief Propagation.
+* `CredalIJGP` (`cn.ijgp`) — Interval Iterative Join-Graph Propagation.
+* `CredalCTE` (`cn.ccte`) — Credal Cluster Tree Elimination.
+* `ApproxLP` (`cn.approxlp`) — ApproxLP iterative linearization.
+
+The typical workflow is to build the `CredalNetworkVertices` once with `CredalNetworkVertices.from_lcn(...)` (which runs the whole factorization + enumeration pipeline) and then pass it to one or more algorithms. For example, using Interval Belief Propagation:
+
+```python
+from lcn.core.model import LCN
+from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
+from lcn.inference.marginal.cn.ibp import IntervalBP
+
+# Create the LCN instance from the .lcn file
+l = LCN()
+l.from_lcn("examples/asia.lcn")
+
+# Build the credal network and enumerate the extreme points of the
+# local credal sets (the shared input for all cn algorithms).
+# method="linear"|"nlp"; solver="ipopt" (default) or "scip" (global).
+cnv = CredalNetworkVertices.from_lcn(l, method="linear", solver="ipopt")
+
+# Run Interval Belief Propagation over the credal network
+algo = IntervalBP(cnv=cnv)
+marginals = algo.run(evidence={}, n_iters=100, threshold=1e-6)
+```
+
+The other algorithms follow the same pattern — `CredalVE(cnv=cnv)`, `CredalIJGP(cnv=cnv)`, `CredalCTE(cnv=cnv)`, `ApproxLP(cnv=cnv)` — each with its own `run()` parameters.
+
+These algorithms are also exposed end-to-end through the experiment driver in `experiments/run_algorithm.py`, which can run any of them on the benchmark instances under `benchmarks/`.
+
 ## MAP and Marginal MAP Inference for LCNs
+
 In addition to marginal inference, the LCN package implements exact and approximate algorithms for computing complete or partial most probable explanations of evidence (i.e., observed truth values of a set of propositions) in a given LCN. The algorithms are based on depth-first search, limited discrepancy search or simulated annealing. We also provide an extension called AMAP of the ARIEL scheme for computing MAP and Marginal MAP explanations.
 
 ### Exact MAP/MMAP Inference
+
 For exact MAP/MMAP inference, we can use the following example:
 
-```
-import lcn.inference.exact_map.ExactMAPInference
+```python
+from lcn.core.model import LCN
+from lcn.inference.map.exact_map import ExactMAPInference
 
 # Specify the LCN program
 file_name = "examples/asia.lcn"
@@ -310,10 +417,12 @@ CONSISTENT
 ```
 
 ### Approximate MAP/MMAP Inference
+
 For approximate MAP/MMAP inference, we can use the following example:
 
-```
-import lcn.inference.approx_map.ApproximateMAPInference
+```python
+from lcn.core.model import LCN
+from lcn.inference.map.approx_map import ApproximateMAPInference
 
 # Specify the LCN program
 file_name = "examples/asia.lcn"
@@ -401,7 +510,6 @@ X: [5.028558867647727e-08, 8.537656733267566e-09]
 [ARIEL] MAXIMAX-MAP score: 0.5057054731748238
 [ARIEL] MAXIMAX-MAP solution: {'B': 0, 'C': 1, 'D': 1, 'X': 0, 'S': 1}
 ```
-
 
 ## References
 

@@ -1,11 +1,10 @@
 [build-system]
-requires = [
-    "setuptools>=60",
-    "setuptools-scm>=8.0"]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "lcn"
-dynamic = ["version"]
+version = "1.5.0"
 description = "Logical Credal Networks"
 license = {text = "Apache-2.0"}
 readme = "README.md"
@@ -15,25 +14,27 @@ classifiers=[
 ]
 dependencies = [
     # TODO: loosen dependencies
-    "numpy>=1.22.4",
-    "pandas>=1.5.0",
-    "scikit-learn>=1.1",
-    "scipy>=1.8.1",
-    "tqdm>=4.65.0",
+    "numpy>=2.4.6",
+    "pandas>=3.0.3",
+    "scikit-learn>=1.9.0",
+    "scipy>=1.18.0",
+    "tqdm",
     "matplotlib",
     "networkx",
     "ipykernel",
     "ipywidgets",
     "pyomo",
-    "gravis"
+    "gravis",
+    # gravis 0.1.0 imports the legacy `pkg_resources` module, which setuptools
+    # removed in 80.0. Pin setuptools to the last series that still ships it so
+    # `import gravis` works (the notebooks use gravis for graph visualization).
+    "setuptools<80",
+    "pytest",
+    "pyagrum"
 ]
 
-[tool.setuptools.packages.find]
-exclude = ["tests", "tests.*"]
-namespaces = false
-
-[tool.setuptools_scm]
-version_file = "lcn/version.py"
+[tool.hatch.build.targets.wheel]
+packages = ["lcn"]
 
 [project.urls]
 Source = "https://github.ibm.com/IBM-Research-AI/LCN"

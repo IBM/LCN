@@ -1,0 +1,99 @@
+# Title: Alarm Cascade
+# Summary: A scalable chain of local alarm-response modules where each site can trigger the next site downstream.
+# Benchmark Family: alarm_cascade
+# Alarm_1: The alarm activates at site 1.
+# Alarm_2: The alarm activates at site 2.
+# Alarm_3: The alarm activates at site 3.
+# Alarm_4: The alarm activates at site 4.
+# Alarm_5: The alarm activates at site 5.
+# Alarm_6: The alarm activates at site 6.
+# Alarm_7: The alarm activates at site 7.
+# Alarm_8: The alarm activates at site 8.
+# Call_1: A local report call is made from site 1.
+# Call_2: A local report call is made from site 2.
+# Call_3: A local report call is made from site 3.
+# Call_4: A local report call is made from site 4.
+# Call_5: A local report call is made from site 5.
+# Call_6: A local report call is made from site 6.
+# Call_7: A local report call is made from site 7.
+# Call_8: A local report call is made from site 8.
+# Concern_1: Concern spreads among responders at site 1.
+# Concern_2: Concern spreads among responders at site 2.
+# Concern_3: Concern spreads among responders at site 3.
+# Concern_4: Concern spreads among responders at site 4.
+# Concern_5: Concern spreads among responders at site 5.
+# Concern_6: Concern spreads among responders at site 6.
+# Concern_7: Concern spreads among responders at site 7.
+# Concern_8: Concern spreads among responders at site 8.
+# Sensor_1: A local sensor detects an issue at site 1.
+# Sensor_2: A local sensor detects an issue at site 2.
+# Sensor_3: A local sensor detects an issue at site 3.
+# Sensor_4: A local sensor detects an issue at site 4.
+# Sensor_5: A local sensor detects an issue at site 5.
+# Sensor_6: A local sensor detects an issue at site 6.
+# Sensor_7: A local sensor detects an issue at site 7.
+# Sensor_8: A local sensor detects an issue at site 8.
+
+prior_1: 0.016 <= P(Alarm_1) <= 0.183
+prior_2: 0.286 <= P(Alarm_2) <= 0.408
+prior_3: 0.163 <= P(Alarm_3) <= 0.291
+prior_4: 0.188 <= P(Alarm_4) <= 0.371
+prior_5: 0.124 <= P(Alarm_5) <= 0.36
+prior_6: 0.209 <= P(Alarm_6) <= 0.331
+prior_7: 0.096 <= P(Alarm_7) <= 0.27
+prior_8: 0.217 <= P(Alarm_8) <= 0.317
+prior_9: 0.228 <= P(Call_1) <= 0.369
+prior_10: 0.25 <= P(Call_2) <= 0.327
+prior_11: 0.134 <= P(Call_3) <= 0.197
+prior_12: 0.14 <= P(Call_4) <= 0.245
+prior_13: 0.124 <= P(Call_5) <= 0.224
+prior_14: 0.223 <= P(Call_6) <= 0.397
+prior_15: 0.1 <= P(Call_7) <= 0.249
+prior_16: 0.015 <= P(Call_8) <= 0.245
+prior_17: 0.243 <= P(Concern_1) <= 0.406
+prior_18: 0.006 <= P(Concern_2) <= 0.237
+prior_19: 0.104 <= P(Concern_3) <= 0.173
+prior_20: 0.129 <= P(Concern_4) <= 0.257
+prior_21: 0.266 <= P(Concern_5) <= 0.353
+prior_22: 0.027 <= P(Concern_6) <= 0.166
+prior_23: 0.002 <= P(Concern_7) <= 0.181
+prior_24: 0.103 <= P(Concern_8) <= 0.32
+prior_25: 0.281 <= P(Sensor_1) <= 0.384
+prior_26: 0.218 <= P(Sensor_2) <= 0.367
+prior_27: 0.299 <= P(Sensor_3) <= 0.374
+prior_28: 0.085 <= P(Sensor_4) <= 0.321
+prior_29: 0.038 <= P(Sensor_5) <= 0.152
+prior_30: 0.101 <= P(Sensor_6) <= 0.226
+prior_31: 0.301 <= P(Sensor_7) <= 0.395
+prior_32: 0.248 <= P(Sensor_8) <= 0.356
+component_1: 0.228 <= P(Call_1 and Concern_1) <= 0.369
+component_2: 0.006 <= P(Call_2 and Concern_2) <= 0.237
+component_3: 0.069 <= P(Call_3 and Concern_3) <= 0.173
+component_4: 0.129 <= P(Call_4 and Concern_4) <= 0.245
+component_5: 0.124 <= P(Call_5 and Concern_5) <= 0.224
+component_6: 0.027 <= P(Call_6 and Concern_6) <= 0.166
+component_7: 0.002 <= P(Call_7 and Concern_7) <= 0.181
+component_8: 0.015 <= P(Call_8 and Concern_8) <= 0.245
+link_1: 0.522 <= P(Alarm_1 | Sensor_1) <= 0.818
+link_2: 0.435 <= P(Call_1 and Concern_1 | Alarm_1) <= 0.581
+link_3: 0.126 <= P(Sensor_2 | Alarm_1) <= 0.453
+link_4: 0.397 <= P(Alarm_2 | Sensor_2) <= 0.693
+link_5: 0.668 <= P(Call_2 and Concern_2 | Alarm_2) <= 0.852
+link_6: 0.267 <= P(Sensor_3 | Alarm_2) <= 0.481
+link_7: 0.221 <= P(Alarm_3 | Sensor_3) <= 0.379
+link_8: 0.608 <= P(Call_3 and Concern_3 | Alarm_3) <= 0.786
+link_9: 0.184 <= P(Sensor_4 | Alarm_3) <= 0.41
+link_10: 0.283 <= P(Alarm_4 | Sensor_4) <= 0.591
+link_11: 0.623 <= P(Call_4 and Concern_4 | Alarm_4) <= 0.742
+link_12: 0.182 <= P(Sensor_5 | Alarm_4) <= 0.315
+link_13: 0.436 <= P(Alarm_5 | Sensor_5) <= 0.618
+link_14: 0.124 <= P(Call_5 and Concern_5 | Alarm_5) <= 0.317
+link_15: 0.471 <= P(Sensor_6 | Alarm_5) <= 0.642
+link_16: 0.128 <= P(Alarm_6 | Sensor_6) <= 0.307
+link_17: 0.507 <= P(Call_6 and Concern_6 | Alarm_6) <= 0.572
+link_18: 0.216 <= P(Sensor_7 | Alarm_6) <= 0.308
+link_19: 0.093 <= P(Alarm_7 | Sensor_7) <= 0.344
+link_20: 0.528 <= P(Call_7 and Concern_7 | Alarm_7) <= 0.7
+link_21: 0.295 <= P(Sensor_8 | Alarm_7) <= 0.474
+link_22: 0.054 <= P(Alarm_8 | Sensor_8) <= 0.36
+link_23: 0.462 <= P(Call_8 and Concern_8 | Alarm_8) <= 0.551

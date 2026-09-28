@@ -1,0 +1,53 @@
+# A singly-connected POLYTREE with two colliders (v-structures), 7 atoms.
+#
+#   x0 ->\          x4 ->\
+#         x2 -> x3 ->     x5 -> x6
+#   x1 ->/                ^
+#                  (x3 --/)
+#
+# Directed edges:  x0->x2, x1->x2   (collider at x2: co-parents x0, x1)
+#                  x2->x3
+#                  x3->x5, x4->x5   (collider at x5: co-parents x3, x4)
+#                  x5->x6
+# The UNDIRECTED skeleton is a tree (singly connected -- no undirected cycle),
+# so this is a polytree, NOT a general DAG. What distinguishes it from a plain
+# tree (examples/tree.lcn) is the multi-parent nodes x2 and x5: these are
+# COLLIDERS. The Local Markov Condition therefore yields the marginal-
+# independence assertions of the co-parents -- (x0 _||_ x1) and a small-scope
+# assertion separating x4 from x3's ancestors -- in addition to the usual
+# (child _||_ non-descendants | parents) assertions.
+#
+# KEY POINT for the CredalJT exactness theorem. Moralizing the collider at x2
+# MARRIES its co-parents x0 and x1 (an extra fill edge x0--x1), so the family
+# clique is {x0,x1,x2}; likewise {x3,x4,x5} at x5. After this, the assertion
+# (x0 _||_ x1) is NOT separator-entailed by the junction tree (x0 and x1
+# co-occur in the cluster {x0,x1,x2}, so no separator can split them) -- exactly
+# the situation that made `smokers` only an outer bound. The crucial difference
+# is SCOPE: (x0 _||_ x1) has scope {x0,x1}, which FITS inside the moralized
+# clique {x0,x1,x2}, so CredalJT HOSTS it (imposes it explicitly) rather than
+# dropping it. With every co-parent independence hosted in its collider clique,
+# conditions (H2)/(H3) hold and CredalJT is EXACT -- at treewidth 2 (the
+# 3-atom collider cliques), not the full joint 2^7.
+P0: 0.3 <= P(x0) <= 0.5
+P1: 0.4 <= P(x1) <= 0.6
+P4: 0.2 <= P(x4) <= 0.5
+
+# collider at x2:  x0, x1 -> x2   (Type-2 on the conjunction of parents)
+C2a: 0.7 <= P(x2 | x0 and x1)    <= 0.9
+C2b: 0.4 <= P(x2 | x0 and !x1)   <= 0.6
+C2c: 0.4 <= P(x2 | !x0 and x1)   <= 0.6
+C2d: 0.1 <= P(x2 | !x0 and !x1)  <= 0.3
+
+# x2 -> x3
+T3a: 0.2 <= P(x3 | x2)   <= 0.4
+T3b: 0.6 <= P(x3 | !x2)  <= 0.8
+
+# collider at x5:  x3, x4 -> x5
+C5a: 0.7 <= P(x5 | x3 and x4)    <= 0.9
+C5b: 0.4 <= P(x5 | x3 and !x4)   <= 0.6
+C5c: 0.4 <= P(x5 | !x3 and x4)   <= 0.6
+C5d: 0.1 <= P(x5 | !x3 and !x4)  <= 0.3
+
+# x5 -> x6
+T6a: 0.2 <= P(x6 | x5)   <= 0.4
+T6b: 0.6 <= P(x6 | !x5)  <= 0.8

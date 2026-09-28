@@ -1,0 +1,557 @@
+{
+  "format": "lcn-credal-network",
+  "version": 1,
+  "source_lcn": null,
+  "method": "linear",
+  "merge_budget": 1,
+  "solver": "ipopt",
+  "compile_time": 0.0547,
+  "n_jobs": 8,
+  "nodes": [
+    "x0",
+    "x1",
+    "x2",
+    "x3",
+    "x4"
+  ],
+  "node_atoms": {
+    "x0": [
+      "x0"
+    ],
+    "x1": [
+      "x1"
+    ],
+    "x2": [
+      "x2"
+    ],
+    "x3": [
+      "x3"
+    ],
+    "x4": [
+      "x4"
+    ]
+  },
+  "node_card": {
+    "x0": 2,
+    "x1": 2,
+    "x2": 2,
+    "x3": 2,
+    "x4": 2
+  },
+  "factors": [
+    {
+      "0": {
+        "interpretation": [
+          0
+        ],
+        "scope": [
+          "x0"
+        ],
+        "child": "x0",
+        "parents": [],
+        "parents_lst": [],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.7,
+        "upbo": 0.9
+      },
+      "1": {
+        "interpretation": [
+          1
+        ],
+        "scope": [
+          "x0"
+        ],
+        "child": "x0",
+        "parents": [],
+        "parents_lst": [],
+        "child_lst": [
+          "x0"
+        ],
+        "lobo": 0.1,
+        "upbo": 0.3
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "x1",
+          "x0"
+        ],
+        "child": "x1",
+        "parents": [
+          "x0"
+        ],
+        "parents_lst": [
+          "x0"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.95,
+        "upbo": 0.99
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "x1",
+          "x0"
+        ],
+        "child": "x1",
+        "parents": [
+          "x0"
+        ],
+        "parents_lst": [
+          "x0"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.09999999999999998,
+        "upbo": 0.30000000000000004
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "x1",
+          "x0"
+        ],
+        "child": "x1",
+        "parents": [
+          "x0"
+        ],
+        "parents_lst": [
+          "x0"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.01,
+        "upbo": 0.050000000000000044
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "x1",
+          "x0"
+        ],
+        "child": "x1",
+        "parents": [
+          "x0"
+        ],
+        "parents_lst": [
+          "x0"
+        ],
+        "child_lst": [
+          "x1"
+        ],
+        "lobo": 0.7,
+        "upbo": 0.9
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "x2",
+          "x0"
+        ],
+        "child": "x2",
+        "parents": [
+          "x0"
+        ],
+        "parents_lst": [
+          "x0"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.91,
+        "upbo": 0.98
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "x2",
+          "x0"
+        ],
+        "child": "x2",
+        "parents": [
+          "x0"
+        ],
+        "parents_lst": [
+          "x0"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.30000000000000004,
+        "upbo": 0.6
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "x2",
+          "x0"
+        ],
+        "child": "x2",
+        "parents": [
+          "x0"
+        ],
+        "parents_lst": [
+          "x0"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.020000000000000018,
+        "upbo": 0.08999999999999997
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "x2",
+          "x0"
+        ],
+        "child": "x2",
+        "parents": [
+          "x0"
+        ],
+        "parents_lst": [
+          "x0"
+        ],
+        "child_lst": [
+          "x2"
+        ],
+        "lobo": 0.4,
+        "upbo": 0.7
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "x3",
+          "x1",
+          "x2"
+        ],
+        "child": "x3",
+        "parents": [
+          "x1",
+          "x2"
+        ],
+        "parents_lst": [
+          "x1",
+          "x2"
+        ],
+        "child_lst": [
+          "x3"
+        ],
+        "lobo": 0.95,
+        "upbo": 0.99
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "x3",
+          "x1",
+          "x2"
+        ],
+        "child": "x3",
+        "parents": [
+          "x1",
+          "x2"
+        ],
+        "parents_lst": [
+          "x1",
+          "x2"
+        ],
+        "child_lst": [
+          "x3"
+        ],
+        "lobo": 0.4,
+        "upbo": 0.7
+      },
+      "2": {
+        "interpretation": [
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "x3",
+          "x1",
+          "x2"
+        ],
+        "child": "x3",
+        "parents": [
+          "x1",
+          "x2"
+        ],
+        "parents_lst": [
+          "x1",
+          "x2"
+        ],
+        "child_lst": [
+          "x3"
+        ],
+        "lobo": 0.09999999999999998,
+        "upbo": 0.30000000000000004
+      },
+      "3": {
+        "interpretation": [
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "x3",
+          "x1",
+          "x2"
+        ],
+        "child": "x3",
+        "parents": [
+          "x1",
+          "x2"
+        ],
+        "parents_lst": [
+          "x1",
+          "x2"
+        ],
+        "child_lst": [
+          "x3"
+        ],
+        "lobo": 0.09999999999999998,
+        "upbo": 0.30000000000000004
+      },
+      "4": {
+        "interpretation": [
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "x3",
+          "x1",
+          "x2"
+        ],
+        "child": "x3",
+        "parents": [
+          "x1",
+          "x2"
+        ],
+        "parents_lst": [
+          "x1",
+          "x2"
+        ],
+        "child_lst": [
+          "x3"
+        ],
+        "lobo": 0.01,
+        "upbo": 0.05
+      },
+      "5": {
+        "interpretation": [
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "x3",
+          "x1",
+          "x2"
+        ],
+        "child": "x3",
+        "parents": [
+          "x1",
+          "x2"
+        ],
+        "parents_lst": [
+          "x1",
+          "x2"
+        ],
+        "child_lst": [
+          "x3"
+        ],
+        "lobo": 0.30000000000000004,
+        "upbo": 0.6
+      },
+      "6": {
+        "interpretation": [
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "x3",
+          "x1",
+          "x2"
+        ],
+        "child": "x3",
+        "parents": [
+          "x1",
+          "x2"
+        ],
+        "parents_lst": [
+          "x1",
+          "x2"
+        ],
+        "child_lst": [
+          "x3"
+        ],
+        "lobo": 0.7,
+        "upbo": 0.9
+      },
+      "7": {
+        "interpretation": [
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "x3",
+          "x1",
+          "x2"
+        ],
+        "child": "x3",
+        "parents": [
+          "x1",
+          "x2"
+        ],
+        "parents_lst": [
+          "x1",
+          "x2"
+        ],
+        "child_lst": [
+          "x3"
+        ],
+        "lobo": 0.7,
+        "upbo": 0.9
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0
+        ],
+        "scope": [
+          "x4",
+          "x2"
+        ],
+        "child": "x4",
+        "parents": [
+          "x2"
+        ],
+        "parents_lst": [
+          "x2"
+        ],
+        "child_lst": [
+          "x4"
+        ],
+        "lobo": 0.91,
+        "upbo": 0.94
+      },
+      "1": {
+        "interpretation": [
+          0,
+          1
+        ],
+        "scope": [
+          "x4",
+          "x2"
+        ],
+        "child": "x4",
+        "parents": [
+          "x2"
+        ],
+        "parents_lst": [
+          "x2"
+        ],
+        "child_lst": [
+          "x4"
+        ],
+        "lobo": 0.09999999999999998,
+        "upbo": 0.30000000000000004
+      },
+      "2": {
+        "interpretation": [
+          1,
+          0
+        ],
+        "scope": [
+          "x4",
+          "x2"
+        ],
+        "child": "x4",
+        "parents": [
+          "x2"
+        ],
+        "parents_lst": [
+          "x2"
+        ],
+        "child_lst": [
+          "x4"
+        ],
+        "lobo": 0.06000000000000005,
+        "upbo": 0.08999999999999997
+      },
+      "3": {
+        "interpretation": [
+          1,
+          1
+        ],
+        "scope": [
+          "x4",
+          "x2"
+        ],
+        "child": "x4",
+        "parents": [
+          "x2"
+        ],
+        "parents_lst": [
+          "x2"
+        ],
+        "child_lst": [
+          "x4"
+        ],
+        "lobo": 0.7,
+        "upbo": 0.9
+      }
+    }
+  ]
+}

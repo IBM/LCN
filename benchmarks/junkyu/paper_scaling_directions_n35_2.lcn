@@ -1,0 +1,93 @@
+# Title: Specialist Board Chain
+# Summary: A paper-oriented specialist-review benchmark where a growing medical board evaluates each case before passing a treatment decision downstream.
+# Benchmark Family: specialist_board_chain
+# Board_1_1: Specialist reviewer 1 evaluates the case at board stage 1.
+# Board_1_2: Specialist reviewer 2 evaluates the case at board stage 1.
+# Board_1_3: Specialist reviewer 3 evaluates the case at board stage 1.
+# Board_1_4: Specialist reviewer 4 evaluates the case at board stage 1.
+# Board_1_5: Specialist reviewer 5 evaluates the case at board stage 1.
+# Board_2_1: Specialist reviewer 1 evaluates the case at board stage 2.
+# Board_2_2: Specialist reviewer 2 evaluates the case at board stage 2.
+# Board_2_3: Specialist reviewer 3 evaluates the case at board stage 2.
+# Board_2_4: Specialist reviewer 4 evaluates the case at board stage 2.
+# Board_2_5: Specialist reviewer 5 evaluates the case at board stage 2.
+# Board_3_1: Specialist reviewer 1 evaluates the case at board stage 3.
+# Board_3_2: Specialist reviewer 2 evaluates the case at board stage 3.
+# Board_3_3: Specialist reviewer 3 evaluates the case at board stage 3.
+# Board_3_4: Specialist reviewer 4 evaluates the case at board stage 3.
+# Board_3_5: Specialist reviewer 5 evaluates the case at board stage 3.
+# Board_4_1: Specialist reviewer 1 evaluates the case at board stage 4.
+# Board_4_2: Specialist reviewer 2 evaluates the case at board stage 4.
+# Board_4_3: Specialist reviewer 3 evaluates the case at board stage 4.
+# Board_4_4: Specialist reviewer 4 evaluates the case at board stage 4.
+# Board_4_5: Specialist reviewer 5 evaluates the case at board stage 4.
+# Board_5_1: Specialist reviewer 1 evaluates the case at board stage 5.
+# Board_5_2: Specialist reviewer 2 evaluates the case at board stage 5.
+# Board_5_3: Specialist reviewer 3 evaluates the case at board stage 5.
+# Board_5_4: Specialist reviewer 4 evaluates the case at board stage 5.
+# Board_5_5: Specialist reviewer 5 evaluates the case at board stage 5.
+# Case_1: A patient case enters specialist board stage 1.
+# Case_2: A patient case enters specialist board stage 2.
+# Case_3: A patient case enters specialist board stage 3.
+# Case_4: A patient case enters specialist board stage 4.
+# Case_5: A patient case enters specialist board stage 5.
+# Decision_1: Specialist board stage 1 reaches a treatment decision.
+# Decision_2: Specialist board stage 2 reaches a treatment decision.
+# Decision_3: Specialist board stage 3 reaches a treatment decision.
+# Decision_4: Specialist board stage 4 reaches a treatment decision.
+# Decision_5: Specialist board stage 5 reaches a treatment decision.
+
+prior_1: 0.132 <= P(Board_1_1) <= 0.271
+prior_2: 0.0 <= P(Board_1_2) <= 0.19
+prior_3: 0.171 <= P(Board_1_3) <= 0.352
+prior_4: 0.117 <= P(Board_1_4) <= 0.298
+prior_5: 0.226 <= P(Board_1_5) <= 0.411
+prior_6: 0.063 <= P(Board_2_1) <= 0.284
+prior_7: 0.128 <= P(Board_2_2) <= 0.203
+prior_8: 0.073 <= P(Board_2_3) <= 0.223
+prior_9: 0.251 <= P(Board_2_4) <= 0.374
+prior_10: 0.204 <= P(Board_2_5) <= 0.313
+prior_11: 0.0 <= P(Board_3_1) <= 0.205
+prior_12: 0.163 <= P(Board_3_2) <= 0.306
+prior_13: 0.221 <= P(Board_3_3) <= 0.304
+prior_14: 0.26 <= P(Board_3_4) <= 0.374
+prior_15: 0.294 <= P(Board_3_5) <= 0.384
+prior_16: 0.147 <= P(Board_4_1) <= 0.263
+prior_17: 0.211 <= P(Board_4_2) <= 0.282
+prior_18: 0.036 <= P(Board_4_3) <= 0.154
+prior_19: 0.0 <= P(Board_4_4) <= 0.199
+prior_20: 0.055 <= P(Board_4_5) <= 0.17
+prior_21: 0.181 <= P(Board_5_1) <= 0.261
+prior_22: 0.281 <= P(Board_5_2) <= 0.393
+prior_23: 0.184 <= P(Board_5_3) <= 0.282
+prior_24: 0.06 <= P(Board_5_4) <= 0.233
+prior_25: 0.169 <= P(Board_5_5) <= 0.372
+prior_26: 0.223 <= P(Case_1) <= 0.451
+prior_27: 0.168 <= P(Case_2) <= 0.232
+prior_28: 0.013 <= P(Case_3) <= 0.232
+prior_29: 0.264 <= P(Case_4) <= 0.423
+prior_30: 0.028 <= P(Case_5) <= 0.137
+prior_31: 0.232 <= P(Decision_1) <= 0.326
+prior_32: 0.081 <= P(Decision_2) <= 0.219
+prior_33: 0.174 <= P(Decision_3) <= 0.368
+prior_34: 0.125 <= P(Decision_4) <= 0.25
+prior_35: 0.147 <= P(Decision_5) <= 0.291
+component_1: 0.0 <= P(Board_1_1 and Board_1_2 and Board_1_3 and Board_1_4 and Board_1_5) <= 0.19
+component_2: 0.063 <= P(Board_2_1 and Board_2_2 and Board_2_3 and Board_2_4 and Board_2_5) <= 0.203
+component_3: 0.0 <= P(Board_3_1 and Board_3_2 and Board_3_3 and Board_3_4 and Board_3_5) <= 0.205
+component_4: 0.0 <= P(Board_4_1 and Board_4_2 and Board_4_3 and Board_4_4 and Board_4_5) <= 0.154
+component_5: 0.06 <= P(Board_5_1 and Board_5_2 and Board_5_3 and Board_5_4 and Board_5_5) <= 0.233
+link_1: 0.632 <= P(Board_1_1 and Board_1_2 and Board_1_3 and Board_1_4 and Board_1_5 | Case_1) <= 0.711
+link_2: 0.711 <= P(Decision_1 | Board_1_1 and Board_1_2 and Board_1_3 and Board_1_4 and Board_1_5) <= 0.74
+link_3: 0.323 <= P(Case_2 | Decision_1) <= 0.66
+link_4: 0.475 <= P(Board_2_1 and Board_2_2 and Board_2_3 and Board_2_4 and Board_2_5 | Case_2) <= 0.577
+link_5: 0.346 <= P(Decision_2 | Board_2_1 and Board_2_2 and Board_2_3 and Board_2_4 and Board_2_5) <= 0.465
+link_6: 0.195 <= P(Case_3 | Decision_2) <= 0.424
+link_7: 0.581 <= P(Board_3_1 and Board_3_2 and Board_3_3 and Board_3_4 and Board_3_5 | Case_3) <= 0.699
+link_8: 0.397 <= P(Decision_3 | Board_3_1 and Board_3_2 and Board_3_3 and Board_3_4 and Board_3_5) <= 0.498
+link_9: 0.434 <= P(Case_4 | Decision_3) <= 0.721
+link_10: 0.583 <= P(Board_4_1 and Board_4_2 and Board_4_3 and Board_4_4 and Board_4_5 | Case_4) <= 0.73
+link_11: 0.356 <= P(Decision_4 | Board_4_1 and Board_4_2 and Board_4_3 and Board_4_4 and Board_4_5) <= 0.455
+link_12: 0.348 <= P(Case_5 | Decision_4) <= 0.471
+link_13: 0.287 <= P(Board_5_1 and Board_5_2 and Board_5_3 and Board_5_4 and Board_5_5 | Case_5) <= 0.359
+link_14: 0.467 <= P(Decision_5 | Board_5_1 and Board_5_2 and Board_5_3 and Board_5_4 and Board_5_5) <= 0.511

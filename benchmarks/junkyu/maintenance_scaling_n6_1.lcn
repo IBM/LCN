@@ -1,0 +1,21 @@
+# Title: Maintenance Escalation
+# Summary: A scalable operations benchmark where issue signals move through repeated review and repair stages.
+# Benchmark Family: maintenance_escalation
+# Repair_1: Operators coordinate a repair action at maintenance stage 1.
+# Repair_2: Operators coordinate a repair action at maintenance stage 2.
+# Review_1: Operators review the signal at maintenance stage 1.
+# Review_2: Operators review the signal at maintenance stage 2.
+# Signal_1: An issue signal is detected at maintenance stage 1.
+# Signal_2: An issue signal is detected at maintenance stage 2.
+
+prior_1: 0.122 <= P(Repair_1) <= 0.295
+prior_2: 0.076 <= P(Repair_2) <= 0.302
+prior_3: 0.0 <= P(Review_1) <= 0.203
+prior_4: 0.168 <= P(Review_2) <= 0.372
+prior_5: 0.249 <= P(Signal_1) <= 0.345
+prior_6: 0.212 <= P(Signal_2) <= 0.39
+component_1: 0.0 <= P(Repair_1 and Review_1) <= 0.203
+component_2: 0.076 <= P(Repair_2 and Review_2) <= 0.302
+link_1: 0.158 <= P(Repair_1 and Review_1 | Signal_1) <= 0.339
+link_2: 0.17 <= P(Signal_2 | Repair_1 and Review_1) <= 0.236
+link_3: 0.23 <= P(Repair_2 and Review_2 | Signal_2) <= 0.292

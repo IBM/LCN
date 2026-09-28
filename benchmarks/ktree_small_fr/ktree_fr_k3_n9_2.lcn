@@ -1,0 +1,13 @@
+# Saved LCN instance
+
+s0: 0.275163 <= P(x2) <= 0.875163 ; True
+s1: 0.306371 <= P(x7 | x2) <= 0.906371 ; True
+s2: 0.017531 <= P(!x4 | (x2 and x7)) <= 0.617531 ; True
+s3: 0.178234 <= P(x0 | (x2 and x7 and !x4)) <= 0.778234 ; True
+s4: 0.01 <= P(x1 | (!x2 and !x4 and x0)) <= 0.422035 ; True
+s5: 0.551449 <= P(x5 | (x2 and x4 and !x0)) <= 1.0 ; True
+s6: 0.086461 <= P(!x8 | (!x2 and x0 and x5)) <= 0.686461 ; True
+s7: 0.454254 <= P(x6 | (!x2 and !x4 and x0)) <= 1.0 ; True
+s8: 0.01 <= P(x3 | (!x2 and x4 and !x0)) <= 0.37463 ; True
+s9: 0.381823 <= P(x2) <= 0.434395 ; True
+s10: 0.414315 <= P(x2) <= 0.415111 ; True

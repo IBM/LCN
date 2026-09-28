@@ -1,0 +1,45 @@
+# A clean binary directed TREE (branching), x0 the root, 7 atoms:
+#
+#            x0
+#           /  \
+#         x1    x2
+#        /  \   /  \
+#      x3  x4 x5   x6
+#
+# Each non-root node has EXACTLY ONE parent (so it is a tree, not a polytree:
+# the underlying undirected graph is a tree AND there are no colliders/
+# v-structures). Every sentence is family-local: a prior on the root x0 and a
+# transition P(child | parent) (one bound for parent=1, one for parent=0) on
+# each tree edge. There is NO cross-family sentence.
+#
+# Because each node has a single parent, the MORAL graph equals the tree
+# skeleton (no co-parents to marry), so the chain-graph junction tree is exactly
+# the set of edge-clusters {parent, child} tied by single-atom separators
+# {parent} -- a clique tree of treewidth 1, just like the chain but BRANCHING.
+# Every LMC assertion (child _||_ non-descendants | parent) is therefore a
+# single-separator (running-intersection) independence and is dropped as
+# RIP-implied; none is imposed and none inflates the treewidth.
+#
+# So conditions (H2)/(H3) of the CredalJT exactness theorem hold and the engine
+# is EXACT at treewidth 1: it builds 6 two-atom clusters (one per edge) and
+# solves an NLP with sum_i 2^|c_i| = 6 * 2^2 = 24 cluster-marginal variables,
+# NOT the full joint 2^7 = 128.
+P0:  0.3 <= P(x0)        <= 0.5
+
+# x0 -> x1, x0 -> x2
+T1a: 0.2 <= P(x1 | x0)   <= 0.4
+T1b: 0.6 <= P(x1 | !x0)  <= 0.8
+T2a: 0.2 <= P(x2 | x0)   <= 0.4
+T2b: 0.6 <= P(x2 | !x0)  <= 0.8
+
+# x1 -> x3, x1 -> x4
+T3a: 0.2 <= P(x3 | x1)   <= 0.4
+T3b: 0.6 <= P(x3 | !x1)  <= 0.8
+T4a: 0.2 <= P(x4 | x1)   <= 0.4
+T4b: 0.6 <= P(x4 | !x1)  <= 0.8
+
+# x2 -> x5, x2 -> x6
+T5a: 0.2 <= P(x5 | x2)   <= 0.4
+T5b: 0.6 <= P(x5 | !x2)  <= 0.8
+T6a: 0.2 <= P(x6 | x2)   <= 0.4
+T6b: 0.6 <= P(x6 | !x2)  <= 0.8

@@ -1,0 +1,24 @@
+# Saved LCN instance
+
+s0: 0.531863 <= P(x2) <= 1.0 ; True
+s1: 0.340168 <= P(x6 | !x2) <= 0.940168 ; True
+s2: 0.01 <= P(!x18 | (x2 and x6)) <= 0.530829 ; True
+s3: 0.062944 <= P(x16 | (!x2 and !x6 and x18)) <= 0.662944 ; True
+s4: 0.01 <= P(x5 | (x2 and x18 and x16)) <= 0.388767 ; True
+s5: 0.109478 <= P(x15 | (x2 and x6 and !x16)) <= 0.709478 ; True
+s6: 0.681236 <= P(x3 | (x6 and !x18 and x16)) <= 1.0 ; True
+s7: 0.01 <= P(x11 | (x2 and !x6 and x15)) <= 0.320026 ; True
+s8: 0.01 <= P(x0 | (x6 and !x16 and x3)) <= 0.392929 ; True
+s9: 0.206838 <= P(!x19 | (x2 and x6 and x16)) <= 0.806838 ; True
+s10: 0.041675 <= P(!x10 | (!x2 and !x16 and !x5)) <= 0.641675 ; True
+s11: 0.525286 <= P(x14 | (x2 and !x18 and x16)) <= 1.0 ; True
+s12: 0.486276 <= P(!x12 | (x6 and x16 and !x19)) <= 1.0 ; True
+s13: 0.097179 <= P(x13 | (x6 and x18 and x16)) <= 0.697179 ; True
+s14: 0.421422 <= P(x1 | (x6 and x15 and x11)) <= 1.0 ; True
+s15: 0.01 <= P(!x7 | (!x6 and x18 and x3)) <= 0.322894 ; True
+s16: 0.632731 <= P(!x8 | (!x2 and x18 and x16)) <= 1.0 ; True
+s17: 0.01 <= P(x17 | (x2 and x6 and x16)) <= 0.439198 ; True
+s18: 0.525201 <= P(x4 | (x16 and x3 and x0)) <= 1.0 ; True
+s19: 0.01 <= P(x9 | (!x2 and x6 and x16)) <= 0.532551 ; True
+s20: 0.104524 <= P(!x2) <= 0.411008 ; True
+s21: 0.857504 <= P(x2) <= 0.875999 ; True

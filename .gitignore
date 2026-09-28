@@ -133,3 +133,10 @@ dmypy.json
 .DS_Store
 version.py
 .aim
+logs/
+
+# Latex intermediate files
+*.aux
+*.out
+*.log
+*.toc
