@@ -1,26 +1,27 @@
 ![Static Badge](https://img.shields.io/badge/build-passing-brightgreen?style=flat)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
-![Static Badge](https://img.shields.io/badge/version-1.0.0-red?style=flat)
+![Static Badge](https://img.shields.io/badge/version-1.5.0-red?style=flat)
 
 # Logical Credal Networks
-Logical Credal Networks (LCNs) is an expressive probabilistic logic that 
-generalizes prior formalisms that combine logic and probability. Given imprecise information represented by probability bounds and conditional probability bounds 
-on logic formulas, an LCN specifies a set of probability distributions over all 
-its interpretations. LCNs allow propositional logic formulas with few 
-restrictions, e.g., without requiring acyclicity and are endowed with a 
-generalized Markov condition that allows us to identify implicit independence 
-relationships between propositions. The package provides novel exact and 
-approximate inference algorithms for computing posterior probability bounds on 
-given query formulas as well as for generating most probable (partial) explanations of observed evidence in the network. 
+
+Logical Credal Networks (LCNs) is an expressive probabilistic logic that
+generalizes prior formalisms that combine logic and probability. Given imprecise information represented by probability bounds and conditional probability bounds
+on logic formulas, an LCN specifies a set of probability distributions over all
+its interpretations. LCNs allow propositional logic formulas with few
+restrictions, e.g., without requiring acyclicity and are endowed with a
+generalized Markov condition that allows us to identify implicit independence
+relationships between propositions. The package provides novel exact and
+approximate inference algorithms for computing posterior probability bounds on
+given query formulas as well as for generating most probable (partial) explanations of observed evidence in the network.
 
 An LCN program consists of two types of *probability-labeled sentences*:
 
 $$l \le P(\phi) \le u$$
 $$l \le P(\phi|\psi) \le u$$
 
-where $l$ and $u$ are the lower and upper probability bounds, while $\phi$ and 
-$\psi$ denote propositional logic formulas. 
+where $l$ and $u$ are the lower and upper probability bounds, while $\phi$ and
+$\psi$ denote propositional logic formulas.
 
 For example the following two sentences represent a valid LCN program defined
 over propositions `A, B` and `C`.
@@ -30,8 +31,8 @@ over propositions `A, B` and `C`.
 0.4 <= P(!B or C | A) <= 0.7
 ```
 
-
 ## Installation Instructions
+
 The LCN solver requires `Python 3.10` or newer together with its dependencies; `Python 3.12` is the recommended version. The package is built with the [hatchling](https://hatch.pypa.io/) backend and is installable with the [uv](https://docs.astral.sh/uv/) toolchain (recommended) or with plain `pip`.
 
 ### Using uv (recommended)
@@ -56,13 +57,13 @@ conda activate lcn
 pip install -e .
 ```
 
-The LCN inference algorithms require the non-linear solver `ipopt`. To install 
+The LCN inference algorithms require the non-linear solver `ipopt`. To install
 the solver, follow the instructions below for `Linux` and `MacOS`. Unfortunately,
 the LCN package is currently not supported on `Windows` systems.
 
 ### Installing ipopt on Linux
 
-To install the `ipopt` solver on Linux, you can use the `coinbrew` tool. Simply download the `coinbrew` script from https://coin-or.github.io/coinbrew/ (make sure to also run `chmod u+x coinbrew`). `coinbrew` automates the download of the source code for ASL, MUMPS, and `Ipopt` and the sequential build and installation of these three packages. The
+To install the `ipopt` solver on Linux, you can use the `coinbrew` tool. Simply download the `coinbrew` script from <https://coin-or.github.io/coinbrew/> (make sure to also run `chmod u+x coinbrew`). `coinbrew` automates the download of the source code for ASL, MUMPS, and `Ipopt` and the sequential build and installation of these three packages. The
 Linux installation requires the following dependencies before running the `coinbrew` tool.
 
 * Ubuntu: `sudo apt-get install gcc g++ gfortran git cmake liblapack-dev pkg-config --install-recommends`
@@ -113,7 +114,7 @@ The easiest option is a conda environment:
 conda install -c conda-forge scip
 ```
 
-Alternatively, download one of the official precompiled installers (the `SCIPOptSuite-*-Linux.sh` script) or the source archive from https://www.scipopt.org/ and follow the bundled instructions. After installing, make sure the `scip` binary is reachable on your `PATH`, for example:
+Alternatively, download one of the official precompiled installers (the `SCIPOptSuite-*-Linux.sh` script) or the source archive from <https://www.scipopt.org/> and follow the bundled instructions. After installing, make sure the `scip` binary is reachable on your `PATH`, for example:
 
 ```
 export PATH="/path/to/scip/bin:$PATH"
@@ -121,18 +122,18 @@ export PATH="/path/to/scip/bin:$PATH"
 
 You can confirm that SCIP is visible to the package by running `scip --version` in the same shell.
 
-
 ### LCN Syntax
-The LCN package supports the following basic syntax for LCN programs. An LCN program can be easily specified in a `.lcn` file. 
+
+The LCN package supports the following basic syntax for LCN programs. An LCN program can be easily specified in a `.lcn` file.
 
 * An LCN *proposition* can be specified by any string as long as it starts with a letter
 and does not contain spaces. For example `A`, `x1` or `Abc12` are valid LCN
-propositions. 
+propositions.
 
 * An LCN *formula* can be specified by a set of propositions connected by logical connectors. The following connectors can be used: `and`, `or`, `xor`, `nand`, and `not`. The
-connectors can be specified by the following char symbols: `&`, `|`, `^`, `/` and `!`, 
+connectors can be specified by the following char symbols: `&`, `|`, `^`, `/` and `!`,
 respectively. In addition, it is possible to use paranthesis `()` for a more
-readable formula. Furthermore, for increased readability we recommend using the 
+readable formula. Furthermore, for increased readability we recommend using the
 long form logical connectors instead of their short form counterparts (i.e., use `and` instead of `&`).
 
 The two types of LCN sentences can be specified as follows:
@@ -144,7 +145,7 @@ label: lb <= P(formula | formula) <= ub
 
 where `label` is any string that starts with a letter and does not contain spaces. Note that each LCN sentence must have a unique label.
 
-The LCN below encodes the following simple example: *Bronchitis* (`B`) is more likely than *Smoking* (`S`); *Smoking* may cause *Cancer* (`C`) or *Bronchitis*; *Dyspnea* (`D`) or shortness of breadth is a common symptom for *Cancer* and *Bronchitis*; in case of *Cancer* we have either a positive *X-Ray* result (`X`) and *Dyspnea*, or a negative *X-Ray* and no *Dyspnea*. 
+The LCN below encodes the following simple example: *Bronchitis* (`B`) is more likely than *Smoking* (`S`); *Smoking* may cause *Cancer* (`C`) or *Bronchitis*; *Dyspnea* (`D`) or shortness of breadth is a common symptom for *Cancer* and *Bronchitis*; in case of *Cancer* we have either a positive *X-Ray* result (`X`) and *Dyspnea*, or a negative *X-Ray* and no *Dyspnea*.
 
 ```
 # This line is a comment
@@ -161,6 +162,7 @@ The folder `examples` contains additional LCN examples specified in the `.lcn`
 file format described above.
 
 ## Exact Marginal Inference for LCNs
+
 Given an LCN file and a query formula $\phi$, *marginal inference* means computing exact posterior lower and upper bounds on $P(\phi)$. An exact marginal inference algorithm is implemented by the `ExactInference` class (located in the `lcn.inference.marginal.exact` module) and can be used to compute the probability bounds on the query formula.
 
 `ExactInference` exposes two solver backends through the `solver=` argument of its `run()` method:
@@ -224,6 +226,7 @@ P(B=1) in [0.080405, 0.099964]
 ```
 
 ## Approximate Marginal Inference for LCNs
+
 For approximate marginal inference, we can use the ARIEL message-passing scheme implemented in the `ArielInference` class available in the `lcn.inference.marginal.ariel` module. The algorithm computes approximate lower and upper probability bounds on the posterior probability of the LCN's propositions. As before, we can use the following example:
 
 ```python
@@ -339,9 +342,11 @@ The other algorithms follow the same pattern — `CredalVE(cnv=cnv)`, `CredalIJG
 These algorithms are also exposed end-to-end through the experiment driver in `experiments/run_algorithm.py`, which can run any of them on the benchmark instances under `benchmarks/`.
 
 ## MAP and Marginal MAP Inference for LCNs
+
 In addition to marginal inference, the LCN package implements exact and approximate algorithms for computing complete or partial most probable explanations of evidence (i.e., observed truth values of a set of propositions) in a given LCN. The algorithms are based on depth-first search, limited discrepancy search or simulated annealing. We also provide an extension called AMAP of the ARIEL scheme for computing MAP and Marginal MAP explanations.
 
 ### Exact MAP/MMAP Inference
+
 For exact MAP/MMAP inference, we can use the following example:
 
 ```python
@@ -412,6 +417,7 @@ CONSISTENT
 ```
 
 ### Approximate MAP/MMAP Inference
+
 For approximate MAP/MMAP inference, we can use the following example:
 
 ```python
@@ -504,7 +510,6 @@ X: [5.028558867647727e-08, 8.537656733267566e-09]
 [ARIEL] MAXIMAX-MAP score: 0.5057054731748238
 [ARIEL] MAXIMAX-MAP solution: {'B': 0, 'C': 1, 'D': 1, 'X': 0, 'S': 1}
 ```
-
 
 ## References
 
