@@ -1,0 +1,226 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%        math bold fonts                  %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\bA}{\mathbf{A}}
+\newcommand{\bB}{\mathbf{B}}
+\newcommand{\bC}{\mathbf{C}}
+\newcommand{\bD}{\mathbf{D}}
+\newcommand{\bE}{\mathbf{E}}
+\newcommand{\bF}{\mathbf{F}}
+\newcommand{\bG}{\mathbf{G}}
+\newcommand{\bH}{\mathbf{H}}
+\newcommand{\bI}{\mathbf{I}}
+\newcommand{\bJ}{\mathbf{J}}
+\newcommand{\bK}{\mathbf{K}}
+\newcommand{\bL}{\mathbf{L}}
+\newcommand{\bM}{\mathbf{M}}
+\newcommand{\bN}{\mathbf{N}}
+\newcommand{\bO}{\mathbf{O}}
+\newcommand{\bP}{\mathbf{P}}
+\newcommand{\bQ}{\mathbf{Q}}
+\newcommand{\bR}{\mathbf{R}}
+\newcommand{\bS}{\mathbf{S}}
+\newcommand{\bT}{\mathbf{T}}
+\newcommand{\bU}{\mathbf{U}}
+\newcommand{\bV}{\mathbf{V}}
+\newcommand{\bW}{\mathbf{W}}
+\newcommand{\bX}{\mathbf{X}}
+\newcommand{\bY}{\mathbf{Y}}
+\newcommand{\bZ}{\mathbf{Z}}
+
+\newcommand{\ba}{\mathbf{a}}
+\newcommand{\bb}{\mathbf{b}}
+\newcommand{\bc}{\mathbf{c}}
+\newcommand{\bd}{\mathbf{d}}
+\newcommand{\be}{\mathbf{e}}
+\newcommand{\bbf}{\mathbf{f}}
+\newcommand{\bg}{\mathbf{g}}
+\newcommand{\bh}{\mathbf{h}}
+\newcommand{\bi}{\mathbf{i}}
+\newcommand{\bj}{\mathbf{j}}
+\newcommand{\bk}{\mathbf{k}}
+\newcommand{\bl}{\mathbf{l}}
+\newcommand{\bm}{\mathbf{m}}
+\newcommand{\bn}{\mathbf{n}}
+\newcommand{\bo}{\mathbf{o}}
+\newcommand{\bp}{\mathbf{p}}
+\newcommand{\bq}{\mathbf{q}}
+\newcommand{\br}{\mathbf{r}}
+\newcommand{\bs}{\mathbf{s}}
+\newcommand{\by}{\mathbf{y}}
+\newcommand{\bu}{\mathbf{u}}
+\newcommand{\bv}{\mathbf{v}}
+\newcommand{\bw}{\mathbf{w}}
+\newcommand{\bx}{\mathbf{x}}
+\newcommand{\bby}{\mathbf{y}}
+\newcommand{\bz}{\mathbf{z}}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%        math cal fonts                  %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\cA}{\mathcal{A}}
+\newcommand{\cB}{\mathcal{B}}
+\newcommand{\cC}{\mathcal{C}}
+\newcommand{\cD}{\mathcal{D}}
+\newcommand{\cE}{\mathcal{E}}
+\newcommand{\cF}{\mathcal{F}}
+\newcommand{\cG}{\mathcal{G}}
+\newcommand{\cH}{\mathcal{H}}
+\newcommand{\cI}{\mathcal{I}}
+\newcommand{\cJ}{\mathcal{J}}
+\newcommand{\cK}{\mathcal{K}}
+\newcommand{\cL}{\mathcal{L}}
+\newcommand{\cM}{\mathcal{M}}
+\newcommand{\cN}{\mathcal{N}}
+\newcommand{\cO}{\mathcal{O}}
+\newcommand{\cP}{\mathcal{P}}
+\newcommand{\cQ}{\mathcal{Q}}
+\newcommand{\cR}{\mathcal{R}}
+\newcommand{\cS}{\mathcal{S}}
+\newcommand{\cT}{\mathcal{T}}
+\newcommand{\cU}{\mathcal{U}}
+\newcommand{\cV}{\mathcal{V}}
+\newcommand{\cW}{\mathcal{W}}
+\newcommand{\cX}{\mathcal{X}}
+\newcommand{\cY}{\mathcal{Y}}
+\newcommand{\cZ}{\mathcal{Z}}
+
+
+
+% \inmath{material}
+%    Make sure that {material} is inside math mode.
+\def\inmath#1{\relax\ifmmode#1\else$#1$\fi}
+
+% \@<token>
+%    Will print the argument in \cal.
+\def\@#1{\inmath{{\cal #1}}}
+
+% \operators{<list>}
+% \variables{<list>}
+%    A convenient way of defining a set of variables or functions for
+%    use in math. <list> consists of a \\ separated list of pairs
+%    <token><text> where <token> is the token that prints <text> as an
+%    operator/variable in math-mode (using \mathop or \mathord).
+%
+%    See \det and \gcd below for examples.
+%
+\outer\def\operators#1{\begingroup
+        \def\\##1##2{\gdef##1{{\mathop{\rm ##2}}}}\relax
+        \\#1\endgroup
+}
+
+\outer\def\variables#1{\begingroup
+        \def\\##1##2{\gdef##1{{\mathord{\it ##2}}}}\relax
+        \\#1\endgroup
+}
+
+% \ntimes#1#2
+% make #1 repetitions of #2
+\def\ntimes#1#2{{\count255=1\loop#2\ifnum\count255<#1\advance\count255 by1\repeat}}
+
+% \boxit{material}
+%    This one boxes {material} using rules and is a vbox itself
+\long\def\boxit#1{\vbox{\hrule\hbox{\vrule\kern3pt\vbox{\kern3pt#1\kern3pt}\kern3pt\vrule}\hrule}}
+
+\long\def\entry#1#2\par{\goodbreak\item{$\bullet$}\strut{#1}\par\nobreak{\narrower\vbox{#2\strut}}\par}
+
+% \th{1}
+%    Adds apropriate ``th'' extension to digits (``1st'', ``2nd'', ``3d'', ....)
+\def\th#1{#1\ifcase#1 th\or st\or nd\or d\else th\fi}
+
+
+% \smiley
+% \frowny
+%    Here we have a smile face (and a frowny face) to use together with
+%    text in horisontal mode
+\begingroup
+        \def\facewith#1{$\bigcirc\mskip-13.3mu{}^{..}
+        \mskip-11mu\scriptscriptstyle#1\ $}
+        \xdef\frowny{\facewith\frown}
+        \xdef\smiley{\facewith\smile}
+\endgroup
+
+
+% \underrightarrow{material}
+% \underleftarrow{material}
+%    Insert a right or left arrow under {material}, does not affect the baseline
+\def\underrightarrow#1{\vtop{\ialign{##\crcr
+        \hbox{#1}\crcr
+        \noalign{\kern-1pt\nointerlineskip}
+        \rightarrowfill\crcr}}}
+\def\underleftarrow#1{\vtop{\ialign{##\crcr
+        \hbox{#1}\crcr
+        \noalign{\kern-1pt\nointerlineskip}
+        \leftarrowfill\crcr}}}
+
+
+% \addtobox\foo{bar}
+%    This one adds {bar} to the box represented by \foo.
+%    If the box is void, the material is inserted into the box
+%
+%    NOTE! The box \foo has to be of the same type as the {bar} material
+\def\addtobox#1#2{\setbox#1=\ifvoid#1
+  {#2}
+  \else\ifvbox#1
+    \vbox{\unvbox#1\relax#2}
+    \else\ifhbox#1
+      \hbox{\unhbox#1\relax#2}
+    \fi\fi\fi}
+
+% \today
+%    This one constructs todays date in the format ``November 19, 1999''
+\def\today{\ifcase\month\or January\or February\or March\or April\or May\or June\or July\or
+        August\or September\or October\or November\or December\fi
+        \space\number\day, \number\year}
+
+% \idag
+%    A swedish version of the \today macro.
+\def\idag{\number\day\space
+        \ifcase\month\or Januari\or Februari\or Mars\or April\or Maj\or Juni\or Juli\or
+        Augusti\or September\or Oktober\or November\or December\fi
+        \space\number\year}
+
+
+% \mwidthof{foo}
+% \mheightof{foo}
+%    Prints the height or the width of {foo} as a message
+\def\mwidthof#1{\setbox0=\hbox{#1}\message{\the\wd0}}
+\def\mheightof#1{\setbox0=\hbox{#1}\message{\the\ht0}}
+
+
+% \widthof{foo}
+% \heightof{foo}
+%    Expands to the width or the height of {foo}.
+\def\widthof#1{\setbox0=\hbox{#1}\the\wd0}
+\def\heightof#1{\setbox0=\hbox{#1}\the\ht0}
+
+
+% \nextpar{sequence}
+%    Will enter {sequence} at the beginning of the next paragraph.
+\def\nextpar#1{\everypar={#1\everypar={}}}
+
+
+% \dropnextpar
+%    Will enlarge the first letter of the next paragraph and drop it
+%    into the following text in the manner that some storybooks (and
+%    old bibles) do
+\def\dropnextpar{\begingroup\parindent=0pt
+        \font\bigfont=cmr10 at 2\baselineskip
+        \everypar={\futurelet\a\cont}}
+\def\cont#1#2{\setbox0=\hbox{\bigfont#1\kern1.5pt}\relax
+        \setbox1=\hbox{#2}\hangindent=\wd0
+        \hangafter=-\ht0\advance\hangafter by -\baselineskip
+        \divide\hangafter by\baselineskip
+        \noindent\llap{\vbox to\the\ht1{\vskip-.5pt\box0\vss}}#2\endgroup}
+
+% \registered
+%    Registered trademark symbols
+\def\registered{\raise.5ex\hbox{\ooalign{\hfil\raise.06ex
+        \hbox{$\scriptstyle\rm R$}\hfil\crcr\mathhexbox20D}}}
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 

@@ -8,29 +8,39 @@ version = "1.0.0"
 description = "Logical Credal Networks"
 license = {text = "Apache-2.0"}
 readme = "README.md"
-requires-python = ">=3.10"
-classifiers=[
-    "License :: OSI Approved :: Apache Software License"
+requires-python = ">=3.12"
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    # TODO: loosen dependencies
-    "numpy==2.4.6",
-    "pandas==3.0.3",
-    "scikit-learn==1.9.0",
-    "scipy==1.18.0",
-    "tqdm",
-    "matplotlib",
-    "networkx",
-    "ipykernel",
-    "ipywidgets",
-    "pyomo",
-    "gravis",
-    # gravis 0.1.0 imports the legacy `pkg_resources` module, which setuptools
-    # removed in 80.0. Pin setuptools to the last series that still ships it so
-    # `import gravis` works (the notebooks use gravis for graph visualization).
-    "setuptools<80",
-    "pytest",
-    "pyagrum>=2.3.2"
+    "numpy>=2.5.4",
+    "scipy>=1.18.1",
+    "networkx>=3.7",
+    "pyomo>=6.10.1",
+    "pyagrum>=3.3.2",
+    "tqdm>=4.70.1",
+    "matplotlib>=3.11.2",
+]
+
+[project.optional-dependencies]
+# Experiment runners / result plotting (experiments/plot_results.py).
+experiments = [
+    "pandas>=3.1.1",
+]
+# Demo notebooks under notebooks/.
+notebooks = [
+    "ipykernel>=7.4.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "pandas>=3.1.1",
+    "ipykernel>=7.4.0",
 ]
 
 [tool.hatch.build.targets.wheel]

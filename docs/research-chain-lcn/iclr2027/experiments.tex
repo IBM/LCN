@@ -1,0 +1,831 @@
+\documentclass{article}
+
+% if you need to pass options to natbib, use, e.g.:
+%     \PassOptionsToPackage{numbers, compress}{natbib}
+% before loading neurips_2026
+
+% The authors should use one of these tracks.
+% Before accepting by the NeurIPS conference, select one of the options below.
+% 0. "default" for submission
+\usepackage{neurips_2026}
+% the "default" option is equal to the "main" option, which is used for the Main Track with double-blind reviewing.
+% 1. "main" option is used for the Main Track
+%  \usepackage[main]{neurips_2026}
+% 2. "position" option is used for the Position Paper Track
+%  \usepackage[position]{neurips_2026}
+% 3. "eandd" option is used for the Evaluations & Datasets Track
+ % \usepackage[eandd]{neurips_2026}
+ % if you need to opt-in for a single-blind submission in the E&D track:
+ %\usepackage[eandd, nonanonymous]{neurips_2026}
+% 4. "creativeai" option is used for the Creative AI Track
+%  \usepackage[creativeai]{neurips_2026}
+% 5. "sglblindworkshop" option is used for the Workshop with single-blind reviewing
+ % \usepackage[sglblindworkshop]{neurips_2026}
+% 6. "dblblindworkshop" option is used for the Workshop with double-blind reviewing
+%  \usepackage[dblblindworkshop]{neurips_2026}
+
+% After being accepted, the authors should add "final" behind the track to compile a camera-ready version.
+% 1. Main Track
+ % \usepackage[main, final]{neurips_2026}
+% 2. Position Paper Track
+%  \usepackage[position, final]{neurips_2026}
+% 3. Evaluations & Datasets Track
+ % \usepackage[eandd, final]{neurips_2026}
+% 4. Creative AI Track
+%  \usepackage[creativeai, final]{neurips_2026}
+% 5. Workshop with single-blind reviewing
+%  \usepackage[sglblindworkshop, final]{neurips_2026}
+% 6. Workshop with double-blind reviewing
+%  \usepackage[dblblindworkshop, final]{neurips_2026}
+% Note. For the workshop paper template, both \title{} and \workshoptitle{} are required, with the former indicating the paper title shown in the title and the latter indicating the workshop title displayed in the footnote.
+% For workshops (5., 6.), the authors should add the name of the workshop, "\workshoptitle" command is used to set the workshop title.
+% \workshoptitle{WORKSHOP TITLE}
+
+% "preprint" option is used for arXiv or other preprint submissions
+ % \usepackage[preprint]{neurips_2026}
+
+% to avoid loading the natbib package, add option nonatbib:
+%    \usepackage[nonatbib]{neurips_2026}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+
+\usepackage{tabularx}
+\usepackage{times}
+\usepackage{soul}
+\usepackage{caption}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage[noend]{algpseudocode}
+\usepackage{multicol}
+\usepackage{wrapfig}
+\usepackage{multirow}
+\usepackage{comment}
+\usepackage{tikz}
+\usetikzlibrary{positioning,shapes.geometric,shapes.misc}
+
+
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{example}{Example}
+
+\newcommand{\pr}[1]{\mathbb{P}\!\left( #1 \right)}
+\newcommand{\kr}[1]{\mathbb{K}\!\left( #1 \right)}
+
+\algrenewcommand\algorithmicindent{0.5em}%
+
+% spacing commands----------------------
+%\renewcommand{\tabcolsep}{3pt}
+% \addtolength{\textfloatsep}{-10pt}
+
+% These are the \argmax and \argmin operators
+% \DeclareMathOperator*{\argmax}{\arg\!\max}
+% \DeclareMathOperator*{\argmin}{\arg\!\min}
+
+
+% Note. For the workshop paper template, both \title{} and \workshoptitle{} are required, with the former indicating the paper title shown in the title and the latter indicating the workshop title displayed in the footnote. 
+\title{Advances in Marginal Inference for\\Chain-Graph Logical Credal Networks}
+
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to LaTeX to determine where to break the
+% lines. Using \AND forces a line break at that point. So, if LaTeX puts 3 of 4
+% authors names on the first line, and the last on the second line, try using
+% \AND instead of \And before the third author name.
+
+
+\author{%
+  David S.~Hippocampus\thanks{Use footnote for providing further information
+    about author (webpage, alternative address)---\emph{not} for acknowledging
+    funding agencies.} \\
+  Department of Computer Science\\
+  Cranberry-Lemon University\\
+  Pittsburgh, PA 15213 \\
+  \texttt{hippo@cs.cranberry-lemon.edu} \\
+  % examples of more authors
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \AND
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+}
+
+
+\begin{document}
+
+\include{macros}
+
+\maketitle
+
+
+\begin{abstract}
+    Logical Credal Networks (LCNs) are an expressive probabilistic logic that combines propositional formulas with imprecise probability bounds to represent sets of probability distributions. Although LCNs allow for cyclic dependencies and impose few syntactic restrictions, inference in these models remains challenging. Existing exact methods scale exponentially with the number of propositions, while the only available approximate approach relies on a single message-passing algorithm, ARIEL. In this paper, we exploit the underlying chain graph structure of LCNs and recast inference as a standard credal network problem. Based on this formulation, we introduce three novel approximate inference algorithms that apply either variable elimination or message-passing schemes propagating interval-valued vector messages to compute outer probability bounds. In addition, we develop a coordinate descent method that yields complementary inner bounds. We evaluate the proposed algorithms on a collection of randomly generated and realistic benchmark LCN instances. The results demonstrate substantial speedups over exact inference while maintaining good quality probability bounds.
+\end{abstract}
+
+
+%% ================================================================
+\section{New Experiments}
+\label{sec-experiments}
+%% ================================================================
+
+\subsection{Tree LCNs}
+
+\begin{table}[ht]
+\centering
+%\scriptsize
+\caption{Error metrics vs.\ CJT reference: \texttt{tree} LCNs}
+\begin{tabular}{rlrrrrrrr}
+\toprule
+ $n$ & Algorithm & MAE$_{\text{lb}}$ & MAE$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+\midrule
+ 5 & approxlp & 0.0001 & 0.0017 & 0.08 & 0.04 & 0.13 & 0.31 & 1.00 \\
+ 5 & ariel & 0.0000 & 0.0000 & 0.00 & 1.45 & 1.45 & 0.31 & -- \\
+ 5 & cve & 0.0000 & 0.0000 & 0.10 & 1.97 & 2.07 & 0.31 & 1.00 \\
+ 5 & $\text{cve\_cm}$ & 0.0581 & 0.0514 & 0.09 & 0.02 & 0.11 & 0.31 & 1.00 \\
+ 5 & $\text{cve\_cp}$ & 0.1514 & 0.1423 & 0.09 & 0.02 & 0.11 & 0.31 & 1.00 \\
+ 5 & ibp & 0.0000 & 0.0000 & 0.09 & 0.00 & 0.09 & 0.31 & 1.00 \\
+\hline
+ 6 & approxlp & 0.0001 & 0.0000 & 0.10 & 0.08 & 0.18 & 0.28 & 1.00 \\
+ 6 & ariel & 0.0000 & 0.0000 & 0.00 & 1.86 & 1.86 & 0.28 & -- \\
+ 6 & cve & 0.0000 & 0.0000 & 0.12 & 35.01 & 35.13 & 0.28 & 1.00 \\
+ 6 & $\text{cve\_cm}$ & 0.0592 & 0.0597 & 0.10 & 0.04 & 0.14 & 0.28 & 1.00 \\
+ 6 & $\text{cve\_cp}$ & 0.2052 & 0.2281 & 0.11 & 0.03 & 0.14 & 0.28 & 1.00 \\
+ 6 & ibp & 0.0000 & 0.0000 & 0.11 & 0.00 & 0.11 & 0.28 & 1.00 \\
+\hline
+ 7 & approxlp & 0.0016 & 0.0002 & 0.12 & 0.12 & 0.24 & 0.33 & 1.00 \\
+ 7 & ariel & 0.0000 & 0.0000 & 0.00 & 2.46 & 2.46 & 0.33 & -- \\
+ 7 & cve & 0.0000 & 0.0000 & 0.12 & 511.13 & 511.25 & 0.33 & 1.00 \\
+ 7 & $\text{cve\_cm}$ & 0.0813 & 0.0815 & 0.12 & 0.05 & 0.17 & 0.33 & 1.00 \\
+ 7 & $\text{cve\_cp}$ & 0.2434 & 0.2308 & 0.12 & 0.05 & 0.17 & 0.33 & 1.00 \\
+ 7 & ibp & 0.0000 & 0.0000 & 0.13 & 0.00 & 0.13 & 0.33 & 1.00 \\
+\hline
+ 8 & approxlp & 0.0002 & 0.0002 & 0.14 & 0.18 & 0.32 & 0.39 & 1.00 \\
+ 8 & ariel & 0.0000 & 0.0000 & 0.00 & 3.41 & 3.41 & 0.39 & -- \\
+ 8 & cve & 0.0000 & 0.0000 & 0.14 & 1006.64 & 1006.78 & 0.39 & 1.00 \\
+ 8 & $\text{cve\_cm}$ & 0.0931 & 0.0754 & 0.14 & 0.07 & 0.21 & 0.39 & 1.00 \\
+ 8 & $\text{cve\_cp}$ & 0.2336 & 0.2235 & 0.14 & 0.06 & 0.20 & 0.39 & 1.00 \\
+ 8 & ibp & 0.0000 & 0.0000 & 0.14 & 0.01 & 0.15 & 0.39 & 1.00 \\
+\hline
+ 9 & approxlp & 0.0000 & 0.0013 & 0.15 & 0.31 & 0.46 & 0.44 & 1.00 \\
+ 9 & ariel & 0.0000 & 0.0000 & 0.00 & 4.55 & 4.55 & 0.44 & -- \\
+ 9 & $\text{cve\_cm}$ & 0.1078 & 0.1117 & 0.16 & 0.10 & 0.26 & 0.44 & 1.00 \\
+ 9 & $\text{cve\_cp}$ & 0.2562 & 0.2578 & 0.16 & 0.08 & 0.23 & 0.44 & 1.00 \\
+ 9 & ibp & 0.0000 & 0.0000 & 0.16 & 0.01 & 0.16 & 0.44 & 1.00 \\
+\hline
+ 10 & approxlp & 0.0011 & 0.0001 & 0.17 & 0.41 & 0.58 & 0.50 & 1.00 \\
+ 10 & ariel & 0.0000 & 0.0000 & 0.00 & 6.19 & 6.19 & 0.50 & -- \\
+ 10 & $\text{cve\_cm}$ & 0.1040 & 0.1297 & 0.18 & 0.12 & 0.30 & 0.50 & 1.00 \\
+ 10 & $\text{cve\_cp}$ & 0.2857 & 0.2933 & 0.17 & 0.09 & 0.26 & 0.50 & 1.00 \\
+ 10 & ibp & 0.0000 & 0.0000 & 0.17 & 0.01 & 0.17 & 0.50 & 1.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[ht]
+\centering
+% \scriptsize
+\caption{Error metrics vs.\ CJT reference: \texttt{tree} LCNs}
+\begin{tabular}{rlrrrrrrr}
+\toprule
+ $n$ & Algorithm & MAE$_{\text{lb}}$ & MAE$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+\midrule
+ 10 & approxlp & 0.0005 & 0.0000 & 0.18 & 0.41 & 0.59 & 0.64 & 1.00 \\
+ 10 & ariel & 0.0000 & 0.0000 & 0.00 & 5.37 & 5.37 & 0.64 & -- \\
+ 10 & $\text{cve\_cm}$ & 0.1145 & 0.1199 & 0.18 & 0.11 & 0.29 & 0.64 & 1.00 \\
+ 10 & $\text{cve\_cp}$ & 0.2870 & 0.2596 & 0.17 & 0.10 & 0.27 & 0.64 & 1.00 \\
+ 10 & ibp & 0.0000 & 0.0000 & 0.17 & 0.01 & 0.18 & 0.64 & 1.00 \\
+\hline
+ 20 & approxlp & 0.0011 & 0.0019 & 0.35 & 4.36 & 4.71 & 1.43 & 1.00 \\
+ 20 & ariel & 0.0000 & 0.0000 & 0.00 & 15.80 & 15.80 & 1.43 & -- \\
+ 20 & $\text{cve\_cm}$ & 0.2517 & 0.2650 & 0.37 & 0.77 & 1.14 & 1.43 & 1.00 \\
+ 20 & $\text{cve\_cp}$ & 0.3784 & 0.3501 & 0.33 & 0.62 & 0.95 & 1.43 & 1.00 \\
+ 20 & ibp & 0.0000 & 0.0000 & 0.34 & 0.02 & 0.36 & 1.43 & 1.00 \\
+\hline
+ 30 & approxlp & 0.0036 & 0.0037 & 0.50 & 16.18 & 16.68 & 2.58 & 1.00 \\
+ 30 & ariel & 0.0000 & 0.0000 & 0.00 & 24.13 & 24.13 & 2.58 & -- \\
+ 30 & $\text{cve\_cm}$ & 0.2998 & 0.3120 & 0.55 & 2.18 & 2.73 & 2.58 & 1.00 \\
+ 30 & $\text{cve\_cp}$ & 0.4095 & 0.3842 & 0.51 & 1.79 & 2.30 & 2.58 & 1.00 \\
+ 30 & ibp & 0.0000 & 0.0000 & 0.49 & 0.03 & 0.52 & 2.58 & 1.00 \\
+\hline
+ 40 & approxlp & 0.0017 & 0.0026 & 0.66 & 47.39 & 48.04 & 3.90 & 1.00 \\
+ 40 & ariel & 0.0000 & 0.0000 & 0.00 & 34.21 & 34.21 & 3.90 & -- \\
+ 40 & $\text{cve\_cm}$ & 0.3573 & 0.3515 & 0.70 & 4.72 & 5.43 & 3.90 & 1.00 \\
+ 40 & $\text{cve\_cp}$ & 0.4324 & 0.4080 & 0.67 & 4.05 & 4.72 & 3.90 & 1.00 \\
+ 40 & ibp & 0.0000 & 0.0000 & 0.66 & 0.04 & 0.70 & 3.90 & 1.00 \\
+\hline
+ 50 & approxlp & 0.0031 & 0.0026 & 0.83 & 100.39 & 101.22 & 5.95 & 1.00 \\
+ 50 & ariel & 0.0000 & 0.0000 & 0.00 & 42.41 & 42.41 & 5.95 & -- \\
+ 50 & $\text{cve\_cm}$ & 0.3845 & 0.3875 & 0.96 & 43.09 & 44.05 & 5.95 & 1.00 \\
+ 50 & $\text{cve\_cp}$ & 0.4412 & 0.4333 & 0.85 & 37.83 & 38.68 & 5.95 & 1.00 \\
+ 50 & ibp & 0.0000 & 0.0000 & 0.83 & 0.05 & 0.88 & 5.95 & 1.00 \\
+\hline
+ 100 & approxlp & 0.0037 & 0.0036 & 1.67 & 1487.61 & 1489.29 & 16.24 & 1.00 \\
+ 100 & ariel & 0.0000 & 0.0000 & 0.00 & 89.09 & 89.09 & 16.24 & -- \\
+ 100 & $\text{cve\_cm}$ & 0.4473 & 0.4401 & 1.94 & 259.37 & 261.31 & 16.24 & 1.00 \\
+ 100 & $\text{cve\_cp}$ & 0.4744 & 0.4402 & 1.67 & 204.06 & 205.73 & 16.24 & 1.00 \\
+ 100 & ibp & 0.0000 & 0.0000 & 1.76 & 0.12 & 1.88 & 16.24 & 1.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{PolyTree LCNs}
+\begin{table}[ht]
+\centering
+% \scriptsize
+\caption{Error metrics vs.\ CJT reference: \texttt{polytree} LCNs}
+\begin{tabular}{rlrrrrrrr}
+\toprule
+ $n$ & Algorithm & MAE$_{\text{lb}}$ & MAE$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+\midrule
+ 5 & approxlp & 0.0001 & 0.0005 & 0.10 & 0.05 & 0.15 & 0.39 & 1.50 \\
+ 5 & ariel & 0.0198 & 0.0096 & 0.00 & 20.68 & 20.68 & 0.39 & -- \\
+ 5 & cjt & 0.0000 & 0.0000 & 0.01 & 0.32 & 0.33 & 0.39 & 2.38 \\
+ 5 & cve & 0.0000 & 0.0005 & 0.11 & 44.41 & 44.52 & 0.39 & 1.50 \\
+ 5 & $\text{cve\_cm}$ & 0.0545 & 0.0550 & 0.11 & 0.03 & 0.13 & 0.39 & 1.50 \\
+ 5 & $\text{cve\_cp}$ & 0.1552 & 0.1603 & 0.11 & 0.02 & 0.13 & 0.39 & 1.50 \\
+ 5 & ibp & 0.0000 & 0.0005 & 0.11 & 0.01 & 0.11 & 0.39 & 1.50 \\
+\hline
+ 6 & approxlp & 0.0039 & 0.0000 & 0.12 & 0.08 & 0.20 & 0.44 & 1.40 \\
+ 6 & ariel & 0.0010 & 0.0166 & 0.00 & 8.51 & 8.51 & 0.44 & -- \\
+ 6 & cjt & 0.0000 & 0.0000 & 0.01 & 0.49 & 0.50 & 0.44 & 2.25 \\
+ 6 & cve & 0.0000 & 0.0000 & 0.14 & 445.58 & 445.71 & 0.44 & 1.40 \\
+ 6 & $\text{cve\_cm}$ & 0.0789 & 0.0508 & 0.12 & 0.04 & 0.16 & 0.44 & 1.40 \\
+ 6 & $\text{cve\_cp}$ & 0.2058 & 0.1890 & 0.12 & 0.03 & 0.15 & 0.44 & 1.40 \\
+ 6 & ibp & 0.0000 & 0.0000 & 0.12 & 0.01 & 0.13 & 0.44 & 1.40 \\
+\hline
+ 7 & approxlp & 0.0002 & 0.0004 & 0.15 & 0.15 & 0.30 & 0.73 & 1.70 \\
+ 7 & ariel & 0.0002 & 0.0114 & 0.00 & 44.04 & 44.04 & 0.73 & -- \\
+ 7 & cjt & 0.0000 & 0.0000 & 0.01 & 0.76 & 0.76 & 0.73 & 2.62 \\
+ 7 & cve & 0.0003 & 0.0000 & 0.13 & 849.79 & 849.92 & 0.73 & 1.40 \\
+ 7 & $\text{cve\_cm}$ & 0.0790 & 0.0845 & 0.15 & 0.06 & 0.22 & 0.73 & 1.70 \\
+ 7 & $\text{cve\_cp}$ & 0.2305 & 0.2245 & 0.15 & 0.05 & 0.20 & 0.73 & 1.70 \\
+ 7 & ibp & 0.0002 & 0.0004 & 0.15 & 0.01 & 0.16 & 0.73 & 1.70 \\
+\hline
+ 8 & approxlp & 0.0001 & 0.0017 & 0.16 & 0.22 & 0.38 & 0.91 & 1.40 \\
+ 8 & ariel & 0.0010 & 0.0139 & 0.00 & 3.33 & 3.33 & 0.91 & -- \\
+ 8 & cjt & 0.0000 & 0.0000 & 0.01 & 0.38 & 0.38 & 0.91 & 2.00 \\
+ 8 & cve & 0.0000 & 0.0000 & 0.15 & 2213.21 & 2213.37 & 0.91 & 1.00 \\
+ 8 & $\text{cve\_cm}$ & 0.1354 & 0.1082 & 0.18 & 0.09 & 0.27 & 0.91 & 1.40 \\
+ 8 & $\text{cve\_cp}$ & 0.2718 & 0.2519 & 0.17 & 0.08 & 0.24 & 0.91 & 1.40 \\
+ 8 & ibp & 0.0000 & 0.0000 & 0.17 & 0.01 & 0.17 & 0.91 & 1.40 \\
+\hline
+ 9 & approxlp & 0.0015 & 0.0042 & 0.18 & 0.32 & 0.50 & 0.99 & 1.30 \\
+ 9 & ariel & 0.0019 & 0.0012 & 0.00 & 26.20 & 26.20 & 0.99 & -- \\
+ 9 & cjt & 0.0000 & 0.0000 & 0.01 & 0.49 & 0.50 & 0.99 & 2.22 \\
+ 9 & $\text{cve\_cm}$ & 0.1264 & 0.1290 & 0.19 & 0.12 & 0.31 & 0.99 & 1.30 \\
+ 9 & $\text{cve\_cp}$ & 0.2655 & 0.2778 & 0.19 & 0.10 & 0.29 & 0.99 & 1.30 \\
+ 9 & ibp & 0.0000 & 0.0000 & 0.18 & 0.01 & 0.19 & 0.99 & 1.30 \\
+\hline
+ 10 & approxlp & 0.0014 & 0.0011 & 0.19 & 0.43 & 0.62 & 1.11 & 1.30 \\
+ 10 & ariel & 0.0046 & 0.0011 & 0.00 & 11.47 & 11.47 & 1.11 & -- \\
+ 10 & cjt & 0.0000 & 0.0000 & 0.01 & 0.50 & 0.50 & 1.11 & 2.12 \\
+ 10 & cve & 0.0000 & 0.0000 & 0.16 & 2149.12 & 2149.28 & 1.11 & 1.00 \\
+ 10 & $\text{cve\_cm}$ & 0.1124 & 0.1220 & 0.20 & 0.14 & 0.33 & 1.11 & 1.30 \\
+ 10 & $\text{cve\_cp}$ & 0.2510 & 0.2494 & 0.20 & 0.12 & 0.32 & 1.11 & 1.30 \\
+ 10 & ibp & 0.0010 & 0.0010 & 0.20 & 0.01 & 0.21 & 1.11 & 1.30 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\begin{table}[ht]
+\centering
+% \scriptsize
+\caption{Error metrics vs.\ CJT reference: \texttt{polytree} LCNs}
+\begin{tabular}{rlrrrrrrr}
+\toprule
+ $n$ & Algorithm & MAE$_{\text{lb}}$ & MAE$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+\midrule
+ 10 & approxlp & 0.0010 & 0.0050 & 0.23 & 0.51 & 0.73 & 13.77 & 1.50 \\
+ 10 & ariel & 0.0100 & 0.0038 & 0.00 & 3.66 & 3.66 & 13.77 & -- \\
+ 10 & cjt & 0.0000 & 0.0000 & 0.01 & 0.57 & 0.57 & 13.77 & 2.44 \\
+ 10 & $\text{cve\_cm}$ & 0.1333 & 0.1551 & 0.22 & 0.20 & 0.42 & 13.77 & 1.50 \\
+ 10 & $\text{cve\_cp}$ & 0.2823 & 0.2835 & 0.23 & 0.19 & 0.43 & 13.77 & 1.50 \\
+ 10 & ibp & 0.0003 & 0.0013 & 0.23 & 0.01 & 0.24 & 13.77 & 1.50 \\
+\hline
+ 20 & approxlp & 0.0031 & 0.0031 & 0.45 & 5.35 & 5.80 & 3.21 & 1.60 \\
+ 20 & ariel & 0.0095 & 0.0143 & 0.00 & 57.07 & 57.07 & 3.21 & -- \\
+ 20 & cjt & 0.0000 & 0.0000 & 0.01 & 1.51 & 1.52 & 3.21 & 2.43 \\
+ 20 & $\text{cve\_cm}$ & 0.2740 & 0.2555 & 0.44 & 1.73 & 2.17 & 3.21 & 1.60 \\
+ 20 & $\text{cve\_cp}$ & 0.3769 & 0.3382 & 0.45 & 1.72 & 2.16 & 3.21 & 1.60 \\
+ 20 & ibp & 0.0012 & 0.0006 & 0.43 & 0.03 & 0.47 & 3.21 & 1.60 \\
+\hline
+ 30 & approxlp & 0.0012 & 0.0023 & 0.54 & 18.84 & 19.38 & 5.22 & 1.10 \\
+ 30 & ariel & 0.0000 & 0.0000 & 0.00 & 14.78 & 14.78 & 5.22 & -- \\
+ 30 & cjt & 0.0000 & 0.0000 & 0.01 & 2.02 & 2.03 & 5.22 & 2.10 \\
+ 30 & $\text{cve\_cm}$ & 0.3039 & 0.3023 & 0.58 & 5.12 & 5.71 & 5.22 & 1.10 \\
+ 30 & $\text{cve\_cp}$ & 0.4134 & 0.3874 & 0.59 & 4.62 & 5.21 & 5.22 & 1.10 \\
+ 30 & ibp & 0.0001 & 0.0003 & 0.56 & 0.04 & 0.59 & 5.22 & 1.10 \\
+\hline
+ 40 & approxlp & 0.0051 & 0.0052 & 0.76 & 52.22 & 52.98 & 12.10 & 1.40 \\
+ 40 & ariel & 0.0007 & 0.0009 & 0.00 & 20.76 & 20.76 & 12.10 & -- \\
+ 40 & cjt & 0.0000 & 0.0000 & 0.01 & 2.61 & 2.62 & 12.10 & 2.00 \\
+ 40 & $\text{cve\_cm}$ & 0.3548 & 0.3560 & 0.78 & 184.60 & 185.37 & 12.10 & 1.40 \\
+ 40 & $\text{cve\_cp}$ & 0.4386 & 0.4045 & 0.79 & 181.18 & 181.97 & 12.10 & 1.40 \\
+ 40 & ibp & 0.0003 & 0.0002 & 0.80 & 0.06 & 0.86 & 12.10 & 1.40 \\
+\hline
+ 50 & approxlp & 0.0047 & 0.0051 & 1.10 & 124.13 & 125.23 & 38.34 & 1.50 \\
+ 50 & ariel & 0.0008 & 0.0012 & 0.00 & 31.07 & 31.07 & 38.34 & -- \\
+ 50 & cjt & 0.0000 & 0.0000 & 0.01 & 4.17 & 4.18 & 38.34 & 2.25 \\
+ 50 & $\text{cve\_cm}$ & 0.3992 & 0.3913 & 0.93 & 21.67 & 22.60 & 38.34 & 1.50 \\
+ 50 & $\text{cve\_cp}$ & 0.4525 & 0.4139 & 0.96 & 19.17 & 20.13 & 38.34 & 1.50 \\
+ 50 & ibp & 0.0005 & 0.0003 & 0.99 & 0.07 & 1.06 & 38.34 & 1.50 \\
+\hline
+ 100 & approxlp & 0.0056 & 0.0043 & 1.95 & 1545.82 & 1547.77 & 68.64 & 1.40 \\
+ 100 & ariel & 0.0005 & 0.0003 & 0.00 & 58.08 & 58.08 & 68.64 & -- \\
+ 100 & cjt & 0.0000 & 0.0000 & 0.02 & 8.78 & 8.81 & 68.64 & 2.25 \\
+ 100 & $\text{cve\_cm}$ & 0.4359 & 0.4408 & 1.86 & 272.65 & 274.51 & 68.64 & 1.33 \\
+ 100 & $\text{cve\_cp}$ & 0.4707 & 0.4442 & 1.87 & 257.15 & 259.02 & 68.64 & 1.33 \\
+ 100 & ibp & 0.0002 & 0.0002 & 1.93 & 0.15 & 2.08 & 68.64 & 1.40 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+\subsection{k-Tree LCNs}
+\begin{table}[ht]
+\centering
+%\scriptsize
+\caption{Error metrics vs.\ CJT exact reference: \texttt{ktree} LCNs with $k=3$}
+\begin{tabular}{rlrrrrrrr}
+\toprule
+ $n$ & Algorithm & MAE$_{\text{lb}}$ & MAE$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+\midrule
+ 5 & approxlp & 0.0006 & 0.0042 & 0.33 & 0.14 & 0.48 & 0.29 & 3.00 \\
+ 5 & ariel & 0.0015 & 0.0028 & 0.00 & 2.15 & 2.15 & 0.29 & -- \\
+ 5 & $\text{cve\_cm}$ & 0.1437 & 0.1374 & 0.33 & 1.38 & 1.71 & 0.29 & 3.00 \\
+ 5 & $\text{cve\_cp}$ & 0.3029 & 0.3067 & 0.33 & 1.41 & 1.74 & 0.29 & 3.00 \\
+ 5 & ibp & 0.0030 & 0.0027 & 0.33 & 0.41 & 0.74 & 0.29 & 3.00 \\
+\hline
+ 6 & approxlp & 0.0006 & 0.0012 & 0.45 & 0.29 & 0.74 & 0.36 & 3.00 \\
+ 6 & ariel & 0.0029 & 0.0011 & 0.00 & 3.11 & 3.11 & 0.36 & -- \\
+ 6 & $\text{cve\_cm}$ & 0.1620 & 0.1519 & 0.45 & 3.99 & 4.43 & 0.36 & 3.00 \\
+ 6 & $\text{cve\_cp}$ & 0.3197 & 0.3190 & 0.45 & 4.08 & 4.53 & 0.36 & 3.00 \\
+ 6 & ibp & 0.0030 & 0.0008 & 0.45 & 0.69 & 1.14 & 0.36 & 3.00 \\
+\hline
+ 7 & approxlp & 0.0027 & 0.0005 & 0.57 & 0.59 & 1.17 & 0.42 & 3.00 \\
+ 7 & ariel & 0.0015 & 0.0002 & 0.00 & 3.72 & 3.72 & 0.42 & -- \\
+ 7 & $\text{cve\_cm}$ & 0.2231 & 0.2155 & 0.60 & 7.68 & 8.27 & 0.42 & 3.00 \\
+ 7 & $\text{cve\_cp}$ & 0.3696 & 0.3674 & 0.57 & 7.61 & 8.18 & 0.42 & 3.00 \\
+ 7 & ibp & 0.0018 & 0.0005 & 0.58 & 0.92 & 1.50 & 0.42 & 3.00 \\
+\hline
+ 8 & approxlp & 0.0008 & 0.0044 & 0.64 & 0.90 & 1.54 & 0.51 & 3.00 \\
+ 8 & ariel & 0.0028 & 0.0020 & 0.00 & 4.72 & 4.72 & 0.51 & -- \\
+ 8 & $\text{cve\_cm}$ & 0.2484 & 0.2158 & 0.69 & 22.88 & 23.57 & 0.51 & 3.00 \\
+ 8 & $\text{cve\_cp}$ & 0.3648 & 0.3884 & 0.64 & 22.54 & 23.18 & 0.51 & 3.00 \\
+ 8 & ibp & 0.0018 & 0.0011 & 0.71 & 1.23 & 1.94 & 0.51 & 3.00 \\
+\hline
+ 9 & approxlp & 0.0011 & 0.0009 & 0.78 & 1.39 & 2.17 & 0.60 & 3.00 \\
+ 9 & ariel & 0.0019 & 0.0017 & 0.00 & 5.32 & 5.32 & 0.60 & -- \\
+ 9 & $\text{cve\_cm}$ & 0.2851 & 0.2768 & 0.82 & 26.13 & 26.95 & 0.60 & 3.00 \\
+ 9 & $\text{cve\_cp}$ & 0.3876 & 0.4048 & 0.76 & 27.17 & 27.93 & 0.60 & 3.00 \\
+ 9 & ibp & 0.0015 & 0.0020 & 0.76 & 1.38 & 2.13 & 0.60 & 3.00 \\
+\hline
+ 10 & approxlp & 0.0002 & 0.0015 & 0.95 & 2.10 & 3.05 & 0.68 & 3.00 \\
+ 10 & ariel & 0.0027 & 0.0011 & 0.00 & 5.98 & 5.98 & 0.68 & -- \\
+ 10 & $\text{cve\_cm}$ & 0.2740 & 0.2723 & 0.96 & 45.69 & 46.65 & 0.68 & 3.00 \\
+ 10 & $\text{cve\_cp}$ & 0.3826 & 0.4070 & 0.90 & 45.71 & 46.61 & 0.68 & 3.00 \\
+ 10 & ibp & 0.0013 & 0.0009 & 0.97 & 1.74 & 2.70 & 0.68 & 3.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[ht]
+\centering
+%\scriptsize
+\caption{Standard deviation of error metrics vs.\ CJT reference: $k$-tree LCNs}
+\begin{tabular}{rlrrrrrrr}
+\toprule
+ $n$ & Algorithm & SD$_{\text{lb}}$ & SD$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+\midrule
+ 5 & approxlp & 0.0021 & 0.0206 & 0.33 & 0.14 & 0.48 & 0.29 & 3.00 \\
+ 5 & ariel & 0.0105 & 0.0171 & 0.00 & 2.15 & 2.15 & 0.29 & -- \\
+ 5 & $\text{cve\_cm}$ & 0.1324 & 0.1330 & 0.33 & 1.38 & 1.71 & 0.29 & 3.00 \\
+ 5 & $\text{cve\_cp}$ & 0.1783 & 0.1762 & 0.33 & 1.41 & 1.74 & 0.29 & 3.00 \\
+ 5 & ibp & 0.0125 & 0.0122 & 0.33 & 0.41 & 0.74 & 0.29 & 3.00 \\
+ \hline
+ 6 & approxlp & 0.0034 & 0.0094 & 0.45 & 0.29 & 0.74 & 0.36 & 3.00 \\
+ 6 & ariel & 0.0137 & 0.0071 & 0.00 & 3.11 & 3.11 & 0.36 & -- \\
+ 6 & $\text{cve\_cm}$ & 0.1399 & 0.1394 & 0.45 & 3.99 & 4.43 & 0.36 & 3.00 \\
+ 6 & $\text{cve\_cp}$ & 0.1648 & 0.1795 & 0.45 & 4.08 & 4.53 & 0.36 & 3.00 \\
+ 6 & ibp & 0.0119 & 0.0037 & 0.45 & 0.69 & 1.14 & 0.36 & 3.00 \\
+ \hline
+ 7 & approxlp & 0.0174 & 0.0022 & 0.57 & 0.59 & 1.17 & 0.42 & 3.00 \\
+ 7 & ariel & 0.0063 & 0.0013 & 0.00 & 3.72 & 3.72 & 0.42 & -- \\
+ 7 & $\text{cve\_cm}$ & 0.1767 & 0.1585 & 0.60 & 7.68 & 8.27 & 0.42 & 3.00 \\
+ 7 & $\text{cve\_cp}$ & 0.1626 & 0.1550 & 0.57 & 7.61 & 8.18 & 0.42 & 3.00 \\
+ 7 & ibp & 0.0069 & 0.0027 & 0.58 & 0.92 & 1.50 & 0.42 & 3.00 \\
+ \hline
+ 8 & approxlp & 0.0050 & 0.0202 & 0.64 & 0.90 & 1.54 & 0.51 & 3.00 \\
+ 8 & ariel & 0.0144 & 0.0114 & 0.00 & 4.72 & 4.72 & 0.51 & -- \\
+ 8 & $\text{cve\_cm}$ & 0.1728 & 0.1580 & 0.69 & 22.88 & 23.57 & 0.51 & 3.00 \\
+ 8 & $\text{cve\_cp}$ & 0.1758 & 0.1703 & 0.64 & 22.54 & 23.18 & 0.51 & 3.00 \\
+ 8 & ibp & 0.0071 & 0.0041 & 0.71 & 1.23 & 1.94 & 0.51 & 3.00 \\
+ \hline
+ 9 & approxlp & 0.0067 & 0.0057 & 0.78 & 1.39 & 2.17 & 0.60 & 3.00 \\
+ 9 & ariel & 0.0131 & 0.0110 & 0.00 & 5.32 & 5.32 & 0.60 & -- \\
+ 9 & $\text{cve\_cm}$ & 0.1681 & 0.1694 & 0.82 & 26.13 & 26.95 & 0.60 & 3.00 \\
+ 9 & $\text{cve\_cp}$ & 0.1608 & 0.1565 & 0.76 & 27.17 & 27.93 & 0.60 & 3.00 \\
+ 9 & ibp & 0.0068 & 0.0089 & 0.76 & 1.38 & 2.13 & 0.60 & 3.00 \\
+ \hline
+ 10 & approxlp & 0.0012 & 0.0127 & 0.95 & 2.10 & 3.05 & 0.68 & 3.00 \\
+ 10 & ariel & 0.0129 & 0.0052 & 0.00 & 5.98 & 5.98 & 0.68 & -- \\
+ 10 & $\text{cve\_cm}$ & 0.1808 & 0.1783 & 0.96 & 45.69 & 46.65 & 0.68 & 3.00 \\
+ 10 & $\text{cve\_cp}$ & 0.1581 & 0.1539 & 0.90 & 45.71 & 46.61 & 0.68 & 3.00 \\
+ 10 & ibp & 0.0054 & 0.0039 & 0.97 & 1.74 & 2.70 & 0.68 & 3.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\begin{table}[ht]
+\centering
+%\scriptsize
+\caption{Error metrics vs.\ CJT reference: \texttt{ktree} LCNs with $k=3$}
+\begin{tabular}{rlrrrrrrr}
+\toprule
+ $n$ & Algorithm & MAE$_{\text{lb}}$ & MAE$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+\midrule
+ 10 & approxlp & 0.0007 & 0.0023 & 0.40 & 2.14 & 2.55 & 0.65 & 3.00 \\
+ 10 & ariel & 0.0060 & 0.0017 & 0.00 & 5.42 & 5.42 & 0.65 & -- \\
+ 10 & $\text{cve\_cm}$ & 0.2993 & 0.2810 & 0.40 & 46.11 & 46.51 & 0.65 & 3.00 \\
+ 10 & $\text{cve\_cp}$ & 0.3998 & 0.4114 & 0.40 & 50.25 & 50.65 & 0.65 & 3.00 \\
+ 10 & ibp & 0.0032 & 0.0021 & 0.40 & 1.74 & 2.13 & 0.65 & 3.00 \\
+\hline
+ 20 & approxlp & 0.0013 & 0.0017 & 0.85 & 26.67 & 27.52 & 1.57 & 3.00 \\
+ 20 & ariel & 0.0006 & 0.0014 & 0.00 & 12.26 & 12.26 & 1.57 & -- \\
+ 20 & $\text{cve\_cm}$ & 0.4017 & 0.4124 & 0.81 & 959.08 & 959.88 & 1.57 & 3.00 \\
+ 20 & $\text{cve\_cp}$ & 0.4428 & 0.4624 & 0.82 & 1091.59 & 1092.41 & 1.57 & 3.00 \\
+ 20 & ibp & 0.0007 & 0.0009 & 0.83 & 3.62 & 4.45 & 1.57 & 3.00 \\
+\hline
+ 30 & approxlp & 0.0013 & 0.0011 & 1.28 & 116.25 & 117.53 & 2.91 & 3.00 \\
+ 30 & ariel & 0.0009 & 0.0001 & 0.00 & 19.01 & 19.01 & 2.91 & -- \\
+ 30 & ibp & 0.0009 & 0.0004 & 1.26 & 6.38 & 7.64 & 2.91 & 3.00 \\
+\hline
+ 40 & approxlp & 0.0027 & 0.0020 & 1.71 & 367.85 & 369.55 & 4.80 & 3.00 \\
+ 40 & ariel & 0.0003 & 0.0004 & 0.00 & 25.41 & 25.41 & 4.80 & -- \\
+ 40 & ibp & 0.0003 & 0.0003 & 1.68 & 8.70 & 10.38 & 4.80 & 3.00 \\
+\hline
+ 50 & approxlp & 0.0015 & 0.0022 & 3.68 & 845.10 & 848.78 & 6.89 & 3.00 \\
+ 50 & ariel & 0.0001 & 0.0004 & 0.00 & 31.32 & 31.32 & 6.89 & -- \\
+ 50 & ibp & 0.0004 & 0.0003 & 3.64 & 11.44 & 15.08 & 6.89 & 3.00 \\
+\hline
+ 100 & ariel & 0.0003 & 0.0007 & 0.00 & 64.03 & 64.03 & 22.71 & -- \\
+ 100 & ibp & 0.0002 & 0.0005 & 10.55 & 25.34 & 35.89 & 22.71 & 3.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\%scriptsize
+\caption{Standard deviation of error metrics vs.\ CJT reference: $k$-tree LCNs}
+\begin{tabular}{rlrrrrrrr}
+\toprule
+ $n$ & Algorithm & SD$_{\text{lb}}$ & SD$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+\midrule
+ 10 & approxlp & 0.0031 & 0.0095 & 0.40 & 2.14 & 2.55 & 0.65 & 3.00 \\
+ 10 & ariel & 0.0242 & 0.0128 & 0.00 & 5.42 & 5.42 & 0.65 & -- \\
+ 10 & $\text{cve\_cm}$ & 0.1690 & 0.1673 & 0.40 & 46.11 & 46.51 & 0.65 & 3.00 \\
+ 10 & $\text{cve\_cp}$ & 0.1582 & 0.1553 & 0.40 & 50.25 & 50.65 & 0.65 & 3.00 \\
+ 10 & ibp & 0.0128 & 0.0113 & 0.40 & 1.74 & 2.13 & 0.65 & 3.00 \\
+ \hline
+ 20 & approxlp & 0.0122 & 0.0111 & 0.85 & 26.67 & 27.52 & 1.57 & 3.00 \\
+ 20 & ariel & 0.0041 & 0.0116 & 0.00 & 12.26 & 12.26 & 1.57 & -- \\
+ 20 & $\text{cve\_cm}$ & 0.1572 & 0.1476 & 0.81 & 959.08 & 959.88 & 1.57 & 3.00 \\
+ 20 & $\text{cve\_cp}$ & 0.1223 & 0.1277 & 0.82 & 1091.59 & 1092.41 & 1.57 & 3.00 \\
+ 20 & ibp & 0.0038 & 0.0068 & 0.83 & 3.62 & 4.45 & 1.57 & 3.00 \\
+ \hline
+ 30 & approxlp & 0.0085 & 0.0075 & 1.28 & 116.25 & 117.53 & 2.91 & 3.00 \\
+ 30 & ariel & 0.0055 & 0.0011 & 0.00 & 19.01 & 19.01 & 2.91 & -- \\
+ 30 & ibp & 0.0055 & 0.0032 & 1.26 & 6.38 & 7.64 & 2.91 & 3.00 \\
+ \hline
+ 40 & approxlp & 0.0161 & 0.0119 & 1.71 & 367.85 & 369.55 & 4.80 & 3.00 \\
+ 40 & ariel & 0.0034 & 0.0065 & 0.00 & 25.41 & 25.41 & 4.80 & -- \\
+ 40 & ibp & 0.0029 & 0.0036 & 1.68 & 8.70 & 10.38 & 4.80 & 3.00 \\
+ \hline
+ 50 & approxlp & 0.0087 & 0.0133 & 3.68 & 845.10 & 848.78 & 6.89 & 3.00 \\
+ 50 & ariel & 0.0010 & 0.0077 & 0.00 & 31.32 & 31.32 & 6.89 & -- \\
+ 50 & ibp & 0.0042 & 0.0030 & 3.64 & 11.44 & 15.08 & 6.89 & 3.00 \\
+ \hline
+ 100 & ariel & 0.0037 & 0.0090 & 0.00 & 64.03 & 64.03 & 22.71 & -- \\
+ 100 & ibp & 0.0024 & 0.0048 & 10.55 & 25.34 & 35.89 & 22.71 & 3.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\begin{table}[ht]
+\centering
+%\scriptsize
+\caption{Mean error metrics vs.\ CJT reference: \texttt{dag} LCNs}
+\begin{tabular}{rlrrrrrrr}
+\toprule
+ $n$ & Algorithm & MAE$_{\text{lb}}$ & MAE$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+\midrule
+ 5 & approxlp & 0.0039 & 0.0020 & 0.13 & 0.06 & 0.20 & 0.42 & 2.00 \\
+ 5 & ariel & 0.0090 & 0.0123 & 0.00 & 3.38 & 3.38 & 0.42 & -- \\
+ 5 & cjt & 0.0000 & 0.0000 & 0.01 & 0.32 & 0.32 & 0.42 & 3.00 \\
+ 5 & cve & 0.0006 & 0.0017 & 0.13 & 250.50 & 250.64 & 0.42 & 2.00 \\
+ 5 & $\text{cve\_cm}$ & 0.0619 & 0.0578 & 0.13 & 0.03 & 0.16 & 0.42 & 2.00 \\
+ 5 & $\text{cve\_cp}$ & 0.1834 & 0.1863 & 0.13 & 0.03 & 0.16 & 0.42 & 2.00 \\
+ 5 & ibp & 0.0021 & 0.0020 & 0.13 & 0.01 & 0.13 & 0.42 & 2.00 \\
+\hline
+ 6 & approxlp & 0.0031 & 0.0037 & 0.14 & 0.09 & 0.23 & 0.49 & 1.90 \\
+ 6 & ariel & 0.0008 & 0.0012 & 0.00 & 7.96 & 7.96 & 0.49 & -- \\
+ 6 & cjt & 0.0000 & 0.0000 & 0.01 & 0.37 & 0.38 & 0.49 & 2.90 \\
+ 6 & cve & 0.0031 & 0.0019 & 0.15 & 267.68 & 267.84 & 0.49 & 1.90 \\
+ 6 & $\text{cve\_cm}$ & 0.0517 & 0.0569 & 0.14 & 0.04 & 0.18 & 0.49 & 1.90 \\
+ 6 & $\text{cve\_cp}$ & 0.1501 & 0.1504 & 0.14 & 0.04 & 0.17 & 0.49 & 1.90 \\
+ 6 & ibp & 0.0033 & 0.0020 & 0.13 & 0.01 & 0.14 & 0.49 & 1.90 \\
+\hline
+ 7 & approxlp & 0.0076 & 0.0045 & 0.17 & 0.15 & 0.32 & 0.79 & 1.80 \\
+ 7 & ariel & 0.0000 & 0.0000 & 0.00 & 1.92 & 1.92 & 0.79 & -- \\
+ 7 & cjt & 0.0000 & 0.0000 & 0.01 & 0.37 & 0.38 & 0.79 & 2.80 \\
+ 7 & cve & 0.0031 & 0.0020 & 0.13 & 282.36 & 282.49 & 0.79 & 1.50 \\
+ 7 & $\text{cve\_cm}$ & 0.0677 & 0.0778 & 0.17 & 0.07 & 0.23 & 0.79 & 1.80 \\
+ 7 & $\text{cve\_cp}$ & 0.1663 & 0.1661 & 0.16 & 0.06 & 0.22 & 0.79 & 1.80 \\
+ 7 & ibp & 0.0073 & 0.0041 & 0.16 & 0.01 & 0.17 & 0.79 & 1.80 \\
+\hline
+ 8 & approxlp & 0.0015 & 0.0035 & 0.24 & 0.33 & 0.57 & 1.10 & 2.20 \\
+ 8 & ariel & 0.0029 & 0.0007 & 0.00 & 3.26 & 3.26 & 1.10 & -- \\
+ 8 & cjt & 0.0000 & 0.0000 & 0.01 & 0.47 & 0.47 & 1.10 & 3.22 \\
+ 8 & $\text{cve\_cm}$ & 0.1535 & 0.1293 & 0.24 & 0.14 & 0.39 & 1.10 & 2.20 \\
+ 8 & $\text{cve\_cp}$ & 0.2487 & 0.2481 & 0.23 & 0.14 & 0.37 & 1.10 & 2.20 \\
+ 8 & ibp & 0.0032 & 0.0021 & 0.24 & 0.02 & 0.26 & 1.10 & 2.20 \\
+\hline
+ 9 & approxlp & 0.0013 & 0.0019 & 0.28 & 0.49 & 0.77 & 1.23 & 2.20 \\
+ 9 & ariel & 0.0089 & 0.0114 & 0.00 & 3.50 & 3.50 & 1.23 & -- \\
+ 9 & cjt & 0.0000 & 0.0000 & 0.01 & 256.36 & 256.36 & 1.23 & 3.22 \\
+ 9 & $\text{cve\_cm}$ & 0.1521 & 0.1462 & 0.27 & 0.22 & 0.49 & 1.23 & 2.20 \\
+ 9 & $\text{cve\_cp}$ & 0.3164 & 0.2944 & 0.26 & 0.21 & 0.48 & 1.23 & 2.20 \\
+ 9 & ibp & 0.0016 & 0.0004 & 0.28 & 0.02 & 0.30 & 1.23 & 2.20 \\
+\hline
+ 10 & approxlp & 0.0021 & 0.0060 & 0.31 & 0.73 & 1.05 & 1.62 & 2.20 \\
+ 10 & ariel & 0.0029 & 0.0029 & 0.00 & 3.92 & 3.92 & 1.62 & -- \\
+ 10 & cjt & 0.0000 & 0.0000 & 0.01 & 0.54 & 0.55 & 1.62 & 3.11 \\
+ 10 & cve & 0.0000 & 0.0000 & 0.20 & 104.02 & 104.21 & 1.62 & 2.00 \\
+ 10 & $\text{cve\_cm}$ & 0.1930 & 0.1972 & 0.30 & 0.30 & 0.60 & 1.62 & 2.20 \\
+ 10 & $\text{cve\_cp}$ & 0.3066 & 0.2866 & 0.29 & 0.28 & 0.57 & 1.62 & 2.20 \\
+ 10 & ibp & 0.0044 & 0.0058 & 0.31 & 0.03 & 0.33 & 1.62 & 2.20 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[ht]
+\centering
+%\scriptsize
+\caption{Mean error metrics vs.\ CJT reference: \texttt{dag} LCNs}
+\begin{tabular}{rlrrrrrrr}
+\toprule
+ $n$ & Algorithm & MAE$_{\text{lb}}$ & MAE$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+\midrule
+ 10 & approxlp & 0.0012 & 0.0020 & 0.32 & 0.76 & 1.07 & 1.53 & 2.40 \\
+ 10 & ariel & 0.0013 & 0.0038 & 0.00 & 18.64 & 18.64 & 1.53 & -- \\
+ 10 & cjt & 0.0000 & 0.0000 & 0.01 & 0.57 & 0.57 & 1.53 & 3.33 \\
+ 10 & $\text{cve\_cm}$ & 0.1992 & 0.2057 & 0.32 & 0.41 & 0.72 & 1.53 & 2.40 \\
+ 10 & $\text{cve\_cp}$ & 0.3133 & 0.2940 & 0.34 & 0.37 & 0.71 & 1.53 & 2.40 \\
+ 10 & ibp & 0.0019 & 0.0030 & 0.31 & 0.03 & 0.34 & 1.53 & 2.40 \\
+\hline
+ 20 & approxlp & 0.0039 & 0.0023 & 0.67 & 8.53 & 9.20 & 4.17 & 2.60 \\
+ 20 & ariel & 0.0040 & 0.0026 & 0.00 & 9.46 & 9.46 & 4.17 & -- \\
+ 20 & cjt & 0.0000 & 0.0000 & 0.01 & 1.29 & 1.29 & 4.17 & 3.60 \\
+ 20 & $\text{cve\_cm}$ & 0.3072 & 0.3114 & 0.65 & 23.43 & 24.08 & 4.17 & 2.60 \\
+ 20 & $\text{cve\_cp}$ & 0.3807 & 0.3799 & 0.68 & 24.34 & 25.03 & 4.17 & 2.60 \\
+ 20 & ibp & 0.0037 & 0.0026 & 0.66 & 0.07 & 0.73 & 4.17 & 2.60 \\
+\hline
+ 30 & approxlp & 0.0025 & 0.0023 & 1.03 & 36.88 & 37.90 & 10.25 & 2.80 \\
+ 30 & ariel & 0.0013 & 0.0001 & 0.00 & 13.20 & 13.20 & 10.25 & -- \\
+ 30 & cjt & 0.0000 & 0.0000 & 0.01 & 1.95 & 1.96 & 10.25 & 3.80 \\
+ 30 & $\text{cve\_cm}$ & 0.3439 & 0.3465 & 0.95 & 284.01 & 284.96 & 10.25 & 2.75 \\
+ 30 & $\text{cve\_cp}$ & 0.4099 & 0.4178 & 0.96 & 276.26 & 277.23 & 10.25 & 2.75 \\
+ 30 & ibp & 0.0021 & 0.0018 & 0.94 & 0.09 & 1.03 & 10.25 & 2.80 \\
+\hline
+ 40 & approxlp & 0.0039 & 0.0036 & 1.43 & 110.19 & 111.62 & 14.22 & 3.00 \\
+ 40 & ariel & 0.0009 & 0.0034 & 0.00 & 32.43 & 32.43 & 14.22 & -- \\
+ 40 & cjt & 0.0000 & 0.0000 & 0.01 & 2.99 & 3.01 & 14.22 & 4.00 \\
+ 40 & $\text{cve\_cm}$ & 0.3173 & 0.3677 & 1.09 & 1135.19 & 1136.29 & 14.22 & 3.00 \\
+ 40 & $\text{cve\_cp}$ & 0.4036 & 0.4696 & 1.09 & 855.17 & 856.27 & 14.22 & 3.00 \\
+ 40 & ibp & 0.0019 & 0.0018 & 1.35 & 0.17 & 1.51 & 14.22 & 3.00 \\
+\hline
+ 50 & approxlp & 0.0037 & 0.0032 & 1.65 & 238.85 & 240.50 & 23.21 & 3.00 \\
+ 50 & ariel & 0.0011 & 0.0008 & 0.00 & 24.86 & 24.86 & 23.21 & -- \\
+ 50 & cjt & 0.0000 & 0.0000 & 0.01 & 4.21 & 4.22 & 23.21 & 4.00 \\
+ 50 & $\text{cve\_cm}$ & 0.3756 & 0.3915 & 1.54 & 194.40 & 195.94 & 23.21 & 3.00 \\
+ 50 & $\text{cve\_cp}$ & 0.4174 & 0.4283 & 1.46 & 148.24 & 149.70 & 23.21 & 3.00 \\
+ 50 & ibp & 0.0027 & 0.0020 & 1.67 & 0.20 & 1.87 & 23.21 & 3.00 \\
+\hline
+ 100 & approxlp & 0.0030 & 0.0024 & 3.00 & 3278.99 & 3281.98 & 80.21 & 3.00 \\
+ 100 & ariel & 0.0013 & 0.0010 & 0.00 & 56.21 & 56.21 & 80.21 & -- \\
+ 100 & cjt & 0.0000 & 0.0000 & 0.02 & 12.91 & 12.94 & 80.21 & 4.00 \\
+ 100 & ibp & 0.0013 & 0.0012 & 3.34 & 0.40 & 3.75 & 80.21 & 3.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\subsection{Real LCNs}
+\begin{table}[ht]
+\centering
+%\scriptsize
+\caption{Error metrics vs.\ CJT reference (ipopt)}
+\begin{tabular}{llrrrrrrr}
+\toprule
+Instance & Algorithm & MAE$_{\text{lb}}$ & MAE$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+\midrule
+$\text{alarm}$ & approxlp & 0.1008 & 0.0146 & 0.10 & 0.59 & 0.69 & 0.59 & 2.00 \\
+$\text{alarm}$ & ariel & 0.0000 & 0.0000 & 0.00 & 3.92 & 3.92 & 0.59 & -- \\
+$\text{alarm}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 0.71 & 0.72 & 0.59 & 3.00 \\
+$\text{alarm}$ & $\text{cve\_cm}$ & 0.0866 & 0.0670 & 0.10 & 0.14 & 0.24 & 0.59 & 2.00 \\
+$\text{alarm}$ & $\text{cve\_cp}$ & 0.0920 & 0.1278 & 0.10 & 0.14 & 0.25 & 0.59 & 2.00 \\
+$\text{alarm}$ & ibp & 0.1008 & 0.0149 & 0.10 & 0.03 & 0.13 & 0.59 & 2.00 \\
+\hline
+$\text{asia}$ & approxlp & 0.0033 & 0.0073 & 0.08 & 0.24 & 0.32 & 0.46 & 2.00 \\
+$\text{asia}$ & ariel & 0.0000 & 0.0000 & 0.00 & 2.86 & 2.86 & 0.46 & -- \\
+$\text{asia}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 0.44 & 0.45 & 0.46 & 3.00 \\
+$\text{asia}$ & $\text{cve\_cm}$ & 0.0323 & 0.0291 & 0.08 & 0.08 & 0.16 & 0.46 & 2.00 \\
+$\text{asia}$ & $\text{cve\_cp}$ & 0.0625 & 0.0208 & 0.08 & 0.09 & 0.17 & 0.46 & 2.00 \\
+$\text{asia}$ & ibp & 0.0035 & 0.0063 & 0.08 & 0.01 & 0.10 & 0.46 & 2.00 \\
+\hline
+$\text{cancer}$ & approxlp & 0.0653 & 0.0272 & 0.06 & 0.06 & 0.12 & 0.76 & 2.00 \\
+$\text{cancer}$ & ariel & 0.0013 & 0.0139 & 0.00 & 2.10 & 2.10 & 0.76 & -- \\
+$\text{cancer}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 0.37 & 0.37 & 0.76 & 3.00 \\
+$\text{cancer}$ & cve & 0.0653 & 0.0272 & 0.06 & 42.46 & 42.52 & 0.76 & 2.00 \\
+$\text{cancer}$ & $\text{cve\_cm}$ & 0.0491 & 0.0267 & 0.06 & 0.03 & 0.09 & 0.76 & 2.00 \\
+$\text{cancer}$ & $\text{cve\_cp}$ & 0.0439 & 0.0475 & 0.06 & 0.03 & 0.09 & 0.76 & 2.00 \\
+$\text{cancer}$ & ibp & 0.0639 & 0.0392 & 0.06 & 0.01 & 0.07 & 0.76 & 2.00 \\
+\hline
+$\text{credit}$ & approxlp & 0.2570 & 0.0000 & 0.11 & 0.58 & 0.69 & 12.85 & 3.00 \\
+$\text{credit}$ & ariel & 0.0496 & 0.0000 & 0.00 & 3.18 & 3.18 & 12.85 & -- \\
+$\text{credit}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 1.15 & 1.15 & 12.85 & 4.00 \\
+$\text{credit}$ & $\text{cve\_cm}$ & 0.1079 & 0.1650 & 0.11 & 1.62 & 1.73 & 12.85 & 3.00 \\
+$\text{credit}$ & $\text{cve\_cp}$ & 0.0694 & 0.2432 & 0.11 & 1.07 & 1.19 & 12.85 & 3.00 \\
+$\text{credit}$ & ibp & 0.2570 & 0.0000 & 0.11 & 0.13 & 0.24 & 12.85 & 3.00 \\
+\hline
+$\text{earthquake}$ & approxlp & 0.0041 & 0.0000 & 0.05 & 0.05 & 0.10 & 1.39 & 2.00 \\
+$\text{earthquake}$ & ariel & 0.0002 & 0.0000 & 0.00 & 1.88 & 1.88 & 1.39 & -- \\
+$\text{earthquake}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 0.53 & 0.53 & 1.39 & 3.00 \\
+$\text{earthquake}$ & cve & 0.0041 & 0.0000 & 0.05 & 7.63 & 7.68 & 1.39 & 2.00 \\
+$\text{earthquake}$ & $\text{cve\_cm}$ & 0.0019 & 0.0036 & 0.05 & 0.03 & 0.08 & 1.39 & 2.00 \\
+$\text{earthquake}$ & $\text{cve\_cp}$ & 0.0219 & 0.0021 & 0.05 & 0.02 & 0.07 & 1.39 & 2.00 \\
+$\text{earthquake}$ & ibp & 0.0041 & 0.0000 & 0.05 & 0.01 & 0.06 & 1.39 & 2.00 \\
+\hline
+$\text{engine}$ & approxlp & 0.0591 & 0.0104 & 0.10 & 0.43 & 0.53 & 0.53 & 2.00 \\
+$\text{engine}$ & ariel & 0.0000 & 0.0000 & 0.00 & 3.25 & 3.25 & 0.53 & -- \\
+$\text{engine}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 0.52 & 0.53 & 0.53 & 3.00 \\
+$\text{engine}$ & $\text{cve\_cm}$ & 0.1234 & 0.0839 & 0.10 & 0.32 & 0.42 & 0.53 & 2.00 \\
+$\text{engine}$ & $\text{cve\_cp}$ & 0.1443 & 0.2027 & 0.11 & 0.28 & 0.38 & 0.53 & 2.00 \\
+$\text{engine}$ & ibp & 0.0591 & 0.0104 & 0.10 & 0.01 & 0.12 & 0.53 & 2.00 \\
+\hline
+$\text{hepatitis}$ & approxlp & 0.0703 & 0.0851 & 0.24 & 0.90 & 1.15 & 0.62 & 3.00 \\
+$\text{hepatitis}$ & ariel & 0.0084 & 0.0075 & 0.00 & 3.91 & 3.91 & 0.62 & -- \\
+$\text{hepatitis}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 0.55 & 0.56 & 0.62 & 4.00 \\
+$\text{hepatitis}$ & $\text{cve\_cm}$ & 0.1137 & 0.1838 & 0.24 & 16.29 & 16.53 & 0.62 & 3.00 \\
+$\text{hepatitis}$ & $\text{cve\_cp}$ & 0.1704 & 0.2542 & 0.25 & 16.90 & 17.15 & 0.62 & 3.00 \\
+$\text{hepatitis}$ & ibp & 0.0686 & 0.0797 & 0.24 & 0.50 & 0.75 & 0.62 & 3.00 \\
+\hline
+$\text{suicide}$ & approxlp & 0.0849 & 0.0302 & 0.10 & 0.52 & 0.62 & 0.57 & 2.00 \\
+$\text{suicide}$ & ariel & 0.0000 & 0.0000 & 0.00 & 3.74 & 3.74 & 0.57 & -- \\
+$\text{suicide}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 0.86 & 0.87 & 0.57 & 3.00 \\
+$\text{suicide}$ & $\text{cve\_cm}$ & 0.0970 & 0.0513 & 0.10 & 0.13 & 0.23 & 0.57 & 2.00 \\
+$\text{suicide}$ & $\text{cve\_cp}$ & 0.1295 & 0.0974 & 0.10 & 0.12 & 0.21 & 0.57 & 2.00 \\
+$\text{suicide}$ & ibp & 0.0849 & 0.0302 & 0.10 & 0.02 & 0.12 & 0.57 & 2.00 \\
+\hline
+$\text{toy}$ & approxlp & 0.0891 & 0.0745 & 0.09 & 0.03 & 0.12 & 0.33 & 2.00 \\
+$\text{toy}$ & ariel & 0.0000 & 0.0000 & 0.00 & 1.60 & 1.60 & 0.33 & -- \\
+$\text{toy}$ & $\text{cjt\_l}$ & 0.0000 & 0.0000 & 0.01 & 0.16 & 0.16 & 0.33 & 3.00 \\
+$\text{toy}$ & $\text{cve\_cm}$ & 0.0742 & 0.0294 & 0.09 & 0.01 & 0.10 & 0.33 & 2.00 \\
+$\text{toy}$ & $\text{cve\_cp}$ & 0.0752 & 0.0448 & 0.09 & 0.01 & 0.10 & 0.33 & 2.00 \\
+$\text{toy}$ & ibp & 0.0891 & 0.0745 & 0.09 & 0.01 & 0.09 & 0.33 & 2.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+
+\begin{table}[]
+    \centering
+    \begin{tabular}{l|r|r|r|r|r|r|r}
+    instance ($w^*$  & CJT & CJT (ipopt) & Exact & Exact (ipopt) & ARIEL & IBP & ApproxLP \\
+    \toprule
+    alarm (3)     & 0.59 & 0.72 & - & - & 3.92 & 0.03 & 0.65 \\
+    asia (3)      & 0.46 & 0.45 & - & - & 2.86 & 0.02 & 0.24 \\
+    cancer (3)    & 0.76 & 0.37 & 1526.63 & 102.15 & 2.10 & 0.01 & 0.07 \\
+    credit (4)    & 12.85 & 1.15 & - & - & 3.18 & 0.14 & 0.62 \\
+    earthquake (3) & 1.39 & 0.53 & - & 91.53 & 1.88 & 0.01 & 0.05 \\
+    engine (3)    & 0.53 & 0.53 & - & - & 3.25 & 0.02 & 0.46 \\
+    hepatitis (4) & 0.62 & 0.56 & - & - & 3.91 & 0.62 & 0.98 \\
+    suicide (3)   & 0.57 & 0.87 & - & - & 3.74 & 0.03 & 0.57 \\
+    tank (3)      & -    & 0.77 & - & - & 5.02 & 0.03 & 1.14 \\
+    toy (3)       & 0.33 & 0.16 & 0.57 & 0.21 & 1.60 & 0.01 & 0.03
+    
+    \end{tabular}
+    \caption{Running time (in sec). Time limit 1 hour.}
+    \label{tab:placeholder}
+\end{table}
+
+
+\begin{table}[ht]
+\centering
+\scriptsize
+\caption{Mean error metrics vs.\ CJT reference: \texttt{junkyu} LCNs.}
+\begin{tabular}{llrrrrrrr}
+\toprule
+Instance & Algorithm & MAE$_{\text{lb}}$ & MAE$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+\midrule
+$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & approxlp & 0.1215 & 0.4370 & 1.78 & 22.80 & 24.57 & 1258.24 & 4.00 \\
+$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & ariel & 0.0000 & 0.0000 & 0.00 & 13.42 & 13.42 & 1258.24 & -- \\
+$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 8.35 & 8.36 & 1258.24 & 5.00 \\
+$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & $\text{cve\_cm}$ & 0.1123 & 0.1749 & 1.86 & 2206.67 & 2208.54 & 1258.24 & 4.00 \\
+$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & $\text{cve\_cp}$ & 0.2513 & 0.1868 & 1.93 & 2341.06 & 2342.99 & 1258.24 & 4.00 \\
+$\text{benchmark\_scaling\_directions\_n24\_2.lcn}$ & ibp & 0.1215 & 0.4370 & 1.91 & 685.00 & 686.91 & 1258.24 & 4.00 \\
+\hline
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & approxlp & 0.1148 & 0.2247 & 0.57 & 19.98 & 20.55 & 2.42 & 1.00 \\
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & ariel & 0.0000 & 0.0000 & 0.00 & 19.80 & 19.80 & 2.42 & -- \\
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 2.69 & 2.70 & 2.42 & 3.00 \\
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & $\text{cve\_cm}$ & 0.0643 & 0.0716 & 0.59 & 8.59 & 9.18 & 2.42 & 1.00 \\
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & $\text{cve\_cp}$ & 0.1248 & 0.0999 & 0.58 & 8.56 & 9.14 & 2.42 & 1.00 \\
+$\text{benchmark\_scaling\_directions\_n32\_1.lcn}$ & ibp & 0.1148 & 0.2247 & 0.64 & 0.05 & 0.69 & 2.42 & 1.00 \\
+\hline
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & approxlp & 0.1287 & 0.5013 & 0.29 & 0.94 & 1.23 & 0.66 & 2.00 \\
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & ariel & 0.0284 & 0.0000 & 0.00 & 8.13 & 8.13 & 0.66 & -- \\
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 2.64 & 2.65 & 0.66 & 3.00 \\
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & $\text{cve\_cm}$ & 0.0793 & 0.2270 & 0.31 & 0.25 & 0.57 & 0.66 & 2.00 \\
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & $\text{cve\_cp}$ & 0.1452 & 0.1711 & 0.32 & 0.21 & 0.53 & 0.66 & 2.00 \\
+$\text{maintenance\_scaling\_n12\_3.lcn}$ & ibp & 0.1286 & 0.4926 & 0.31 & 0.04 & 0.35 & 0.66 & 2.00 \\
+\hline
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & approxlp & 0.1029 & 0.3972 & 0.17 & 0.10 & 0.27 & 0.28 & 2.00 \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & ariel & 0.0000 & 0.0000 & 0.00 & 4.16 & 4.16 & 0.28 & -- \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 0.45 & 0.46 & 0.28 & 3.00 \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & cve & 0.1029 & 0.4017 & 0.14 & 789.77 & 789.91 & 0.28 & 2.00 \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & $\text{cve\_cm}$ & 0.1021 & 0.2685 & 0.14 & 0.05 & 0.19 & 0.28 & 2.00 \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & $\text{cve\_cp}$ & 0.1470 & 0.1974 & 0.15 & 0.04 & 0.19 & 0.28 & 2.00 \\
+$\text{maintenance\_scaling\_n6\_1.lcn}$ & ibp & 0.1029 & 0.4017 & 0.15 & 0.01 & 0.16 & 0.28 & 2.00 \\
+\hline
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & approxlp & 0.1447 & 0.4748 & 0.21 & 0.48 & 0.69 & 0.44 & 2.00 \\
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & ariel & 0.0398 & 0.0000 & 0.00 & 6.09 & 6.09 & 0.44 & -- \\
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 2.00 & 2.01 & 0.44 & 3.00 \\
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & $\text{cve\_cm}$ & 0.1095 & 0.2437 & 0.20 & 0.12 & 0.32 & 0.44 & 2.00 \\
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & $\text{cve\_cp}$ & 0.1499 & 0.1704 & 0.24 & 0.11 & 0.35 & 0.44 & 2.00 \\
+$\text{maintenance\_scaling\_n9\_2.lcn}$ & ibp & 0.1447 & 0.4662 & 0.23 & 0.02 & 0.25 & 0.44 & 2.00 \\
+\hline
+$\text{paper\_scaling\_directions\_n35\_2.lcn}$ & approxlp & 0.1506 & 0.4467 & 7.59 & 190.48 & 198.07 & 1342.14 & 5.00 \\
+$\text{paper\_scaling\_directions\_n35\_2.lcn}$ & ariel & 0.0064 & 0.0047 & 0.00 & 36.58 & 36.58 & 1342.14 & -- \\
+$\text{paper\_scaling\_directions\_n35\_2.lcn}$ & cjt & 0.0000 & 0.0000 & 0.02 & 103.01 & 103.03 & 1342.14 & 6.00 \\
+\hline
+$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & approxlp & 0.1288 & 0.2631 & 0.70 & 50.55 & 51.25 & 3.27 & 1.00 \\
+$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & ariel & 0.0000 & 0.0000 & 0.00 & 34.72 & 34.72 & 3.27 & -- \\
+$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & cjt & 0.0000 & 0.0000 & 0.01 & 3.50 & 3.51 & 3.27 & 3.00 \\
+$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & $\text{cve\_cm}$ & 0.0696 & 0.0566 & 0.74 & 658.10 & 658.84 & 3.27 & 1.00 \\
+$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & $\text{cve\_cp}$ & 0.1625 & 0.1081 & 0.73 & 667.02 & 667.74 & 3.27 & 1.00 \\
+$\text{paper\_scaling\_directions\_n40\_1.lcn}$ & ibp & 0.1288 & 0.2631 & 0.82 & 0.09 & 0.91 & 3.27 & 1.00 \\
+\hline
+$\text{supreme\_court\_judicial\_power\_credal\_source\_comparison\_n10\_1.lcn}$ & ariel & 0.0532 & 0.1234 & 0.00 & 115.72 & 115.72 & 348.07 & -- \\
+$\text{supreme\_court\_judicial\_power\_credal\_source\_comparison\_n10\_2.lcn}$ & ariel & 0.0321 & 0.1107 & 0.00 & 76.72 & 76.72 & 337.23 & -- \\
+$\text{supreme\_court\_judicial\_power\_credal\_source\_comparison\_n10\_3.lcn}$ & ariel & 0.0259 & 0.0972 & 0.00 & 527.92 & 527.92 & 426.93 & -- \\
+$\text{supreme\_court\_judicial\_power\_dual\_source\_credal\_n10\_1.lcn}$ & ariel & 0.0259 & 0.0972 & 0.00 & 523.64 & 523.64 & 435.71 & -- \\
+$\text{supreme\_court\_judicial\_power\_release\_comparison\_n10\_1.lcn}$ & ariel & 0.0317 & 0.0860 & 0.00 & 68.03 & 68.03 & 346.18 & -- \\
+$\text{supreme\_court\_judicial\_power\_release\_comparison\_n10\_2.lcn}$ & ariel & 0.0532 & 0.1234 & 0.00 & 117.31 & 117.31 & 337.95 & -- \\
+$\text{supreme\_court\_judicial\_power\_release\_comparison\_n10\_3.lcn}$ & ariel & 0.0259 & 0.0972 & 0.00 & 562.73 & 562.73 & 426.77 & -- \\
+$\text{supreme\_court\_judicial\_power\_source\_variants\_n10\_1.lcn}$ & ariel & 0.0317 & 0.0860 & 0.00 & 71.64 & 71.64 & 338.65 & -- \\
+$\text{supreme\_court\_judicial\_power\_source\_variants\_n10\_2.lcn}$ & ariel & 0.0176 & 0.0913 & 0.00 & 70.58 & 70.58 & 357.82 & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\bibliographystyle{unsrt}
+\bibliography{ref}
+
+\end{document}

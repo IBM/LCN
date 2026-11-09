@@ -8,7 +8,7 @@ LCN (Logical Credal Networks) is a Python library for probabilistic logic that c
 
 ## Build & Development Commands
 
-The package is built with the **hatchling** backend and is installable with **uv** (recommended) or plain `pip` (requires Python 3.10+; 3.12 recommended).
+The package is built with the **hatchling** backend and is installable with **uv** (recommended) or plain `pip` (requires Python 3.12+; numpy/scipy/networkx no longer support older versions). Core deps are numpy, scipy, networkx, pyomo, pyagrum, tqdm, matplotlib; `pandas` is the `experiments` extra, `ipykernel` the `notebooks` extra, and `pytest`/`pandas`/`ipykernel` are in the uv `dev` group (installed by `uv sync`).
 
 ```bash
 # Recommended: uv (creates the venv and installs from uv.lock)
@@ -38,6 +38,7 @@ pytest tests/test_mixed_graph.py::TestClassName::test_method -v
 - `parser.py` — parses propositional formulas. Operators: `and`/`&`, `or`/`|`, `xor`/`^`, `nand`/`/`, `not`/`!`. Uses `json_schema.py`.
 - `independencies.py` — `Independencies` / `IndependenceAssertion` (conditional independence statements; `event1=X`, `event2=Y`, `event3=S` for `X ⟂ Y | S`).
 - `mixed_graph.py` — `MixedGraph` (directed + bidirected edges) for deriving Markov conditions.
+- `plotting.py` — `plot_graph(G)`: static matplotlib/networkx drawing of a primal graph (`nx.DiGraph`) or structure graph (`MixedGraph`; undirected edges drawn without arrowheads), honouring node/edge `color` and node `shape`. Replaced `gravis` (dropped: unmaintained, needed `pkg_resources`/`setuptools<80`) in the demo notebooks.
 
 ### Inference (`lcn/inference/`)
 

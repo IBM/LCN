@@ -32,7 +32,7 @@ over propositions `A, B` and `C`.
 
 
 ## Installation Instructions
-The LCN solver requires `Python 3.10` or newer together with its dependencies; `Python 3.12` is the recommended version. The package is built with the [hatchling](https://hatch.pypa.io/) backend and is installable with the [uv](https://docs.astral.sh/uv/) toolchain (recommended) or with plain `pip`.
+The LCN solver requires `Python 3.12` or newer together with its dependencies (`3.12`–`3.14` are supported). The package is built with the [hatchling](https://hatch.pypa.io/) backend and is installable with the [uv](https://docs.astral.sh/uv/) toolchain (recommended) or with plain `pip`.
 
 ### Using uv (recommended)
 
@@ -42,7 +42,7 @@ cd LCN
 uv sync
 ```
 
-This creates a virtual environment and installs `lcn` together with all its dependencies from the locked `uv.lock` file. Commands can then be run inside the environment with `uv run`, for example `uv run pytest tests/`.
+This creates a virtual environment and installs `lcn` together with its dependencies and the `dev` group (`pytest`, `pandas`, `ipykernel`) from the locked `uv.lock` file. Commands can then be run inside the environment with `uv run`, for example `uv run pytest tests/`.
 
 ### Using pip and conda
 
@@ -53,8 +53,12 @@ git clone git@github.com:IBM/LCN.git
 cd LCN
 conda create -n lcn python=3.12
 conda activate lcn
-pip install -e .
+pip install -e .                    # core library
+pip install -e ".[experiments]"     # + pandas, for experiments/plot_results.py
+pip install -e ".[notebooks]"       # + ipykernel, for the demo notebooks
 ```
+
+Graphs (primal / structure graphs) are drawn with matplotlib via `lcn.core.plotting.plot_graph`.
 
 The LCN inference algorithms require the non-linear solver `ipopt`. To install 
 the solver, follow the instructions below for `Linux` and `MacOS`. Unfortunately,
