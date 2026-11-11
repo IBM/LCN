@@ -11,10 +11,10 @@ constraint polytope we need:
 
   * ``CredalNetworkVertices.from_lcn(..., solve_families=False)`` -- the cheap
     structure-only chain-graph build (no per-family interval solves).
-  * ``junction_nlp._build_jt_and_hosts`` -- the running-intersection junction
+  * ``cjt._build_jt_and_hosts`` -- the running-intersection junction
     tree plus the assignment of every sentence / non-RIP-implied LMC assertion
     to a host cluster (and the ``over_budget`` / ``fallback`` flags).
-  * ``junction_nlp._build_constraint_model`` -- one variable per (cluster, local
+  * ``cjt._build_constraint_model`` -- one variable per (cluster, local
     world), per-cluster simplex, Lauritzen separator-consistency equalities,
     sentence bound rows, and LMC bilinear rows. NO objective: a feasible SET.
 
@@ -118,13 +118,13 @@ def check_consistency_structured(
     Returns:
         A :class:`StructuredConsistencyResult`.
     """
-    # Deferred imports: junction_nlp imports lcn.inference.utils.common, and the
+    # Deferred imports: cjt imports lcn.inference.utils.common, and the
     # generator imports common, so importing these at module top level would
     # create a cycle. Import inside the function instead (matches the lazy-import
     # idiom used elsewhere in utils).
     from pyomo.environ import Objective, minimize, value
     from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
-    from lcn.inference.marginal.cn.junction_nlp import (
+    from lcn.inference.marginal.cn.cjt import (
         _build_jt_and_hosts, _build_constraint_model)
     from lcn.inference.marginal.exact import make_scip
     from lcn.inference.utils.common import make_ipopt

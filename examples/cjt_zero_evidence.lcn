@@ -1,0 +1,8 @@
+# Conditional query where the evidence can have probability zero.
+# Exact P(A | E=1) = [0.2, 0.4] for every member with P(E) > 0. A program that
+# guards the ratio t * P(E) = P(A & E) with a tiny denominator floor (1e-6) is
+# at the solver's feasibility tolerance and admits any t; CredalJT instead
+# solves the conditional query in Charnes-Cooper form.
+s1: 0.0 <= P(E) <= 0.3
+s2: 0.2 <= P(A | E) <= 0.4
+s3: 0.6 <= P(A | !E) <= 0.8

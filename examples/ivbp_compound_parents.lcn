@@ -1,0 +1,12 @@
+# IVBP regression: compound roots {B - C} and {F - G} are both parents of D; D -> H (a polytree credal network)
+s1: 0.4 <= P(B | C) <= 0.7
+s2: 0.2 <= P(C | B) <= 0.5
+s2b: 0.3 <= P(B) <= 0.6
+s3: 0.3 <= P(F | G) <= 0.6
+s4: 0.4 <= P(G | F) <= 0.8
+s4b: 0.2 <= P(G) <= 0.5
+s5: 0.6 <= P(D | B and F) <= 0.9
+s6: 0.1 <= P(D | !(B and F)) <= 0.3
+s7: 0.2 <= P(D | C and G) <= 0.5
+s8: 0.5 <= P(H | D) <= 0.8
+s9: 0.1 <= P(H | !D) <= 0.3

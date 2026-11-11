@@ -13,38 +13,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Junction-tree exact NLP for chain-graph LCNs -- scheme D5 of
-# docs/tighter_approximation.tex.
+# Credal Junction Tree (CJT; internally "scheme D5"): exact marginal inference
+# for chain-graph LCNs by one nonlinear program over junction-tree cluster
+# marginals, of size exponential in the tree width rather than in n.
 #
-# Credal VE / CTE / ApproxLP bound the STRONG EXTENSION of the credal network
-# (a free product of local extreme points), which is a superset of the LCN's
-# distribution set; schemes D1-D4 tighten that approximation but do not in
-# general reach the exact LCN bounds. D5 computes the EXACT chain-graph marginal
-# by a single optimization that never materializes the strong extension:
+#   * Tree. Bucket elimination over the family scopes of the chain graph,
+#     augmented by the scopes of cross-family sentences, along either a min-fill
+#     order or a reverse topological order of the component DAG (the "ordered"
+#     tree). The tree has the running-intersection property by construction
+#     (H1). The narrowest tree on which H3 holds is used.
+#   * Variables. One distribution q_C per cluster; adjacent clusters agree on
+#     their separator (linear equalities). No joint, no separator variables, no
+#     credal-network local sets or extreme points.
+#   * Sentences. Each is imposed on a cluster containing its atoms (H2); cleared
+#     Type-2 rows are linear.
+#   * Independence assertions (H3). On a min-fill tree each assertion
+#     X _||_ Y | Z is reduced exactly to X _||_ Y_in | Z, with Y_in the part of Y
+#     connected to X in G* after deleting Z (empty => entailed by the tree); the
+#     reduced assertion is hosted, after widening the tree if needed and within
+#     budget, or else relaxed to hostable consequences (sound, but H3 then
+#     fails). On the ordered tree one row per node implies every assertion.
+#   * Queries. P(a) is read off a cluster containing a; P(a | e) is solved in
+#     Charnes-Cooper form (variables scaled by 1 / P(e)), which is exact without
+#     a denominator floor; when a and e share no cluster (H4) a tree augmented by
+#     their node set is built for that atom.
+#   * Solving. SCIP; an endpoint not certified within the time limit is reported
+#     by its dual bound, so every interval is an outer bound, exact when H1-H4
+#     hold and both endpoints are certified. ipopt is available as a local
+#     (uncertified, inner-bound) backend.
 #
-#   * Build a junction (clique) tree from the chain-graph elimination order
-#     (reusing the bucket-tree construction CCTE already uses).
-#   * Introduce one variable per CLUSTER, ranging over the joint distribution of
-#     that cluster's atoms (2^|atoms(cluster)| simplex variables).
-#   * Tie adjacent clusters with LAURITZEN separator-consistency equalities: the
-#     marginal of a cluster onto a separator equals the neighbour's marginal onto
-#     the same separator.
-#   * Impose every LCN sentence and LMC equality on a cluster that contains its
-#     atom scope (a "host" cluster).
-#   * Read the query marginal P(query | evidence) off the cluster containing the
-#     query and the evidence atoms.
-#
-# For a chain graph the clique tree has the running-intersection property, so a
-# separator-consistent, constraint-satisfying family of cluster marginals
-# projects exactly to the marginals of some global joint in the LCN's set, and
-# conversely. Hence min/max of the query marginal over this NLP equals the exact
-# ExactInference bound -- at cost Sum_c 2^|atoms(c)| (treewidth-bounded), not
-# 2^n. When a constraint's atoms fit no single cluster (a cross-family constraint
-# spanning cliques, or an evidence atom outside the query cluster) the offending
-# clusters are merged ("widened") so the constraint has a host; if widening would
-# exceed a budget, the caller falls back to ExactInference.
+# See the CJT appendix of docs/research-chain-lcn/iclr2027/iclr_2027.tex for the
+# formulation and the proofs.
 
 import logging
+import math
 import time
 from typing import Dict, List
 
@@ -71,7 +73,6 @@ from lcn.inference.utils.common import (
 
 _N_RESTARTS = 4
 _VACUOUS_TOL = 1e-6
-_DEN_FLOOR = 1e-6
 
 
 # ----------------------------------------------------------------------
@@ -97,7 +98,7 @@ def _node_scopes(cnv):
 
 def _jt_from_scopes(scopes, elim_order):
     """
-    Port of CCTE._build_bucket_tree restricted to the structural outputs D5
+    Bucket-tree construction restricted to the structural outputs CJT
     needs. Returns (parent, children, effective_scope) where effective_scope[v]
     is the node-name set of bucket v's cluster (the clique v lives in). Tree
     edges are (v, parent[v]); the construction gives a running-intersection
@@ -134,27 +135,44 @@ def _jt_from_scopes(scopes, elim_order):
     return parent, children, effective_scope
 
 
+def _topological_nodes(cnv):
+    """Chain-graph node DAG (factor child <- parents) in a deterministic
+    topological order (lexicographic tie-break)."""
+    import networkx as nx
+    G = nx.DiGraph()
+    for factor in cnv.cn.factors:
+        entry = factor[0]
+        G.add_node(entry["child"])
+        for p in entry["parents"]:
+            G.add_edge(p, entry["child"])
+    return list(nx.lexicographical_topological_sort(G))
+
+
+def _node_parents(cnv):
+    """node -> set of parent nodes in the chain-graph node DAG."""
+    return {f[0]["child"]: set(f[0]["parents"]) for f in cnv.cn.factors}
+
+
 class _JTClusters:
     """
     Atom-level junction tree: clusters (atom sets), tree edges, separators.
 
-    The clique tree is built ONCE with the min-fill elimination order augmented
-    by extra "clique scopes": the query+evidence node set and the node set of
-    every cross-family constraint. Forcing those node sets to co-occur (each
-    becomes a clique in the interaction graph) guarantees the resulting tree has
-    a single cluster covering each constraint's atoms -- so every constraint has
-    a host with no fragile post-hoc tree surgery. This is the JT analogue of
-    D4's elimination-order augmentation (cve.py / coupling.constraint_node_sets).
+    The clique tree is built by bucket elimination over the family scopes,
+    augmented by extra "clique scopes": the node set of every cross-family
+    sentence, any widening scopes added by the LMC triage and, for a
+    single-query build, the query+evidence node set. Forcing those node sets to
+    co-occur guarantees a cluster covering each of them, so every such
+    constraint has a host. ``order`` is "min-fill" or "topological" (reverse
+    topological order of the component DAG; query-independent builds only).
     """
 
-    def __init__(self, cnv, query, evidence, extra_node_sets):
+    def __init__(self, cnv, query, evidence, extra_node_sets, order="min-fill"):
         """
         Build the augmented junction tree.
 
         ``query`` may be ``None`` (the query-INDEPENDENT tree used by the
-        all-marginals CredalJT engine): then the tree is built over a plain
-        min-fill order with only the cross-family constraint node sets as
-        augmenting cliques. Every singleton atom is still hosted in some cluster
+        all-marginals CredalJT engine): then only the cross-family constraint
+        node sets augment the scopes. Every singleton atom is still hosted in some cluster
         (each node's own scope is a clique), so any atom's marginal can be read
         off a hosting cluster -- one tree serves all marginals. When ``query`` is
         a node name (single-query build_and_solve_jt_nlp), the query+evidence
@@ -187,8 +205,23 @@ class _JTClusters:
         aug = [s for s in aug if s]
 
         scopes = node_scopes + aug
-        elim_order = min_fill_order(scopes, exclude=exclude)
+        self.order = order
+        if order == "topological" and query is None:
+            # Ordered-Markov tree: eliminate the chain-graph node DAG in REVERSE
+            # topological order. Then node x's cluster is {x} u N_x with N_x a set
+            # of topological PREDECESSORS of x containing pa(x); imposing
+            # (x _||_ N_x \ pa(x) | pa(x)) on that cluster makes every
+            # reconstructed joint factorize as prod_x p(x | pa(x)) -- the DAG
+            # factorization -- so every LMC assertion holds (see _triage_lmc).
+            elim_order = list(reversed(_topological_nodes(cnv)))
+        else:
+            self.order = "min-fill"
+            elim_order = min_fill_order(scopes, exclude=exclude)
+        self.elim_order = list(elim_order)
         parent, children, eff = _jt_from_scopes(scopes, elim_order)
+        # Node-level elimination clique of every node (before leaf pruning):
+        # eff[v] is the node set of v's bucket cluster.
+        self.node_clique = {v: set(eff[v]) for v in elim_order}
 
         self.cluster_ids = list(elim_order)
         self.atoms = {}          # cid -> sorted atom list
@@ -272,28 +305,73 @@ class _JTClusters:
             atoms.update(self.atoms[c])
         return atoms
 
+    # ------------------------------------------------------------------
+    # Separation in the chordal graph G* and the LMC reduction
+    # ------------------------------------------------------------------
+
+    def _adjacency(self):
+        """Adjacency of the chordal graph G*: two atoms are adjacent iff they
+        co-occur in some cluster (the clusters are G*'s maximal cliques)."""
+        if getattr(self, "_adj", None) is None:
+            adj = {a: set() for a in self.atom_order}
+            for cid in self.cluster_ids:
+                ats = self.atoms[cid]
+                for a in ats:
+                    adj[a].update(b for b in ats if b != a)
+            self._adj = adj
+        return self._adj
+
+    def reachable(self, X, Z):
+        """Atoms reachable from the set ``X`` in G* after deleting ``Z``
+        (``X`` itself included, ``Z`` excluded)."""
+        adj = self._adjacency()
+        Zs = set(Z)
+        seen = set(a for a in X if a not in Zs)
+        stack = list(seen)
+        while stack:
+            a = stack.pop()
+            for b in adj.get(a, ()):
+                if b not in Zs and b not in seen:
+                    seen.add(b)
+                    stack.append(b)
+        return seen
+
+    def separates(self, X, Y, Z):
+        """True iff ``Z`` separates ``X`` from ``Y`` in G* (every path from X to
+        Y meets Z). This is the separator-entailment test of the paper's
+        Definition (cluster-feasible set): every joint reconstructed from a
+        separator-consistent cluster family factorizes over G*, hence satisfies
+        G*'s global Markov property (no positivity needed), hence X perp Y | Z."""
+        Ys = set(Y) - set(Z)
+        return not (self.reachable(X, Z) & Ys)
+
+    def reduce_assertion(self, X, Y, Z):
+        """
+        Exact reduction of ``X perp Y | Z`` against G*.
+
+        Let K = reachable(X, Z). Split Y into Y_in = Y & K and Y_out = Y - K.
+        Then, for every joint p that factorizes over G* (in particular every
+        joint the cluster NLP can reconstruct):
+
+            X perp Y | Z   <=>   X perp Y_in | Z.
+
+        (=>) is decomposition. (<=) Z separates K (which contains X and Y_in)
+        from Y_out in G*, so global Markov gives (X u Y_in) perp Y_out | Z, and
+        weak union gives X perp Y_out | Z, Y_in; together with X perp Y_in | Z,
+        contraction yields X perp Y_in u Y_out | Z. Neither step needs
+        positivity.
+
+        Returns Y_in (sorted). An empty result means the assertion is fully
+        entailed by G* and need not be imposed.
+        """
+        K = self.reachable(X, Z)
+        return sorted(set(Y) & K - set(Z))
+
     def _rip_implied(self, X, Y, Z):
-        """
-        True if the independence (X perp Y | Z) is already enforced by the
-        junction tree's separators (running-intersection): there is a tree edge
-        whose separator S contains Z and whose two sides carry, beyond S, all of
-        X on one side and all of Y on the other. Such an assertion need not be
-        imposed as an explicit equality -- any separator-consistent family of
-        cluster marginals satisfies it. For a chain graph every LMC assertion is
-        RIP-implied by the family-scope tree, which is what keeps the treewidth
-        small.
-        """
-        Xs, Ys, Zs = set(X), set(Y), set(Z)
-        for (c, p) in self.edges:
-            S = set(self.sep[(c, p)])
-            if not Zs.issubset(S):
-                continue
-            sideA = self._atoms_of(self._subtree(c, p)) - S
-            sideB = self._atoms_of(self._subtree(p, c)) - S
-            if (Xs.issubset(sideA) and Ys.issubset(sideB)) or \
-               (Xs.issubset(sideB) and Ys.issubset(sideA)):
-                return True
-        return False
+        """Alias of :meth:`separates`: True iff ``X perp Y | Z`` is entailed by
+        G*. Note that Z itself must separate X from Y; a tree separator S that
+        merely contains Z only enforces X perp Y | S."""
+        return self.separates(X, Y, Z)
 
     def describe(self, sentences_by_host=None, lmc_by_host=None,
                  query_cluster=None) -> str:
@@ -455,16 +533,33 @@ def _dotq(vec, q, cid, n):
     return sum(float(vec[i]) * q[(cid, i)] for i in range(n))
 
 
-def _build_constraint_model(jt, cnv, sentences_by_host, lmc_by_host):
+def _build_constraint_model(jt, cnv, sentences_by_host, lmc_by_host,
+                            evidence=None):
     """
     Build the constraint-only Pyomo JT model: cluster variables + per-cluster
     simplex + separator-consistency equalities + sentence rows + LMC bilinear
     rows. NO objective. This part is QUERY-INDEPENDENT, so the all-marginals
     engine builds it once and reuses it for every atom (only the objective,
     added by ``_atom_objective``, changes per atom). Returns (model, csize).
+
+    With ``evidence`` (a non-empty {atom: value} dict) the model is built in
+    CHARNES-COOPER form for the conditional queries P(a | e): the variables are
+    y_C = r * q_C with a scale r = 1 / P(e) >= 0, the simplex rows become
+    sum_i y_{C,i} = r, and one normalization row <A_e, y_{C_e}> = 1 is added on
+    a cluster C_e containing all evidence atoms. Each row is made homogeneous
+    by multiplying its lower-degree terms by powers of r: the Type-1 sentence
+    rows lo <= <A, q> <= hi become lo * r <= <A, y> <= hi * r, and the marginal
+    LMC rows <A_a, q> = <A_b, q><A_c, q> become r <A_a, y> = <A_b, y><A_c, y>.
+    The separator rows, the cleared Type-2 rows and the conditional LMC rows
+    (product = product) are already homogeneous. Each scaled row holds for y
+    iff the original holds for q = y / r. P(a | e) = P(a & e) / P(e) then equals
+    the LINEAR objective <A_{a&e}, y>. This is exact for every q with P(e) > 0,
+    needs no denominator floor, and is infeasible iff P(e) = 0 for every q.
+    ``model.ev_cluster`` records C_e (None if no cluster hosts the evidence).
     """
     lcn = cnv.lcn
     model = ConcreteModel()
+    evidence = evidence or {}
 
     # Cluster variables: one flat indexed Var over (cid, state).
     keys = []
@@ -474,13 +569,33 @@ def _build_constraint_model(jt, cnv, sentences_by_host, lmc_by_host):
         csize[cid] = n
         keys.extend((cid, i) for i in range(n))
     model.KEYS = Set(initialize=keys, dimen=2)
-    model.q = Var(model.KEYS, within=NonNegativeReals, bounds=(0.0, 1.0))
     model.constr = ConstraintList()
+    model.ev_cluster = None
+    if evidence:
+        # Scaled variables y = r q (unbounded above); r = 1 / P(e).
+        model.q = Var(model.KEYS, within=NonNegativeReals)
+        model.r = Var(within=NonNegativeReals)
+        mass = model.r
+    else:
+        model.q = Var(model.KEYS, within=NonNegativeReals, bounds=(0.0, 1.0))
+        mass = 1.0
 
-    # Per-cluster simplex.
+    # Per-cluster simplex (scaled: total mass r).
     for cid in jt.cluster_ids:
         model.constr.add(
-            sum(model.q[(cid, i)] for i in range(csize[cid])) == 1.0)
+            sum(model.q[(cid, i)] for i in range(csize[cid])) == mass)
+
+    if evidence:
+        ce = jt.host(list(evidence.keys()))
+        model.ev_cluster = ce
+        if ce is not None:
+            atoms_c = jt.atoms[ce]
+            interps = [dict(zip(atoms_c, row))
+                       for row in build_truth_table(len(atoms_c))]
+            Fe = make_conjunction(variables=list(evidence.keys()),
+                                  literals=evidence)
+            E = eval_indicator(Fe, interps)
+            model.constr.add(_dotq(E, model.q, ce, csize[ce]) == 1.0)
 
     # Separator consistency: M_{c->S} q_c == M_{d->S} q_d for each edge.
     for (c, d) in jt.edges:
@@ -505,10 +620,12 @@ def _build_constraint_model(jt, cnv, sentences_by_host, lmc_by_host):
             lo = s.get_lower_bound()
             hi = s.get_upper_bound()
             if s.type == SentenceType.Type1:
+                # lo <= P(phi) <= hi; in the scaled model P(phi) = <A, y> / r,
+                # so the constant bounds scale with the mass r.
                 A = eval_indicator(s.phi_formula, interps)
                 expr = _dotq(A, model.q, cid, n)
-                model.constr.add(expr >= lo)
-                model.constr.add(expr <= hi)
+                model.constr.add(expr >= lo * mass)
+                model.constr.add(expr <= hi * mass)
             else:
                 Aqr = eval_indicator(s.phi_and_psi_formula, interps)
                 Ar = eval_indicator(s.psi_formula, interps)
@@ -531,8 +648,11 @@ def _build_constraint_model(jt, cnv, sentences_by_host, lmc_by_host):
                     v2 = _dotq(Ac, model.q, cid, n) * _dotq(Ad, model.q, cid, n)
                     model.constr.add(v1 - v2 == 0.0)
                 else:
+                    # Marginal form P(x, y) = P(x) P(y): degree 1 vs degree 2,
+                    # so in the scaled model (q = y / r) the left side carries
+                    # one factor of the mass r.
                     _, Aa, Ab, Ac = group
-                    v1 = _dotq(Aa, model.q, cid, n)
+                    v1 = mass * _dotq(Aa, model.q, cid, n)
                     v2 = _dotq(Ab, model.q, cid, n) * _dotq(Ac, model.q, cid, n)
                     model.constr.add(v1 - v2 == 0.0)
 
@@ -556,10 +676,11 @@ def _model_stats(jt, csize, sentences_by_host, lmc_by_host, cnv):
         n_variables (= sum_c 2^|atoms(c)|),
         n_constraints (total), and the per-category counts
         n_simplex, n_separator, n_sentence, n_lmc,
-        n_nonlinear (bilinear rows: Type-2 sentence + conditional-LMC).
+        n_nonlinear (rows that are nonlinear in q: the LMC rows only).
+        Sentence rows are always linear: a Type-2 sentence is imposed in its
+        cleared form lo*P(psi) <= P(phi & psi) <= hi*P(psi), and lo, hi are
+        constants.
     """
-    lcn = cnv.lcn
-
     # Variables: one per (cluster, state).
     n_variables = sum(csize[cid] for cid in jt.cluster_ids)
 
@@ -573,20 +694,15 @@ def _model_stats(jt, csize, sentences_by_host, lmc_by_host, cnv):
         if S:
             n_separator += 2 ** len(S)
 
-    # Sentence rows: Type-1 adds 2 linear rows (>= lo, <= hi); Type-2 adds 2
-    # bilinear rows (>= lo*P(psi), <= hi*P(psi)).
-    n_sentence = 0
-    n_sentence_nonlinear = 0
-    for sids in sentences_by_host.values():
-        for sid in sids:
-            s = lcn.sentences.get(sid)
-            n_sentence += 2
-            if s.type != SentenceType.Type1:
-                n_sentence_nonlinear += 2
+    # Sentence rows: two per sentence (>= lo, <= hi), all LINEAR in q. A Type-1
+    # row is lo <= <A_phi, q> <= hi; a Type-2 row is the cleared
+    # lo*<A_psi, q> <= <A_{phi&psi}, q> <= hi*<A_psi, q> with constant lo, hi.
+    n_sentence = 2 * sum(len(sids) for sids in sentences_by_host.values())
 
-    # LMC rows: one equality per constraint group; 'conditional' groups are
-    # bilinear (product == product), the others are linear (var == product) --
-    # both products make them nonlinear, so every LMC group is nonlinear.
+    # LMC rows: one equality per constraint group. 'conditional' groups are
+    # <A_a,q><A_b,q> == <A_c,q><A_d,q> and 'marginal' groups are
+    # <A_a,q> == <A_b,q><A_c,q>; both contain a product of two linear forms, so
+    # every LMC row is bilinear (nonlinear).
     n_lmc = 0
     n_lmc_nonlinear = 0
     for cid, indeps in lmc_by_host.items():
@@ -599,7 +715,7 @@ def _model_stats(jt, csize, sentences_by_host, lmc_by_host, cnv):
                 n_lmc_nonlinear += 1
 
     n_constraints = n_simplex + n_separator + n_sentence + n_lmc
-    n_nonlinear = n_sentence_nonlinear + n_lmc_nonlinear
+    n_nonlinear = n_lmc_nonlinear
 
     return {
         "n_clusters": len(jt.cluster_ids),
@@ -634,14 +750,14 @@ def _format_model_stats(stats) -> str:
 
 def _atom_objective(model, jt, csize, query, query_cluster, evidence, solver):
     """
-    Build (and attach to ``model``) the objective expression for
-    P(query=1 | evidence), reading it off ``query_cluster`` (a cluster whose
-    atoms contain the query and the evidence atoms). No evidence -> linear
-    ``A_query . q``; with evidence -> the fractional ``obj_var`` ratio aux. The
-    evidence-ratio aux constraint is query-specific; it is added under the fixed
-    component name ``obj_var`` (the caller clears it between atoms via
-    ``_clear_atom_objective`` so the constraint model can be reused).
-    Returns the objective expression.
+    Objective expression for P(query=1 | evidence), read off ``query_cluster``
+    (a cluster whose atoms contain the query and the evidence atoms).
+
+    Without evidence this is the linear <A_query, q>. With evidence the model
+    must have been built in Charnes-Cooper form (``_build_constraint_model`` with
+    the same ``evidence``), and the objective is the linear <A_{query & e}, y>,
+    which equals P(query | e) for the unscaled q = y / r. ``solver`` is unused
+    (kept for call compatibility). Returns the objective expression.
     """
     cid = query_cluster
     atoms_c = jt.atoms[cid]
@@ -651,26 +767,18 @@ def _atom_objective(model, jt, csize, query, query_cluster, evidence, solver):
     Fq = make_conjunction(variables=[query], literals={query: 1})
     A_q = eval_indicator(Fq, interps)
     if evidence:
-        ev_vars = list(evidence.keys())
-        Fe = make_conjunction(variables=ev_vars, literals=evidence)
+        assert hasattr(model, "r"), \
+            "conditional query needs the Charnes-Cooper model (pass evidence)"
+        Fe = make_conjunction(variables=list(evidence.keys()), literals=evidence)
         E = eval_indicator(Fe, interps)
-        AE = A_q * E
-        AE_expr = _dotq(AE, model.q, cid, n)
-        E_expr = _dotq(E, model.q, cid, n)
-        model.obj_den_floor = ConstraintList()
-        if solver == "scip":
-            model.obj_den_floor.add(E_expr >= _DEN_FLOOR)
-        model.obj_var = Var(within=NonNegativeReals, bounds=(0.0, 1.0))
-        model.obj_ratio = ConstraintList()
-        model.obj_ratio.add(model.obj_var * E_expr == AE_expr)
-        return model.obj_var
+        return _dotq(A_q * E, model.q, cid, n)
     return _dotq(A_q, model.q, cid, n)
 
 
 def _clear_atom_objective(model):
     """Remove the per-atom objective components added by _atom_objective so the
     shared constraint model can be reused for the next atom."""
-    for name in ("objective", "obj_var", "obj_ratio", "obj_den_floor"):
+    for name in ("objective",):
         if hasattr(model, name):
             model.del_component(name)
 
@@ -682,7 +790,7 @@ def _build_model(jt, cnv, query, evidence, sentences_by_host,
     objective. Used by build_and_solve_jt_nlp. Returns (model, obj_expr, csize).
     """
     model, csize = _build_constraint_model(jt, cnv, sentences_by_host,
-                                           lmc_by_host)
+                                           lmc_by_host, evidence=evidence)
     obj_expr = _atom_objective(model, jt, csize, query, query_cluster,
                                evidence, solver)
     return model, obj_expr, csize
@@ -699,6 +807,11 @@ def _is_suspicious(val, ok, sense):
 
 
 def _init_q(model, jt, csize, rng=None):
+    """Starting point for the local solver: uniform (or random) cluster
+    distributions; in the Charnes-Cooper model scaled by r = 1."""
+    scale = 1.0
+    if hasattr(model, "r"):
+        model.r.value = 1.0
     for cid in jt.cluster_ids:
         n = csize[cid]
         if rng is None:
@@ -707,7 +820,7 @@ def _init_q(model, jt, csize, rng=None):
             start = rng.random(n)
             start = start / start.sum()
         for i in range(n):
-            model.q[(cid, i)].value = float(start[i])
+            model.q[(cid, i)].value = scale * float(start[i])
 
 
 def _print_realized_messages(model, jt, csize, prefix=""):
@@ -733,27 +846,129 @@ def _print_realized_messages(model, jt, csize, prefix=""):
         print(f"{prefix}  message {c} -> {p} over {{{', '.join(S)}}}: {cells}")
 
 
+def _scip_bounds(results):
+    """(primal, dual, gap) as reported by SCIP through the AMPL/NL interface
+    (any may be None). For a minimization dual <= optimum <= primal; for a
+    maximization primal <= optimum <= dual."""
+    def _f(key):
+        try:
+            v = results.solver[0][key].value
+        except Exception:
+            try:
+                v = results.solver[0][key]
+            except Exception:
+                return None
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return None
+        return None if math.isnan(v) or math.isinf(v) else v
+    return _f('Primal bound'), _f('Dual bound'), _read_gap(results)
+
+
+# Termination conditions that certify a GLOBAL optimum for SCIP. Note that
+# ``feasible`` (an incumbent without a proof) is deliberately NOT included.
+_SCIP_CERTIFIED = {TerminationCondition.optimal,
+                   TerminationCondition.globallyOptimal}
+# Default absolute primal-dual tolerance accepted as a certificate, in
+# probability units: an endpoint is "certified" when SCIP proves optimality or
+# |primal - dual| <= cert_tol. The reported endpoint is always the DUAL bound
+# when not proven optimal, so it is sound regardless of this tolerance; the
+# tolerance only decides whether the endpoint is called tight.
+_CERT_ABS_TOL = 1e-4
+# Terminations with no meaningful objective value.
+_SCIP_NO_SOLUTION = {TerminationCondition.infeasible,
+                     TerminationCondition.unbounded,
+                     TerminationCondition.infeasibleOrUnbounded}
+
+
+def _is_prob(v, tol=1e-6):
+    """True iff ``v`` is a number in [0, 1] up to ``tol``: every CJT objective is
+    a probability, so anything else (e.g. SCIP's +-1e20 sentinels) is invalid."""
+    return v is not None and -tol <= v <= 1.0 + tol
+
+
 def _solve_sense(model, jt, obj_expr, csize, sense, solver, time_limit,
-                 gap_tol, verbosity):
-    """Solve one sense (min/max) with the chosen backend; return value or None."""
+                 gap_tol, verbosity, status_out=None, cert_tol=_CERT_ABS_TOL):
+    """
+    Solve one sense (min/max) with the chosen backend; return the endpoint value
+    or None (=> the caller reports the vacuous endpoint).
+
+    SCIP: the returned endpoint is always SOUND. If SCIP certifies global
+    optimality (termination optimal, or gap <= gap_tol) the optimum is returned;
+    otherwise (time limit, node limit, ...) its DUAL bound is returned instead of
+    the incumbent -- the incumbent of an unfinished min lies ABOVE the true
+    minimum, so reporting it would make the interval an unsound inner bound.
+    The dual bound is <= the true min (resp. >= the true max), so the interval
+    stays an outer bound, just possibly loose.
+
+    ``status_out`` (optional list) receives one dict per call:
+    {sense, value, primal, dual, gap, termination, certified}. ipopt solves are
+    always recorded with certified=False (local solver).
+    """
     if hasattr(model, 'objective'):
         model.del_component('objective')
     model.objective = Objective(
         expr=obj_expr, sense=(minimize if sense == 'min' else maximize))
+
+    def _record(**kw):
+        if status_out is not None:
+            status_out.append(dict(sense=sense, **kw))
 
     if solver == "scip":
         opt = make_scip(time_limit=(time_limit or 3600.0), gap_tol=gap_tol)
         try:
             results = opt.solve(model, load_solutions=False,
                                 tee=(verbosity > 2))
-            _read_gap(results)
-            model.solutions.load_from(results)
-            v = value(model.objective, exception=False)
-            return float(v) if v is not None else None
         except Exception as ex:
             if verbosity > 1:
-                print(f"[D5] scip exception: {ex}")
+                print(f"[CJT] scip exception: {ex}")
+            _record(value=None, primal=None, dual=None, gap=None,
+                    termination="exception", certified=False)
             return None
+        tc = results.solver.termination_condition
+        if tc in _SCIP_NO_SOLUTION:
+            # Infeasible / unbounded: SCIP reports +-1e20 sentinels as its
+            # bounds. Never treat them as an optimum; the caller reports the
+            # vacuous endpoint. (For a conditional query, an infeasible scaled
+            # program means P(e) = 0 for every feasible point.)
+            _record(value=None, primal=None, dual=None, gap=None,
+                    cert_tol=cert_tol, termination=str(tc), certified=False)
+            return None
+        primal, dual, gap = _scip_bounds(results)
+        primal = primal if _is_prob(primal) else None
+        dual = dual if _is_prob(dual) else None
+        incumbent = None
+        try:
+            model.solutions.load_from(results)
+            v = value(model.objective, exception=False)
+            incumbent = float(v) if v is not None else None
+        except Exception:
+            incumbent = None
+        if not _is_prob(incumbent):
+            incumbent = primal
+        # Certificate: SCIP proved optimality, OR the primal and dual bounds
+        # have met (|primal - dual| <= abs tol). SCIP's NL "Gap" is a relative
+        # PERCENTAGE and is reported as >0 when the objective is ~0, so it is
+        # not used directly; the primal/dual comparison is the sound test.
+        bounds_met = (primal is not None and dual is not None
+                      and abs(primal - dual) <= cert_tol)
+        certified = (incumbent is not None) and (
+            tc in _SCIP_CERTIFIED or bounds_met)
+        if certified:
+            val = incumbent
+        else:
+            # Uncertified: fall back to the sound dual bound (None if absent,
+            # which the caller turns into the vacuous endpoint).
+            val = dual
+        if certified and tc not in _SCIP_CERTIFIED and dual is not None:
+            # Bounds met within cert_tol but not proven: still report the dual
+            # (sound) rather than the incumbent.
+            val = dual
+        _record(value=val, primal=primal, dual=dual, gap=gap,
+                cert_tol=cert_tol,
+                termination=str(tc), certified=bool(certified))
+        return val
 
     # ipopt multi-restart
     opt = make_ipopt(debug=(verbosity > 2), mode="exact")
@@ -776,7 +991,7 @@ def _solve_sense(model, jt, obj_expr, csize, sense, solver, time_limit,
             return v, ok
         except Exception as ex:
             if verbosity > 1:
-                print(f"[D5] ipopt exception: {ex}")
+                print(f"[CJT] ipopt exception: {ex}")
             return None, False
 
     _init_q(model, jt, csize)
@@ -795,7 +1010,220 @@ def _solve_sense(model, jt, obj_expr, csize, sense, solver, time_limit,
                     best = min(best, v)
             if not _is_suspicious(best, ok, sense):
                 break
+    _record(value=(best if ok else None), primal=best, dual=None, gap=None,
+            termination=("local" if ok else "failed"), certified=False)
     return best if ok else None
+
+
+def _h3_report(**kw):
+    """Per-instance record of how the LMC assertions were discharged. Keys:
+    n (assertions), entailed (separated in G*, nothing imposed), hosted
+    (imposed exactly, possibly after reduction), relaxed (unhostable even
+    after reduction: only hostable sub-assertions imposed -- sound, outer),
+    dropped (relaxed with nothing hostable at all), widened (extra cliques
+    added to make reduced assertions hostable), holds (H3 holds: relaxed == 0,
+    so the cluster program is EXACT, given H1/H2/H4 and a certified solve),
+    mode ("ordered" or "min-fill"); in ordered mode ``implied`` counts the
+    assertions implied by the ordered rows and ``ordered_rows`` the rows
+    imposed."""
+    return dict(kw)
+
+
+def _relaxed_subassertions(jt, X, Y_in, Z):
+    """Sound relaxation for a reduced assertion X perp Y_in | Z with no host:
+    impose every hostable X perp {y} | Z, y in Y_in (decomposition). Each is
+    implied by the original, so imposing it never cuts a joint of D_LCN; the
+    cluster program stays an OUTER bound, merely not guaranteed tight."""
+    from lcn.core.independencies import IndependenceAssertion
+    out = []
+    for y in Y_in:
+        sc = sorted(set(X) | {y} | set(Z))
+        h = jt.host(sc)
+        if h is not None:
+            out.append((h, IndependenceAssertion(list(X), [y], list(Z))))
+    return out
+
+
+def _lmc_entails(lcn, x_atoms, rest_atoms, cond_atoms):
+    """True iff (x_atoms _||_ rest_atoms | cond_atoms) follows from a SINGLE LMC
+    assertion of the LCN by symmetry + decomposition (same conditioning set).
+    Deliberately conservative: pairwise covers are not combined (pairwise
+    independence does not imply joint independence)."""
+    if not rest_atoms:
+        return True
+    for a in lcn.independencies.get_assertions():
+        E1, E2, E3 = set(a.event1), set(a.event2), set(a.event3)
+        if E3 != set(cond_atoms):
+            continue
+        if set(x_atoms) <= E1 and set(rest_atoms) <= E2:
+            return True
+        if set(x_atoms) <= E2 and set(rest_atoms) <= E1:
+            return True
+    return False
+
+
+def _triage_ordered(cnv, jt):
+    """
+    LMC discharge for the ORDERED-Markov tree (``jt.order == 'topological'``).
+
+    For every node x with elimination clique {x} u N_x (N_x = earlier nodes,
+    pa(x) subset N_x), impose the single assertion
+        (atoms(x) _||_ atoms(N_x - pa(x)) | atoms(pa(x)))
+    on x's cluster -- after checking it is ENTAILED by the LCN's own LMC
+    (soundness: imposing it never removes a joint of D_LCN).
+
+    Exactness: a separator-consistent cluster family reconstructs (Lemma RIP,
+    leaf by leaf along the elimination) to p = prod_x p(x | N_x); the imposed
+    equalities turn this into prod_x p(x | pa(x)), the node-DAG factorization,
+    which implies every d-separation of the DAG -- in particular every LMC
+    assertion of the LCN (verified per assertion below). No positivity is used.
+
+    Returns (lmc_by_host, ok). ok=False (=> caller uses the min-fill triage)
+    if some ordered assertion is not entailed or some LCN assertion is not
+    d-separated in the node DAG.
+    """
+    import networkx as nx
+    from lcn.core.independencies import IndependenceAssertion
+    lcn = cnv.lcn
+    na = cnv.cn.node_atoms
+    parents = _node_parents(cnv)
+    lmc_by_host: Dict[str, List] = {}
+    for x in jt.elim_order:
+        clique = jt.node_clique.get(x, {x}) - {x}
+        pa = parents.get(x, set())
+        if not pa <= clique:
+            return {}, False
+        rest = clique - pa
+        if not rest:
+            continue
+        xa = sorted(na[x])
+        ra = sorted({a for v in rest for a in na[v]})
+        za = sorted({a for v in pa for a in na[v]})
+        if not _lmc_entails(lcn, xa, ra, za):
+            return {}, False
+        host = jt.host(sorted(set(xa) | set(ra) | set(za)))
+        if host is None:
+            return {}, False
+        # Multi-atom compound child: impose the joint statement atom-block-wise
+        # via the singleton-X encoder by chaining x_i _||_ rest | pa, x_<i
+        # (chain rule for CI: equivalent to the block statement).
+        for i, xi in enumerate(xa):
+            lmc_by_host.setdefault(host, []).append(
+                IndependenceAssertion([xi], ra, za + xa[:i]))
+
+    # Safety net: every LCN LMC assertion must be d-separated in the node DAG.
+    G = nx.DiGraph()
+    for v, ps in parents.items():
+        G.add_node(v)
+        for p in ps:
+            G.add_edge(p, v)
+    node_of = {a: v for v, ats in na.items() for a in ats}
+    for a in lcn.independencies.get_assertions():
+        X = {node_of[t] for t in a.event1}
+        Y = {node_of[t] for t in a.event2}
+        Z = {node_of[t] for t in a.event3}
+        if (X & Y) or (X & Z) or (Y & Z):
+            return {}, False   # assertion splits a compound node: not covered
+        if not nx.is_d_separator(G, X, Y, Z):
+            return {}, False
+    return lmc_by_host, True
+
+
+def _triage_lmc(cnv, query, evidence, extra_node_sets, jt, max_cluster_atoms):
+    """
+    Discharge every LMC assertion X perp Y | Z of the LCN against the junction
+    tree, returning (jt, lmc_by_host); the (possibly rebuilt) tree carries an
+    ``h3`` report (see _h3_report).
+
+    1. Reduce: Y_in = jt.reduce_assertion(X, Y, Z). This is an EQUIVALENCE for
+       every joint the cluster program can reconstruct (they all factorize over
+       G*), so nothing is lost. Y_in empty => entailed, impose nothing.
+    2. Host: if X u Y_in u Z fits one cluster, impose the reduced assertion
+       there exactly.
+    3. Widen: otherwise add X u Y_in u Z (as a node set) as an extra clique and
+       rebuild the tree; repeat to a fixed point (widening changes G*, which can
+       change the reductions) while the largest cluster stays within
+       ``max_cluster_atoms``.
+    4. Relax: anything still unhostable is replaced by its hostable pairwise
+       sub-assertions (sound; H3 fails, bound is outer). Assertions are never
+       dropped: CJT optimizes over D_LCN, not over a strong extension, so an
+       unimposed assertion would widen the bound.
+    """
+    lcn = cnv.lcn
+    node_of_atom = {a: nd for nd, ats in cnv.cn.node_atoms.items() for a in ats}
+    assertions = []
+    for indep in lcn.independencies.get_assertions():
+        X, Y, Z = (sorted(indep.event1), sorted(indep.event2),
+                   sorted(indep.event3))
+        if X and (Y or Z):
+            assertions.append((X, Y, Z))
+
+    # Drop symmetric duplicates (x perp {y} | Z and y perp {x} | Z are the same
+    # constraint once reduced to singletons) -- each would add identical
+    # bilinear rows. Exact duplicates are dropped too.
+    seen, uniq = set(), []
+    for X, Y, Z in assertions:
+        key = (frozenset(X), frozenset(Y), frozenset(Z))
+        sym = (frozenset(Y), frozenset(X), frozenset(Z))
+        if key in seen or (len(X) == 1 and sym in seen):
+            continue
+        seen.add(key)
+        uniq.append((X, Y, Z))
+    n_input = len(assertions)
+    assertions = uniq
+
+    extra = [list(s) for s in extra_node_sets]
+    widened = 0
+    for _round in range(len(assertions) + 1):
+        need = []
+        for X, Y, Z in assertions:
+            Y_in = jt.reduce_assertion(X, Y, Z)
+            if Y_in and jt.host(sorted(set(X) | set(Y_in) | set(Z))) is None:
+                need.append(sorted({node_of_atom[a]
+                                    for a in set(X) | set(Y_in) | set(Z)}))
+        if not need:
+            break
+        trial = _JTClusters(cnv, query, evidence, extra + need)
+        if trial.max_cluster_size() > max_cluster_atoms:
+            break  # widening would exceed the budget -> relax the remainder
+        extra = extra + need
+        widened += len(need)
+        jt = trial
+
+    from lcn.core.independencies import IndependenceAssertion
+    lmc_by_host: Dict[str, List] = {}
+    n_ent = n_host = n_relax = n_drop = 0
+    imposed = set()   # reduced (x, Y_in, Z) already imposed (dedupe after reduction)
+
+    def _impose(h, X, Yr, Z):
+        key = (frozenset(X), frozenset(Yr), frozenset(Z))
+        sym = (frozenset(Yr), frozenset(X), frozenset(Z))
+        if key in imposed or (len(Yr) == 1 and sym in imposed):
+            return
+        imposed.add(key)
+        lmc_by_host.setdefault(h, []).append(
+            IndependenceAssertion(list(X), list(Yr), list(Z)))
+
+    for X, Y, Z in assertions:
+        Y_in = jt.reduce_assertion(X, Y, Z)
+        if not Y_in:
+            n_ent += 1
+            continue
+        host = jt.host(sorted(set(X) | set(Y_in) | set(Z)))
+        if host is not None:
+            _impose(host, X, Y_in, Z)
+            n_host += 1
+            continue
+        subs = _relaxed_subassertions(jt, X, Y_in, Z)
+        n_relax += 1
+        n_drop += not subs
+        for h, ia in subs:
+            _impose(h, sorted(ia.event1), sorted(ia.event2), sorted(ia.event3))
+
+    jt.h3 = _h3_report(n=n_input, entailed=n_ent, hosted=n_host,
+                       relaxed=n_relax, dropped=n_drop, widened=widened,
+                       holds=(n_relax == 0))
+    return jt, lmc_by_host
 
 
 def _build_jt_and_hosts(cnv, query, evidence, max_cluster_atoms):
@@ -814,23 +1242,54 @@ def _build_jt_and_hosts(cnv, query, evidence, max_cluster_atoms):
     if lcn.independencies is None:
         lcn.local_markov_condition()
 
-    # Cross-family constraints. Only cross-family SENTENCES augment the
-    # elimination order (forcing their atoms into one cluster); LMC assertions
-    # are NOT used to augment -- they are structural and the junction tree's
-    # running-intersection separators already enforce them, so augmenting with
-    # them would needlessly inflate the treewidth (e.g. a clean Markov chain
-    # would collapse to a single 2^n cluster instead of width-2).
+    # Cross-family constraints. Cross-family SENTENCES always augment the
+    # elimination order (forcing their atoms into one cluster). LMC assertions
+    # are NOT augmented wholesale -- most are entailed by G*-separation, and
+    # augmenting with their full scopes would needlessly inflate the treewidth
+    # (a Markov chain would collapse to a single 2^n cluster). Instead
+    # _triage_lmc reduces each assertion exactly against G* and widens only by
+    # the (much smaller) reduced scopes that are still unhostable.
     cc = CouplingConstraints.from_lcn(lcn, cnv.cn.factorization.factors)
     extra_node_sets = cc.constraint_node_sets(cnv.cn.node_atoms,
                                               kinds=("type1", "type2"))
 
-    jt = _JTClusters(cnv, query, evidence, extra_node_sets)
+    # Candidate 1 (query-independent build only): the ordered-Markov tree,
+    # exact by construction (H3 holds) with no widening -- see _triage_ordered.
+    chosen = None
+    if query is None:
+        jt_o = _JTClusters(cnv, None, evidence, extra_node_sets,
+                           order="topological")
+        if jt_o.max_cluster_size() <= max_cluster_atoms:
+            lmc_o, ok = _triage_ordered(cnv, jt_o)
+            if ok:
+                n_lmc = len(list(lcn.independencies.get_assertions()))
+                # In ordered mode no LCN assertion is imposed individually:
+                # all are IMPLIED by the ordered rows via the DAG factorization
+                # (counted as "implied", not "entailed" by G*-separation).
+                jt_o.h3 = _h3_report(
+                    n=n_lmc, entailed=0, implied=n_lmc, hosted=0, relaxed=0,
+                    dropped=0, widened=0, holds=True, mode="ordered",
+                    ordered_rows=sum(len(v) for v in lmc_o.values()))
+                chosen = (jt_o, lmc_o)
 
-    if jt.max_cluster_size() > max_cluster_atoms:
+    # Candidate 2: min-fill tree + exact G*-reduction + budget-limited widening.
+    jt = _JTClusters(cnv, query, evidence, extra_node_sets)
+    if jt.max_cluster_size() > max_cluster_atoms and chosen is None:
+        jt.h3 = _h3_report(n=0, entailed=0, hosted=0, relaxed=0, dropped=0,
+                           widened=0, holds=False, mode="min-fill")
         return jt, {}, {}, None, True, True
+    if jt.max_cluster_size() <= max_cluster_atoms:
+        jt_m, lmc_m = _triage_lmc(cnv, query, evidence, extra_node_sets, jt,
+                                  max_cluster_atoms)
+        jt_m.h3["mode"] = "min-fill"
+        # Prefer an exact tree; among exact trees, the narrower one.
+        if chosen is None or (
+                jt_m.h3["holds"]
+                and jt_m.max_cluster_size() < chosen[0].max_cluster_size()):
+            chosen = (jt_m, lmc_m)
+    jt, lmc_by_host = chosen
 
     sentences_by_host: Dict[str, List] = {}
-    lmc_by_host: Dict[str, List] = {}
     fallback = False
 
     # Sentences must be hosted (or the tree cannot represent them exactly).
@@ -843,24 +1302,6 @@ def _build_jt_and_hosts(cnv, query, evidence, max_cluster_atoms):
             fallback = True
         else:
             sentences_by_host.setdefault(host, []).append(sid)
-
-    # LMC assertions: impose one only if it has a host cluster AND is not already
-    # enforced by the tree's separators (running-intersection). An LMC that is
-    # RIP-implied is redundant; one with no host is, for a chain-graph product,
-    # inert (the strong extension satisfies every LMC by construction), so it is
-    # safe to drop. This is what lets a chain stay at treewidth.
-    for indep in lcn.independencies.get_assertions():
-        X, Y, Z = (sorted(indep.event1), sorted(indep.event2),
-                   sorted(indep.event3))
-        atoms = sorted(set(X) | set(Y) | set(Z))
-        if not atoms:
-            continue
-        if jt._rip_implied(X, Y, Z):
-            continue  # enforced structurally by the separators
-        host = jt.host(atoms)
-        if host is not None:
-            lmc_by_host.setdefault(host, []).append(indep)
-        # else: non-implied, unhostable cross-family LMC -> drop (inert).
 
     # Query-cluster assignment only for the single-query build. For the
     # query-independent build (query is None), each atom's host is resolved
@@ -939,23 +1380,25 @@ def build_and_solve_jt_nlp(cnv, query, evidence=None, solver="ipopt",
         info = {"exact": False, "fallback": True,
                 "max_cluster_atoms": jt.max_cluster_size()}
         if verbosity > 0:
-            print(f"[D5] max cluster {jt.max_cluster_size()} atoms exceeds "
+            print(f"[CJT] max cluster {jt.max_cluster_size()} atoms exceeds "
                   f"budget {max_cluster_atoms}; falling back to ExactInference.")
         return None, None, info
 
     if verbosity > 1:
         print(jt.describe(sentences_by_host, lmc_by_host, query_cluster))
 
-    info = {"exact": not fallback, "fallback": fallback,
+    h3 = dict(getattr(jt, "h3", {}) or {})
+    info = {"exact": (not fallback) and bool(h3.get("holds", False)),
+            "fallback": fallback, "h3": h3,
             "max_cluster_atoms": jt.max_cluster_size()}
     if fallback:
         if verbosity > 0:
-            print("[D5] a constraint/query has no host cluster; "
+            print("[CJT] a constraint/query has no host cluster; "
                   "caller should fall back to ExactInference.")
         return None, None, info
 
     if verbosity > 0:
-        print(f"[D5] junction tree: {len(jt.cluster_ids)} clusters, "
+        print(f"[CJT] junction tree: {len(jt.cluster_ids)} clusters, "
               f"max cluster {jt.max_cluster_size()} atoms "
               f"(n={len(lcn.atoms)} atoms total)")
 
@@ -966,12 +1409,16 @@ def build_and_solve_jt_nlp(cnv, query, evidence=None, solver="ipopt",
     info["nlp_stats"] = _model_stats(
         jt, csize, sentences_by_host, lmc_by_host, cnv)
     if verbosity > 0:
-        print("[D5] constraint NLP size:")
+        print("[CJT] constraint NLP size:")
         print(_format_model_stats(info["nlp_stats"]))
+    st = []
     lo = _solve_sense(model, jt, obj_expr, csize, 'min', solver, time_limit,
-                      gap_tol, verbosity)
+                      gap_tol, verbosity, status_out=st)
     hi = _solve_sense(model, jt, obj_expr, csize, 'max', solver, time_limit,
-                      gap_tol, verbosity)
+                      gap_tol, verbosity, status_out=st)
+    info["solve_status"] = st
+    info["certified"] = len(st) == 2 and all(x["certified"] for x in st)
+    info["exact"] = info["exact"] and info["certified"]
     lo = 0.0 if lo is None else max(0.0, lo)
     hi = 1.0 if hi is None else min(1.0, hi)
     return lo, hi, info
@@ -982,20 +1429,22 @@ class CredalJT:
     Junction-tree exact marginal inference for chain-graph LCNs (scheme D5).
 
     Builds ONE junction tree and ONE constraint NLP (cluster-marginal variables
-    + per-cluster simplex + Lauritzen separator-consistency equalities + all LCN
-    sentence and LMC rows), then computes the exact posterior bounds of EVERY
-    non-evidence singleton atom by swapping only the objective P(atom=1 |
-    evidence) per atom and solving min/max. The constraint structure is
-    query-independent, so unlike the old CredalVE(coupling="d5") path it does not
-    rebuild the tree/model per atom -- only the (cheap) objective and the two
-    NLP solves are per-atom.
+    + per-cluster simplex + separator-consistency equalities + the hosted
+    sentence rows + the independence rows chosen by the LMC triage), then
+    computes the posterior bounds of EVERY non-evidence singleton atom by
+    swapping only the objective P(atom=1 | evidence) per atom and solving
+    min/max. The constraint structure is query-independent, so the tree and
+    model are built once; only the objective and the two solves are per atom.
 
-    Exactness: the clique tree has the running-intersection property and every
-    sentence/LMC assertion is hosted in a containing cluster, so the
-    separator-consistent, constraint-satisfying cluster marginals project exactly
-    to the true joint's marginals; cost is bounded by treewidth, not 2^n. When a
-    cluster exceeds the treewidth budget, the engine falls back to
-    ExactInference.run_query per atom (still exact, at 2^n).
+    Exactness: under H1-H4 (running intersection, every sentence hosted, the
+    LMC discharged with nothing relaxed, query and evidence co-hosted) the global
+    optimum of the cluster program is the exact LCN bound; ``d5_exact`` records
+    whether the structure satisfies H1-H3, ``certified`` whether every endpoint
+    was certified by SCIP, and ``exact`` both. When the query and the evidence
+    share no cluster, a tree augmented by their node set is built for that atom.
+    Only when a tree exceeds the cluster budget (or a sentence cannot be hosted)
+    does the engine fall back to the direct 2^n formulation, solved locally and
+    therefore NOT certified (``atom_status[...]["route"] == "direct-local"``).
     """
 
     def __init__(self, cnv):
@@ -1012,7 +1461,8 @@ class CredalJT:
 
     def run(self, evidence: dict = {}, solver: str = "scip",
             max_cluster_atoms: int = 16, time_limit: float = None,
-            gap_tol: float = 0.0, verbosity: int = 1):
+            gap_tol: float = 0.0, verbosity: int = 1,
+            cert_tol: float = _CERT_ABS_TOL):
         """
         Compute exact lower/upper bounds on the posterior marginal of every
         non-evidence singleton atom.
@@ -1032,6 +1482,9 @@ class CredalJT:
                 nonconvex cluster NLP to be exact) or "ipopt" (local).
             max_cluster_atoms / time_limit / gap_tol: JT-NLP budget and solver
                 limits (see build_and_solve_jt_nlp).
+            cert_tol: absolute primal-dual tolerance (probability units) under
+                which a SCIP endpoint counts as certified. Uncertified endpoints
+                are reported as SCIP's dual bound, so they are always sound.
             verbosity: 0 silent, 1 summary, 2 also prints the junction tree
                 with the detailed separator-consistency messages, and the
                 solver's own progress.
@@ -1047,8 +1500,17 @@ class CredalJT:
         # ONCE (query=None => no per-query augmentation).
         jt, sentences_by_host, lmc_by_host, _, over_budget, fallback = \
             _build_jt_and_hosts(self.cnv, None, evidence, max_cluster_atoms)
-        self.d5_exact = not (over_budget or fallback)
+        # Structural exactness (Theorem: H1 by construction, H2 = every sentence
+        # hosted, H3 = every LMC entailed or hosted after reduction/widening).
+        # H4 is per atom and checked below. d5_exact is True only if the
+        # STRUCTURE guarantees exactness; ``certified`` additionally requires
+        # every solve to be a certified global optimum.
+        self.h3 = dict(getattr(jt, "h3", {}) or {})
+        self.d5_exact = (not (over_budget or fallback)
+                         and bool(self.h3.get("holds", False)))
         self.induced_width = jt.max_cluster_size()
+        self.solve_status = []      # one dict per min/max solve
+        self.atom_status = {}       # atom -> {"exact","certified","route"}
 
         if verbosity > 0:
             print(f"[CredalJT] Computing all marginals (D5, solver={solver}, "
@@ -1067,7 +1529,8 @@ class CredalJT:
         else:
             logging.getLogger('pyomo.core').setLevel(logging.ERROR)
             model, csize = _build_constraint_model(
-                jt, self.cnv, sentences_by_host, lmc_by_host)
+                jt, self.cnv, sentences_by_host, lmc_by_host,
+                evidence=evidence)
             # Record the size of the shared (query-independent) constraint NLP.
             self.nlp_stats = _model_stats(
                 jt, csize, sentences_by_host, lmc_by_host, self.cnv)
@@ -1079,23 +1542,45 @@ class CredalJT:
             for atom in atoms:
                 host = jt.host([atom] + list(evidence.keys()))
                 if host is None:
-                    # Atom + evidence not co-hosted -> exact fallback for it.
-                    lo, hi = self._exact_atom(atom, evidence)
+                    # Atom + evidence not co-hosted on the shared tree (H4
+                    # fails there): build a tree augmented by the atom+evidence
+                    # node set for this atom alone (H4 then holds by
+                    # construction); fall back to the direct 2^n formulation
+                    # only if that tree is over budget or a sentence is unhosted.
+                    lo, hi, st, ex = self._augmented_atom(
+                        atom, evidence, solver, max_cluster_atoms, time_limit,
+                        gap_tol, cert_tol, verbosity)
+                    if st is None:
+                        lo, hi = self._exact_atom(atom, evidence)
+                        self.atom_status[atom] = {"exact": False,
+                                                  "certified": False,
+                                                  "route": "direct-local"}
+                    else:
+                        for s_ in st:
+                            s_["atom"] = atom
+                        self.solve_status.extend(st)
+                        cert = all(s_["certified"] for s_ in st) and len(st) == 2
+                        self.atom_status[atom] = {
+                            "exact": bool(ex and cert), "certified": bool(cert),
+                            "route": "augmented"}
                 else:
                     _clear_atom_objective(model)
                     obj = _atom_objective(model, jt, csize, atom, host,
                                           evidence, solver)
                     if verbosity > 1:
-                        print(f"  [D5] atom {atom} (host cluster {host}):")
+                        print(f"  [CJT] atom {atom} (host cluster {host}):")
+                    st = []
                     lo = _solve_sense(model, jt, obj, csize, 'min', solver,
-                                      time_limit, gap_tol, verbosity)
+                                      time_limit, gap_tol, verbosity,
+                                      status_out=st, cert_tol=cert_tol)
                     if verbosity > 1:
                         print(f"    min P({atom}=1) = "
                               f"{0.0 if lo is None else lo:.6f}; realized "
                               f"separator messages at the minimizer:")
                         _print_realized_messages(model, jt, csize, prefix="  ")
                     hi = _solve_sense(model, jt, obj, csize, 'max', solver,
-                                      time_limit, gap_tol, verbosity)
+                                      time_limit, gap_tol, verbosity,
+                                      status_out=st, cert_tol=cert_tol)
                     if verbosity > 1:
                         print(f"    max P({atom}=1) = "
                               f"{1.0 if hi is None else hi:.6f}; realized "
@@ -1103,10 +1588,22 @@ class CredalJT:
                         _print_realized_messages(model, jt, csize, prefix="  ")
                     lo = 0.0 if lo is None else max(0.0, lo)
                     hi = 1.0 if hi is None else min(1.0, hi)
+                    for s in st:
+                        s["atom"] = atom
+                    self.solve_status.extend(st)
+                    cert = all(s["certified"] for s in st) and len(st) == 2
+                    self.atom_status[atom] = {
+                        "exact": bool(self.d5_exact and cert),
+                        "certified": bool(cert), "route": "cluster"}
                 self.singleton_marginals[atom] = (lo, hi)
                 if verbosity > 1:
-                    print(f"  [D5] P({atom}=1 | {evidence}) = "
+                    print(f"  [CJT] P({atom}=1 | {evidence}) = "
                           f"[{lo:.6f}, {hi:.6f}]")
+
+        # Instance-level guarantees.
+        self.certified = bool(self.atom_status) and all(
+            s["certified"] for s in self.atom_status.values())
+        self.exact = bool(self.d5_exact and self.certified)
 
         self.elimination_time = time.perf_counter() - t0
         self.build_time = float(getattr(self.cnv, "build_time", None) or 0.0)
@@ -1129,8 +1626,10 @@ class CredalJT:
             for atom in sorted(self.singleton_marginals):
                 lo, hi = self.singleton_marginals[atom]
                 print(f"  P({atom}=1): [{lo:.6f}, {hi:.6f}]")
-            print(f"[CredalJT] exact={self.d5_exact}, "
-                  f"max cluster={self.induced_width} atoms")
+            print(f"[CredalJT] structurally exact (H1-H3)={self.d5_exact}, "
+                  f"all solves certified={self.certified}, "
+                  f"EXACT={self.exact}, max cluster={self.induced_width} atoms")
+            print(f"[CredalJT] LMC triage: {self.h3}")
             print("[CredalJT] Running times (seconds):")
             print(f"  build time:    {self.build_time:.4f}")
             print(f"  inference time:{self.elimination_time:.4f}")
@@ -1140,6 +1639,28 @@ class CredalJT:
                       "singleton marginal is the vacuous [0, 1] (uninformative; "
                       "the LCN/evidence is likely inconsistent).")
         return results
+
+    def _augmented_atom(self, atom, evidence, solver, max_cluster_atoms,
+                        time_limit, gap_tol, cert_tol, verbosity):
+        """Bounds on P(atom | evidence) from a junction tree augmented by the
+        atom+evidence node set (so H4 holds). Returns (lo, hi, solve_status,
+        structurally_exact); solve_status is None if the augmented tree is over
+        budget or leaves a sentence unhosted (caller falls back)."""
+        jt, sbh, lbh, qc, over, fb = _build_jt_and_hosts(
+            self.cnv, atom, evidence, max_cluster_atoms)
+        if over or fb or qc is None:
+            return None, None, None, False
+        model, csize = _build_constraint_model(jt, self.cnv, sbh, lbh,
+                                               evidence=evidence)
+        obj = _atom_objective(model, jt, csize, atom, qc, evidence, solver)
+        st = []
+        lo = _solve_sense(model, jt, obj, csize, 'min', solver, time_limit,
+                          gap_tol, verbosity, status_out=st, cert_tol=cert_tol)
+        hi = _solve_sense(model, jt, obj, csize, 'max', solver, time_limit,
+                          gap_tol, verbosity, status_out=st, cert_tol=cert_tol)
+        lo = 0.0 if lo is None else max(0.0, lo)
+        hi = 1.0 if hi is None else min(1.0, hi)
+        return lo, hi, st, bool(getattr(jt, "h3", {}).get("holds", False))
 
     def _exact_atom(self, atom, evidence):
         """Exact P(atom=1 | evidence) bound via the full-joint ExactInference."""
@@ -1154,6 +1675,8 @@ class CredalJT:
                   "falling back to ExactInference per atom.")
         for atom in atoms:
             self.singleton_marginals[atom] = self._exact_atom(atom, evidence)
+            self.atom_status[atom] = {"exact": False, "certified": False,
+                                      "route": "direct-local"}
 
 
 if __name__ == "__main__":

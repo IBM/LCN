@@ -31,7 +31,7 @@ from pyomo.environ import SolverFactory
 
 from lcn.core.model import LCN
 from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
-from lcn.inference.marginal.cn.junction_nlp import CredalJT
+from lcn.inference.marginal.cn.cjt import CredalJT
 from lcn.inference.marginal.exact import ExactInference
 
 
@@ -244,7 +244,7 @@ class TestBuildOnce:
     def test_builds_constraint_model_once(self, cnv, monkeypatch):
         # The whole point of CredalJT: the constraint NLP is built ONCE, not
         # once per atom. Count calls to _build_constraint_model during a run.
-        import lcn.inference.marginal.cn.junction_nlp as J
+        import lcn.inference.marginal.cn.cjt as J
         calls = {"n": 0}
         orig = J._build_constraint_model
 
@@ -331,7 +331,7 @@ class TestTreewidth:
         # On the 8-atom Markov chain, CredalJT must build n-1=7 clusters of two
         # atoms each (treewidth 1) -- NOT a single 2^8 joint. The LMC assertions
         # are RIP-implied by the separators, so none are imposed.
-        from lcn.inference.marginal.cn.junction_nlp import _build_jt_and_hosts
+        from lcn.inference.marginal.cn.cjt import _build_jt_and_hosts
         jt, sbh, lbh, _, over, fb = _build_jt_and_hosts(
             chain_cnv, None, {}, 16)
         assert not over and not fb
@@ -346,7 +346,7 @@ class TestTreewidth:
     def test_rip_implied_predicate(self, chain_cnv):
         # The Markov-chain LMC (x_{i+1} perp earlier | x_i) is RIP-implied;
         # a fabricated non-separator conditioning is not.
-        from lcn.inference.marginal.cn.junction_nlp import _build_jt_and_hosts
+        from lcn.inference.marginal.cn.cjt import _build_jt_and_hosts
         jt, *_ = _build_jt_and_hosts(chain_cnv, None, {}, 16)
         assert jt._rip_implied(["x2"], ["x0"], ["x1"]) is True
         # x0 and x2 are NOT independent given x4 (x4 is not on the x0-x2 path)
@@ -366,3 +366,239 @@ class TestTreewidth:
             lo, hi = jt.singleton_marginals[atom]
             assert lo == pytest.approx(elo, abs=_TOL), f"{atom} lower"
             assert hi == pytest.approx(ehi, abs=_TOL), f"{atom} upper"
+
+
+# ======================================================================
+# 6. LMC triage: G*-separation, exact reduction, certification
+# ======================================================================
+
+_DROPPED = os.path.join(_ROOT, "examples", "cjt_dropped_lmc.lcn")
+
+
+def _structure_cnv(path):
+    lcn = LCN()
+    _quiet(lcn.from_lcn, file_name=path)
+    return _quiet(CredalNetworkVertices.from_lcn, lcn,
+                  method="linear", solve_families=False, verbosity=0)
+
+
+@pytest.fixture(scope="module")
+def dropped_cnv():
+    return _structure_cnv(_DROPPED)
+
+
+class TestLMCTriage:
+
+    def test_separation_uses_conditioning_set_not_a_larger_separator(
+            self, chain_cnv):
+        # In the chain x0 - x1 - x2 - ..., the separator {x1} splits x0 from x2,
+        # so x0 _||_ x2 | x1 is entailed; but x0 _||_ x2 | {} is NOT (the
+        # former test accepted any separator CONTAINING Z, here Z = {}).
+        from lcn.inference.marginal.cn.cjt import _build_jt_and_hosts
+        jt, *_ = _build_jt_and_hosts(chain_cnv, None, {}, 16)
+        assert jt.separates(["x0"], ["x2"], ["x1"])
+        assert not jt.separates(["x0"], ["x2"], [])
+        assert not jt._rip_implied(["x0"], ["x2"], [])
+
+    def test_reduction_keeps_only_the_connected_part(self, dropped_cnv):
+        # x2 _||_ {x0, x1, x4}: x0, x1 lie in a different component of G*,
+        # so the assertion is equivalent to x2 _||_ x4.
+        from lcn.inference.marginal.cn.cjt import _build_jt_and_hosts
+        jt, *_ = _build_jt_and_hosts(dropped_cnv, None, {}, 16)
+        assert jt.reduce_assertion(["x2"], ["x0", "x1", "x4"], []) == ["x4"]
+
+    def test_h3_holds_and_reduced_assertion_is_hosted(self, dropped_cnv):
+        from lcn.inference.marginal.cn.cjt import _build_jt_and_hosts
+        jt, _sbh, lbh, _qc, over, fb = _build_jt_and_hosts(
+            dropped_cnv, None, {}, 16)
+        assert not over and not fb
+        assert jt.h3["holds"] and jt.h3["relaxed"] == 0
+        imposed = [a for v in lbh.values() for a in v]
+        pairs = {(frozenset(a.event1), frozenset(a.event2), frozenset(a.event3))
+                 for a in imposed}
+        assert (frozenset({"x2"}), frozenset({"x4"}), frozenset()) in pairs \
+            or (frozenset({"x4"}), frozenset({"x2"}), frozenset()) in pairs
+        # symmetric duplicate is not imposed twice
+        assert len(imposed) == 1
+
+    @_needs_scip
+    def test_dropped_lmc_regression_matches_hand_value(self, dropped_cnv):
+        # Single-atom query on the min-fill tree (cheap): the reduced assertion
+        # x2 _||_ x4 must be imposed, giving the exact lower bound of P(x3).
+        from lcn.inference.marginal.cn import cjt as jn
+        jt, sbh, lbh, qc, over, fb = jn._build_jt_and_hosts(
+            dropped_cnv, "x3", {}, 16)
+        assert jt.h3["holds"] and not over and not fb
+        model, obj, csize = jn._build_model(jt, dropped_cnv, "x3", {}, sbh,
+                                            lbh, qc, "scip")
+        st = []
+        lo = jn._solve_sense(model, jt, obj, csize, "min", "scip", 60, 0.0, 0,
+                             status_out=st)
+        # exact: 0.673737 * 0.349412 * 0.096543 (was 0.0022 with the dropped LMC)
+        assert lo == pytest.approx(0.673737 * 0.349412 * 0.096543, abs=1e-4)
+
+    def test_ordered_tree_is_exact_by_construction(self, dropped_cnv):
+        # The query-independent build picks an exact tree (ordered-Markov or
+        # min-fill+reduction) with H3 holding and no widening.
+        from lcn.inference.marginal.cn.cjt import _build_jt_and_hosts
+        jt, *_rest, over, fb = _build_jt_and_hosts(dropped_cnv, None, {}, 16)
+        assert not over and not fb
+        assert jt.h3["holds"] and jt.h3["widened"] == 0
+        assert jt.max_cluster_size() == 3
+
+    def test_uncertified_scip_endpoint_reports_dual_bound(self, monkeypatch):
+        # A time-limited SCIP solve must report its DUAL bound (sound), never the
+        # incumbent of an unfinished minimization.
+        from pyomo.environ import (ConcreteModel, Var, ConstraintList,
+                                   TerminationCondition)
+        from lcn.inference.marginal.cn import cjt as jn
+
+        class _Res:
+            class solver:
+                termination_condition = TerminationCondition.maxTimeLimit
+            def __init__(self):
+                self.solver = type("S", (), {
+                    "termination_condition": TerminationCondition.maxTimeLimit,
+                    "gap": 5.0,
+                    "__getitem__": lambda s, i: {"Primal bound": 0.30,
+                                                 "Dual bound": 0.20},
+                })()
+
+        class _Opt:
+            def solve(self, model, **kw):
+                return _Res()
+
+        monkeypatch.setattr(jn, "make_scip", lambda **kw: _Opt())
+        m = ConcreteModel()
+        m.x = Var(bounds=(0, 1))
+        m.c = ConstraintList()
+        st = []
+        v = jn._solve_sense(m, None, m.x, None, "min", "scip", 1, 0.0, 0,
+                            status_out=st)
+        assert v == pytest.approx(0.20)   # dual, not the 0.30 incumbent
+        assert st[0]["certified"] is False
+
+
+def test_nonlinear_count_is_lmc_rows_only():
+    # Cleared Type-2 sentence rows are linear; only LMC rows are bilinear. On
+    # examples/alarm.lcn the sole imposed assertion (B _||_ E) gives 2 rows, and
+    # the 10 sentence rows (two Type-2 sentences among them) are all linear.
+    from lcn.inference.marginal.cn.cjt import (
+        _build_jt_and_hosts, _build_constraint_model, _model_stats)
+    cnv = _structure_cnv(os.path.join(_ROOT, "examples", "alarm.lcn"))
+    jt, sbh, lbh, _qc, over, fb = _build_jt_and_hosts(cnv, None, {}, 16)
+    assert not over and not fb
+    _m, cs = _quiet(_build_constraint_model, jt, cnv, sbh, lbh)
+    st = _model_stats(jt, cs, sbh, lbh, cnv)
+    assert st["n_sentence"] == 10
+    assert st["n_lmc"] == 2
+    assert st["n_nonlinear"] == st["n_lmc"] == 2
+    assert (st["n_variables"], st["n_constraints"]) == (22, 24)
+
+
+# ======================================================================
+# 7. Conditional queries (Charnes-Cooper form) and the H4 augmented route
+# ======================================================================
+
+_ZERO_EV = os.path.join(_ROOT, "examples", "cjt_zero_evidence.lcn")
+
+
+class TestConditional:
+
+    def test_charnes_cooper_model_shape(self):
+        # With evidence the simplex rows carry the scale r and one evidence
+        # normalization row is added; Type-1 bounds scale with r.
+        from lcn.inference.marginal.cn import cjt as jn
+        cnv = _structure_cnv(_ZERO_EV)
+        jt, sbh, lbh, *_ = jn._build_jt_and_hosts(cnv, None, {"E": 1}, 16)
+        m0, _ = _quiet(jn._build_constraint_model, jt, cnv, sbh, lbh)
+        m1, _ = _quiet(jn._build_constraint_model, jt, cnv, sbh, lbh,
+                       evidence={"E": 1})
+        assert not hasattr(m0, "r") and hasattr(m1, "r")
+        assert m1.ev_cluster is not None
+        assert len(m1.constr) == len(m0.constr) + 1
+
+    @_needs_scip
+    @pytest.mark.parametrize("solver", ["scip", "ipopt"])
+    def test_zero_probability_evidence_is_exact(self, solver):
+        jt = CredalJT(_structure_cnv(_ZERO_EV))
+        _quiet(jt.run, evidence={"E": 1}, solver=solver, time_limit=60,
+               verbosity=0)
+        lo, hi = jt.singleton_marginals["A"]
+        assert lo == pytest.approx(0.2, abs=1e-4)
+        assert hi == pytest.approx(0.4, abs=1e-4)
+
+    @_needs_scip
+    def test_posterior_needs_upward_reasoning(self, tmp_path):
+        # A -> B, P(A)=.5, P(B|A)=.9, P(B|!A)=.1: P(A | B=1) = 0.9 exactly.
+        f = tmp_path / "ab.lcn"
+        f.write_text("s1: 0.5 <= P(A) <= 0.5\n"
+                     "s2: 0.9 <= P(B | A) <= 0.9\n"
+                     "s3: 0.1 <= P(B | !A) <= 0.1\n")
+        jt = CredalJT(_structure_cnv(str(f)))
+        _quiet(jt.run, evidence={"B": 1}, solver="scip", time_limit=60,
+               verbosity=0)
+        lo, hi = jt.singleton_marginals["A"]
+        assert lo == pytest.approx(0.9, abs=1e-4)
+        assert hi == pytest.approx(0.9, abs=1e-4)
+        assert jt.certified
+
+    @_needs_scip
+    def test_query_far_from_evidence_uses_augmented_tree(self):
+        # alarm: B and the evidence C share no cluster of the shared tree, so
+        # B is answered on a tree augmented by {B, C} rather than by the direct
+        # local fallback. Given C = 1 every atom is vacuous (s4 constrains C only
+        # through A, and only via agreement of C and D), which the augmented
+        # tree certifies; the A query is answered on the shared tree.
+        jt = CredalJT(_structure_cnv(os.path.join(_ROOT, "examples",
+                                                  "alarm.lcn")))
+        _quiet(jt.run, evidence={"C": 1}, solver="scip", time_limit=60,
+               verbosity=0)
+        assert jt.atom_status["B"]["route"] == "augmented"
+        assert jt.atom_status["A"]["route"] == "cluster"
+        for atom in ("A", "B", "D", "E"):
+            lo, hi = jt.singleton_marginals[atom]
+            assert lo == pytest.approx(0.0, abs=1e-4)
+            assert hi == pytest.approx(1.0, abs=1e-4)
+
+
+@_needs_scip
+def test_scaled_model_with_marginal_form_assertion_is_feasible(tmp_path):
+    # A hosted MARGINAL-form assertion (x _||_ y, no conditioning) is
+    # P(x,y) = P(x)P(y): degree 1 vs 2, so the Charnes-Cooper model must scale
+    # its left side by r. Unscaled, the program is infeasible and SCIP's +-1e20
+    # sentinels must never be reported as a certified bound.
+    f = tmp_path / "m.lcn"
+    f.write_text("s1: 0.2 <= P(B) <= 0.3\n"
+                 "s2: 0.4 <= P(E) <= 0.5\n"
+                 "s3: 0.6 <= P(A | B or E) <= 0.9\n")
+    jt = CredalJT(_structure_cnv(str(f)))
+    _quiet(jt.run, evidence={"A": 1}, solver="scip", time_limit=60, verbosity=0)
+    for atom, (lo, hi) in jt.singleton_marginals.items():
+        assert 0.0 <= lo <= hi <= 1.0, (atom, lo, hi)
+    assert all(s["termination"] != "infeasible" for s in jt.solve_status)
+
+
+def test_infeasible_solve_is_never_certified(monkeypatch):
+    from pyomo.environ import ConcreteModel, Var, TerminationCondition
+    from lcn.inference.marginal.cn import cjt as jn
+
+    class _Res:
+        def __init__(self):
+            self.solver = type("S", (), {
+                "termination_condition": TerminationCondition.infeasible,
+                "gap": 0.0,
+                "__getitem__": lambda s, i: {"Primal bound": 1e20,
+                                             "Dual bound": 1e20}})()
+
+    class _Opt:
+        def solve(self, model, **kw):
+            return _Res()
+
+    monkeypatch.setattr(jn, "make_scip", lambda **kw: _Opt())
+    m = ConcreteModel()
+    m.x = Var(bounds=(0, 1))
+    st = []
+    v = jn._solve_sense(m, None, m.x, None, "min", "scip", 1, 0.0, 0,
+                        status_out=st)
+    assert v is None and st[0]["certified"] is False

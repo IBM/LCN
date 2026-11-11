@@ -1,0 +1,241 @@
+\subsection{A worked example}\label{sec:cjt-example}
+
+We work the LCN of Figure~\ref{fig:alarm} completely. It is small enough that
+every variable and constraint can be written down, yet it exercises every part of
+the construction: its structure is loopy after moralization, it has a compound
+node, two of its three LMC assertions are separator-entailed, and the third must
+be imposed as bilinear rows. Figure~\ref{fig:cjt-example} summarizes the
+instance, its structure, the junction tree and the program.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  atom/.style={circle,draw,minimum size=6.5mm,inner sep=0pt,font=\small},
+  comp/.style={rectangle,draw,rounded corners=3pt,dashed,inner sep=2pt},
+  clus/.style={rectangle,draw,rounded corners=2pt,minimum height=6.5mm,
+               inner sep=3pt,font=\small,fill=blue!6},
+  sep/.style={rectangle,draw,dashed,inner sep=2pt,font=\scriptsize,fill=gray!12},
+  host/.style={font=\scriptsize,align=left},
+  panel/.style={font=\small\bfseries},
+  >={Stealth[length=2mm]}]
+
+% ---------------- (a) the LCN ----------------
+\node[panel,anchor=west] at (0,4.2) {(a) LCN};
+\node[anchor=north west,font=\small,align=left] at (0,3.95) {%
+$s_1{:}\ 0.1\le P(B)\le 0.2$\\[1pt]
+$s_2{:}\ 0.05\le P(E)\le 0.1$\\[1pt]
+$s_3{:}\ 0.6\le P(A\mid B\vee E)\le 0.9$\\[1pt]
+$s_4{:}\ 0.5\le P(\lnot(C\oplus D)\mid A)\le 0.7$\\[1pt]
+$s_5{:}\ 0.05\le P(A)\le 0.1$\\[5pt]
+LMC:\ $(B\indep E)$,\\
+\phantom{LMC:\ }$(C\indep B,E\mid A,D)$,\\
+\phantom{LMC:\ }$(D\indep B,E\mid A,C)$};
+
+% ---------------- (b) structure ----------------
+\begin{scope}[shift={(5.6,0)}]
+\node[panel,anchor=west] at (-0.6,4.2) {(b) chain graph};
+\node[atom] (B) at (0,3.2) {$B$};
+\node[atom] (E) at (1.6,3.2) {$E$};
+\node[atom] (A) at (0.8,2.0) {$A$};
+\node[atom] (C) at (0.1,0.7) {$C$};
+\node[atom] (D) at (1.5,0.7) {$D$};
+\draw[->] (B)--(A); \draw[->] (E)--(A);
+\draw[->] (A)--(C); \draw[->] (A)--(D);
+\draw (C)--(D);
+\node[comp,fit=(C)(D)] (cd) {};
+\node[font=\scriptsize] at (0.8,0.05) {compound node $CD$};
+\end{scope}
+
+% ---------------- (c) junction tree ----------------
+\begin{scope}[shift={(9.4,0)}]
+\node[panel,anchor=west] at (-0.4,4.2) {(c) junction tree};
+\node[clus] (c4) at (1.3,3.4) {$C_4{:}\,\{E\}$};
+\node[sep]  (s34) at (1.3,2.75) {$\{E\}$};
+\node[clus] (c3) at (1.3,2.1) {$C_3{:}\,\{E,A\}$};
+\node[sep]  (s13) at (0.4,1.35) {$\{E,A\}$};
+\node[sep]  (s23) at (2.2,1.35) {$\{A\}$};
+\node[clus] (c1) at (0.4,0.6) {$C_1{:}\,\{B,E,A\}$};
+\node[clus] (c2) at (2.3,0.6) {$C_2{:}\,\{A,C,D\}$};
+\draw (c4)--(s34)--(c3);
+\draw (c3)--(s13)--(c1);
+\draw (c3)--(s23)--(c2);
+\node[host,anchor=north] at (0.4,0.2) {$s_1,s_2,s_3,s_5$\\$(B\indep E)$};
+\node[host,anchor=north] at (2.3,0.2) {$s_4$};
+\end{scope}
+\end{tikzpicture}
+
+\vspace{4pt}
+\small
+\begin{minipage}{0.98\linewidth}
+\textbf{(d) nonlinear program} for $\lo P(A)$ / $\hi P(A)$, with
+$q_1\in\Delta(8)$ over $(B,E,A)$, $q_2\in\Delta(8)$ over $(A,C,D)$,
+$q_3\in\Delta(4)$ over $(E,A)$, $q_4\in\Delta(2)$ over $(E)$:
+\[
+\begin{aligned}
+\min/\max\ \ & P_{q_1}(A)\\
+\text{s.t.}\ \ & q_k\in\Delta,\ k=1,\dots,4
+  && \text{(4 simplex)}\\
+& q_1\restr\{E,A\}=q_3,\quad q_2\restr\{A\}=q_3\restr\{A\},\quad
+  q_3\restr\{E\}=q_4
+  && \text{(4+2+2 separator)}\\
+& 0.1\le P_{q_1}(B)\le0.2,\ \ 0.05\le P_{q_1}(E)\le0.1,\ \
+  0.05\le P_{q_1}(A)\le0.1
+  && \text{(6 sentence, linear)}\\
+& 0.6\,P_{q_1}(B\vee E)\le P_{q_1}(A\wedge(B\vee E))\le0.9\,P_{q_1}(B\vee E)
+  && \text{(2 sentence, linear)}\\
+& 0.5\,P_{q_2}(A)\le P_{q_2}(A\wedge\lnot(C\oplus D))\le0.7\,P_{q_2}(A)
+  && \text{(2 sentence, linear)}\\
+& P_{q_1}(B,E{=}y)=P_{q_1}(B)\,P_{q_1}(E{=}y),\quad y\in\{0,1\}
+  && \text{(2 assertion, bilinear)}
+\end{aligned}
+\]
+\end{minipage}
+\caption{The worked example. (a) The LCN of Figure~\ref{fig:alarm} and the
+assertions of its LMC. (b) Its structure: $C$ and $D$ form an undirected
+component, i.e.\ a compound node. (c) The junction tree, with separators dashed
+on the edges and the constraints hosted by each cluster below it. (d) The
+resulting program: $22$ variables and $24$ constraints, of which only the two
+rows of $(B\indep E)$ are nonlinear; $P_{q_k}(\varphi)$ abbreviates
+$\langle A^{(C_k)}_\varphi,q_k\rangle$.}
+\label{fig:cjt-example}
+\end{figure}
+
+\subsubsection{The instance}
+
+The sentences are shown in Figure~\ref{fig:cjt-example}(a). The structure
+(Figure~\ref{fig:cjt-example}(b)) has the directed edges $B\to A$, $E\to A$,
+$A\to C$, $A\to D$ and the undirected edge $C-D$, so it is a chain graph with
+components $\{B\}$, $\{E\}$, $\{A\}$ and $\{C,D\}$. The component DAG has the
+families
+\[
+  B\mid\varnothing,\qquad E\mid\varnothing,\qquad A\mid B,E,\qquad CD\mid A,
+\]
+and the LMC yields the three assertions listed in the figure. Moralization
+connects the co-parents $B$ and $E$ of $A$, so the moral graph contains the
+triangle $B,E,A$ and is not singly connected.
+
+\subsubsection{The junction tree}
+
+Bucket elimination along a min-fill order produces the four clusters
+\[
+  C_1=\{B,E,A\},\qquad C_2=\{A,C,D\},\qquad C_3=\{E,A\},\qquad C_4=\{E\},
+\]
+with tree edges $C_1-C_3$, $C_2-C_3$ and $C_3-C_4$ and separators
+$\{E,A\}$, $\{A\}$ and $\{E\}$ (Figure~\ref{fig:cjt-example}(c)). The largest
+cluster has three atoms, so $w=2$. The compound node $CD$ contributes both of its
+atoms to $C_2$ at once, which is why that cluster has three atoms although it
+comes from a family with only two nodes. The tree has the running-intersection
+property by construction (H1). Every sentence fits in a cluster (H2): $s_1$,
+$s_2$, $s_3$ and $s_5$ mention only $B$, $E$ and $A$ and are hosted on $C_1$, and
+$s_4$ is hosted on $C_2$.
+
+The chordal graph $G^\ast$ joins two atoms when they share a cluster; its edges
+are $BE$, $BA$, $EA$, $AC$, $AD$ and $CD$. The ordered construction of
+Proposition~\ref{prop:ordered} does not apply here, because the assertions on $C$
+and on $D$ each condition on the other member of the compound node; the
+min-fill triage of Section~\ref{sec:algo-host} is used instead.
+
+\subsubsection{Discharging the assertions}
+
+\paragraph{$(C\indep B,E\mid A,D)$ and $(D\indep B,E\mid A,C)$: separator-entailed.}
+Every path in $G^\ast$ from $C$ or $D$ to $B$ or $E$ passes through $A$, so
+deleting the conditioning set $\{A,D\}$ (resp.\ $\{A,C\}$) leaves $C$ (resp.\ $D$)
+connected only to the other member of $\{C,D\}$. The reduction of
+Lemma~\ref{lem:reduce} is therefore empty, and no row is imposed: every joint
+reconstructed from consistent cluster marginals satisfies these assertions.
+
+\paragraph{$(B\indep E)$: hosted.}
+$B$ and $E$ are adjacent in $G^\ast$, so the empty set does not separate them and
+the reduction keeps $\bY_{\mathrm{in}}=\{E\}$. Both atoms lie in $C_1$, so the
+assertion is imposed there in the marginal form of \eqref{eq:nlp-lmc}, one row per
+state of $E$ (only the $B{=}1$ slice is needed):
+\[
+  P_{q_1}(B{=}1,E{=}y)=P_{q_1}(B{=}1)\,P_{q_1}(E{=}y),\qquad y\in\{0,1\}.
+\]
+These two rows are the only nonlinear constraints of the program. Without them
+the program could correlate $B$ and $E$, which the LCN forbids, and the bounds on
+$A$ would widen. With them H3 holds: every imposed row is an LMC assertion, and
+by Lemma~\ref{lem:reduce} the three rows and entailments together give every
+assertion of the LMC on every reconstructed joint.
+
+\subsubsection{The program}
+
+The program is shown in Figure~\ref{fig:cjt-example}(d). Its $8+8+4+2=22$
+variables are the cells of $q_1,\dots,q_4$. The constraints are $4$ simplex
+equalities; $8$ separator equalities, $4$ for $\{E,A\}$, $2$ for $\{A\}$ and $2$
+for $\{E\}$, for example
+\[
+  q_1[B{=}0,E{=}e,A{=}a]+q_1[B{=}1,E{=}e,A{=}a]=q_3[E{=}e,A{=}a],\qquad
+  e,a\in\{0,1\};
+\]
+$10$ sentence rows, all linear since the cleared Type-2 rows \eqref{eq:nlp-t2}
+are linear in $q$; and the $2$ bilinear assertion rows: $24$ constraints in all.
+The direct formulation over the joint has $2^5=32$ variables; the saving grows
+exponentially with $n$ at fixed width (Theorem~\ref{thm:cjt-size}).
+
+\subsubsection{Results}
+
+Solving the program for each atom with SCIP certifies all ten endpoints, in
+$3.5$\,s in total:
+\begin{center}\small
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+engine & $P(A)$ & $P(B)$ & $P(C)$ & $P(D)$ & $P(E)$ \\
+\midrule
+\textsc{CJT} (SCIP) & $[0.0870,\,0.1000]$ & $[0.1000,\,0.1228]$ & $[0,1]$ & $[0,1]$ & $[0.0500,\,0.0741]$ \\
+direct $2^n$ (SCIP) & $[\,\text{--},\,0.1000]$ & $[0.1000,\,\text{--}\,]$ & $[0,1]$ & $[0,1]$ & $[0.0500,\,\text{--}\,]$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+The direct global formulation over the $2^5$ joint certifies only $7$ of its $10$
+endpoints within a time limit of $120$\,s per solve ($381$\,s in total), and
+those $7$ agree with \textsc{CJT}; a dash marks an endpoint it did not certify.
+The three remaining \textsc{CJT} values can be checked by hand. By $s_3$ and the
+independence of $B$ and $E$, $P(A)\ge0.6\,P(B\vee E)=0.6\,(b+e-be)$, minimized at
+$b=0.1$, $e=0.05$, which gives $\lo P(A)=0.6\cdot0.145=0.087$. Conversely $s_5$
+forces $0.6\,P(B\vee E)\le P(A)\le0.1$, i.e.\ $b+e-be\le 1/6$; with $e=0.05$ this
+gives $b\le0.1228=\hi P(B)$, and with $b=0.1$ it gives $e\le0.0741=\hi P(E)$. The
+atoms $C$ and $D$ are vacuous because $s_4$ constrains only whether $C$ and $D$
+agree.
+
+Table~\ref{tab:msgs} lists the separator marginals at the minimizer of $P(A)$.
+Both clusters incident to an edge realize the same vector, as the separator
+equalities require; and the marginal of $q_1$ on $\{B,E\}$ is the product of its
+marginals on $B$ and on $E$, $P(B{=}1)=0.1$ and $P(E{=}1)=0.05$, as the hosted
+assertion requires. Lemma~\ref{lem:rip} reassembles these cluster marginals into a
+joint distribution in $\DLCN$ attaining $\lo P(A)$.
+
+\begin{table}[ht]\centering\small
+\caption{Separator marginals at the minimizer of $P(A)$, by assignment of the
+separator (bits in the listed order). Both clusters incident to each edge realize
+the same vector.}\label{tab:msgs}
+\begin{tabular}{@{}llcccc@{}}
+\toprule
+edge & separator & \multicolumn{4}{c}{marginal}\\
+\midrule
+$C_1-C_3$ & $\{E,A\}$ & $00{:}\,0.8898$ & $01{:}\,0.0602$ & $10{:}\,0.0232$ & $11{:}\,0.0268$\\
+$C_2-C_3$ & $\{A\}$   & $0{:}\,0.9130$  & $1{:}\,0.0870$  & & \\
+$C_3-C_4$ & $\{E\}$   & $0{:}\,0.9500$  & $1{:}\,0.0500$  & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{A second structure}
+
+Table~\ref{tab:contrast} compares the program size with that of the five-atom
+\texttt{asia} example, a DAG on which the ordered construction of
+Proposition~\ref{prop:ordered} applies: there two ordered rows,
+$(X\indep D\mid C)$ and $(C\indep B\mid S)$, imply all four LMC assertions.
+
+\begin{table}[ht]\centering\small
+\caption{Program size on the worked example and on \texttt{asia}.}\label{tab:contrast}
+\begin{tabular}{@{}lccccrrrrrr@{}}
+\toprule
+instance & tree & clus. & $w{+}1$ & edges & vars & constr. & simplex & sep. & sent. & assert. \\
+\midrule
+alarm (Fig.~\ref{fig:cjt-example}) & min-fill & 4 & 3 & 3 & 22 & 24 & 4 & 8 & 10 & 2 \\
+\texttt{asia} & ordered & 5 & 3 & 4 & 30 & 37 & 5 & 14 & 10 & 8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+

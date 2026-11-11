@@ -4,17 +4,27 @@ Each (benchmark, algorithm) pair writes to its own JSONL file so that
 multiple benchmarks and algorithms can run in parallel without conflicts.
 
 Output structure:
-    {output-dir}/{benchmark-name}/{algorithm}.jsonl
+    {output-dir}/{benchmark-name}/{algorithm}{variant-suffix}.jsonl
+
+where the suffix encodes non-default variant flags (e.g. ``cve_e0.1``,
+``cjt_ipopt``), so variants of one algorithm never share a file.
 
 Usage:
-    # Run all algorithms on all benchmarks
-    python experiments/run_experiment.py --input-dir benchmarks/chain
+    # The reference and the approximate methods on one benchmark set
+    python experiments/run_experiment.py --input-dir benchmarks/tree_small_fr \
+        --algorithms cjt ariel ivbp cve approxlp
 
-    # Parallel across benchmarks and algorithms (safe — separate files)
-    python experiments/run_experiment.py --input-dir benchmarks/chain --algorithms ccte &
-    python experiments/run_experiment.py --input-dir benchmarks/chain --algorithms ibp &
-    python experiments/run_experiment.py --input-dir benchmarks/polytree --algorithms ccte &
-    python experiments/run_experiment.py --input-dir benchmarks/polytree --algorithms ibp &
+    # CVE FPTAS (inner bounds within a factor 1 + 0.1) -- written to cve_e0.1.jsonl
+    python experiments/run_experiment.py --input-dir benchmarks/tree_small_fr \
+        --algorithms cve --epsilon 0.1
+
+    # Build stages (write the .cn / .vtx caches the credal-network methods load)
+    python experiments/run_experiment.py --input-dir benchmarks/tree_small_fr \
+        --stages compile enumerate
+
+    # Parallel across benchmarks and algorithms (safe: separate files)
+    python experiments/run_experiment.py --input-dir benchmarks/dag_small_fr --algorithms cjt &
+    python experiments/run_experiment.py --input-dir benchmarks/dag_small_fr --algorithms ivbp &
 """
 
 import argparse
@@ -24,9 +34,11 @@ import os
 import re
 import sys
 
-from run_algorithm import run_single, set_num_threads, ALGORITHMS as ALL_ALGORITHMS
+from run_algorithm import (ALGORITHMS as ALL_ALGORITHMS, STAGES,
+                           add_algorithm_arguments, kwargs_from_args,
+                           run_single, set_num_threads, variant_suffix)
 
-APPROX_ALGORITHMS = ["ariel", "ibp", "ccte", "ccte_e", "approxlp"]
+APPROX_ALGORITHMS = ["ariel", "ivbp", "cve", "approxlp"]
 
 
 def _parse_instance_info(filepath):
@@ -68,11 +80,9 @@ def main():
         description="Run inference algorithms on benchmark LCN instances.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
-Parallel usage — each combination gets its own output file:
-  python experiments/run_experiment.py --input-dir benchmarks/chain --algorithms ccte &
-  python experiments/run_experiment.py --input-dir benchmarks/chain --algorithms ibp &
-  python experiments/run_experiment.py --input-dir benchmarks/polytree --algorithms ccte &
-  python experiments/run_experiment.py --input-dir benchmarks/polytree --algorithms ibp &
+Parallel usage -- each (benchmark, algorithm, variant) gets its own file:
+  python experiments/run_experiment.py --input-dir benchmarks/dag_small_fr --algorithms cjt &
+  python experiments/run_experiment.py --input-dir benchmarks/dag_small_fr --algorithms ivbp &
 """)
     parser.add_argument(
         "--input-dir", type=str, default="benchmarks",
@@ -83,55 +93,21 @@ Parallel usage — each combination gets its own output file:
     parser.add_argument(
         "--benchmark", type=str, default=None,
         help="benchmark name for output subdir (default: derived from input-dir)")
-    parser.add_argument(
-        "--algorithms", type=str, nargs="+", default=APPROX_ALGORITHMS,
+    what = parser.add_mutually_exclusive_group()
+    what.add_argument(
+        "--algorithms", type=str, nargs="+", default=None,
         choices=ALL_ALGORITHMS,
-        help="algorithms to run (default: all approximate)")
+        help=f"algorithms to run (default: {' '.join(APPROX_ALGORITHMS)})")
+    what.add_argument(
+        "--stages", type=str, nargs="+", default=None, choices=STAGES,
+        help="build stages to run instead of algorithms")
     parser.add_argument(
         "--exact-threshold", type=int, default=15,
-        help="max num_vars for running exact inference (default: 15)")
-    parser.add_argument(
-        "--epsilon", type=float, default=None,
-        help="epsilon for ccte_e algorithm (default: None)")
-    parser.add_argument(
-        "--ibound", type=int, default=2,
-        help="ibound for ijgp, ijgp_e algorithms (default: 2)")
-    parser.add_argument(
-        "--n-clusters", type=int, default=None,
-        help="Number of clusters for ijgp_c algorithm (default: 10)")
-    parser.add_argument(
-        "--cluster-representative", type=str, default="plub",
-        choices=["plub", "mean"],
-        help="Cluster representative for ijgp_c: plub or mean (default: plub)")
-    parser.add_argument(
-        "--factorization-method", type=str, default="linear",
-        choices=["linear", "linear-tight"],
-        help="Factorization method: linear or linear-tight (default: linear)")
-    parser.add_argument(
-        "--merge-budget", type=int, default=1,
-        help="D2 scope-merge budget: max flattened scope of a merged "
-             "super-family (1 = no merging). Default: 1.")
-    parser.add_argument(
-        "--solver", type=str, default="ipopt",
-        choices=["ipopt", "scip"],
-        help="Local credal-set solver backend: ipopt (local, default) or scip (global)")
+        help="max num_vars for running the exact algorithm (default: 15)")
+    add_algorithm_arguments(parser)
     parser.add_argument(
         "--evidence", type=str, default="{}",
         help="evidence as JSON string (default: {})")
-    parser.add_argument(
-        "--n-jobs", type=int, default=1,
-        help="worker threads for the per-family credal-set solves during "
-             "compilation / credal-network build (default: 1)")
-    parser.add_argument(
-        "--no-cache", action="store_true",
-        help="ignore any compiled .cn next to each .lcn and (re)compute the "
-             "credal network in memory (default: use the cache when present)")
-    parser.add_argument(
-        "--no-highs", action="store_true",
-        help="force the legacy ipopt subprocess path for the per-family "
-             "linear/ipopt LP solves instead of the in-process HiGHS solver "
-             "(default: use HiGHS). No effect for linear-tight, scip, or a "
-             "cache hit.")
     parser.add_argument(
         "--time-limit", type=float, default=None,
         help="wall-clock time limit in seconds per instance per algorithm "
@@ -169,16 +145,19 @@ Parallel usage — each combination gets its own output file:
 
     total = len(instances)
 
-    for algo in args.algorithms:
-        # Output: {output_dir}/{benchmark}/{algorithm}.jsonl
+    base_kwargs = kwargs_from_args(args)
+    todo = args.stages or args.algorithms or APPROX_ALGORITHMS
+    for algo in todo:
+        # Output: {output_dir}/{benchmark}/{algorithm}{variant}.jsonl
         bench_dir = os.path.join(args.output_dir, bench_name)
         os.makedirs(bench_dir, exist_ok=True)
-        out_path = os.path.join(bench_dir, f"{algo}.jsonl")
+        out_name = algo + variant_suffix(algo, base_kwargs)
+        out_path = os.path.join(bench_dir, f"{out_name}.jsonl")
 
         # Load already-completed instances for resume
         completed = _load_completed(out_path)
         if completed and args.verbosity > 0:
-            print(f"[{bench_name}/{algo}] Resuming: {len(completed)} "
+            print(f"[{bench_name}/{out_name}] Resuming: {len(completed)} "
                   f"instances already in {out_path}")
 
         outf = open(out_path, "a")
@@ -187,36 +166,18 @@ Parallel usage — each combination gets its own output file:
                 graph_type, num_vars = _parse_instance_info(instance)
                 basename = os.path.basename(instance)
 
-                # Skip exact (both backends) for large instances
-                if algo in ("exact_l", "exact_g") and \
-                        num_vars > args.exact_threshold:
+                # The 2^n exact formulation is skipped on large instances.
+                if algo == "exact" and num_vars > args.exact_threshold:
                     continue
 
                 # Skip already completed
                 if instance in completed:
                     if args.verbosity > 0:
-                        print(f"[{bench_name}/{algo}] [{idx}/{total}] "
+                        print(f"[{bench_name}/{out_name}] [{idx}/{total}] "
                               f"{basename} | skip")
                     continue
 
-                # Build kwargs for algorithm-specific params
-                kwargs = {}
-                if args.epsilon is not None:
-                    kwargs["epsilon"] = args.epsilon
-                if args.ibound is not None:
-                    kwargs["ibound"] = args.ibound
-                if args.factorization_method != "linear":
-                    kwargs["factorization_method"] = args.factorization_method
-                if args.merge_budget != 1:
-                    kwargs["merge_budget"] = args.merge_budget
-                if args.solver != "ipopt":
-                    kwargs["solver"] = args.solver
-                if args.n_jobs != 1:
-                    kwargs["n_jobs"] = args.n_jobs
-                if args.no_cache:
-                    kwargs["cache"] = False
-                if args.no_highs:
-                    kwargs["use_highs"] = False
+                kwargs = dict(base_kwargs)
 
                 result = run_single(
                     instance, algo, evidence=evidence,
@@ -242,18 +203,18 @@ Parallel usage — each combination gets its own output file:
                     rt = result["run_time"]
                     tt = result["total_time"]
                     if bt > 0:
-                        print(f"[{bench_name}/{algo}] [{idx}/{total}] "
+                        print(f"[{bench_name}/{out_name}] [{idx}/{total}] "
                               f"{basename} | build={bt:.2f}s run={rt:.2f}s "
                               f"total={tt:.2f}s {status}")
                     else:
-                        print(f"[{bench_name}/{algo}] [{idx}/{total}] "
+                        print(f"[{bench_name}/{out_name}] [{idx}/{total}] "
                               f"{basename} | {tt:.2f}s {status}")
 
         finally:
             outf.close()
 
         if args.verbosity > 0:
-            print(f"[{bench_name}/{algo}] Done. Results in {out_path}\n")
+            print(f"[{bench_name}/{out_name}] Done. Results in {out_path}\n")
 
 
 if __name__ == "__main__":

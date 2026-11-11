@@ -18,7 +18,8 @@ from lcn.benchmarks.generator import Generator
 
 
 def generate(output_dir, sizes, num_instances, seed, epsilon,
-             max_vars, num_extras, k, verbosity, family_realizable=False):
+             max_vars, num_extras, k, verbosity, family_realizable=False, cjt_exact=None, cjt_max_width=12,
+             cjt_time_limit=60.0):
     os.makedirs(output_dir, exist_ok=True)
     gen = Generator(seed=seed)
 
@@ -48,6 +49,8 @@ def generate(output_dir, sizes, num_instances, seed, epsilon,
             num_extras=num_extras,
             epsilon=epsilon,
             k=k,
+            cjt_exact=cjt_exact, cjt_max_width=cjt_max_width,
+            cjt_time_limit=cjt_time_limit,
             verbosity=max(0, verbosity - 1),
         )
         for i, lcn in enumerate(instances):
@@ -88,9 +91,21 @@ if __name__ == "__main__":
                              "NOT Credal VE / Interval BP exact (a k-tree is "
                              "structurally loopy) -- use CredalJT / "
                              "ExactInference(solver='global').")
+    parser.add_argument("--cjt-exact", type=str, default=None,
+                        choices=("structural", "certified"),
+                        help="keep only instances on which CredalJT is provably "
+                             "exact ('structural': H1-H4; 'certified': also "
+                             "SCIP-certified). Default: no gate")
+    parser.add_argument("--cjt-max-width", type=int, default=12,
+                        help="max junction-tree cluster size (atoms) for the "
+                             "CredalJT gate (default: 12)")
+    parser.add_argument("--cjt-time-limit", type=float, default=60.0,
+                        help="per-solve SCIP limit for --cjt-exact certified")
     parser.add_argument("--verbosity", type=int, default=1,
                         help="Verbosity level (default: 1)")
     args = parser.parse_args()
     generate(args.output_dir, args.sizes, args.num_instances, args.seed,
              args.epsilon, args.max_vars, args.num_extras, args.k,
-             args.verbosity, family_realizable=args.family_realizable)
+             args.verbosity, family_realizable=args.family_realizable,
+             cjt_exact=args.cjt_exact, cjt_max_width=args.cjt_max_width,
+             cjt_time_limit=args.cjt_time_limit)

@@ -1,0 +1,202 @@
+\begin{thebibliography}{28}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Antonucci et~al.(2015)Antonucci, de~Campos, Huber, and
+  Zaffalon]{antonucci2015approxlp}
+A.~Antonucci, C.~P. de~Campos, D.~Huber, and M.~Zaffalon.
+\newblock Approximate credal network updating by linear programming with
+  applications to decision making.
+\newblock \emph{International Journal of Approximate Reasoning}, 58:\penalty0
+  25--38, 2015.
+
+\bibitem[Antonucci et~al.(2010)Antonucci, Sun, De~Campos, and
+  Zaffalon]{antonucci2010}
+Alessandro Antonucci, Yi~Sun, Cassio De~Campos, and Marco Zaffalon.
+\newblock Generalized loopy {2U}: A new algorithm for approximate inference in
+  credal networks.
+\newblock \emph{International Journal of Approximate Reasoning}, 51\penalty0
+  (5):\penalty0 474--484, 2010.
+
+\bibitem[Bach et~al.(2017)Bach, Broecheler, Huang, and Getoor]{bach2017psl}
+Stephen Bach, Matthias Broecheler, Bert Huang, and Lise Getoor.
+\newblock Hinge-loss markov random fields and probabilistic soft logic.
+\newblock \emph{Journal of Machine Learning Research (JMLR)}, 18\penalty0
+  (1):\penalty0 1--67, 2017.
+
+\bibitem[Charnes \& Cooper(1962)Charnes and Cooper]{charnes1962flp}
+A.~Charnes and W.~W. Cooper.
+\newblock Programming with linear fractional functionals.
+\newblock \emph{Naval Research Logistics Quarterly}, 9\penalty0 (3-4):\penalty0
+  181--186, 1962.
+
+\bibitem[Constantinou et~al.(2020)Constantinou, Liu, Chobtham, Guo, and
+  Kitson]{bn-repo}
+Anthony Constantinou, Yang Liu, Kiattikun Chobtham, Zhigao Guo, and Neville
+  Kitson.
+\newblock The bayesys data and bayesian network repository.
+\newblock Technical report, Bayesian Artificial Intelligence research lab,
+  Queen Mary University of London, London, UK, 2020.
+
+\bibitem[Cowell et~al.(1999)Cowell, Dawid, Lauritzen, and
+  Spiegelhalter]{cowell99}
+Robert Cowell, Philip Dawid, Steffen Lauritzen, and David Spiegelhalter.
+\newblock \emph{Probabilistic Networks and Expert Systems}.
+\newblock Springer-Verlag, New York, 1999.
+
+\bibitem[Cozman(2000)]{cozman2000credal}
+Fabio Cozman.
+\newblock Credal networks.
+\newblock \emph{Artificial Intelligence}, 120\penalty0 (2):\penalty0 199--233,
+  2000.
+
+\bibitem[Cozman(2023)]{cozman23a}
+Fabio~Gagliardi Cozman.
+\newblock Markov conditions and factorization in logical credal networks.
+\newblock In Enrique Miranda, Ignacio Montes, Erik Quaeghebeur, and Barbara
+  Vantaggi (eds.), \emph{Proceedings of the Thirteenth International Symposium
+  on Imprecise Probability: Theories and Applications}, volume 215 of
+  \emph{Proceedings of Machine Learning Research}, pp.\  130--140. PMLR, 11--14
+  Jul 2023.
+\newblock URL \url{https://proceedings.mlr.press/v215/cozman23a.html}.
+
+\bibitem[De~Raedt et~al.(2007)De~Raedt, Kimmig, and Toivonen]{problog}
+Luc De~Raedt, Angelika Kimmig, and Hannu Toivonen.
+\newblock Problog: A probabilistic prolog and its application in link
+  discovery.
+\newblock In \emph{Proceedings of the International Joint Conference on
+  Artificial Intelligence}, volume~7, pp.\  2462--2467, 2007.
+
+\bibitem[Dechter(1996)]{dechter-bucket}
+R.~Dechter.
+\newblock Bucket elimination: A unifying framework for probabilistic inference
+  algorithms.
+\newblock In \emph{Uncertainty in Artificial Intelligence (UAI'96)}, pp.\
+  211--219, 1996.
+
+\bibitem[Dechter(2003)]{dechter-book}
+R.~Dechter.
+\newblock \emph{Constraint Processing}.
+\newblock Morgan Kaufmann Publishers, 2003.
+
+\bibitem[Fagiuoli \& Zaffalon(1998)Fagiuoli and Zaffalon]{2u}
+Enrico Fagiuoli and Marco Zaffalon.
+\newblock {2U}: An exact interval propagation algorithm for polytrees with
+  binary variables.
+\newblock \emph{Artificial Intelligence}, 106\penalty0 (1):\penalty0 77--107,
+  1998.
+
+\bibitem[Ide \& Cozman(2008)Ide and Cozman]{l2u}
+Jaime Ide and Fabio Cozman.
+\newblock Approximate algorithms for credal networks with binary variables.
+\newblock \emph{International Journal of Approximate Reasoning}, 48\penalty0
+  (1):\penalty0 275--296, 2008.
+
+\bibitem[Jensen et~al.(1990)Jensen, Lauritzen, and Olesen]{jensen90}
+F.V. Jensen, S.L Lauritzen, and K.G. Olesen.
+\newblock Bayesian updating in causal probabilistic networks by local
+  computation.
+\newblock \emph{Computational Statistics Quarterly}, 4:\penalty0 269--282,
+  1990.
+
+\bibitem[Kschischang et~al.(2001)Kschischang, Frey, and
+  Loeliger]{kschischang2001factor}
+Frank~R. Kschischang, Brendan~J. Frey, and Hans-Andrea Loeliger.
+\newblock Factor graphs and the sum-product algorithm.
+\newblock \emph{IEEE Transactions on Information Theory}, 47\penalty0
+  (2):\penalty0 498--519, 2001.
+
+\bibitem[Lauritzen \& Spiegelhalter(1988)Lauritzen and
+  Spiegelhalter]{spiegelhalter88}
+S.L. Lauritzen and D.J. Spiegelhalter.
+\newblock Local computation with probabilities on graphical structures and
+  their application to expert systems.
+\newblock \emph{Journal of the Royal Statistical Society, Series B},
+  50(2):\penalty0 157--224, 1988.
+
+\bibitem[Levi(1980)]{levi80book}
+I.~Levi.
+\newblock \emph{The Enterprise of Knowledge}.
+\newblock MIT Press, 1980.
+
+\bibitem[Manhaeve et~al.(2021)Manhaeve, Dumančić, Kimmig, Demeester, and {De
+  Raedt}]{manhaeve2018deepproblog}
+Robin Manhaeve, Sebastijan Dumančić, Angelika Kimmig, Thomas Demeester, and
+  Luc {De Raedt}.
+\newblock Neural probabilistic logic programming in deepproblog.
+\newblock \emph{Artificial Intelligence}, 298:\penalty0 103504, 2021.
+\newblock ISSN 0004-3702.
+\newblock \doi{https://doi.org/10.1016/j.artint.2021.103504}.
+\newblock URL
+  \url{https://www.sciencedirect.com/science/article/pii/S0004370221000552}.
+
+\bibitem[Marinescu et~al.(2022)Marinescu, Qian, Gray, Bhattacharjya, Barahona,
+  Gao, Riegel, and Sahu]{marinescu2022neurips}
+Radu Marinescu, Haifeng Qian, Alexander Gray, Debarun Bhattacharjya, Francisco
+  Barahona, Tian Gao, Ryan Riegel, and Pravinda Sahu.
+\newblock Logical credal networks.
+\newblock In \emph{36th Conference on Neural Information Processing Systems
+  (NeurIPS)}, 2022.
+
+\bibitem[Marinescu et~al.(2023)Marinescu, Qian, Gray, Bhattacharjya, Barahona,
+  Gao, and Riegel]{marinescu2023lcn}
+Radu Marinescu, Haifeng Qian, Alexander Gray, Debarun Bhattacharjya, Francisco
+  Barahona, Tian Gao, and Ryan Riegel.
+\newblock Approximate inference in logical credal networks.
+\newblock In \emph{32nd International Joint Conference on Artificial
+  Intelligence (IJCAI)}, 2023.
+
+\bibitem[Marinescu et~al.(2024)Marinescu, Cozman, Bhattacharjya, Lee, and
+  Gray]{marinescu2024neurips}
+Radu Marinescu, Fabio Cozman, Debarun Bhattacharjya, Junkyu Lee, and Alexander
+  Gray.
+\newblock Abductive reasoning in logical credal networks.
+\newblock In \emph{38th Conference on Neural Information Processing Systems
+  (NeurIPS)}, 2024.
+
+\bibitem[Mau{\'a} \& Cozman(2020)Mau{\'a} and Cozman]{maua2020ijar}
+Denis Mau{\'a} and Fabio Cozman.
+\newblock Thirty years of credal networks: Specifications, algorithms and
+  complexity.
+\newblock \emph{International Journal of Approximate Reasoning}, 1\penalty0
+  (126):\penalty0 133--137, 2020.
+
+\bibitem[Mau{\'a} et~al.(2012)Mau{\'a}, de~Campos, and Zaffalon]{maua2012ijar}
+Denis~D. Mau{\'a}, Cassio~P. de~Campos, and Marco Zaffalon.
+\newblock Updating credal networks is approximable in polynomial time.
+\newblock \emph{International Journal of Approximate Reasoning}, 53\penalty0
+  (8):\penalty0 1183--1199, 2012.
+
+\bibitem[Mau{\'a} et~al.(2014)Mau{\'a}, de~Campos, Benavoli, and
+  Antonucci]{maua2014jair}
+Denis~D. Mau{\'a}, Cassio~P. de~Campos, Alessio Benavoli, and Alessandro
+  Antonucci.
+\newblock Probabilistic inference in credal networks: New complexity results.
+\newblock \emph{Journal of Artificial Intelligence Research}, 50, 2014.
+
+\bibitem[Ogburn et~al.(2020)Ogburn, Shpitser, and Lee]{ogburn2020causal}
+Elizabeth~L. Ogburn, Ilya Shpitser, and Youjin Lee.
+\newblock Causal inference, social networks, and chain graphs, 2020.
+\newblock URL \url{https://arxiv.org/abs/1812.04990}.
+
+\bibitem[Pearl(1988)]{pearl88}
+Judea Pearl.
+\newblock \emph{Probabilistic Reasoning in Intelligent Systems}.
+\newblock Morgan Kaufmann, 1988.
+
+\bibitem[Richardson \& Domingos(2006)Richardson and Domingos]{mln}
+Matthew Richardson and Pedro Domingos.
+\newblock Markov logic networks.
+\newblock \emph{Machine Learning}, 62\penalty0 (1-2):\penalty0 107--136, 2006.
+
+\bibitem[W{\"a}chter \& Biegler(2006)W{\"a}chter and Biegler]{ipopt}
+Andreas W{\"a}chter and Lorenz Biegler.
+\newblock On the implementation of an interior-point filter line-search
+  algorithm for large-scale nonlinear programming.
+\newblock \emph{Mathematical Programming}, 106\penalty0 (1):\penalty0 25--57,
+  2006.
+
+\end{thebibliography}

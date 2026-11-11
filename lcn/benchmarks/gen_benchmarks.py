@@ -126,6 +126,20 @@ examples:
              "'structured' (junction-tree feasibility -- sound AND complete at "
              "bounded treewidth, scales to any n)")
     parser.add_argument(
+        "--cjt-exact", type=str, default=None,
+        choices=("structural", "certified"),
+        help="keep only instances on which CredalJT is provably exact: "
+             "'structural' (H1-H4 hold on its junction tree; cheap, no solve) "
+             "or 'certified' (also every marginal certified by CredalJT/SCIP "
+             "within --cjt-time-limit). Default: no gate")
+    parser.add_argument(
+        "--cjt-max-width", type=int, default=12,
+        help="largest junction-tree cluster (atoms) the CredalJT gate accepts "
+             "(default: 12)")
+    parser.add_argument(
+        "--cjt-time-limit", type=float, default=60.0,
+        help="per-solve SCIP limit for --cjt-exact certified (default: 60s)")
+    parser.add_argument(
         "--verbosity", type=int, default=1,
         help="verbosity level: 0=silent, 1=summary (default: 1)")
     args = parser.parse_args()
@@ -162,6 +176,9 @@ examples:
                 base_topology=args.base_topology,
                 verify_time_limit=args.verify_time_limit,
                 consistency_mode=args.consistency_mode,
+                cjt_exact=args.cjt_exact,
+                cjt_max_width=args.cjt_max_width,
+                cjt_time_limit=args.cjt_time_limit,
                 verbosity=max(0, args.verbosity - 1),
             )
             # Encode the strategy in easy filenames (mirrors gen_easy.py) so

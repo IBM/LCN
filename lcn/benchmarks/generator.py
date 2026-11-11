@@ -136,6 +136,9 @@ class Generator:
         base_topology: str = "polytree",
         verify_time_limit: float = 5.0,
         verify_gap_tol: float = 0.0,
+        cjt_exact: Optional[str] = None,
+        cjt_max_width: int = 12,
+        cjt_time_limit: float = 60.0,
         verbosity: int = 1,
     ) -> List[LCN]:
         """
@@ -247,6 +250,19 @@ class Generator:
             verify_time_limit: For strategy="verified", the per-solve SCIP wall
                 limit (seconds) under which every marginal must certify.
             verify_gap_tol: For strategy="verified", the SCIP gap tolerance.
+            cjt_exact: Reject candidates on which CredalJT is not provably exact
+                (see ``cjt_exactness_report``). ``None`` (default) disables the
+                gate and leaves the random stream unchanged. ``"structural"``
+                accepts only instances whose CredalJT junction tree satisfies
+                H1-H4 (every sentence hosted, every LMC assertion discharged
+                with nothing relaxed) within ``cjt_max_width`` atoms -- cheap,
+                no solve. ``"certified"`` additionally solves every marginal
+                with CredalJT/SCIP and requires every endpoint to be certified
+                within ``cjt_time_limit`` seconds per solve, so the shipped
+                CredalJT bounds are exact. The report of an accepted instance is
+                attached as ``lcn.cjt_report``.
+            cjt_max_width: Largest cluster (in atoms) allowed by the gate.
+            cjt_time_limit: Per-solve SCIP limit for ``cjt_exact="certified"``.
             verbosity: Verbosity level (0 = silent).
 
         Returns:
@@ -273,6 +289,9 @@ class Generator:
             f"Use 'linear', 'sparse', 'bounded', or 'verified'."
         assert 0.0 <= coverage <= 1.0, "coverage must be in [0, 1]."
         assert core >= 2, "core must be >= 2."
+        assert cjt_exact in (None, "structural", "certified"), \
+            f"Unknown cjt_exact '{cjt_exact}'. Use None, 'structural' or " \
+            f"'certified'."
 
         if num_sentences is None:
             num_sentences = num_vars
@@ -370,6 +389,18 @@ class Generator:
                                           "polytree-fr"))
             if self._check_and_build(lcn, consistency_restarts, verbosity,
                                      consistency_mode):
+                if cjt_exact is not None:
+                    rep = cjt_exactness_report(
+                        lcn, max_width=cjt_max_width,
+                        certify=(cjt_exact == "certified"),
+                        time_limit=cjt_time_limit)
+                    if not rep["exact"]:
+                        if verbosity > 1:
+                            print(f"[Generator] Attempt {total_attempts}: "
+                                  f"CredalJT not exact ({rep['reason']}), "
+                                  f"retrying.")
+                        continue
+                    lcn.cjt_report = rep
                 instances.append(lcn)
                 if verbosity > 0:
                     print(f"[Generator] {graph_type} instance "
@@ -1337,8 +1368,32 @@ class Generator:
                 The LCN instance to save.
             file_name: str
                 Path to the output file.
+
+        If the instance was accepted by the ``cjt_exact`` gate, its
+        CredalJT-exactness report is written as ``#`` header comments (ignored
+        by the parser), so every shipped file records why CredalJT is exact on
+        it.
         """
         lcn.save_lcn(file_name)
+        rep = getattr(lcn, "cjt_report", None)
+        if not rep:
+            return
+        h3 = rep.get("h3") or {}
+        header = [
+            "# CredalJT exactness (no-evidence marginals): "
+            + ("CERTIFIED EXACT" if rep.get("certified")
+               else "structurally exact (H1-H4 hold; solves not certified "
+                    "at generation time)"),
+            f"#   junction tree: mode={rep.get('mode')}, "
+            f"max cluster={rep.get('width')} atoms",
+            "#   LMC triage: " + ", ".join(
+                f"{k}={h3[k]}" for k in ("n", "entailed", "implied", "hosted",
+                                         "relaxed", "widened") if k in h3),
+        ]
+        with open(file_name) as f:
+            body = f.read()
+        with open(file_name, "w") as f:
+            f.write("\n".join(header) + "\n" + body)
 
 
 # ----------------------------------------------------------------------
@@ -1411,6 +1466,97 @@ def is_globally_easy(lcn: LCN, time_limit: float = 5.0, gap_tol: float = 0.0,
         return False
     return all(rec['min'][2] == "confirmed" and rec['max'][2] == "confirmed"
                for rec in algo.status.values())
+
+
+def cjt_exactness_report(lcn: LCN, max_width: int = 12,
+                         certify: bool = False,
+                         time_limit: float = 60.0,
+                         cert_tol: float = 1e-4) -> dict:
+    """
+    Decide whether CredalJT (the junction-tree engine) is EXACT on ``lcn`` for
+    the no-evidence marginal queries, in the sense of its exactness theorem.
+
+    Structural part (cheap, no solve): build the query-independent junction tree
+    CredalJT itself would build and check
+      * H1 -- running intersection (true by construction),
+      * H2 -- every sentence is hosted by some cluster,
+      * H3 -- every LMC assertion is discharged (separator-entailed, reduced and
+        hosted, or implied by the ordered rows) with nothing relaxed,
+      * H4 -- every atom lies in some cluster (no evidence),
+    and that the largest cluster has at most ``max_width`` atoms (so the cluster
+    program is genuinely smaller than the 2^n joint).
+
+    Certified part (``certify=True``, needs SCIP): additionally solve every
+    marginal with CredalJT/SCIP under ``time_limit`` seconds per solve and
+    require every endpoint to be certified (proven optimal, or primal/dual
+    bounds within ``cert_tol``).
+
+    Returns a dict with keys: structural (bool), certified (bool or None when not
+    requested), exact (structural and certified-if-requested), width, mode,
+    h3, reason, and -- when certified -- marginals {atom: (lo, hi)}.
+    Never raises: any failure is reported as not exact with a reason.
+    """
+    from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
+    from lcn.inference.marginal.cn import cjt as jn
+
+    rep = {"structural": False, "certified": None, "exact": False,
+           "width": None, "mode": None, "h3": None, "reason": ""}
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            if lcn.primal_graph is None:
+                lcn.build_primal_graph()
+            if lcn.structure_graph is None:
+                lcn.build_structure_graph()
+            if lcn.independencies is None:
+                lcn.local_markov_condition()
+            cnv = CredalNetworkVertices.from_lcn(
+                lcn, method="linear", solve_families=False,
+                enumerate_vertices=False, cache=False, verbosity=0)
+            jt, _sbh, _lbh, _qc, over, fallback = jn._build_jt_and_hosts(
+                cnv, None, {}, max_width)
+    except Exception as exc:  # noqa: BLE001 -- generator gate never raises
+        rep["reason"] = f"build failed: {type(exc).__name__}: {exc}"
+        return rep
+
+    rep["width"] = jt.max_cluster_size()
+    rep["h3"] = dict(getattr(jt, "h3", {}) or {})
+    rep["mode"] = rep["h3"].get("mode")
+    if over:
+        rep["reason"] = f"width {rep['width']} exceeds budget {max_width}"
+        return rep
+    if fallback:
+        rep["reason"] = "a sentence has no host cluster (H2 fails)"
+        return rep
+    if not rep["h3"].get("holds", False):
+        rep["reason"] = "an LMC assertion could only be relaxed (H3 fails)"
+        return rep
+    atoms = {a for ats in cnv.cn.node_atoms.values() for a in ats}
+    if any(jt.host([a]) is None for a in atoms):
+        rep["reason"] = "an atom has no host cluster (H4 fails)"
+        return rep
+    rep["structural"] = True
+
+    if not certify:
+        rep["exact"] = True
+        return rep
+
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            eng = jn.CredalJT(cnv)
+            eng.run(evidence={}, solver="scip", max_cluster_atoms=max_width,
+                    time_limit=time_limit, cert_tol=cert_tol, verbosity=0)
+    except Exception as exc:  # noqa: BLE001
+        rep["certified"] = False
+        rep["reason"] = f"CredalJT solve failed: {type(exc).__name__}: {exc}"
+        return rep
+    rep["certified"] = bool(eng.certified)
+    rep["exact"] = bool(eng.exact)
+    rep["marginals"] = dict(eng.singleton_marginals)
+    if not rep["certified"]:
+        n_unc = sum(1 for st in eng.solve_status if not st["certified"])
+        rep["reason"] = (f"{n_unc}/{len(eng.solve_status)} endpoints not "
+                         f"certified within {time_limit}s")
+    return rep
 
 
 if __name__ == "__main__":

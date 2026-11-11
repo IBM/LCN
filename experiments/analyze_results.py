@@ -1,26 +1,20 @@
 """Analyze inference results against a user-selectable reference algorithm.
 
-Loads all per-algorithm JSONL files from the results directory
-(``results/{benchmark}/{algorithm}.jsonl``), groups them by instance, and
-computes error metrics for every other algorithm relative to the chosen
-reference.
+Loads all per-run JSONL files from the results directory
+(``results/{benchmark}/{run}.jsonl``), groups them by instance, and computes
+error metrics for every other run relative to the chosen reference.
 
-The reference is selected with ``--reference``:
-  * ``ariel`` (default): use the ARIEL algorithm's record as the reference.
-    ARIEL is exact on singly-connected LCNs and available at any scale, so it
-    is the practical baseline when exact inference is out of reach.
-  * ``exact``: use the ground-truth exact bounds per instance, preferring
-    ``exact_g`` (SCIP, certified global) and falling back to ``exact_l``
-    (ipopt, local) when only that is present. Only instances that were solved
-    exactly contribute.
-  * ``cjt_any``: use the CredalJT record, preferring ``cjt_l`` (local/ipopt,
-    which solves essentially every instance) and falling back to ``cjt``
-    (global/SCIP) when only that is present. Both CJT backends are excluded
-    from the scored rows. This is the uniform reference for the random
-    family-realizable benchmark sets, where CredalJT is the tightest engine
-    available at every size.
-  * any other algorithm name (e.g. ``cve``, ``cjt``, ``ibp``): use that
-    algorithm's record as the reference.
+A *run* is an algorithm together with its variant flags; its name is the
+algorithm plus the variant suffix written by run_experiment.py (e.g. ``cve``,
+``cve_e0.1``, ``cjt``, ``cjt_ipopt``, ``exact``). Records are keyed by run
+name, so variants of one algorithm are scored separately.
+
+The reference is selected with ``--reference`` (a run name; default ``cjt``).
+For the two exact engines -- ``cjt`` and ``exact``, solved by SCIP -- only
+**certified** endpoints are used: an endpoint the solver did not certify
+(its reported value is then a sound dual bound, not the optimum) is excluded
+from the lower- or upper-bound error statistics of that variable. Any other
+run name (e.g. ``ariel``) is used as-is.
 
 Reported metrics
 ----------------
@@ -39,7 +33,7 @@ bound for a variable. The script reports, for each (group, algorithm):
         ``max |r_lo - a_lo|`` and ``max |a_hi - r_hi|``.
   * ``contain`` -- containment rate: the fraction of variables whose algorithm
         interval *contains* the reference interval
-        (``a_lo <= r_lo`` and ``a_hi >= r_hi``, within a 1e-9 tolerance). 1.0
+        (``a_lo <= r_lo`` and ``a_hi >= r_hi``, within a 1e-4 tolerance). 1.0
         means the algorithm is a valid outer bound on every variable; values
         below 1.0 flag intervals that are too tight (inner / unsound).
   * ``mean_wr`` -- mean interval-width ratio ``(a_hi - a_lo) / (r_hi - r_lo)``
@@ -72,39 +66,77 @@ import os
 import sys
 from collections import defaultdict
 
-# The algorithm names produced by run_algorithm.py (see its ALGORITHMS list),
-# plus the special "exact" reference that resolves to exact_g/exact_l per
-# instance.
-_ALGORITHMS = ["exact_l", "exact_g", "ariel", "ibp", "ccte", "ccte_e",
-               "ccte_cm", "approxlp", "cve", "cve_e", "cve_d4", "cjt",
-               "cjt_l", "cjt_g", "cve_cm", "cve_cp"]
-_REFERENCE_CHOICES = ["exact", "cjt_any"] + _ALGORITHMS
+# run_algorithm.variant_suffix is imported from experiments/; make it importable
+# when this script is run from the repository root.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# The exact backends, in preference order when the reference is "exact": the
-# certified global solver (exact_g) is trusted over the local one (exact_l).
-_EXACT_ALGORITHMS = ("exact_g", "exact_l")
+# The algorithms of run_algorithm.py (run names may add a variant suffix).
+_ALGORITHMS = ["exact", "ariel", "cjt", "ivbp", "cve", "approxlp"]
 
-# Display names used in the LaTeX tables (the raw algorithm keys stay in the CSV).
+# Engines whose endpoints carry a certification flag. When one of them is the
+# reference only its certified endpoints are compared; when it is not, it is
+# excluded from the scored rows (it is ground truth, not an approximation).
+_EXACT_ENGINES = ("cjt", "exact")
+
+# Display names used in the LaTeX tables (the raw run names stay in the CSV).
 _LATEX_ALGO_NAMES = {
     "approxlp": "CDVE",
     "ariel": "ARIEL",
-    "ibp": "IBP",
+    "ivbp": "IVBP",
     "cve": "CVE",
-    "cve_cm": "CVE$_{cm}$",
+    "cve_e0.1": "CVE$_{\\varepsilon=0.1}$",
+    "cve_e0.01": "CVE$_{\\varepsilon=0.01}$",
     "cjt": "CJT",
-    "cjt_l": "CJT",
-    "cjt_g": "CJT",
-    "exact_l": "Exact",
-    "exact_g": "Exact",
+    "cjt_ipopt": "CJT (ipopt)",
+    "exact": "Exact",
+    "exact_ipopt": "Exact (ipopt)",
 }
 
-# Algorithms omitted from the LaTeX tables (still present in the CSV).
-_LATEX_EXCLUDE = ("cve_cp",)
+# Tolerance of the containment test (matches CJT's default certification
+# tolerance: agreement within it counts as equality).
+_CONTAIN_TOL = 1e-4
 
-# The CredalJT backends, in preference order when the reference is "cjt_any":
-# the local/ipopt backend (cjt_l) is preferred because it solves essentially
-# every instance, whereas the global/SCIP backend (cjt) times out on some.
-_CJT_ALGORITHMS = ("cjt_l", "cjt")
+# Runs omitted from the LaTeX tables (still present in the CSV).
+_LATEX_EXCLUDE = ()
+
+
+def run_name(rec):
+    """Run name of a record: the algorithm plus the suffix its variant implies
+    (identical to the output file name written by run_experiment.py)."""
+    algo = rec["algorithm"]
+    variant = rec.get("variant") or {}
+    try:
+        from run_algorithm import variant_suffix
+    except ImportError:  # analysis run outside experiments/
+        return algo
+    return algo + variant_suffix(algo, variant)
+
+
+def _engine_of(name):
+    """The exact engine a run name belongs to (``cjt``/``exact``), or None."""
+    for e in _EXACT_ENGINES:
+        if name == e or name.startswith(e + "_"):
+            return e
+    return None
+
+
+def _certified_endpoints(rec):
+    """{atom: (lower_certified, upper_certified)} for a CJT or exact record;
+    None if the record carries no certification (treat all as certified)."""
+    if rec.get("cjt_solves"):
+        cert = {}
+        for s in rec["cjt_solves"]:
+            lo, hi = cert.get(s["atom"], (True, True))
+            if s["sense"] == "min":
+                lo = bool(s["certified"])
+            else:
+                hi = bool(s["certified"])
+            cert[s["atom"]] = (lo, hi)
+        return cert
+    if rec.get("exact_status"):
+        return {a: (st["min"] == "confirmed", st["max"] == "confirmed")
+                for a, st in rec["exact_status"].items()}
+    return None
 
 
 def _mean(vals):
@@ -135,69 +167,42 @@ def _load_results(results_dir):
 
 
 def _group_by_instance(records):
-    """Group records by instance path -> {algorithm: record}."""
+    """Group records by instance path -> {run name: record}."""
     groups = defaultdict(dict)
     for rec in records:
         if rec["status"] != "ok":
             continue
-        groups[rec["instance"]][rec["algorithm"]] = rec
+        groups[rec["instance"]][run_name(rec)] = rec
     return groups
 
 
 def _make_stats_key(rec, instance, group_by):
     """Build the grouping key depending on mode."""
     if group_by == "instance":
-        return (os.path.basename(instance), rec["algorithm"])
+        return (os.path.basename(instance), run_name(rec))
     else:
-        return (rec["graph_type"], rec["num_vars"], rec["algorithm"])
+        return (rec["graph_type"], rec["num_vars"], run_name(rec))
 
 
 def _reference_record(algos, reference):
-    """Return the reference record for an instance's {algorithm: record} map.
-
-    For ``reference == "exact"`` prefer exact_g (certified global) then exact_l
-    (local). Otherwise return the named algorithm's record. None if absent.
-    """
-    if reference == "exact":
-        for name in _EXACT_ALGORITHMS:
-            if name in algos:
-                return algos[name]
-        return None
-    if reference == "cjt_any":
-        for name in _CJT_ALGORITHMS:
-            if name in algos:
-                return algos[name]
-        return None
+    """The reference record of an instance's {run name: record} map, or None."""
     return algos.get(reference)
 
 
-def _is_reference_or_exact(algo_name, reference):
-    """Whether algo_name should be excluded from the scored (approximate) set.
-
-    Always exclude the reference itself. Also exclude the exact backends when
-    they are not the reference -- they are ground truth, not approximations to
-    score against the reference.
-    """
-    if reference == "exact":
-        return algo_name in _EXACT_ALGORITHMS
-    if reference == "cjt_any":
-        # Exclude *both* CJT backends: whichever one was not selected for a
-        # given instance is the same algorithm as the reference, not an
-        # approximation to score against it.
-        return (algo_name in _CJT_ALGORITHMS
-                or algo_name in _EXACT_ALGORITHMS)
-    # A named reference: exclude it, and still exclude the exact backends (they
-    # are the ground truth and are analyzed separately with --reference exact).
-    return algo_name == reference or algo_name in _EXACT_ALGORITHMS
+def _is_excluded(name, reference):
+    """Whether run ``name`` is left out of the scored rows: the reference
+    itself, and any run of an exact engine (ground truth, not an
+    approximation)."""
+    return name == reference or _engine_of(name) is not None
 
 
-def analyze(records, reference="ariel", output_file=None, latex_file=None,
+def analyze(records, reference="cjt", output_file=None, latex_file=None,
             group_by="size"):
     """Compute absolute-error metrics vs the chosen reference algorithm.
 
     Args:
         records: list of result dicts loaded from JSONL.
-        reference: reference algorithm name, or "exact" for the exact bounds.
+        reference: reference run name (e.g. "cjt", "exact", "ariel").
         output_file: optional CSV output path.
         latex_file: optional LaTeX table output path.
         group_by: "size" to aggregate by (graph_type, num_vars, algorithm),
@@ -221,6 +226,8 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
             continue
 
         ref_marg = ref_rec["marginals"]
+        ref_cert = (_certified_endpoints(ref_rec)
+                    if _engine_of(reference) else None)
         if group_by == "instance":
             ref_key = os.path.basename(instance)
         else:
@@ -229,7 +236,7 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
             ref_rec.get("total_time", ref_rec.get("time_seconds", 0.0)))
 
         for algo_name, rec in algos.items():
-            if _is_reference_or_exact(algo_name, reference):
+            if _is_excluded(algo_name, reference):
                 continue
 
             approx_marg = rec["marginals"]
@@ -252,12 +259,24 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
                 a_lo = approx_marg[var]["lower"]
                 a_hi = approx_marg[var]["upper"]
 
+                # Only certified reference endpoints are compared.
+                lo_ok, hi_ok = ((True, True) if ref_cert is None
+                                else ref_cert.get(var, (False, False)))
+                if not (lo_ok and hi_ok):
+                    s["n_uncertified"] = s.get("n_uncertified", 0) + 1
                 # Absolute errors on P(var=1) bounds (index 1)
-                s["abs_lb_errors"].append(abs(r_lo[1] - a_lo[1]))
-                s["abs_ub_errors"].append(abs(a_hi[1] - r_hi[1]))
+                if lo_ok:
+                    s["abs_lb_errors"].append(abs(r_lo[1] - a_lo[1]))
+                if hi_ok:
+                    s["abs_ub_errors"].append(abs(a_hi[1] - r_hi[1]))
+                if not (lo_ok and hi_ok):
+                    continue  # containment / width need both endpoints
 
                 # Containment: approx interval contains reference interval
-                tol = 1e-9
+                # Containment up to the reference's certification tolerance:
+                # a certified CJT/SCIP endpoint is exact only up to its
+                # primal-dual gap (1e-4 by default) and solver feasibility.
+                tol = _CONTAIN_TOL
                 s["contained"].append(
                     1 if (a_lo[1] <= r_lo[1] + tol and
                           a_hi[1] >= r_hi[1] - tol) else 0)
@@ -293,7 +312,7 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
 
     rows = []
     for key, s in sorted(stats.items()):
-        if not s["abs_lb_errors"]:
+        if not s["abs_lb_errors"] or not s["abs_ub_errors"]:
             continue
 
         mae_lb = _mean(s["abs_lb_errors"])
@@ -386,8 +405,7 @@ def analyze(records, reference="ariel", output_file=None, latex_file=None,
 
     # Save LaTeX
     if latex_file and rows:
-        ref_name = "CJT" if reference == "cjt_any" \
-            else _LATEX_ALGO_NAMES.get(reference, _latex_safe(reference))
+        ref_name = _LATEX_ALGO_NAMES.get(reference, _latex_safe(reference))
         _save_latex(rows, latex_file, reference, group_by,
                     caption=f"error metrics vs.\\ {ref_name} reference")
         print(f"Saved LaTeX to {latex_file}")
@@ -507,12 +525,11 @@ def main():
         "--results-dir", type=str, default="results",
         help="Directory with results_*.jsonl files (default: results)")
     parser.add_argument(
-        "--reference", type=str, default="ariel", choices=_REFERENCE_CHOICES,
-        metavar="ALGO",
-        help="Reference algorithm (default: ariel). Use 'exact' for the "
-             "ground-truth exact bounds (prefers exact_g then exact_l per "
-             "instance), 'cjt_any' for CredalJT (prefers cjt_l then cjt per "
-             "instance), or one of " + ", ".join(_ALGORITHMS))
+        "--reference", type=str, default="cjt", metavar="RUN",
+        help="Reference run name (default: cjt). For cjt and exact only "
+             "certified endpoints are compared. Run names are the algorithm "
+             "plus its variant suffix, e.g. " + ", ".join(_ALGORITHMS)
+             + ", cve_e0.1, cjt_ipopt")
     parser.add_argument(
         "--output", type=str, default=None,
         help="Output CSV file (optional)")

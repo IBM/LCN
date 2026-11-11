@@ -16,7 +16,7 @@
 # Cross-family coupling constraints for scheme D4 (region-restricted credal
 # network) -- see docs/tighter_approximation.tex.
 #
-# The cn/ inference algorithms (CVE, CCTE, ApproxLP) optimize over the STRONG
+# The cn/ inference algorithms (CVE, IVBP, ApproxLP) optimize over the STRONG
 # EXTENSION of the credal network: every (node, parent-config) slot chooses a
 # local extreme point independently, so the joint is a free product of those
 # vertices. Schemes D1-D3 tighten the LOCAL credal sets (per-family looseness);

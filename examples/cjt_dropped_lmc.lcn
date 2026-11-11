@@ -1,0 +1,17 @@
+# Regression instance for the CredalJT LMC triage (copied from
+# benchmarks/dag_small_fr/dag_fr_tw3_n6_7.lcn).
+#
+# x2 and x4 are roots, so the LMC yields (x2 _||_ x0, x1, x4) -- 4 atoms, more
+# than the largest cluster (3). The former CredalJT dropped it as "unhostable",
+# losing the hostable consequence (x2 _||_ x4) and returning the loose
+# P(x3) in [0.0022, 0.993]. The exact G*-reduction rewrites the assertion as the
+# equivalent (x2 _||_ x4), which is hosted on {x2, x3, x4}; the exact bound is
+#   min P(x3) = P(x2) P(x4) 0.096543 = 0.673737 * 0.349412 * 0.096543 = 0.022727.
+s0: 0.40408 <= P(x1) <= 1.0
+s1: 0.01 <= P(!x2) <= 0.436371
+s2: 0.050588 <= P(!x4) <= 0.650588
+s3: 0.604159 <= P(x5 | (x4 and x2)) <= 1.0
+s4: 0.096543 <= P(x3 | (x2 and x4)) <= 0.696543
+s5: 0.649521 <= P(x0 | x1) <= 1.0
+s6: 0.673737 <= P(x2) <= 0.773453
+s7: 0.59999 <= P(x1) <= 0.697641

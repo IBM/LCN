@@ -281,7 +281,7 @@ class CredalNetwork:
                 formulated from the LCN sentences and LMC equalities and never
                 reads the intervals -- so the per-family solves are pure
                 overhead there. Any engine that reasons over the intervals
-                (CredalVE, IntervalBP, CredalCTE, ApproxLP, CredalIJGP) MUST
+                (CredalVE, IntervalBP, ApproxLP) MUST
                 keep this True.
             verbosity: int
                 Verbosity level (0 is silent).

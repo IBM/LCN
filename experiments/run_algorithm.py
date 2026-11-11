@@ -3,10 +3,23 @@
 Core building block for the experimental pipeline. Can be used standalone
 or called from run_experiment.py.
 
+Algorithms (``ALGORITHMS``):
+    exact     direct optimization over the 2^n joint   (--solver scip|ipopt)
+    ariel     ARIEL message passing on the LCN factor graph
+    cjt       Credal Junction Tree, exact cluster NLP   (--solver scip|ipopt)
+    ivbp      interval belief propagation on the compiled credal network
+    cve       credal variable elimination, exact; --epsilon E = FPTAS (inner, factor 1+E)
+    approxlp  coordinate descent over extreme points (reported as CDVE)
+
+Build stages (``STAGES``, run with --stage instead of --algorithm) write the
+caches the credal-network algorithms load: ``compile`` (the .cn interval
+credal network) and ``enumerate`` (the .vtx extreme points).
+
 Usage:
     python experiments/run_algorithm.py \
-        --instance benchmarks/chain/chain_n10_1.lcn \
-        --algorithm ccte
+        --instance benchmarks/tree_small_fr/tree_fr_n5_1.lcn --algorithm cjt
+    python experiments/run_algorithm.py --instance ... --algorithm cve \
+        --epsilon 0.1                               # CVE FPTAS -> cve_e0.1
 """
 
 import os
@@ -21,12 +34,10 @@ from lcn.inference.marginal.exact import ExactInference
 from lcn.inference.marginal.ariel import ArielInference
 from lcn.inference.marginal.cn.credal_network import CredalNetwork
 from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
-from lcn.inference.marginal.cn.ibp import IntervalBP
-from lcn.inference.marginal.cn.ccte import CredalCTE
+from lcn.inference.marginal.cn.ivbp import IntervalBP
 from lcn.inference.marginal.cn.approxlp import ApproxLP
-from lcn.inference.marginal.cn.ijgp import CredalIJGP
 from lcn.inference.marginal.cn.cve import CredalVE
-from lcn.inference.marginal.cn.junction_nlp import CredalJT
+from lcn.inference.marginal.cn.cjt import CredalJT
 
 
 def set_num_threads(n):
@@ -47,16 +58,58 @@ _DEFAULT_NUM_THREADS = 1
 if "OMP_NUM_THREADS" not in os.environ:
     set_num_threads(_DEFAULT_NUM_THREADS)
 
-ALGORITHMS = ["compile", "enumerate", "exact_l", "exact_g", "ariel", "ibp",  "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_cp", "cve_cm", "cve_d4", "cjt", "cjt_l", "cjt_g"]
+ALGORITHMS = ["exact", "ariel", "cjt", "ivbp", "cve", "approxlp"]
+STAGES = ["compile", "enumerate"]
 
-_CVE_ALGORITHMS = {"ibp", "ccte", "ccte_e", "ccte_cm", "approxlp", "cve", "cve_e", "cve_cp", "cve_cm", "cve_d4", "cjt", "cjt_l", "cjt_g"}
+# Algorithms that run on a (compiled) credal network built from the chain-graph
+# factorization. CJT uses only its structure (no interval solves, no vertices).
+_CN_ALGORITHMS = {"cjt", "ivbp", "cve", "approxlp"}
 
-# CredalJT (D5) algorithm aliases -> junction-tree NLP solver backend.
-#   cjt_l -> "ipopt" (local NLP; fast, may be loose on hard clusters)
-#   cjt_g -> "scip"  (certified global spatial branch-and-bound)
-#   cjt   -> "scip"  (back-compat alias for cjt_g)
-_CJT_ALGORITHMS = {"cjt", "cjt_l", "cjt_g"}
-_CJT_SOLVER = {"cjt": "scip", "cjt_l": "ipopt", "cjt_g": "scip"}
+# Engine backends for the algorithms that solve a nonlinear program.
+ENGINE_SOLVERS = ["scip", "ipopt"]
+_DEFAULT_ENGINE_SOLVER = "scip"
+
+# Per-algorithm defaults of the variant parameters. A run whose parameters
+# differ from these is a VARIANT: its output file carries a suffix (see
+# ``variant_suffix``) and its record a ``variant`` dict, so variants never
+# overwrite one another.
+VARIANT_DEFAULTS = {
+    "exact": {"solver": "scip"},
+    "cjt": {"solver": "scip"},
+    "cve": {"epsilon": None},
+    "ivbp": {"n_iters": 100},
+    "approxlp": {"n_iters": 50, "n_restarts": 8},
+    "ariel": {"n_iters": 10},
+}
+
+
+def variant_of(algorithm, kwargs):
+    """The variant parameters of a run: the algorithm's VARIANT_DEFAULTS
+    overridden by any matching keys of ``kwargs``."""
+    v = dict(VARIANT_DEFAULTS.get(algorithm, {}))
+    for k in v:
+        if kwargs.get(k) is not None:
+            v[k] = kwargs[k]
+    return v
+
+
+def variant_suffix(algorithm, kwargs):
+    """Filename suffix encoding the non-default variant parameters, e.g.
+    ``cve`` with --epsilon 0.1 -> ``_e0.1``; ``cjt`` with ipopt ->
+    ``_ipopt``; defaults -> ``""``."""
+    v = variant_of(algorithm, kwargs)
+    d = VARIANT_DEFAULTS.get(algorithm, {})
+    parts = []
+    if algorithm in ("exact", "cjt") and v["solver"] != d["solver"]:
+        parts.append(v["solver"])
+    if algorithm == "cve" and v["epsilon"]:
+        parts.append(f"e{v['epsilon']:g}")
+    if algorithm in ("ivbp", "approxlp", "ariel") and v["n_iters"] != d["n_iters"]:
+        parts.append(f"it{v['n_iters']}")
+    if algorithm == "approxlp" and v["n_restarts"] != d["n_restarts"]:
+        parts.append(f"r{v['n_restarts']}")
+    return ("_" + "_".join(parts)) if parts else ""
+
 
 def _compute_induced_width(cn):
     """Compute the induced width (treewidth upper bound) from a CredalNetwork.
@@ -186,6 +239,7 @@ def _run_single_worker(queue, lcn_file, algorithm, evidence, verbosity, kwargs,
     except MemoryError:
         result = {
             "algorithm": algorithm,
+            "variant": variant_of(algorithm, kwargs),
             "build_time": 0.0,
             "run_time": 0.0,
             "total_time": 0.0,
@@ -198,6 +252,22 @@ def _run_single_worker(queue, lcn_file, algorithm, evidence, verbosity, kwargs,
     queue.put(result)
 
 
+def per_solve_limit(lcn_file, time_limit, margin=0.9):
+    """Per-solve time limit that keeps all 2 * n_atoms endpoint solves of an
+    exact engine within ``margin * time_limit`` seconds of wall clock."""
+    import contextlib
+    import io
+    n_atoms = 1
+    try:
+        lcn = LCN()
+        with contextlib.redirect_stdout(io.StringIO()):
+            lcn.from_lcn(file_name=lcn_file)
+        n_atoms = max(1, len(lcn.atoms))
+    except Exception:  # noqa: BLE001 -- fall back to one atom
+        pass
+    return max(1.0, margin * float(time_limit) / (2 * n_atoms))
+
+
 def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
                time_limit=None, memory_limit_gb=None, **kwargs):
     """
@@ -205,9 +275,7 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
 
     Args:
         lcn_file: path to .lcn file
-        algorithm: one of "exact_l", "exact_g", "ariel", "ibp", "ccte",
-                   "ccte_e", "approxlp", "cve", "cjt_l", "cjt_g" (see
-                   ALGORITHMS; "cjt" is a back-compat alias for "cjt_g")
+        algorithm: one of ALGORITHMS, or a build stage of STAGES
         evidence: dict of evidence (default: {})
         verbosity: 0=silent
         time_limit: max wall-clock seconds (None=unlimited). Enforced by
@@ -230,12 +298,14 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
     if evidence is None:
         evidence = {}
 
-    # For the exact backends, give the engine its own per-solve limit matching
-    # the subprocess watchdog so SCIP/ipopt stop cleanly with partial bounds
-    # instead of being hard-killed. (No-op for other algorithms.)
-    if (time_limit is not None and algorithm in ("exact_l", "exact_g")
-            and "exact_time_limit" not in kwargs):
-        kwargs["exact_time_limit"] = float(time_limit)
+    # The exact engines take a PER-SOLVE limit and solve two endpoints per atom.
+    # Split the wall-clock budget across those solves (keeping a 10% margin
+    # for building the model) so the engine always stops cleanly -- returning
+    # sound partial bounds, marked uncertified -- before the watchdog kills the
+    # run and discards everything. (No-op for other algorithms.)
+    if (time_limit is not None and algorithm in ("exact", "cjt")
+            and "engine_time_limit" not in kwargs):
+        kwargs["engine_time_limit"] = per_solve_limit(lcn_file, time_limit)
 
     # Fast path: no isolation needed when neither limit is set.
     if time_limit is None and memory_limit_gb is None:
@@ -260,6 +330,7 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
             proc.join()
         return {
             "algorithm": algorithm,
+            "variant": variant_of(algorithm, kwargs),
             "build_time": 0.0,
             "run_time": 0.0,
             "total_time": round(time_limit, 4) if time_limit else 0.0,
@@ -285,6 +356,7 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
             and exitcode in oom_signals:
         return {
             "algorithm": algorithm,
+            "variant": variant_of(algorithm, kwargs),
             "build_time": 0.0,
             "run_time": 0.0,
             "total_time": 0.0,
@@ -300,6 +372,7 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
                 else f" (exit code {exitcode})")
     return {
         "algorithm": algorithm,
+        "variant": variant_of(algorithm, kwargs),
         "build_time": 0.0,
         "run_time": 0.0,
         "total_time": 0.0,
@@ -322,6 +395,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
 
     result = {
         "algorithm": algorithm,
+        "variant": variant_of(algorithm, kwargs),
         "build_time": 0.0,
         "run_time": 0.0,
         "total_time": 0.0,
@@ -344,7 +418,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             # GIL-releasing subprocess).
             fact_method = kwargs.get("factorization_method", "linear")
             n_jobs = kwargs.get("n_jobs", 1)
-            cn_solver = kwargs.get("solver", "ipopt")
+            cn_solver = kwargs.get("cn_solver", "ipopt")
             cn_time_limit = kwargs.get("solver_time_limit", None)
             cn_gap_tol = kwargs.get("gap_tol", 0.0)
             merge_budget = kwargs.get("merge_budget", 1)
@@ -383,7 +457,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             # engines can report build_time = compile_time + enumeration_time.
             fact_method = kwargs.get("factorization_method", "linear")
             n_jobs = kwargs.get("n_jobs", 1)
-            cn_solver = kwargs.get("solver", "ipopt")
+            cn_solver = kwargs.get("cn_solver", "ipopt")
             cn_time_limit = kwargs.get("solver_time_limit", None)
             cn_gap_tol = kwargs.get("gap_tol", 0.0)
             merge_budget = kwargs.get("merge_budget", 1)
@@ -456,25 +530,29 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             result["marginals"] = {}
             return result
 
-        elif algorithm in ("exact_l", "exact_g"):
-            # Two backends of the same full-joint NLP:
-            #   exact_l -> "local"  (ipopt + SLSQP fallback; fast, may be loose)
-            #   exact_g -> "global" (SCIP spatial branch-and-bound; certified)
-            exact_solver = "local" if algorithm == "exact_l" else "global"
-            # The per-solve time limit (also used by the subprocess watchdog) so
-            # the engine terminates cleanly with partial bounds rather than being
-            # hard-killed. Defaults to ExactInference's own default when absent.
-            exact_time_limit = kwargs.get("exact_time_limit", 3600.0)
+        elif algorithm == "exact":
+            # Direct optimization over the 2^n joint: --solver scip (spatial
+            # branch-and-bound, certified per endpoint) or ipopt (local, with
+            # the SLSQP fallback; uncertified).
+            solver = kwargs.get("solver", _DEFAULT_ENGINE_SOLVER)
+            exact_solver = "global" if solver == "scip" else "local"
             algo = ExactInference(lcn=lcn_model)
             raw = algo.run(
                 evidence=evidence, solver=exact_solver, verbosity=verbosity,
-                debug=(exact_solver == "local"), time_limit=exact_time_limit)
+                debug=(exact_solver == "local"),
+                time_limit=kwargs.get("engine_time_limit", 3600.0))
             marginals = _filter_singletons(raw)
+            if exact_solver == "global" and getattr(algo, "status", None):
+                # Per-endpoint certification, used by the analysis to restrict
+                # a reference to certified bounds.
+                result["exact_status"] = {
+                    a: {s: algo.status[a][s][2] for s in ("min", "max")}
+                    for a in algo.status}
             t_end = time.time()
             result["run_time"] = round(t_end - t_start, 4)
 
         elif algorithm == "ariel":
-            n_iters = kwargs.get("n_iters", 10)
+            n_iters = kwargs.get("n_iters") or 10
             threshold = kwargs.get("threshold", 1e-6)
             algo = ArielInference(lcn=lcn_model)
             raw = algo.run(
@@ -484,25 +562,25 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             t_end = time.time()
             result["run_time"] = round(t_end - t_start, 4)
 
-        elif algorithm in _CVE_ALGORITHMS:
+        elif algorithm in _CN_ALGORITHMS:
             # Build the credal network vertices (chain-graph factorization +
             # interval local credal sets + extreme-point enumeration). The
             # whole pipeline is timed by CredalNetworkVertices.from_lcn via
             # perf_counter; build_time is reported in the experiments.
             fact_method = kwargs.get("factorization_method", "linear")
             n_jobs = kwargs.get("n_jobs", 1)
-            cn_solver = kwargs.get("solver", "ipopt")
+            cn_solver = kwargs.get("cn_solver", "ipopt")
             cn_time_limit = kwargs.get("solver_time_limit", None)
             cn_gap_tol = kwargs.get("gap_tol", 0.0)
             merge_budget = kwargs.get("merge_budget", 1)
-            # CredalJT (D5) formulates its NLP from the LCN sentences and LMC
+            # CredalJT formulates its NLP from the LCN sentences and LMC
             # equalities and needs only the chain-graph STRUCTURE -- not the
             # per-family interval local credal sets and not the enumerated
             # extreme points. So for cjt skip both the per-family min/max
             # interval solves (solve_families=False) and the LRS vertex
             # enumeration (which solve_families=False forces off anyway). This
             # keeps the reported build_time to just the symbolic factorization.
-            is_cjt = algorithm in _CJT_ALGORITHMS
+            is_cjt = algorithm == "cjt"
             enumerate_vertices = not is_cjt
             solve_families = not is_cjt
             # Transparent .cn cache: reuse a compiled network next to the .lcn
@@ -532,155 +610,69 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
 
             # Run the algorithm — timed separately
             t_run_start = time.time()
-            if algorithm == "ibp":
-                n_iters = kwargs.get("n_iters", 100)
-                threshold = kwargs.get("threshold", 1e-6)
+            if algorithm == "ivbp":
                 algo = IntervalBP(cnv=cnv)
                 raw = algo.run(
-                    evidence=evidence, n_iters=n_iters,
-                    threshold=threshold, method="interval",
+                    evidence=evidence,
+                    n_iters=kwargs.get("n_iters") or 100,
+                    threshold=kwargs.get("threshold", 1e-6),
                     verbosity=verbosity)
-            elif algorithm == "ijgp":
-                i_bound = kwargs.get("i_bound", 2)
-                n_iters = kwargs.get("n_iters", 100)
-                threshold = kwargs.get("threshold", 1e-6)
-                epsilon = None
-                algo = CredalIJGP(cnv=cnv)
-                raw = algo.run(
-                    evidence=evidence, i_bound=i_bound,
-                    n_iters=n_iters, threshold=threshold,
-                    epsilon=epsilon, verbosity=verbosity)
-            elif algorithm == "ijgp_e":
-                i_bound = kwargs.get("ibound", 2)
-                n_iters = kwargs.get("n_iters", 100)
-                threshold = kwargs.get("threshold", 1e-6)
-                epsilon = kwargs.get("epsilon", None)
-                algo = CredalIJGP(cnv=cnv)
-                raw = algo.run(
-                    evidence=evidence, i_bound=i_bound,
-                    n_iters=n_iters, threshold=threshold,
-                    epsilon=epsilon, verbosity=verbosity)
-            elif algorithm == "ijgp_cp":
-                i_bound = kwargs.get("i_bound", 2)
-                n_iters = kwargs.get("n_iters", 100)
-                threshold = kwargs.get("threshold", 1e-6)
-                epsilon = kwargs.get("epsilon", None)
-                n_clusters = kwargs.get("n_clusters", 10)
-                cluster_rep = kwargs.get("cluster_representative", "plub")
-                algo = CredalIJGP(cnv=cnv)
-                raw = algo.run(
-                    evidence=evidence, i_bound=i_bound,
-                    n_iters=n_iters, threshold=threshold,
-                    epsilon=epsilon, n_clusters=n_clusters,
-                    cluster_representative=cluster_rep,
-                    verbosity=verbosity)
-            elif algorithm == "ijgp_cm":
-                i_bound = kwargs.get("i_bound", 2)
-                n_iters = kwargs.get("n_iters", 100)
-                threshold = kwargs.get("threshold", 1e-6)
-                epsilon = kwargs.get("epsilon", None)
-                n_clusters = kwargs.get("n_clusters", 10)
-                cluster_rep = kwargs.get("cluster_representative", "mean")
-                algo = CredalIJGP(cnv=cnv)
-                raw = algo.run(
-                    evidence=evidence, i_bound=i_bound,
-                    n_iters=n_iters, threshold=threshold,
-                    epsilon=epsilon, n_clusters=n_clusters,
-                    cluster_representative=cluster_rep,
-                    verbosity=verbosity)
-            elif algorithm == "ccte":
-                epsilon = None
-                algo = CredalCTE(cnv=cnv)
-                raw = algo.run(
-                    evidence=evidence, epsilon=epsilon,
-                    verbosity=verbosity)
-            elif algorithm == "ccte_e":
-                epsilon = kwargs.get("epsilon", None)
-                assert epsilon is not None, "epsilon must be provided for ccte_e"
-                algo = CredalCTE(cnv=cnv)
-                raw = algo.run(
-                    evidence=evidence, epsilon=epsilon,
-                    verbosity=verbosity)
-            elif algorithm == "ccte_cp":
-                epsilon = kwargs.get("epsilon", None)
-                n_clusters = kwargs.get("n_clusters", 10)
-                cluster_rep = kwargs.get("cluster_representative", "plub")
-                algo = CredalCTE(cnv=cnv)
-                raw = algo.run(
-                    evidence=evidence, epsilon=epsilon,
-                    n_clusters=n_clusters,
-                    cluster_representative=cluster_rep,
-                    verbosity=verbosity)
-            elif algorithm == "ccte_cm":
-                epsilon = kwargs.get("epsilon", None)
-                n_clusters = kwargs.get("n_clusters", 10)
-                cluster_rep = kwargs.get("cluster_representative", "mean")
-                algo = CredalCTE(cnv=cnv)
-                raw = algo.run(
-                    evidence=evidence, epsilon=epsilon,
-                    n_clusters=n_clusters,
-                    cluster_representative=cluster_rep,
-                    verbosity=verbosity)
+                # Exact iff the credal network is a polytree (and the sweeps
+                # reached the fixed point); otherwise loopy, no guarantee.
+                result["ivbp_exact"] = bool(algo.exact)
+                result["ivbp_converged"] = bool(algo.converged)
+                result["ivbp_iterations"] = int(algo.iterations)
             elif algorithm == "approxlp":
-                n_iters = kwargs.get("n_iters", 50)
+                v = variant_of("approxlp", kwargs)
                 algo = ApproxLP(cnv=cnv)
                 raw = algo.run(
-                    evidence=evidence, n_iters=n_iters,
-                    verbosity=verbosity)
+                    evidence=evidence, n_iters=v["n_iters"],
+                    n_restarts=v["n_restarts"], verbosity=verbosity)
+                result["approxlp_sweeps"] = int(algo.sweeps)
+                result["approxlp_eliminations"] = int(algo.n_eliminations)
             elif algorithm == "cve":
+                # epsilon None/0 -> exact CVE; > 0 -> the FPTAS (inner bounds
+                # within a factor 1 + epsilon of the exact ones).
+                v = variant_of("cve", kwargs)
                 algo = CredalVE(cnv=cnv)
-                raw = algo.run(
-                    evidence=evidence, coupling="off", verbosity=verbosity)
-            elif algorithm == "cve_e":
-                epsilon = kwargs.get("epsilon", None)
-                assert epsilon is not None, "epsilon required for cve_e"
-                algo = CredalVE(cnv=cnv)
-                raw = algo.run(
-                    evidence=evidence, epsilon=epsilon, coupling="off",
-                    verbosity=verbosity)
-            elif algorithm == "cve_cp":
-                epsilon = kwargs.get("epsilon", None)
-                n_clusters = kwargs.get("n_clusters", 10)
-                cluster_rep = kwargs.get("cluster_representative", "plub")
-                algo = CredalVE(cnv=cnv)
-                raw = algo.run(
-                    evidence=evidence, epsilon=epsilon, coupling="off",
-                    n_clusters=n_clusters,
-                    cluster_representative=cluster_rep,
-                    verbosity=verbosity)
-            elif algorithm == "cve_cm":
-                epsilon = kwargs.get("epsilon", None)
-                n_clusters = kwargs.get("n_clusters", 10)
-                cluster_rep = kwargs.get("cluster_representative", "mean")
-                algo = CredalVE(cnv=cnv)
-                raw = algo.run(
-                    evidence=evidence, epsilon=epsilon, coupling="off",
-                    n_clusters=n_clusters,
-                    cluster_representative=cluster_rep,
-                    verbosity=verbosity)
-            elif algorithm == "cve_d4":
-                algo = CredalVE(cnv=cnv)
-                raw = algo.run(
-                    evidence=evidence, coupling="cross-family",
-                    verbosity=verbosity)
-            elif algorithm in _CJT_ALGORITHMS:
-                # The CredalJT NLP backend is selected by the algorithm name
-                # (cjt_l -> ipopt, cjt_g/cjt -> scip), decoupled from the
-                # compile-time --solver (irrelevant here: solve_families=False).
-                cjt_solver = _CJT_SOLVER[algorithm]
+                raw = algo.run(evidence=evidence, epsilon=v["epsilon"],
+                               verbosity=verbosity)
+                result["cve_alpha"] = algo.alpha
+                result["cve_quotient_ops"] = algo.n_quotient_ops
+                result["cve_guarantee"] = algo.guarantee
+                result["max_potential_size"] = algo.max_potential_size
+            elif algorithm == "cjt":
                 algo = CredalJT(cnv=cnv)
+                cjt_kw = {}
+                if kwargs.get("engine_time_limit") is not None:
+                    cjt_kw["time_limit"] = kwargs["engine_time_limit"]
+                if kwargs.get("cert_tol") is not None:
+                    cjt_kw["cert_tol"] = kwargs["cert_tol"]
                 raw = algo.run(
-                    evidence=evidence, solver=cjt_solver, verbosity=verbosity)
+                    evidence=evidence,
+                    solver=kwargs.get("solver", _DEFAULT_ENGINE_SOLVER),
+                    verbosity=verbosity, **cjt_kw)
                 result["induced_width"] = algo.induced_width
                 # Size of the shared constraint NLP (None on exact fallback).
                 result["nlp_stats"] = algo.nlp_stats
+                # Guarantees: H3 triage, per-solve certification, and whether
+                # the reported bounds are certified EXACT over D_LCN.
+                result["cjt_h3"] = algo.h3
+                result["cjt_structurally_exact"] = algo.d5_exact
+                result["cjt_certified"] = algo.certified
+                result["cjt_exact"] = algo.exact
+                result["cjt_solves"] = [
+                    {k: s.get(k) for k in ("atom", "sense", "value", "dual",
+                                           "gap", "termination", "certified")}
+                    for s in algo.solve_status]
             t_run_end = time.time()
             result["run_time"] = round(t_run_end - t_run_start, 4)
 
             marginals = _filter_singletons(raw)
 
         else:
-            raise ValueError(f"Unknown algorithm: {algorithm}")
+            raise ValueError(f"Unknown algorithm: {algorithm} "
+                             f"(choose from {ALGORITHMS} or stages {STAGES})")
 
         result["total_time"] = round(
             result["build_time"] + result["run_time"], 4)
@@ -694,65 +686,101 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
     return result
 
 
+def add_algorithm_arguments(parser):
+    """Variant / build flags shared by run_algorithm.py and run_experiment.py."""
+    g = parser.add_argument_group("engine and variant parameters")
+    g.add_argument(
+        "--solver", type=str, default=_DEFAULT_ENGINE_SOLVER,
+        choices=ENGINE_SOLVERS,
+        help="NLP backend for exact and cjt: scip (global, certified per "
+             "endpoint; default) or ipopt (local, uncertified)")
+    g.add_argument(
+        "--cert-tol", type=float, default=None,
+        help="cjt: primal-dual tolerance under which a SCIP endpoint counts as "
+             "certified (default: 1e-4)")
+    g.add_argument(
+        "--epsilon", type=float, default=None,
+        help="cve: FPTAS of Maua, de Campos & Zaffalon (2012) -- inner bounds "
+             "within a factor 1 + EPSILON of the exact ones (default: exact)")
+    g.add_argument(
+        "--n-iters", type=int, default=None,
+        help="ivbp / approxlp / ariel: iteration cap (defaults 100 / 50 / 10)")
+    g.add_argument(
+        "--n-restarts", type=int, default=None,
+        help="approxlp: random-vertex restarts besides the centre start "
+             "(default: 8; 0 = centre start only)")
+    b = parser.add_argument_group(
+        "credal-network build (ivbp, cve, approxlp, stages)")
+    b.add_argument(
+        "--factorization-method", type=str, default="linear",
+        choices=["linear", "linear-tight"],
+        help="Factorization method: linear (LP) or linear-tight (LP + "
+             "scope-restricted LMC equalities) (default: linear)")
+    b.add_argument(
+        "--merge-budget", type=int, default=1,
+        help="Scope-merge budget: max flattened scope of a merged "
+             "super-family (1 = no merging). Default: 1.")
+    b.add_argument(
+        "--cn-solver", type=str, default="ipopt", choices=["ipopt", "scip"],
+        help="Solver for the per-family local credal-set problems "
+             "(default: ipopt)")
+    b.add_argument(
+        "--n-jobs", type=int, default=1,
+        help="Worker threads for the per-family credal-set solves (default: 1)")
+    b.add_argument(
+        "--no-cache", action="store_true",
+        help="Ignore any compiled .cn/.vtx next to the .lcn and recompute")
+    b.add_argument(
+        "--no-highs", action="store_true",
+        help="Use the ipopt subprocess instead of in-process HiGHS for the "
+             "per-family LPs (numerically identical, slower)")
+
+
+def kwargs_from_args(args):
+    """Translate the shared CLI flags into run_single keyword arguments."""
+    kwargs = {"solver": args.solver}
+    for name in ("cert_tol", "epsilon", "n_iters", "n_restarts"):
+        if getattr(args, name) is not None:
+            kwargs[name] = getattr(args, name)
+    if args.factorization_method != "linear":
+        kwargs["factorization_method"] = args.factorization_method
+    if args.merge_budget != 1:
+        kwargs["merge_budget"] = args.merge_budget
+    if args.cn_solver != "ipopt":
+        kwargs["cn_solver"] = args.cn_solver
+    if args.n_jobs != 1:
+        kwargs["n_jobs"] = args.n_jobs
+    if args.no_cache:
+        kwargs["cache"] = False
+    if args.no_highs:
+        kwargs["use_highs"] = False
+    return kwargs
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Run a single inference algorithm on an LCN instance.")
     parser.add_argument(
         "--instance", type=str, required=True,
         help="Path to the .lcn file")
-    parser.add_argument(
-        "--algorithm", type=str, required=True, choices=ALGORITHMS,
-        help="Algorithm to run")
+    what = parser.add_mutually_exclusive_group(required=True)
+    what.add_argument(
+        "--algorithm", type=str, choices=ALGORITHMS,
+        help="Inference algorithm to run")
+    what.add_argument(
+        "--stage", type=str, choices=STAGES,
+        help="Build stage to run instead (writes the .cn / .vtx cache)")
     parser.add_argument(
         "--evidence", type=str, default="{}",
         help="Evidence as JSON string (default: {})")
-    parser.add_argument(
-        "--epsilon", type=float, default=None,
-        help="Epsilon for ccte_e and ijgp_e algorithms")
-    parser.add_argument(
-        "--n-clusters", type=int, default=None,
-        help="Number of clusters for ijgp_c algorithm (default: 10)")
-    parser.add_argument(
-        "--cluster-representative", type=str, default="plub",
-        choices=["plub", "mean"],
-        help="Cluster representative for ijgp_c: plub or mean (default: plub)")
-    parser.add_argument(
-        "--factorization-method", type=str, default="linear",
-        choices=["linear", "linear-tight"],
-        help="Factorization method: linear (LP) or linear-tight (LP + scope-restricted LMC equalities) (default: linear)")
-    parser.add_argument(
-        "--merge-budget", type=int, default=1,
-        help="D2 scope-merge budget: max flattened scope of a merged super-family "
-             "(1 = no merging; >= total atoms = exact). Default: 1.")
-    parser.add_argument(
-        "--solver", type=str, default="ipopt",
-        choices=["ipopt", "scip"],
-        help="Local credal-set solver backend: ipopt (local, default) or scip (global) (default: ipopt)")
-    parser.add_argument(
-        "--n-jobs", type=int, default=1,
-        help="Worker threads for the per-family credal-set solves during "
-             "compilation / credal-network build (default: 1)")
-    parser.add_argument(
-        "--no-cache", action="store_true",
-        help="Ignore any compiled .cn next to the .lcn and (re)compute the "
-             "credal network in memory (default: use the cache when present)")
-    parser.add_argument(
-        "--no-highs", action="store_true",
-        help="Force the legacy ipopt subprocess path for the per-family "
-             "linear/ipopt LP solves instead of the in-process HiGHS solver "
-             "(default: use HiGHS; numerically identical, far faster). No "
-             "effect for --factorization-method linear-tight, --solver scip, "
-             "or a cache hit.")
+    add_algorithm_arguments(parser)
     parser.add_argument(
         "--time-limit", type=float, default=None,
         help="Wall-clock time limit in seconds per instance (default: unlimited)")
     parser.add_argument(
         "--memory-limit", type=float, default=None,
         help="Memory limit in GB per process, enforced via RLIMIT_AS "
-             "(default: unlimited). Applies per process: the per-family solves "
-             "are threaded (one interpreter), so --n-jobs K does not multiply "
-             "the resident Python heap; ipopt subprocesses and the process-based "
-             "enumerate LRS remain outside this cap. Best-effort off Linux.")
+             "(default: unlimited; best-effort off Linux)")
     parser.add_argument(
         "--num-threads", type=int, default=1,
         help="Number of threads for BLAS/LAPACK/ipopt (default: 1)")
@@ -762,33 +790,24 @@ def main():
     args = parser.parse_args()
 
     set_num_threads(args.num_threads)
-
-    evidence = json.loads(args.evidence)
-    kwargs = {}
-    if args.epsilon is not None:
-        kwargs["epsilon"] = args.epsilon
-    if args.n_clusters is not None:
-        kwargs["n_clusters"] = args.n_clusters
-    if args.cluster_representative in ["plub", "mean"]:
-        kwargs["cluster_representative"] = args.cluster_representative
-    if args.factorization_method != "linear":
-        kwargs["factorization_method"] = args.factorization_method
-    if args.merge_budget != 1:
-        kwargs["merge_budget"] = args.merge_budget
-    if args.solver != "ipopt":
-        kwargs["solver"] = args.solver
-    if args.n_jobs != 1:
-        kwargs["n_jobs"] = args.n_jobs
-    if args.no_cache:
-        kwargs["cache"] = False
-    if args.no_highs:
-        kwargs["use_highs"] = False
-    result = run_single(
-        args.instance, args.algorithm,
-        evidence=evidence, verbosity=args.verbosity,
-        time_limit=args.time_limit, memory_limit_gb=args.memory_limit,
-        **kwargs)
-
+    # stdout carries exactly one JSON document. The library prints progress
+    # (e.g. LCN parsing) unconditionally, and with a time/memory limit the run
+    # happens in a child process, so stdout is redirected to stderr at the file
+    # descriptor level (inherited by children) and restored for the result.
+    import sys
+    sys.stdout.flush()
+    saved_fd = os.dup(1)
+    os.dup2(2, 1)
+    try:
+        result = run_single(
+            args.instance, args.algorithm or args.stage,
+            evidence=json.loads(args.evidence), verbosity=args.verbosity,
+            time_limit=args.time_limit, memory_limit_gb=args.memory_limit,
+            **kwargs_from_args(args))
+    finally:
+        sys.stdout.flush()
+        os.dup2(saved_fd, 1)
+        os.close(saved_fd)
     print(json.dumps(result, indent=2))
 
 

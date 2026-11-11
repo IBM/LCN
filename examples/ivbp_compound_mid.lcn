@@ -1,0 +1,9 @@
+# IVBP regression: U -> {B - C} (compound chain component) -> D, and C -> E (a polytree credal network)
+s1: 0.3 <= P(U) <= 0.6
+s2: 0.4 <= P(B | C and U) <= 0.7
+s3: 0.2 <= P(C | B and U) <= 0.5
+s4: 0.5 <= P(D | B) <= 0.8
+s5: 0.1 <= P(D | !B) <= 0.4
+s6: 0.1 <= P(E | C) <= 0.3
+s7: 0.5 <= P(E | !C) <= 0.7
+s8: 0.3 <= P(B | U) <= 0.6

@@ -11,7 +11,7 @@ around every curve, read from the ``std_*`` columns written by
 absent (older CSVs predate those columns).
 
 By default only the five algorithms in ``DEFAULT_ALGORITHMS`` are plotted
-(CVE, CVE-cm, ARIEL, IBP and approxlp, which is labelled CDVE); override with
+(CVE, CVE-eps (epsilon = 0.1), ARIEL, IVBP and approxlp, which is labelled CDVE); override with
 ``--algorithms``.
 
 Usage:
@@ -31,20 +31,21 @@ matplotlib.rcParams["mathtext.fontset"] = "cm"
 
 
 # Consistent styling per algorithm
+# Keyed by run name (algorithm + variant suffix, as written by run_experiment.py).
 ALGO_STYLE = {
-    "ariel":    {"marker": "o", "color": "#1f77b4", "label": "ARIEL"},
-    "approxlp": {"marker": "s", "color": "#2ca02c", "label": "CDVE"},
-    "ibp":      {"marker": "^", "color": "#d62728", "label": "IBP"},
-    "cve":      {"marker": "D", "color": "#9467bd", "label": "CVE"},
-    "cve_cp":   {"marker": "p", "color": "#e377c2", "label": "CVE-cp"},
-    "cve_cm":   {"marker": "h", "color": "#7f7f7f", "label": "CVE-cm"},
-    "cjt":      {"marker": "v", "color": "#ff7f0e", "label": "CJT"},
-    "cjt_g":    {"marker": "v", "color": "#ff7f0e", "label": "CJT-G"},
-    "cjt_l":    {"marker": "<", "color": "#bcbd22", "label": "CJT-L"},
+    "ariel":       {"marker": "o", "color": "#1f77b4", "label": "ARIEL"},
+    "approxlp":    {"marker": "s", "color": "#2ca02c", "label": "CDVE"},
+    "ivbp":        {"marker": "^", "color": "#d62728", "label": "IVBP"},
+    "cve":         {"marker": "D", "color": "#9467bd", "label": "CVE"},
+    "cve_e0.1":    {"marker": "h", "color": "#7f7f7f", "label": r"CVE-$\varepsilon$ (0.1)"},
+    "cve_e0.01":   {"marker": "p", "color": "#e377c2", "label": r"CVE-$\varepsilon$ (0.01)"},
+    "cjt":         {"marker": "v", "color": "#ff7f0e", "label": "CJT"},
+    "cjt_ipopt":   {"marker": "<", "color": "#bcbd22", "label": "CJT (ipopt)"},
+    "exact":       {"marker": "*", "color": "#000000", "label": "Exact"},
 }
 
-# The algorithms plotted by default, in plot/legend order.
-DEFAULT_ALGORITHMS = ["cve", "cve_cm", "ariel", "ibp", "approxlp"]
+# The runs plotted by default, in plot/legend order.
+DEFAULT_ALGORITHMS = ["cve", "cve_e0.1", "ariel", "ivbp", "approxlp"]
 
 # Shading of the +/- 1 std band.
 _BAND_ALPHA = 0.18

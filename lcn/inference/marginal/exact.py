@@ -21,6 +21,7 @@ import math
 import time
 import numpy as np
 from tqdm import tqdm
+from pyomo.common.errors import ApplicationError
 from pyomo.environ import (
     ConcreteModel,
     ConstraintList,
@@ -59,14 +60,13 @@ LIGHTNING_TIME_LIMIT = 10.0
 _make_ipopt = make_ipopt
 
 
-# Termination conditions that mean SCIP proved optimality. A time/iteration limit
-# that still produced an incumbent yields a valid-but-unproven bound; that case is
-# detected from the optimality gap, not enumerated here.
+# Termination conditions that mean SCIP proved GLOBAL optimality. ``feasible``
+# (an incumbent without a proof) and ``locallyOptimal`` are deliberately absent:
+# they do not certify a global bound. A time-limited solve that closed the gap is
+# detected from the optimality gap instead.
 _OPTIMAL = {
     TerminationCondition.optimal,
-    TerminationCondition.locallyOptimal,
     TerminationCondition.globallyOptimal,
-    TerminationCondition.feasible,
 }
 
 
@@ -1137,7 +1137,12 @@ class ExactInference:
             expr=obj_expr, sense=(minimize if sense == 'min' else maximize))
 
         t0 = time.time()
-        results = solver.solve(model, load_solutions=False, tee=tee)
+        try:
+            results = solver.solve(model, load_solutions=False, tee=tee)
+        except ApplicationError:
+            # SCIP aborted (e.g. "error in LP solver"): no bound, not a crash of
+            # the whole run.
+            return None, None, "unsolved", time.time() - t0
         elapsed = time.time() - t0
 
         tc = results.solver.termination_condition
@@ -1160,6 +1165,12 @@ class ExactInference:
             return None, gap, "unsolved", elapsed
 
         confirmed = (tc in _OPTIMAL) or (gap is not None and gap <= gap_tol + 1e-12)
+        # Every objective is a probability: a value outside [0, 1] (beyond solver
+        # tolerance) can only come from numerical degeneracy -- e.g. the
+        # conditional ratio with a near-zero denominator -- and is never a
+        # certified bound.
+        if not (-1e-6 <= obj_val <= 1.0 + 1e-6):
+            confirmed = False
         status = "confirmed" if confirmed else "unconfirmed"
         return obj_val, gap, status, elapsed
 

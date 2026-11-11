@@ -1,0 +1,5 @@
+# Reviewer c7e5 counterexample: A -> B, P(A)=0.5, P(B|A)=0.9, P(B|!A)=0.1
+# Evidence B=1  =>  P(A|B) = 0.45/0.5 = 0.9 exactly.
+s1: 0.5 <= P(A) <= 0.5
+s2: 0.9 <= P(B | A) <= 0.9
+s3: 0.1 <= P(B | !A) <= 0.1

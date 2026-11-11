@@ -311,18 +311,18 @@ The chain-graph factorization pipeline is split into focused, decoupled stages (
 
 The inference algorithms themselves all consume a built `CredalNetworkVertices`:
 
-* `CredalVE` (`cn.cve`) — Credal Variable Elimination (the exact engine over the extreme points).
-* `IntervalBP` (`cn.ibp`) — Interval Belief Propagation.
-* `CredalIJGP` (`cn.ijgp`) — Interval Iterative Join-Graph Propagation.
-* `CredalCTE` (`cn.ccte`) — Credal Cluster Tree Elimination.
-* `ApproxLP` (`cn.approxlp`) — ApproxLP iterative linearization.
+* `CredalVE` (`cn.cve`) — Credal Variable Elimination over pair potentials (Mauá & Cozman 2020): exact strong-extension bounds for every atom, with or without evidence; `run(epsilon=E)` is the FPTAS of Mauá, de Campos & Zaffalon (2012), giving inner bounds within a factor 1+E.
+* `IntervalBP` (`cn.ivbp`) — Interval Belief Propagation: the sum-product algorithm on the credal network's factor graph with credal messages (hull vertices of the normalized message sets; the factor-graph form of 2U). Exact on polytree credal networks for binary and compound variables, with or without evidence; iterated (no guarantee) on loopy ones.
+* `ApproxLP` (`cn.approxlp`) — coordinate descent over extreme points (CDVE).
+
+`CredalJT` (`cn.cjt`) — Credal Junction Tree — is the exact engine for chain-graph LCNs. It uses only the chain graph's *structure* (build the `CredalNetworkVertices` with `solve_families=False`), solves one nonlinear program over junction-tree cluster marginals with SCIP, and reports per endpoint whether the bound is certified.
 
 The typical workflow is to build the `CredalNetworkVertices` once with `CredalNetworkVertices.from_lcn(...)` (which runs the whole factorization + enumeration pipeline) and then pass it to one or more algorithms. For example, using Interval Belief Propagation:
 
 ```python
 from lcn.core.model import LCN
 from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
-from lcn.inference.marginal.cn.ibp import IntervalBP
+from lcn.inference.marginal.cn.ivbp import IntervalBP
 
 # Create the LCN instance from the .lcn file
 l = LCN()
@@ -338,9 +338,9 @@ algo = IntervalBP(cnv=cnv)
 marginals = algo.run(evidence={}, n_iters=100, threshold=1e-6)
 ```
 
-The other algorithms follow the same pattern — `CredalVE(cnv=cnv)`, `CredalIJGP(cnv=cnv)`, `CredalCTE(cnv=cnv)`, `ApproxLP(cnv=cnv)` — each with its own `run()` parameters.
+The other algorithms follow the same pattern — `CredalVE(cnv=cnv)`, `ApproxLP(cnv=cnv)`, `CredalJT(cnv=cnv)` — each with its own `run()` parameters.
 
-These algorithms are also exposed end-to-end through the experiment driver in `experiments/run_algorithm.py`, which can run any of them on the benchmark instances under `benchmarks/`.
+These algorithms are also exposed end-to-end through the experiment driver: `experiments/run_algorithm.py --algorithm {exact,ariel,cjt,ivbp,cve,approxlp}` runs one on an instance, and `experiments/run_experiment.py` runs a set over a benchmark directory. Variants are selected with flags, e.g. `--algorithm cve --epsilon 0.1` (the CVE FPTAS: inner bounds within a factor 1.1) or `--algorithm cjt --solver ipopt` (local, uncertified backend).
 
 ## MAP and Marginal MAP Inference for LCNs
 In addition to marginal inference, the LCN package implements exact and approximate algorithms for computing complete or partial most probable explanations of evidence (i.e., observed truth values of a set of propositions) in a given LCN. The algorithms are based on depth-first search, limited discrepancy search or simulated annealing. We also provide an extension called AMAP of the ARIEL scheme for computing MAP and Marginal MAP explanations.
