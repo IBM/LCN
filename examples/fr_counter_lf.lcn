@@ -1,0 +1,7 @@
+# Counterexample (paper, appendix sec:fr-counter): DAG-structured and fully realizable, but not locally
+# feasible: the two sentences on the row U=1 contradict each other, so D_LCN forces P(U)=0 (exact [0,0]),
+# which no local credal set encodes (CVE over the strong extension: [0,1]).
+s1: 0.0 <= P(U) <= 1.0
+s2: 0.8 <= P(X | U) <= 1.0
+s3: 0.0 <= P(X | U) <= 0.2
+s4: 0.3 <= P(X | !U) <= 0.6

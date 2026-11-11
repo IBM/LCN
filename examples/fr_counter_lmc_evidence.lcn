@@ -1,0 +1,7 @@
+# root component C - D - E (path); R1 sentences on the block; LMC: C _|_ E | D.
+# Exact polytope rows match D_LCN without evidence; with C=1, P(E|C) is [0.333,1] vs D_LCN [0.520,0.918].
+s0: 0.45 <= P(D) <= 0.55 ; True
+s1: 0.35 <= P(C and D) <= 0.45 ; True
+s2: 0.05 <= P(C and !D) <= 0.1 ; True
+s3: 0.35 <= P(E and D) <= 0.45 ; True
+s4: 0.05 <= P(E and !D) <= 0.1 ; True

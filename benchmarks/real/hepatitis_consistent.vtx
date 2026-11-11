@@ -1,6 +1,6 @@
 {
   "format": "lcn-credal-vertices",
-  "version": 1,
+  "version": 3,
   "method": "linear",
   "merge_budget": 1,
   "solver": "ipopt",

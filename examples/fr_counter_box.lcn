@@ -1,0 +1,8 @@
+# Counterexample (paper, appendix sec:fr-counter): fully realizable (R1/R2) but with a compound child {C, D};
+# the interval box of the compiled local set is wider than the true local set, so CVE (strong ext.) gives
+# P(C) in [0.03, 0.82] while D_LCN has [0.32, 0.58].
+s1: 0.3 <= P(A) <= 0.6
+s2: 0.9 <= P(!(C ^ D) | A) <= 1.0 ; True
+s3: 0.2 <= P(C | A) <= 0.3
+s4: 0.4 <= P(!(C ^ D) | !A) <= 0.6 ; True
+s5: 0.5 <= P(C | !A) <= 0.7

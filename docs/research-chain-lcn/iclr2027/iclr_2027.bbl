@@ -1,4 +1,4 @@
-\begin{thebibliography}{28}
+\begin{thebibliography}{29}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -116,6 +116,11 @@ S.L. Lauritzen and D.J. Spiegelhalter.
   their application to expert systems.
 \newblock \emph{Journal of the Royal Statistical Society, Series B},
   50(2):\penalty0 157--224, 1988.
+
+\bibitem[Lauritzen(1996)]{lauritzen96}
+Steffen~L. Lauritzen.
+\newblock \emph{Graphical Models}.
+\newblock Oxford University Press, 1996.
 
 \bibitem[Levi(1980)]{levi80book}
 I.~Levi.

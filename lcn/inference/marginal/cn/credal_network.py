@@ -27,15 +27,78 @@
 # is the job of `CredalNetworkVertices` (see vertices.py).
 
 import itertools
+import warnings
 import json
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List
+from typing import Dict, List, Tuple
+
+import numpy as np
 
 from lcn.core.model import LCN
 from lcn.inference.marginal.cn.factorization import ChainGraphFactorization
 from lcn.inference.marginal.cn.local_credal_sets import LocalCredalSetSolver
+from lcn.inference.marginal.cn.row_polytopes import (
+    RowPolytope, row_polytope_vertices)
+
+
+def _row_key(parents: List[str], pi) -> str:
+    """Key of a parent assignment over the parent ATOMS (the .cn format)."""
+    return "|".join(f"{p}:{int(v)}" for p, v in zip(parents, pi))
+
+
+def _compound_row_vertices(symbolic_factor: Dict,
+                           solver: "LocalCredalSetSolver") -> Dict:
+    """Exact local credal sets of a family whose child is a compound block.
+
+    For every assignment pi of the parent atoms, the vertices of the exact
+    projection of the local program onto the row P(child block | pi)
+    (row_polytopes), the child states ordered MSB first over the block's
+    atoms. Uses the linear rows of the in-scope sentences (for "linear-tight"
+    the LP part of its program). Rows whose program is infeasible are left
+    out (the factor entries carry the ``infeasible`` flag and the vacuous
+    box); rows where the exact computation fails are left out too and keep
+    the (outer) box. Returns {"rows": {key: vertices}, "inexact": [keys]}.
+    """
+    child = symbolic_factor["child_lst"]
+    parents = symbolic_factor["parents_lst"]
+    scope = symbolic_factor["scope"]
+    rows_out, inexact = {}, []
+    for pi in itertools.product([0, 1], repeat=len(parents)):
+        literals = dict(zip(scope, [0] * len(child) + list(pi)))
+        rows = solver._linear_rows_and_obj(scope, literals, parents,
+                                           symbolic_factor["sentences"])
+        if not solver.locally_feasible(rows):
+            continue
+        n, interps, constraint_rows, _, E = rows
+        idx = [i for i, it in enumerate(interps)
+               if all(it[p] == v for p, v in zip(parents, pi))]
+        idx.sort(key=lambda i: tuple(interps[i][c] for c in child))
+        A = np.asarray([r[0] for r in constraint_rows], dtype=float)
+        b = np.asarray([r[1] for r in constraint_rows], dtype=float)
+        verts, exact = row_polytope_vertices(RowPolytope(A, b, E, idx, n))
+        key = _row_key(parents, pi)
+        if exact:
+            rows_out[key] = [[float(x) for x in v] for v in verts]
+        else:
+            inexact.append(key)
+    return {"rows": rows_out, "inexact": inexact}
+
+
+def _set_bounds(entry: Dict, lobo, upbo, feasible: bool) -> None:
+    """Write one interpretation's bounds into its entry. An infeasible local
+    program (no joint satisfies the in-scope sentences with the parent
+    configuration at positive probability) gives the vacuous interval and the
+    flag ``infeasible``: every member of D_LCN gives that configuration
+    probability 0, so the row is unconstrained, and the outer guarantee holds.
+    A missing bound of a feasible program (solver failure) is vacuous too."""
+    if not feasible:
+        entry["lobo"], entry["upbo"] = 0.0, 1.0
+        entry["infeasible"] = True
+        return
+    entry["lobo"] = lobo if lobo is not None else 0.0
+    entry["upbo"] = upbo if upbo is not None else 1.0
 
 
 def _entry_shell(symbolic_factor: Dict, interpretation) -> Dict:
@@ -78,11 +141,10 @@ def _solve_family(symbolic_factor: Dict, solver: "LocalCredalSetSolver") -> Dict
     for i, interpretation in enumerate(interpretations):
         literals = dict(zip(scope, interpretation))
         # Solve both senses from one shared row build (see solve_both).
-        lobo, upbo = solver.solve_both(
+        lobo, upbo, feasible = solver.solve_both(
             scope, literals, child, parents_lst, sentences)
         entry = _entry_shell(symbolic_factor, interpretation)
-        entry["lobo"] = lobo if lobo is not None else 0.0
-        entry["upbo"] = upbo if upbo is not None else 1.0
+        _set_bounds(entry, lobo, upbo, feasible)
         factor[i] = entry
     return factor
 
@@ -133,9 +195,10 @@ def _solve_families_threaded(symbolic_factors: List[Dict],
 
     def _one(task):
         fi, ii, sf, literals = task
-        lobo, upbo = solver.solve_both(sf["scope"], literals, sf["child"],
-                                       sf["parents_lst"], sf["sentences"])
-        return fi, ii, lobo, upbo
+        lobo, upbo, feasible = solver.solve_both(
+            sf["scope"], literals, sf["child"], sf["parents_lst"],
+            sf["sentences"])
+        return fi, ii, lobo, upbo, feasible
 
     # Threads must not fork: the SLSQP crash-isolation (run_isolated) forks via
     # multiprocessing on Linux, and forking from a worker thread of a live pool is
@@ -148,9 +211,8 @@ def _solve_families_threaded(symbolic_factors: List[Dict],
     try:
         with ThreadPoolExecutor(max_workers=n_jobs) as executor:
             for fut in as_completed(executor.submit(_one, t) for t in tasks):
-                fi, ii, lobo, upbo = fut.result()
-                factors[fi][ii]["lobo"] = lobo if lobo is not None else 0.0
-                factors[fi][ii]["upbo"] = upbo if upbo is not None else 1.0
+                fi, ii, lobo, upbo, feasible = fut.result()
+                _set_bounds(factors[fi][ii], lobo, upbo, feasible)
     finally:
         if prev_isolate is None:
             os.environ.pop("LCN_ISOLATE_SLSQP", None)
@@ -222,6 +284,11 @@ class CredalNetwork:
         # from_lcn (freshly compiled) or load_cn (read from the .cn header);
         # None when unknown.
         self.compile_time = None
+        # Exact vertices of the local credal sets of compound families:
+        # {child node: {parent-atom key: [[vertex], ...]}} (see
+        # _compound_row_vertices). Empty for networks without compound
+        # children; rows missing here use the interval box.
+        self.row_vertices = {}
 
     @classmethod
     def from_lcn(cls, lcn: LCN, method: str = "linear",
@@ -365,6 +432,23 @@ class CredalNetwork:
             else:
                 factors = [_solve_family(sf, lcs) for sf in symbolic_factors]
 
+            # Compound children: the per-state interval box is wider than the
+            # local credal set; compute the exact polytope of every row.
+            row_vertices, row_inexact = {}, {}
+            for sf in symbolic_factors:
+                if len(sf["child_lst"]) < 2:
+                    continue
+                res = _compound_row_vertices(sf, lcs)
+                row_vertices[sf["child"]] = res["rows"]
+                if res["inexact"]:
+                    row_inexact[sf["child"]] = res["inexact"]
+            if row_inexact:
+                warnings.warn(
+                    f"exact local credal sets could not be computed for "
+                    f"{sum(map(len, row_inexact.values()))} compound row(s) "
+                    f"{dict(row_inexact)}; their interval boxes (outer) are "
+                    f"used instead.", stacklevel=2)
+
         # Step 4: Collect node info from the (possibly merged) symbolic factors,
         # NOT from the simplified structure graph -- under a merge_budget > 1 the
         # factor children are merged super-nodes that the structure graph does
@@ -378,15 +462,50 @@ class CredalNetwork:
             node_atoms[name] = atoms
             node_card[name] = 2 ** len(atoms)
 
-        return cls(lcn, factorization, factors, node_names,
-                   node_atoms, node_card)
+        cn = cls(lcn, factorization, factors, node_names,
+                 node_atoms, node_card)
+        if solve_families:
+            cn.row_vertices = row_vertices
+        bad = cn.infeasible_rows
+        if bad:
+            warnings.warn(
+                f"{len(bad)} local program(s) are infeasible (no joint on the "
+                f"family scope satisfies the in-scope sentences with the parent "
+                f"configuration at positive probability), e.g. {bad[0]}. Their "
+                f"rows are vacuous; the LCN is not locally feasible, so the "
+                f"strong extension may be strictly larger than D_LCN.",
+                stacklevel=2)
+        return cn
+
+    @property
+    def infeasible_rows(self) -> List[Tuple[str, Dict[str, int]]]:
+        """[(child node, {parent atom: value})] of the parent configurations
+        whose local program is infeasible (flag ``infeasible`` on an entry).
+        Empty iff the compiled LCN is locally feasible (paper, def:lf)."""
+        out, seen = [], set()
+        for factor in self.factors:
+            for entry in factor.values():
+                if not entry.get("infeasible"):
+                    continue
+                n_child = len(entry["child_lst"])
+                pa = dict(zip(entry["scope"][n_child:],
+                              list(entry["interpretation"])[n_child:]))
+                key = (entry["child"], tuple(sorted(pa.items())))
+                if key not in seen:
+                    seen.add(key)
+                    out.append((entry["child"], pa))
+        return out
 
     # ------------------------------------------------------------------
     # Serialization: the compiled credal network as a portable .cn file
     # ------------------------------------------------------------------
 
     # Bump when the on-disk schema changes in a backward-incompatible way.
-    CN_FORMAT_VERSION = 1
+    # Version 2: infeasible local programs are flagged and vacuous (version 1
+    # could store a meaningless row for them), so version-1 caches are stale.
+    # Version 3: compound families also store the exact vertices of their
+    # local credal sets ("row_vertices"); version-2 files lack them.
+    CN_FORMAT_VERSION = 3
 
     def save_cn(self, file_name: str, method: str = None,
                 merge_budget: int = None, solver: str = None,
@@ -435,6 +554,7 @@ class CredalNetwork:
             "node_atoms": self.node_atoms,
             "node_card": self.node_card,
             "factors": self.factors,
+            "row_vertices": self.row_vertices,
         }
         with open(file_name, "w") as f:
             json.dump(doc, f, indent=2)
@@ -532,6 +652,7 @@ class CredalNetwork:
                  doc["node_atoms"],
                  {k: int(v) for k, v in doc["node_card"].items()})
         cn.compile_time = doc.get("compile_time")
+        cn.row_vertices = doc.get("row_vertices") or {}
         return cn
 
 

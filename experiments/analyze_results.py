@@ -45,7 +45,10 @@ Metrics, on P(atom = 1), per atom, aggregated over the group
         mean induced width.
 
 Grouping: ``--group-by`` is a comma list of benchmark, evidence, type, size,
-instance (default ``benchmark,evidence,size``).
+instance (default ``benchmark,evidence,size``), and for the perturbed
+(almost-realizable) instances of ``lcn/benchmarks/gen_nonrealizable.py`` also
+nr_kind, nr_m, nr_delta (read from the file name; ``type`` is then the base
+topology), e.g. ``--group-by type,size,nr_m``.
 
 Usage:
     python experiments/analyze_results.py --results-dir results
@@ -60,6 +63,7 @@ import glob
 import json
 import math
 import os
+import re
 import sys
 from collections import Counter, defaultdict
 
@@ -72,7 +76,20 @@ DEFAULT_REFERENCE = "cjt_scip"
 DEFAULT_TOL = 1e-4
 # Tolerance of the CVE_eps vs CVE check (same engine, exact arithmetic).
 _EPS_TOL = 1e-9
-_GROUP_FIELDS = ("benchmark", "evidence", "type", "size", "instance")
+_GROUP_FIELDS = ("benchmark", "evidence", "type", "size", "instance",
+                 "nr_kind", "nr_m", "nr_delta")
+
+# Perturbed instances (lcn/benchmarks/gen_nonrealizable.py):
+# {topology}_nr{kind}_m{m}_d{100*delta}_n{n}_{i}.lcn
+_NR_RE = re.compile(r"^(\w+?)_nr(\w+?)_m(\d+)_d(\d+)_n\d+_\d+\.lcn$")
+
+
+def _nr_info(basename):
+    """(topology, kind, m, delta) of a perturbed instance, else None."""
+    mt = _NR_RE.match(basename)
+    if not mt:
+        return None
+    return mt.group(1), mt.group(2), int(mt.group(3)), int(mt.group(4)) / 100
 
 
 def _mean(v):
@@ -115,11 +132,16 @@ def _instance_key(rec):
 
 
 def _group_key(rec, fields):
+    base = os.path.basename(rec.get("instance", "?"))
+    nr = _nr_info(base)
     vals = {"benchmark": rec.get("benchmark", "?"),
             "evidence": rec.get("evidence_atoms", 0),
-            "type": rec.get("graph_type", "?"),
+            "type": nr[0] if nr else rec.get("graph_type", "?"),
             "size": rec.get("num_vars", 0),
-            "instance": os.path.basename(rec.get("instance", "?"))}
+            "instance": base,
+            "nr_kind": nr[1] if nr else "-",
+            "nr_m": nr[2] if nr else 0,
+            "nr_delta": nr[3] if nr else 0.0}
     return tuple(vals[f] for f in fields)
 
 

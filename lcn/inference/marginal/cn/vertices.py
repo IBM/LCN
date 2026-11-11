@@ -543,6 +543,7 @@ class CredalNetworkVertices:
         self.credal_net = gum.CredalNet(self.bn_min, self.bn_max)
         self.credal_net.intervalToCredal()
         self.extreme_points = _parse_credal_net_vertices(self.credal_net)
+        self._apply_row_vertices()
         self.enumeration_time = time.perf_counter() - t_enum
 
         if verbosity > 0 and self.credal_net is not None:
@@ -563,7 +564,39 @@ class CredalNetworkVertices:
     # ------------------------------------------------------------------
 
     # Bump when the on-disk .vtx schema changes incompatibly.
-    VTX_FORMAT_VERSION = 1
+    # Version 2: built from version-2 credal networks (infeasible local
+    # programs flagged and vacuous); version-1 vertex caches are stale.
+    # Version 3: compound families use the exact row polytopes of the
+    # compiled network (CN format 3) instead of the vertices of their boxes.
+    VTX_FORMAT_VERSION = 3
+
+    def _apply_row_vertices(self) -> None:
+        """Replace the box vertices of compound families by the exact
+        vertices of their local credal sets (``cn.row_vertices``), mapping
+        pyAgrum's node-level parent configuration keys onto parent-atom
+        assignments (MSB-first state packing of compound parents)."""
+        rv = getattr(self.cn, "row_vertices", None) or {}
+        na = self.cn.node_atoms
+        for node, rows in rv.items():
+            configs = self.extreme_points.get(node)
+            if not configs:
+                continue
+            for cfg in list(configs):
+                assign = {}
+                if cfg != "<>":
+                    for part in cfg[1:-1].split("|"):
+                        pname, state = part.rsplit(":", 1)
+                        atoms = na[pname]
+                        st = int(state)
+                        for i, a in enumerate(atoms):
+                            assign[a] = (st >> (len(atoms) - 1 - i)) & 1
+                for key, verts in rows.items():
+                    want = dict(x.rsplit(":", 1) for x in key.split("|")) \
+                        if key else {}
+                    if all(assign.get(a) == int(v) for a, v in want.items()) \
+                            and len(want) == len(assign):
+                        configs[cfg] = verts
+                        break
 
     def save_vtx(self, file_name: str, method: str = None,
                  merge_budget: int = None, solver: str = None,

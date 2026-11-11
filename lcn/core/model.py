@@ -1121,7 +1121,15 @@ class LCN:
             tau = False
             if ";" in line:
                 pos = line.find(";")
-                tau = bool(line[pos+1:].strip())
+                flag = line[pos+1:].strip()
+                if flag.lower() in ("true", "1"):
+                    tau = True
+                elif flag.lower() in ("false", "0", ""):
+                    tau = False
+                else:
+                    raise ValueError(
+                        f"Syntax error in line: {line}\n the flag after ';' "
+                        f"must be True or False, got {flag!r}")
                 line = line[:pos]
 
             # Get the lower and upper bounds

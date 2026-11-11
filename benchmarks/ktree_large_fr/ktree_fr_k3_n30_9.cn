@@ -1,6 +1,6 @@
 {
   "format": "lcn-credal-network",
-  "version": 1,
+  "version": 3,
   "source_lcn": null,
   "method": "linear",
   "merge_budget": 1,

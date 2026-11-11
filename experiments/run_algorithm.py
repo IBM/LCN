@@ -599,6 +599,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 # reached the fixed point); otherwise loopy, no guarantee.
                 result["ivbp_exact"] = bool(algo.exact)
                 result["ivbp_converged"] = bool(algo.converged)
+                result["ivbp_zero_mass"] = bool(getattr(algo, "zero_mass", False))
                 result["ivbp_iterations"] = int(algo.iterations)
             elif algorithm == "cdve":
                 v = params_of("cdve", kwargs)

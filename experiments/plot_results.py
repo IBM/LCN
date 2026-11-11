@@ -74,16 +74,29 @@ def _log_x(ax, sizes):
     ax.minorticks_off()
 
 
-def plot_mae(df, runs, path, show_std):
-    sizes = sorted(df["size"].unique())
+_XLABEL = {"size": "Number of variables ($n$)",
+           "nr_m": "Added non-realizable sentences ($m$)",
+           "nr_delta": "Half-width of the added intervals ($\\delta$)"}
+
+
+def _x_axis(ax, x, xs):
+    if x == "size":
+        _log_x(ax, xs)
+    else:
+        ax.set_xticks(xs)
+        ax.set_xticklabels([f"{v:g}" for v in xs])
+    ax.set_xlabel(_XLABEL.get(x, x))
+
+
+def plot_mae(df, runs, path, show_std, x="size"):
+    xs = sorted(df[x].unique())
     fig, (a1, a2) = plt.subplots(1, 2, figsize=(10, 4), sharey=True)
     for r in runs:
         sub = df[df["run"] == r]
-        _series(a1, sub, "size", "mae_lb", "std_lb", style(r), show_std)
-        _series(a2, sub, "size", "mae_ub", "std_ub", style(r), show_std)
+        _series(a1, sub, x, "mae_lb", "std_lb", style(r), show_std)
+        _series(a2, sub, x, "mae_ub", "std_ub", style(r), show_std)
     for ax, t in ((a1, "Lower bound error"), (a2, "Upper bound error")):
-        _log_x(ax, sizes)
-        ax.set_xlabel("Number of variables ($n$)")
+        _x_axis(ax, x, xs)
         ax.set_title(t, fontsize=11)
         ax.grid(True, alpha=0.25, linewidth=0.5)
         ax.set_ylim(bottom=-0.01)
@@ -95,24 +108,23 @@ def plot_mae(df, runs, path, show_std):
     print(f"Saved {path}")
 
 
-def plot_runtime(df, runs, path, show_std):
-    sizes = sorted(df["size"].unique())
+def plot_runtime(df, runs, path, show_std, x="size"):
+    xs = sorted(df[x].unique())
     vals = pd.to_numeric(df[df["run"].isin(runs)]["total_t"], errors="coerce")
     vals = vals[vals > 0]
     floor = float(vals.min()) * _LOG_FLOOR_FRACTION if not vals.empty else None
     fig, ax = plt.subplots(1, 1, figsize=(6, 4.2))
     for r in runs:
-        _series(ax, df[df["run"] == r], "size", "total_t", "std_total_t",
+        _series(ax, df[df["run"] == r], x, "total_t", "std_total_t",
                 style(r), show_std, log_floor=floor)
-    ref = df.drop_duplicates("size")[["size", "ref_t"]].dropna()
+    ref = df.drop_duplicates(x)[[x, "ref_t"]].dropna()
     if not ref.empty:
         name = df["reference"].iloc[0]
-        ax.plot(ref["size"], ref["ref_t"], linestyle="--",
+        ax.plot(ref[x], ref["ref_t"], linestyle="--",
                 color=style(name)["color"], marker=style(name)["marker"],
                 linewidth=1.5, alpha=0.8, label=f"{label(name)} (reference)")
-    _log_x(ax, sizes)
+    _x_axis(ax, x, xs)
     ax.set_yscale("log")
-    ax.set_xlabel("Number of variables ($n$)")
     ax.set_ylabel("Time (seconds)")
     ax.set_title("Total time (build + run)", fontsize=11)
     ax.grid(True, alpha=0.25, which="both", linewidth=0.5)
@@ -160,13 +172,24 @@ def main():
                    help="also plot MAE vs the number of observed atoms")
     p.add_argument("--std", action="store_true",
                    help="shade +/- 1 std bands")
+    p.add_argument("--x", default="size",
+                   help="x-axis column: size (default), nr_m or nr_delta "
+                        "(the CSV must be grouped by it)")
+    p.add_argument("--type", default=None,
+                   help="keep only rows of this topology (column 'type')")
+    p.add_argument("--size", type=int, default=None,
+                   help="keep only rows of this size (column 'size')")
     args = p.parse_args()
 
     df = pd.read_csv(args.csv)
-    if "size" not in df.columns:
-        p.error("the CSV must be grouped by size (--group-by ...,size)")
+    if args.x not in df.columns:
+        p.error(f"the CSV must be grouped by {args.x} (--group-by ...,{args.x})")
     if args.benchmark is not None and "benchmark" in df.columns:
         df = df[df["benchmark"] == args.benchmark]
+    if args.type is not None and "type" in df.columns:
+        df = df[df["type"] == args.type]
+    if args.size is not None and "size" in df.columns:
+        df = df[df["size"] == args.size]
     runs = _runs_present(df, [r.strip() for r in args.runs.split(",")
                               if r.strip()])
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
@@ -178,8 +201,8 @@ def main():
             int(sorted(df["evidence"].unique())[0])
         sel = df[df["evidence"] == k]
     print(f"{len(sel)} rows; runs {runs}")
-    plot_mae(sel, runs, f"{args.output}_mae.pdf", args.std)
-    plot_runtime(sel, runs, f"{args.output}_runtime.pdf", args.std)
+    plot_mae(sel, runs, f"{args.output}_mae.pdf", args.std, x=args.x)
+    plot_runtime(sel, runs, f"{args.output}_runtime.pdf", args.std, x=args.x)
 
 
 if __name__ == "__main__":

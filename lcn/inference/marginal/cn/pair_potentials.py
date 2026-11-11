@@ -515,7 +515,6 @@ def build_cpt_pairs(child: str, parents: List[str], cards: Dict[str, int],
     one extreme point per parent configuration, built with one fancy-index
     assignment per parent configuration (no per-entry Python loop)."""
     scope = [child] + list(parents)
-    kc = cards[child]
     if parents:
         import itertools
         configs = list(itertools.product(*[range(cards[p]) for p in parents]))

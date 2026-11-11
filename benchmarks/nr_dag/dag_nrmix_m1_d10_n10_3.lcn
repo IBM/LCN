@@ -1,0 +1,21 @@
+# CredalJT exactness (no-evidence marginals): structurally exact (H1-H4 hold; solves not certified at generation time)
+#   junction tree: mode=ordered, max cluster=3 atoms
+#   LMC triage: n=8, entailed=0, implied=8, hosted=0, relaxed=0, widened=0
+# Perturbed family-realizable instance (Generator.perturb): base=dag_fr_tw3_n10_3.lcn
+#   nr_m=1 nr_delta=0.1 nr_kinds=nr1
+#   non-realizable sentences: nr0:nr1
+# Saved LCN instance
+
+s0: 0.058716 <= P(!x1) <= 0.658716 ; True
+s1: 0.01 <= P(x0 | !x1) <= 0.510705 ; True
+s2: 0.376821 <= P(x9 | (!x0 and x1)) <= 0.976821 ; True
+s3: 0.43787 <= P(x7 | (!x0 and !x1)) <= 1.0 ; True
+s4: 0.01 <= P(x6 | x0) <= 0.44285 ; True
+s5: 0.466116 <= P(x8 | (x0 and x1)) <= 1.0 ; True
+s6: 0.187628 <= P(x3 | (x0 and !x9)) <= 0.787628 ; True
+s7: 0.107106 <= P(!x5 | x0) <= 0.707106 ; True
+s8: 0.508235 <= P(!x2 | (x5 and !x0)) <= 1.0 ; True
+s9: 0.222577 <= P(x4 | (!x0 and x2)) <= 0.822577 ; True
+s10: 0.358341 <= P(!x1) <= 0.612599 ; True
+s11: 0.400171 <= P(x1) <= 0.567183 ; True
+nr0: 0.618139 <= P(x4) <= 0.81814 ; True

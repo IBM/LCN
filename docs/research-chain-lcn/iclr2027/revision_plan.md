@@ -316,3 +316,29 @@ old (ipopt, uncorrected) reference — revise with E1.
 - §4.4 and the appendix were rewritten to match (algorithm, A→B→C trace with evidence, complexity
   proof). The new `thm:cdve-cplx` adds A (R+1) T factors.
 - **Pending at the rerun:** the CDVE numbers in the tables are from the old code.
+
+## §4.2 family-realizability review (2026-11-11)
+
+Found (each verified numerically; regression files in `examples/fr_counter_*.lcn`):
+
+| issue | effect |
+|---|---|
+| the compiled local sets are per-state interval boxes, wider than the true local set for compound blocks | CVE P(C) ∈ [0.03, 0.82] vs D_LCN [0.32, 0.58] on a fully realizable LCN |
+| the free rows of multi-atom components violate intra-component LMC, e.g. (C ⟂ E \| D) | the vertices violate it by 0.25 |
+| a missing local-feasibility hypothesis, even for DAGs | contradictory row sentences force P(U) = 0: exact [0, 0], strong extension [0, 1] |
+| the "iff" of the definition / `lem:invariance` was false | e.g. P(C\|D) on a root block is realizable but neither R1 nor R2 |
+| `ex:loopyexact` said n=2, k=3 | it is n=4, k=2 |
+| §4.2 called IVBP "outer" | stale |
+
+Fixed:
+- `prop:suff` / `prop:suff-app`: consistent, **DAG-structured, locally feasible**, fully realizable.
+- New proof via a row-wise form of each realizable sentence (`eq:rowwise`): `lem:noGapA` is now
+  "row-wise enforcement", with no K^true conventions.
+- The LMC step uses the directed factorization.
+- `lem:invariance` is now the exact characterization, with its proof.
+- `thm:cve` / `thm:ibp` are exact w.r.t. D_SE always, and w.r.t. D_LCN under the hypotheses of
+  `prop:suff`; the CDVE inner claim is likewise.
+- New appendix subsection `sec:fr-counter`; intro / related-work wording updated.
+- Both examples' numbers re-verified; the conclusion is still on page 11.
+- Code: `realizability.py` (exact test), the parser τ fix, `tests/test_realizability.py`,
+  `tests/test_parser_tau.py`.

@@ -23,7 +23,7 @@ from typing import Dict, List, Optional
 from lcn.core.model import LCN, Sentence, Atom, SentenceType
 from lcn.inference.utils.common import (
     check_consistency, check_consistency_product_witness,
-    check_consistency_product_witness_scoped,
+    check_consistency_product_witness_scoped, find_product_witness_scoped,
 )
 from lcn.inference.utils.structured_consistency import is_consistent_structured
 
@@ -1358,6 +1358,214 @@ class Generator:
         except Exception:
             return False
 
+    # ------------------------------------------------------------------
+    # Controlled non-realizability: perturb a family-realizable instance
+    # ------------------------------------------------------------------
+
+    NR_KINDS = ("nr1", "nr2", "nr3")
+
+    def perturb(self, base: LCN, ms=(1, 2, 4, 8), kinds=NR_KINDS,
+                delta: float = 0.1, base_name: str = "",
+                cjt_exact: Optional[str] = None, cjt_max_width: int = 12,
+                max_tries: int = 20, verbosity: int = 0) -> Dict[int, LCN]:
+        """
+        Move a family-realizable, DAG-structured instance away from
+        family-realizability by adding non-realizable sentences, one kind at a
+        time in round-robin order over ``kinds``:
+
+        * ``nr1`` -- non-root marginal: Type-1 ``P(l)`` with ``l`` a literal of
+          an atom that has parents (realizable only on a root, lem:invariance i);
+        * ``nr2`` -- mixture conditional: Type-2 ``P(l | psi)`` with ``l`` a
+          literal of the child and ``psi`` a formula over its parents satisfied
+          by at least two but not all parent configurations (it bounds a
+          P(pa)-weighted mixture of rows, lem:invariance ii); needs >= 2
+          parents;
+        * ``nr3`` -- cross-family: Type-1 ``P(phi)`` over two atoms that share
+          no family scope, with tau = False (no structure edges), so no family
+          holds it and the compiled credal network ignores it.
+
+        None of the kinds changes the structure graph or the LMC (checked by the
+        tests), so the base instance's product witness -- which satisfies every
+        sentence and every LMC assertion -- stays a witness: each new sentence
+        gets the bounds ``[v - delta, v + delta]`` (clipped to [0, 1]) around its
+        value ``v`` under the witness, and every perturbed instance is consistent
+        by construction. ``delta`` controls how binding the new sentences are.
+
+        Returns ``{m: LCN}`` for every ``m`` in ``ms``; the instances are
+        NESTED (the one for ``m`` holds the first ``m`` sentences of a single
+        drawn sequence), so a sweep over ``m`` changes nothing else. Each LCN
+        carries ``nr_report`` (written as header comments by ``save``). With
+        ``cjt_exact="structural"`` (or ``"certified"``) every returned instance
+        must pass ``cjt_exactness_report`` (the reference stays exact); the
+        sequence is redrawn up to ``max_tries`` times otherwise.
+        """
+        assert kinds and all(k in self.NR_KINDS for k in kinds), kinds
+        assert cjt_exact in (None, "structural", "certified"), cjt_exact
+        ms = sorted(set(int(m) for m in ms))
+        assert ms and ms[0] >= 0
+        fam = self._families_of(base)
+        q = find_product_witness_scoped(
+            base, restarts=40, seed=int(self.rng.randint(2 ** 31)),
+            random_start=True)
+        if q is None:
+            raise ValueError("perturb: no product witness for the base "
+                             "instance")
+        witness = dict(zip(base.atoms.keys(), q))
+        for _ in range(max_tries):
+            seq = self._draw_nr_sequence(fam, witness, ms[-1], kinds, delta)
+            if seq is None:
+                raise ValueError(
+                    f"perturb: kinds {kinds} cannot produce {ms[-1]} "
+                    "non-realizable sentences on this instance")
+            out = {m: self._with_extra_sentences(base, seq[:m], delta,
+                                                 base_name) for m in ms}
+            if cjt_exact is None:
+                return out
+            ok = True
+            for m, lcn in out.items():
+                rep = cjt_exactness_report(
+                    lcn, max_width=cjt_max_width,
+                    certify=(cjt_exact == "certified"))
+                if not rep["exact"]:
+                    ok = False
+                    if verbosity > 0:
+                        print(f"[perturb] m={m}: CJT gate failed "
+                              f"({rep['reason']}); redrawing")
+                    break
+                lcn.cjt_report = rep
+            if ok:
+                return out
+        raise RuntimeError(f"perturb: CJT gate failed {max_tries} times")
+
+    @staticmethod
+    def _families_of(lcn: LCN) -> Dict[str, List[str]]:
+        """{atom: parent atoms} of a DAG-structured generator instance, read
+        off its Type-2 sentences (psi atoms are the parents of the phi atom).
+        Raises if a Type-1 sentence couples several atoms with tau = True (a
+        multi-atom chain component)."""
+        parents = {a: set() for a in lcn.atoms}
+        for s in lcn.sentences.values():
+            phi_atoms = set(s.phi_formula.atoms.values())
+            if s.type == SentenceType.Type1:
+                if s.tau and len(phi_atoms) > 1:
+                    raise ValueError("perturb: the base instance must be "
+                                     "DAG-structured (no multi-atom chain "
+                                     "component)")
+                continue
+            if len(phi_atoms) != 1:
+                raise ValueError("perturb: Type-2 sentences must condition a "
+                                 "single child atom")
+            (child,) = phi_atoms
+            parents[child] |= set(s.psi_formula.atoms.values())
+        return {a: sorted(p) for a, p in parents.items()}
+
+    @staticmethod
+    def _product_value(formula, witness, given=None) -> Optional[float]:
+        """P(formula) (or P(formula | given)) under the product distribution
+        with marginals ``witness``; None if P(given) = 0."""
+        import itertools
+        atoms = sorted(set(formula.atoms.values())
+                       | (set(given.atoms.values()) if given else set()))
+        num = den = 0.0
+        for vals in itertools.product((0, 1), repeat=len(atoms)):
+            t = dict(zip(atoms, vals))
+            w = 1.0
+            for a, v in t.items():
+                w *= witness[a] if v else 1.0 - witness[a]
+            if given is not None and not given.evaluate(
+                    table={a: t[a] for a in given.atoms.values()}):
+                continue
+            den += w
+            if formula.evaluate(table={a: t[a] for a in formula.atoms.values()}):
+                num += w
+        if given is None:
+            return num
+        return num / den if den > 1e-12 else None
+
+    def _draw_nr_sequence(self, fam, witness, m, kinds, delta):
+        """A list of ``m`` (kind, phi, psi, tau, lo, hi) tuples, round-robin over
+        the applicable ``kinds``; None if no kind applies."""
+        import itertools
+        from lcn.core.model import Formula
+        atoms = sorted(fam)
+        nonroots = [a for a in atoms if fam[a]]
+        multi = [a for a in atoms if len(fam[a]) >= 2]
+        scopes = [set([a]) | set(fam[a]) for a in atoms]
+        adj = {a: set() for a in atoms}
+        for sc in scopes:
+            for u, v in itertools.combinations(sorted(sc), 2):
+                adj[u].add(v)
+                adj[v].add(u)
+        # pairs sharing no family scope; prefer distance 2 in the moral graph
+        far = [(u, v) for u, v in itertools.combinations(atoms, 2)
+               if v not in adj[u]]
+        near = [(u, v) for (u, v) in far if adj[u] & adj[v]]
+        pairs = near or far
+        usable = [k for k in kinds
+                  if (k == "nr1" and nonroots) or (k == "nr2" and multi)
+                  or (k == "nr3" and pairs)]
+        if not usable:
+            return None
+        lit = lambda a: (f"!{a}" if self.rng.uniform() < 0.3 else a)  # noqa: E731
+        seq, seen, i, guard = [], set(), 0, 0
+        while len(seq) < m and guard < 200 * max(1, m):
+            guard += 1
+            kind = usable[i % len(usable)]
+            if kind == "nr1":
+                x = nonroots[self.rng.randint(len(nonroots))]
+                phi, psi, tau = lit(x), None, True
+            elif kind == "nr2":
+                x = multi[self.rng.randint(len(multi))]
+                pa = list(fam[x])
+                k = self.rng.randint(1, len(pa) + 1)
+                chosen = [int(c[1:]) for c in
+                          self.rng.choice(pa, size=k, replace=False)]
+                psi = self._build_formula(chosen)
+                f = Formula(label="tmp_psi", formula=psi)
+                sat = sum(bool(f.evaluate(table={a: dict(zip(pa, v))[a]
+                                                 for a in f.atoms.values()}))
+                          for v in itertools.product((0, 1), repeat=len(pa)))
+                if not 2 <= sat < 2 ** len(pa):
+                    continue                    # pins one config, or is a tautology
+                phi, tau = lit(x), True
+            else:
+                u, v = pairs[self.rng.randint(len(pairs))]
+                phi = self._build_formula([int(u[1:]), int(v[1:])])
+                psi, tau = None, False
+            if (phi, psi) in seen:
+                continue
+            fphi = Formula(label="tmp_phi", formula=phi)
+            fpsi = Formula(label="tmp_psi", formula=psi) if psi else None
+            val = self._product_value(fphi, witness, fpsi)
+            if val is None:
+                continue
+            lo = np.floor(max(0.0, val - delta) * 1e6) / 1e6
+            hi = np.ceil(min(1.0, val + delta) * 1e6) / 1e6
+            seen.add((phi, psi))
+            seq.append((kind, phi, psi, tau, float(lo), float(min(hi, 1.0))))
+            i += 1
+        return seq if len(seq) == m else None
+
+    @staticmethod
+    def _with_extra_sentences(base: LCN, extra, delta, base_name) -> LCN:
+        """A fresh LCN with the base sentences plus ``extra``."""
+        lcn = LCN()
+        lcn.add_atoms([Atom(a) for a in base.atoms])
+        for s in base.sentences.values():
+            lcn.add_sentence(Sentence(label=s.label, phi=s.phi, psi=s.psi,
+                                      lower=s.lower_prob, upper=s.upper_prob,
+                                      tau=s.tau))
+        labels = []
+        for j, (kind, phi, psi, tau, lo, hi) in enumerate(extra):
+            label = f"nr{j}"
+            lcn.add_sentence(Sentence(label=label, phi=phi, psi=psi,
+                                      lower=lo, upper=hi, tau=tau))
+            labels.append(f"{label}:{kind}")
+        lcn.nr_report = {"base": base_name, "m": len(extra), "delta": delta,
+                         "kinds": sorted({e[0] for e in extra}),
+                         "labels": labels}
+        return lcn
+
     @staticmethod
     def save(lcn: LCN, file_name: str):
         """
@@ -1375,6 +1583,20 @@ class Generator:
         it.
         """
         lcn.save_lcn(file_name)
+        nr = getattr(lcn, "nr_report", None)
+        if nr:
+            header = [
+                "# Perturbed family-realizable instance (Generator.perturb): "
+                f"base={nr['base']}",
+                f"#   nr_m={nr['m']} nr_delta={nr['delta']} "
+                f"nr_kinds={','.join(nr['kinds']) or '-'}",
+                "#   non-realizable sentences: "
+                + (", ".join(nr["labels"]) or "-"),
+            ]
+            with open(file_name) as f:
+                body = f.read()
+            with open(file_name, "w") as f:
+                f.write("\n".join(header) + "\n" + body)
         rep = getattr(lcn, "cjt_report", None)
         if not rep:
             return

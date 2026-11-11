@@ -59,11 +59,20 @@ _MAX_CORNERS = 200_000   # guard on the corner enumeration of one update
 # Credal-message primitives
 # ----------------------------------------------------------------------
 
+# Number of zero-mass vectors dropped in the current run (diagnostic). Under
+# lower P(evidence) > 0 no drop occurs, so a drop certifies lower P(e) = 0.
+# Dropping is lossless: a dropped vector is all-zero, so it contributes
+# nothing to a normalized mixture, and the hull argument of thm:ibp still
+# gives the bounds over the members with P(e) > 0 (regular conditioning).
+_ZERO_MASS = [0]
+
+
 def _normalize_rows(M: np.ndarray) -> np.ndarray:
     """Rows scaled to sum 1; all-zero rows (a contradiction for that choice,
     probability zero) are dropped -- regular conditioning."""
     s = M.sum(axis=1)
     ok = s > 0
+    _ZERO_MASS[0] += int(M.shape[0] - ok.sum())
     return M[ok] / s[ok, None]
 
 
@@ -289,6 +298,7 @@ class IntervalBP:
             # lambda is zero on every reachable child state: this parent
             # message carries no information (the evidence is impossible
             # below this edge for every choice) -- treat as neutral.
+            _ZERO_MASS[0] += 1
             return _vacuous(ku)
         return _reduce(res)
 
@@ -348,6 +358,7 @@ class IntervalBP:
             assert a in all_atoms, f"Evidence variable '{a}' not found."
         ev = self._evidence_messages(evidence)
 
+        _ZERO_MASS[0] = 0
         # Initial messages: neutral everywhere.
         f2v = {}
         for v in self.nodes:
@@ -412,7 +423,11 @@ class IntervalBP:
                 self.singleton_marginals[a] = (float(pa.min()),
                                                float(pa.max()))
 
-        self.exact = self.singly_connected and self.converged
+        # diagnostic: some choice gives the evidence probability zero
+        self.zero_mass = _ZERO_MASS[0] > 0 or self.empty
+        # an empty belief (no member with P(e) > 0) is reported vacuous
+        self.exact = (self.singly_connected and self.converged
+                      and not self.empty)
         self.run_time = time.perf_counter() - t0
         if verbosity > 0:
             self._print()

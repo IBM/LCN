@@ -183,7 +183,10 @@ class LocalCredalSetSolver:
     def solve_both(self, scope, literals, child, parents, sentences):
         """
         Solve both the min (lower) and max (upper) bound for one factor
-        interpretation, returning ``(lobo, upbo)`` (each a float or None).
+        interpretation, returning ``(lobo, upbo, feasible)``: the bounds (each
+        a float or None) and whether the local program is feasible (see
+        :meth:`locally_feasible`; an infeasible program returns
+        ``(None, None, False)``).
 
         For ``method="linear"`` this builds the shared program pieces ONCE
         (:meth:`_linear_rows_and_obj`) and solves both senses from them -- the
@@ -197,17 +200,54 @@ class LocalCredalSetSolver:
         anyway (the bilinear LMC equalities are not shared across senses), so
         this simply calls :meth:`solve` twice.
         """
+        rows = self._linear_rows_and_obj(scope, literals, parents, sentences)
+        if not self.locally_feasible(rows):
+            # No joint on the family scope satisfies the in-scope sentences
+            # and gives this parent configuration positive probability (e.g.
+            # two contradictory sentences on the row): every member of D_LCN
+            # gives the configuration probability 0, so the row is
+            # unconstrained -- report it as infeasible instead of letting a
+            # local fallback solver return a meaningless value.
+            return None, None, False
         if self.method == "linear":
-            rows = self._linear_rows_and_obj(scope, literals, parents, sentences)
             lo = self._solve_linear_from_rows(rows, "min")
             hi = self._solve_linear_from_rows(rows, "max")
-            return lo, hi
+            return lo, hi, True
         else:  # "linear-tight"
             lo = self._solve_linear_tight(
                 scope, literals, child, parents, sentences, "min")
             hi = self._solve_linear_tight(
                 scope, literals, child, parents, sentences, "max")
-            return lo, hi
+            return lo, hi, True
+
+    def locally_feasible(self, rows) -> bool:
+        """Phase-1 LP: is the local program feasible? With parents this is
+        the Charnes-Cooper system  coeffs @ y - rhs * t <= 0,  E @ y = 1,
+        y, t >= 0  (any feasible point has t > 0, i.e. a joint with
+        P(parents = pi) > 0 satisfying the in-scope sentences); without
+        parents, the in-scope sentence rows over the simplex. The
+        "linear-tight" program adds constraints, so infeasibility of these
+        linear rows implies its infeasibility too. Without the HiGHS backend
+        the check is skipped (assumed feasible)."""
+        if not _HIGHS_OK:
+            return True
+        N, _, constraint_rows, _, E = rows
+        A = np.asarray([r[0] for r in constraint_rows], dtype=float)
+        b = np.asarray([r[1] for r in constraint_rows], dtype=float)
+        try:
+            if E is None:
+                res = linprog(np.zeros(N), A_ub=A, b_ub=b,
+                              bounds=[(0.0, 1.0)] * N, method="highs")
+            else:
+                A_ub = np.hstack([A, -b[:, None]])
+                A_eq = np.concatenate([np.asarray(E, float), [0.0]])[None, :]
+                res = linprog(np.zeros(N + 1), A_ub=A_ub,
+                              b_ub=np.zeros(len(b)), A_eq=A_eq,
+                              b_eq=np.array([1.0]),
+                              bounds=[(0.0, None)] * (N + 1), method="highs")
+        except Exception:
+            return True                  # unknown: keep the old behaviour
+        return res.status != 2           # 2 = infeasible
 
     # ------------------------------------------------------------------
     # Linear factorization (LP / Charnes-Cooper fractional LP)

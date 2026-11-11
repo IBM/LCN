@@ -1603,7 +1603,10 @@ class CredalJT:
         # Instance-level guarantees.
         self.certified = bool(self.atom_status) and all(
             s["certified"] for s in self.atom_status.values())
-        self.exact = bool(self.d5_exact and self.certified)
+        # Exact iff every atom is exact on its own route: an augmented atom's
+        # tree has its own H3, which the shared tree's d5_exact does not cover.
+        self.exact = bool(self.d5_exact and self.certified) and all(
+            s["exact"] for s in self.atom_status.values())
 
         self.elimination_time = time.perf_counter() - t0
         self.build_time = float(getattr(self.cnv, "build_time", None) or 0.0)

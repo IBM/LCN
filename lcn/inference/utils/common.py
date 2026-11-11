@@ -967,6 +967,14 @@ def check_consistency_product_witness(lcn: LCN, restarts: int = 40,
 def check_consistency_product_witness_scoped(lcn: LCN, restarts: int = 40,
                                               seed: int = 0,
                                               tol: float = 1e-7) -> bool:
+    """True iff :func:`find_product_witness_scoped` finds a witness (see
+    there): a sound, scope-local product-distribution consistency check."""
+    return find_product_witness_scoped(lcn, restarts=restarts, seed=seed,
+                                       tol=tol) is not None
+
+
+def find_product_witness_scoped(lcn: LCN, restarts: int = 40, seed: int = 0,
+                                tol: float = 1e-7, random_start: bool = False):
     """
     Scalable (any-n) equivalent of :func:`check_consistency_product_witness`.
 
@@ -993,17 +1001,20 @@ def check_consistency_product_witness_scoped(lcn: LCN, restarts: int = 40,
         restarts: number of marginal-vector restarts (the first is q = 0.5).
         seed: RNG seed for reproducible restarts.
         tol: per-sentence-bound feasibility tolerance.
+        random_start: start every restart (including the first) at a random
+            point instead of q = 0.5, for a less symmetric witness.
 
     Returns:
-        True if a scope-local product-distribution witness satisfying all sentence
-        bounds is found, otherwise False.
+        The per-atom marginals ``q`` (a numpy array ordered as ``lcn.atoms``) of
+        a product distribution satisfying every sentence bound, or ``None`` if
+        no witness is found (or a bound is individually infeasible).
     """
     from scipy.optimize import minimize as _sp_minimize
 
     atom_index = {a: i for i, a in enumerate(lcn.atoms.keys())}
     n = len(atom_index)
     if n == 0:
-        return True
+        return np.zeros(0)
 
     # Precompute, per sentence: the local atom scope (as global q-indices), a
     # boolean (2^k, k) local truth-table mask, and the local indicator vectors.
@@ -1011,7 +1022,7 @@ def check_consistency_product_witness_scoped(lcn: LCN, restarts: int = 40,
     for _, s in lcn.sentences.items():
         lo, hi = s.get_lower_bound(), s.get_upper_bound()
         if lo > hi + tol:
-            return False  # individually infeasible bound
+            return None  # individually infeasible bound
         # Formula.atoms is {'Vi': atom_name}; evaluate() is keyed by atom NAME,
         # so the scope is the set of atom-name values.
         if s.type == SentenceType.Type1:
@@ -1033,7 +1044,7 @@ def check_consistency_product_witness_scoped(lcn: LCN, restarts: int = 40,
             entries.append(("t2", idx, one, Aqr, Ar, lo, hi))
 
     if not entries:
-        return True
+        return np.full(n, 0.5)
 
     def _local_p(q, idx, one):
         # p_local[j] = prod over the scope atoms of (q_i if bit else 1 - q_i).
@@ -1075,13 +1086,15 @@ def check_consistency_product_witness_scoped(lcn: LCN, restarts: int = 40,
     rng = np.random.default_rng(seed)
     bounds = [(0.0, 1.0)] * n
     for k in range(restarts):
-        q0 = np.full(n, 0.5) if k == 0 else rng.random(n)
+        q0 = np.full(n, 0.5) if (k == 0 and not random_start) \
+            else rng.random(n)
         res = _sp_minimize(_sq_violation, q0, method="L-BFGS-B",
                            bounds=bounds,
                            options={"maxiter": 500, "ftol": 1e-16})
-        if _witness_ok(np.asarray(res.x, dtype=float)):
-            return True
-    return False
+        q = np.asarray(res.x, dtype=float)
+        if _witness_ok(q):
+            return q
+    return None
 
 
 def check_consistency(lcn: LCN, max_slsqp_restarts: int = 300) -> bool:

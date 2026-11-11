@@ -1,0 +1,4 @@
+# Counterexample (paper, appendix sec:fr-counter): fully realizable (R1 only) root component C - D - E;
+# the LMC requires C _|_ E | D inside one row, which the free row of the strong extension violates.
+s1: 0.6 <= P(C ^ D) <= 0.9 ; True
+s2: 0.6 <= P(D ^ E) <= 0.9 ; True

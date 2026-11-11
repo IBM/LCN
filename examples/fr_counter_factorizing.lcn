@@ -1,0 +1,10 @@
+# A compound LCN that is NOT factorizing: Z -> Y -> {C,D} (C-D one chain component).
+# LMC: (C _|_ Z | Y, D), (D _|_ Z, Y | C). The member with Z ~ Bern(1/2), Y independent
+# of Z and C = D = not Z satisfies every sentence and both assertions (C and D determine
+# each other, so the intersection property fails), but does not factorize along the
+# component DAG. Hence D_LCN is not contained in the strong extension: with evidence
+# Z=1, D_LCN has min P(C | Z=1) = 0 (SCIP, confirmed) while CVE gives [0.12, 0.88].
+s1: 0.4 <= P(Z) <= 0.6
+s2: 0.4 <= P(Y | Z) <= 0.6
+s3: 0.3 <= P(C | Y) <= 0.7
+s4: 0.3 <= P(C or D) <= 0.9 ; True
