@@ -1,44 +1,70 @@
-"""Experiment runner: run inference algorithms on benchmark instances.
+"""Experiment runner: run the evaluated runs on benchmark instances.
 
-Each (benchmark, algorithm) pair writes to its own JSONL file so that
-multiple benchmarks and algorithms can run in parallel without conflicts.
+Each (benchmark, evidence level, run) triple writes to its own JSONL file, so
+benchmarks, evidence levels and runs can execute in parallel without
+conflicts.
 
 Output structure:
-    {output-dir}/{benchmark-name}/{algorithm}{variant-suffix}.jsonl
+    {output-dir}/{benchmark}/ev{K}/{run}.jsonl
 
-where the suffix encodes non-default variant flags (e.g. ``cve_e0.1``,
-``cjt_ipopt``), so variants of one algorithm never share a file.
+where ``run`` is a canonical run name of experiments/runs.py (exact_scip,
+exact_ipopt, ariel, cjt_scip, cjt_ipopt, cve, cve_eps_0.1, ivbp, cdve, ...) and
+K the number of observed atoms per instance (``ev0``: no evidence). The
+evidence of an instance is drawn deterministically from (instance file name,
+--evidence-seed, K), so every run of an instance sees the same evidence.
 
 Usage:
-    # The reference and the approximate methods on one benchmark set
+    # The whole evaluation grid on one benchmark set, without evidence
     python experiments/run_experiment.py --input-dir benchmarks/tree_small_fr \
-        --algorithms cjt ariel ivbp cve approxlp
+        --runs all
 
-    # CVE FPTAS (inner bounds within a factor 1 + 0.1) -- written to cve_e0.1.jsonl
+    # Selected runs with 3 observed atoms per instance
     python experiments/run_experiment.py --input-dir benchmarks/tree_small_fr \
-        --algorithms cve --epsilon 0.1
+        --runs cjt_scip cve cve_eps_0.1 ivbp cdve --evidence-atoms 3
 
-    # Build stages (write the .cn / .vtx caches the credal-network methods load)
+    # Build stages (write the .cn / .vtx caches the credal-network runs load)
     python experiments/run_experiment.py --input-dir benchmarks/tree_small_fr \
         --stages compile enumerate
 
-    # Parallel across benchmarks and algorithms (safe: separate files)
-    python experiments/run_experiment.py --input-dir benchmarks/dag_small_fr --algorithms cjt &
-    python experiments/run_experiment.py --input-dir benchmarks/dag_small_fr --algorithms ivbp &
+    # Parallel across benchmarks and runs (safe: separate files)
+    python experiments/run_experiment.py --input-dir benchmarks/dag_small_fr --runs cjt_scip &
+    python experiments/run_experiment.py --input-dir benchmarks/dag_small_fr --runs ivbp &
 """
 
 import argparse
+import contextlib
 import glob
+import hashlib
+import io
 import json
 import os
+import random
 import re
 import sys
 
-from run_algorithm import (ALGORITHMS as ALL_ALGORITHMS, STAGES,
-                           add_algorithm_arguments, kwargs_from_args,
-                           run_single, set_num_threads, variant_suffix)
+from run_algorithm import (STAGES, add_algorithm_arguments, kwargs_from_args,
+                           run_single, set_num_threads)
+from runs import RUNS, parse_run, run_name
 
-APPROX_ALGORITHMS = ["ariel", "ivbp", "cve", "approxlp"]
+from lcn.core.model import LCN
+
+
+def sample_evidence(lcn_file, k, seed=0):
+    """Deterministic evidence for one instance: ``k`` atoms drawn uniformly
+    without replacement and a uniform 0/1 value for each, from a generator
+    seeded by (instance file name, seed, k). Every run of the instance gets
+    the same evidence. All engines condition only on the distributions that
+    give it positive probability (regular conditioning)."""
+    if k <= 0:
+        return {}
+    lcn = LCN()
+    with contextlib.redirect_stdout(io.StringIO()):
+        lcn.from_lcn(file_name=lcn_file)
+    atoms = sorted(lcn.atoms)
+    key = f"{os.path.basename(lcn_file)}|{seed}|{k}".encode()
+    rng = random.Random(int(hashlib.sha256(key).hexdigest()[:16], 16))
+    chosen = rng.sample(atoms, min(k, len(atoms)))
+    return {a: rng.randint(0, 1) for a in sorted(chosen)}
 
 
 def _parse_instance_info(filepath):
@@ -80,9 +106,9 @@ def main():
         description="Run inference algorithms on benchmark LCN instances.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
-Parallel usage -- each (benchmark, algorithm, variant) gets its own file:
-  python experiments/run_experiment.py --input-dir benchmarks/dag_small_fr --algorithms cjt &
-  python experiments/run_experiment.py --input-dir benchmarks/dag_small_fr --algorithms ivbp &
+Parallel usage -- each (benchmark, evidence level, run) gets its own file:
+  python experiments/run_experiment.py --input-dir benchmarks/dag_small_fr --runs cjt_scip &
+  python experiments/run_experiment.py --input-dir benchmarks/dag_small_fr --runs ivbp &
 """)
     parser.add_argument(
         "--input-dir", type=str, default="benchmarks",
@@ -95,19 +121,24 @@ Parallel usage -- each (benchmark, algorithm, variant) gets its own file:
         help="benchmark name for output subdir (default: derived from input-dir)")
     what = parser.add_mutually_exclusive_group()
     what.add_argument(
-        "--algorithms", type=str, nargs="+", default=None,
-        choices=ALL_ALGORITHMS,
-        help=f"algorithms to run (default: {' '.join(APPROX_ALGORITHMS)})")
+        "--runs", type=str, nargs="+", default=None, metavar="RUN",
+        help="runs to execute: canonical names (" + ", ".join(RUNS) +
+             "; cve_eps_<E> for any E, tuning suffixes _it<N>/_r<R>) or "
+             "'all' for the evaluation grid (default: all)")
     what.add_argument(
         "--stages", type=str, nargs="+", default=None, choices=STAGES,
-        help="build stages to run instead of algorithms")
+        help="build stages to run instead of runs")
     parser.add_argument(
         "--exact-threshold", type=int, default=15,
-        help="max num_vars for running the exact algorithm (default: 15)")
+        help="max num_vars for the exact_* runs (default: 15)")
     add_algorithm_arguments(parser)
     parser.add_argument(
-        "--evidence", type=str, default="{}",
-        help="evidence as JSON string (default: {})")
+        "--evidence-atoms", type=int, default=0, metavar="K",
+        help="observed atoms per instance, drawn deterministically "
+             "(default: 0 = no evidence); results go to ev{K}/")
+    parser.add_argument(
+        "--evidence-seed", type=int, default=0,
+        help="seed of the per-instance evidence draw (default: 0)")
     parser.add_argument(
         "--time-limit", type=float, default=None,
         help="wall-clock time limit in seconds per instance per algorithm "
@@ -128,7 +159,6 @@ Parallel usage -- each (benchmark, algorithm, variant) gets its own file:
     args = parser.parse_args()
 
     set_num_threads(args.num_threads)
-    evidence = json.loads(args.evidence)
 
     # Derive benchmark name
     bench_name = args.benchmark or _benchmark_name(args.input_dir)
@@ -146,12 +176,29 @@ Parallel usage -- each (benchmark, algorithm, variant) gets its own file:
     total = len(instances)
 
     base_kwargs = kwargs_from_args(args)
-    todo = args.stages or args.algorithms or APPROX_ALGORITHMS
-    for algo in todo:
-        # Output: {output_dir}/{benchmark}/{algorithm}{variant}.jsonl
-        bench_dir = os.path.join(args.output_dir, bench_name)
+    if args.stages:
+        todo = [(st, st, {}) for st in args.stages]
+    else:
+        names = RUNS if (not args.runs or args.runs == ["all"]) else args.runs
+        todo = []
+        for name in names:
+            try:
+                algo, params = parse_run(name)
+            except ValueError as e:
+                parser.error(str(e))
+            todo.append((name, algo, params))
+    k_ev = max(0, args.evidence_atoms)
+    ev_dir = f"ev{k_ev}"
+    for out_name, algo, params in todo:
+        kw = dict(base_kwargs)
+        kw.update({k: v for k, v in params.items() if v is not None})
+        if algo not in STAGES:
+            assert run_name(algo, kw) == out_name, (out_name, kw)
+        # Output: {output_dir}/{benchmark}/ev{K}/{run}.jsonl (stages: no
+        # evidence level -- they build caches)
+        bench_dir = os.path.join(args.output_dir, bench_name) if algo in STAGES \
+            else os.path.join(args.output_dir, bench_name, ev_dir)
         os.makedirs(bench_dir, exist_ok=True)
-        out_name = algo + variant_suffix(algo, base_kwargs)
         out_path = os.path.join(bench_dir, f"{out_name}.jsonl")
 
         # Load already-completed instances for resume
@@ -177,7 +224,9 @@ Parallel usage -- each (benchmark, algorithm, variant) gets its own file:
                               f"{basename} | skip")
                     continue
 
-                kwargs = dict(base_kwargs)
+                kwargs = dict(kw)
+                evidence = {} if algo in STAGES else \
+                    sample_evidence(instance, k_ev, args.evidence_seed)
 
                 result = run_single(
                     instance, algo, evidence=evidence,
@@ -191,6 +240,8 @@ Parallel usage -- each (benchmark, algorithm, variant) gets its own file:
                 result["graph_type"] = graph_type
                 result["num_vars"] = num_vars
                 result["evidence"] = evidence
+                result["evidence_atoms"] = k_ev
+                result["evidence_seed"] = args.evidence_seed
                 result["memory_limit_gb"] = args.memory_limit
 
                 # Write to JSONL

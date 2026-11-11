@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Tests for ApproxLP (CDVE): coordinate descent over the local credal sets with
+# Tests for CDVE (follows ApproxLP): coordinate descent over the local credal sets with
 # an exact family step. The bounds must be INNER (inside the exact
 # strong-extension interval, which CVE / brute force give), with and without
 # evidence, for binary and compound atoms.
@@ -27,7 +27,7 @@ import tempfile
 import numpy as np
 import pytest
 
-from lcn.inference.marginal.cn.approxlp import ApproxLP
+from lcn.inference.marginal.cn.cdve import CDVE
 from lcn.inference.marginal.cn.cve import CredalVE
 from test_cve import _bruteforce, _cnv
 
@@ -57,7 +57,7 @@ def test_inner_and_attained_vs_strong_extension(path, n_ev):
     atoms = sorted(cnv.lcn.atoms)
     rng = random.Random(f"{path}{n_ev}")
     ev = {a: rng.randint(0, 1) for a in rng.sample(atoms, n_ev)}
-    res = _quiet(ApproxLP(cnv).run, evidence=ev, verbosity=0)
+    res = _quiet(CDVE(cnv).run, evidence=ev, verbosity=0)
     ref = _bruteforce(cnv, ev)
     for a, (lo, hi) in ref.items():
         alo, ahi = res[a][0][1], res[a][1][1]
@@ -68,10 +68,10 @@ def test_compound_atoms_and_compound_evidence():
     # alarm's C-D is a 4-state node: atoms are optimized directly (exact
     # here), and evidence on one of its atoms is accepted.
     cnv = _cnv(_p("examples", "alarm.lcn"))
-    res = _quiet(ApproxLP(cnv).run, evidence={}, verbosity=0)
+    res = _quiet(CDVE(cnv).run, evidence={}, verbosity=0)
     assert res["D"][0][1] == pytest.approx(0.0, abs=1e-9)
     assert res["D"][1][1] == pytest.approx(1.0, abs=1e-9)
-    res = _quiet(ApproxLP(cnv).run, evidence={"C": 1}, verbosity=0)
+    res = _quiet(CDVE(cnv).run, evidence={"C": 1}, verbosity=0)
     assert "C" not in res and "D" in res
 
 
@@ -83,7 +83,7 @@ def test_diagnostic_evidence():
                      "s2: 0.9 <= P(B | A) <= 0.9\n"
                      "s3: 0.1 <= P(B | !A) <= 0.1\n")
         cnv = _cnv(f)
-    res = _quiet(ApproxLP(cnv).run, evidence={"B": 1}, verbosity=0)
+    res = _quiet(CDVE(cnv).run, evidence={"B": 1}, verbosity=0)
     assert res["A"][0][1] == pytest.approx(0.9)
     assert res["A"][1][1] == pytest.approx(0.9)
 
@@ -92,7 +92,7 @@ def test_family_step_is_exact_over_the_family():
     # The Dinkelbach family step must reach the optimum of the family's
     # linear-fractional program over the product of its rows' vertex sets.
     cnv = _cnv(_p("benchmarks", "dag_small_fr", "dag_fr_tw3_n6_1.lcn"))
-    alp = ApproxLP(cnv)
+    alp = CDVE(cnv)
     alp._build()
     rng = np.random.default_rng(0)
     import itertools
@@ -124,8 +124,8 @@ def test_family_step_is_exact_over_the_family():
 def test_restarts_never_hurt():
     cnv = _cnv(_p("benchmarks", "polytree_small_fr", "polytree_fr_n7_1.lcn"))
     ev = {"x3": 1}
-    r0 = _quiet(ApproxLP(cnv).run, evidence=ev, n_restarts=0, verbosity=0)
-    r8 = _quiet(ApproxLP(cnv).run, evidence=ev, n_restarts=8, verbosity=0)
+    r0 = _quiet(CDVE(cnv).run, evidence=ev, n_restarts=0, verbosity=0)
+    r8 = _quiet(CDVE(cnv).run, evidence=ev, n_restarts=8, verbosity=0)
     ref = _quiet(CredalVE(cnv).run, evidence=ev, verbosity=0)
     for a in ref:
         assert r8[a][0][1] <= r0[a][0][1] + 1e-12
@@ -137,4 +137,4 @@ def test_restarts_never_hurt():
 def test_coupling_option_removed():
     cnv = _cnv(_p("examples", "alarm.lcn"))
     with pytest.raises(TypeError):
-        ApproxLP(cnv).run(evidence={}, coupling="cross-family", verbosity=0)
+        CDVE(cnv).run(evidence={}, coupling="cross-family", verbosity=0)

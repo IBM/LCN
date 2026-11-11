@@ -125,7 +125,7 @@ Combining logical and probabilistic reasoning is a long-standing goal of Artific
 \paragraph{Contribution.}
 We show that exact LCN inference need not pay the $2^n$ cost. Our main contribution is \emph{Credal Junction Tree} (CJT), an exact algorithm for LCNs whose structure is a chain graph. Building on the chain-graph factorization of LCNs established by \citet{cozman23a}, CJT moralizes and triangulates the chain graph, builds a junction tree, and replaces the global joint distribution by one local marginal per cluster, tied together by separator-consistency constraints. The LCN's probabilistic sentences are imposed on the clusters that contain them, and its independence assertions are either entailed by the tree's topology, reduced to equivalent smaller assertions that fit in a cluster, or implied by one constraint per node of a topologically ordered tree. The resulting nonlinear program has $O(n\,2^{w+1})$ variables for treewidth $w$ instead of $2^n$, and we prove that, under conditions we characterize and check mechanically, its global optimum is the exact LCN bound. CJT needs only the chain graph's \emph{structure}: unlike the approaches below, it never compiles the LCN into a credal network, never solves per-family local problems and never enumerates extreme points, so it is not affected by the relaxation those steps introduce.
 
-Our second contribution is a systematic \emph{credal-network compilation} of chain-graph LCNs, which makes the well-developed machinery of credal networks \citep{cozman2000credal,maua2020ijar,l2u,antonucci2015approxlp} available for LCN inference. The compilation replaces the LCN's distribution set by the strong extension of a credal network over the chain components, which contains it; we identify a class of \emph{family-realizable} LCNs on which the two have the same bounds. On this basis we adapt three credal-network algorithms: credal variable elimination (CVE), exact for family-realizable LCNs with or without evidence, with its fully polynomial-time approximation scheme CVE$_\varepsilon$; interval belief propagation (IBP), a credal sum-product algorithm, exact on family-realizable LCNs whose compiled credal network is a polytree, with or without evidence; and a coordinate-descent method (CDVE) that computes inner bounds. We evaluate all methods on synthetic and realistic LCN benchmarks against CJT as the exact reference.
+Our second contribution is a systematic \emph{credal-network compilation} of chain-graph LCNs, which makes the well-developed machinery of credal networks \citep{cozman2000credal,maua2020ijar,l2u,antonucci2015approxlp} available for LCN inference. The compilation replaces the LCN's distribution set by the strong extension of a credal network over the chain components, which contains it; we identify a class of \emph{family-realizable} LCNs on which the two have the same bounds. On this basis we adapt three credal-network algorithms: credal variable elimination (CVE), exact for family-realizable LCNs with or without evidence, with its fully polynomial-time approximation scheme CVE$_\varepsilon$; interval belief propagation (IVBP), a credal sum-product algorithm, exact on family-realizable LCNs whose compiled credal network is a polytree, with or without evidence; and a coordinate-descent method (CDVE) that computes inner bounds. We evaluate all methods on synthetic and realistic LCN benchmarks against CJT as the exact reference.
 
 The Appendix contains the proofs, detailed descriptions of all algorithms with worked examples, and the full experimental results.
 
@@ -469,24 +469,24 @@ $\overline{P}/(1+\varepsilon) \le \overline{P}_\varepsilon \le \overline{P}$ and
 \subsection{Interval Belief Propagation}
 \label{sec-ibp}
 
-Our second approach, Interval Belief Propagation (IBP), runs the sum-product algorithm \citep{kschischang2001factor} on the \emph{factor graph} of the credal network. There is one variable node per credal-network variable $V$, one family factor $f_V(V,\pa(V))$ holding the local credal sets $K(V\mid\pi)$, and one evidence factor holding the $0/1$ indicator of the observed atoms of $V$. For a fixed choice of local conditionals, sum-product sends
+Our second approach, Interval Belief Propagation (IVBP), runs the sum-product algorithm \citep{kschischang2001factor} on the \emph{factor graph} of the credal network. There is one variable node per credal-network variable $V$, one family factor $f_V(V,\pa(V))$ holding the local credal sets $K(V\mid\pi)$, and one evidence factor holding the $0/1$ indicator of the observed atoms of $V$. For a fixed choice of local conditionals, sum-product sends
 \begin{equation}\label{eq:sum-product}
   \mu_{v\to f}(x)=\prod_{g\in\mathcal N(v)\setminus f}\mu_{g\to v}(x),\qquad
   \mu_{f\to v}(x)=\sum_{\mathbf x_{\mathcal N(f)\setminus v}}\phi_f(x,\mathbf x_{\mathcal N(f)\setminus v})\prod_{w\in\mathcal N(f)\setminus v}\mu_{w\to f}(x_w),
 \end{equation}
-and the belief $b_v\propto\prod_{g\in\mathcal N(v)}\mu_{g\to v}$ equals $P(V\mid\by)$ on a tree. As the local conditionals range over the strong extension, each message ranges over a set. Messages only matter up to scale, so IBP propagates a \emph{credal message}: the finite set of vertices of the convex hull of the normalized message vectors. For a binary variable this is an interval, and IBP is the factor-graph form of 2U \citep{2u}: the messages to a child are 2U's $\pi$-messages, the messages to a parent its $\lambda$-messages.
+and the belief $b_v\propto\prod_{g\in\mathcal N(v)}\mu_{g\to v}$ equals $P(V\mid\by)$ on a tree. As the local conditionals range over the strong extension, each message ranges over a set. Messages only matter up to scale, so IVBP propagates a \emph{credal message}: the finite set of vertices of the convex hull of the normalized message vectors. For a binary variable this is an interval, and IVBP is the factor-graph form of 2U \citep{2u}: the messages to a child are 2U's $\pi$-messages, the messages to a parent its $\lambda$-messages.
 
 Every update is a projective map (linear, then normalized) of each incoming message and of each row $P(V\mid\pi)$ separately. A projective map with a positive denominator maps the convex hull of a set onto the convex hull of its image, so the vertices are enough. The variable-to-factor update multiplies the vertices of the incoming sets. The update towards a child is linear in the rows, so for each combination of parent vertices it is a Minkowski sum of the rows' vertex sets. The update towards a parent $U$ is a ratio in which each coordinate $u$ depends only on the rows with $\pi_U=u$, so for each combination of incoming vertices it ranges over a box, whose normalized corners are the candidates. Belief vertices with zero mass are dropped (regular conditioning). The bounds of an atom $a$ are the minimum and maximum of the linear functional $\sum_{s\models a}b_V(s)$ over the vertices of the belief. Messages are swept in topological and reverse topological order until they no longer change. On a loopy graph the sweeps stop when the change falls below a tolerance or after $T$ sweeps, as in loopy 2U \citep{l2u}.
 
 \begin{theorem}[complexity]\label{thm:ibp-cplx}
-    One sweep of IBP costs $O\bigl(\sum_V C_V\,(R_V\,e_V\,d+|\pa(V)|\,2^{d})\bigr)$ arithmetic operations, where $C_V$ is the number of combinations of incoming message vertices at the factor $f_V$, $R_V$ its number of rows, $e_V$ the maximum number of vertices of a row, and $d$ the maximum domain size, plus the cost of reducing each message to its hull vertices. On a polytree at most $D+1$ sweeps reach the fixed point, where $D$ is the diameter of the factor graph.
+    One sweep of IVBP costs $O\bigl(\sum_V C_V\,(R_V\,e_V\,d+|\pa(V)|\,2^{d})\bigr)$ arithmetic operations, where $C_V$ is the number of combinations of incoming message vertices at the factor $f_V$, $R_V$ its number of rows, $e_V$ the maximum number of vertices of a row, and $d$ the maximum domain size, plus the cost of reducing each message to its hull vertices. On a polytree at most $D+1$ sweeps reach the fixed point, where $D$ is the diameter of the factor graph.
 \end{theorem}
 
 \begin{theorem}[exactness]\label{thm:ibp}
-    Let $\mathcal{L}$ be a consistent, factorizing, family-realizable chain-graph LCN whose compiled credal network is a polytree. Then, for every atom $a$ and evidence $\by$ with $\underline{P}(\by)>0$, IBP computes the \emph{exact bounds} on $P(a\mid\by)$ with respect to $\DLCN$, for binary and multi-valued (compound) variables alike.
+    Let $\mathcal{L}$ be a consistent, factorizing, family-realizable chain-graph LCN whose compiled credal network is a polytree. Then, for every atom $a$ and evidence $\by$ with $\underline{P}(\by)>0$, IVBP computes the \emph{exact bounds} on $P(a\mid\by)$ with respect to $\DLCN$, for binary and multi-valued (compound) variables alike.
 \end{theorem}
 
-On a polytree the inputs of every update depend on disjoint sets of local conditionals, so they vary independently, and every update is linear in each input before normalization; the hull vertices of the message sets are therefore propagated without loss. On loopy structures the inputs share parameters, and IBP is a heuristic with no guarantee in either direction. With multi-valued variables the vertex sets can grow, consistently with the NP-hardness of exact polytree inference for ternary variables \citep{maua2014jair}. For binary variables every message has at most two vertices.
+On a polytree the inputs of every update depend on disjoint sets of local conditionals, so they vary independently, and every update is linear in each input before normalization; the hull vertices of the message sets are therefore propagated without loss. On loopy structures the inputs share parameters, and IVBP is a heuristic with no guarantee in either direction. With multi-valued variables the vertex sets can grow, consistently with the NP-hardness of exact polytree inference for ternary variables \citep{maua2014jair}. For binary variables every message has at most two vertices.
 
 \subsection{Coordinate Descent with Variable Elimination}
 \label{sec-cdve}
@@ -523,32 +523,32 @@ In this section, we evaluate the proposed marginal inference schemes on several 
 Instance & Algorithm & MAE$_{l}$ & MAE$_{u}$ & Time (s) \\
 \midrule
 Alarm ($n{=}10$), CJT ref 0.72s & ARIEL & 0.000 & 0.000 & 3.92 \\
- & IBP & 0.101 & 0.015 & 0.13 \\
+ & IVBP & 0.101 & 0.015 & 0.13 \\
  & CDVE & 0.101 & 0.015 & 0.69 \\
  & CVE$_{cm}$ & 0.087 & 0.067 & 0.24 \\
 \hline
 Credit ($n{=}11$), CJT ref 1.15s & ARIEL & 0.050 & 0.000 & 3.18 \\
- & IBP & 0.257 & 0.000 & 0.24 \\
+ & IVBP & 0.257 & 0.000 & 0.24 \\
  & CDVE & 0.257 & 0.000 & 0.69 \\
  & CVE$_{cm}$ & 0.108 & 0.165 & 1.73 \\
 \hline
 Hepatitis ($n{=}10$), CJT ref 0.56s & ARIEL & 0.008 & 0.008 & 3.91 \\
- & IBP & 0.069 & 0.080 &  0.75 \\
+ & IVBP & 0.069 & 0.080 &  0.75 \\
  & CDVE & 0.070 & 0.085 & 1.15 \\
  & CVE$_{cm}$ & 0.114 & 0.184 & 16.53 \\
 \hline
 MScaling ($n{=}12$), CJT ref 0.66s & ARIEL & 0.028 & 0.000 & 8.13 \\
- & IBP & 0.129 & 0.493 &  0.35 \\
+ & IVBP & 0.129 & 0.493 &  0.35 \\
  & CDVE & 0.129 & 0.501 &  1.23 \\
  & CVE$_{cm}$ & 0.079 & 0.227 & 0.57 \\
 \hline
 BScaling ($n{=}32$), CJT ref 2.42s & ARIEL & 0.000 & 0.000 &  19.80 \\
- & IBP & 0.115 & 0.225 &  0.69 \\
+ & IVBP & 0.115 & 0.225 &  0.69 \\
  & CDVE & 0.115 & 0.225 &  20.55 \\
  & CVE$_{cm}$ & 0.064 & 0.072 &  9.18 \\
 \hline
 PScaling ($n{=}40$), CJT ref 3.27s & ARIEL & 0.000 & 0.000 & 34.72 \\
- & IBP & 0.129 & 0.263 & 0.91 \\
+ & IVBP & 0.129 & 0.263 & 0.91 \\
  & CDVE & 0.129 & 0.263 & 51.25 \\
  & CVE$_{cm}$ & 0.070 & 0.057 &  658.84 \\
 \bottomrule
@@ -589,7 +589,7 @@ instances are small but extremely dense ($n{=}10$ with $345$--$1009$ sentences).
 \textbf{Algorithms, reference and metrics.~}
 We compare four approximate algorithms: ARIEL \citep{marinescu2023lcn},
 which operates directly on the LCN factor graph ($10$ iterations) and needs no
-credal-network build; IBP, interval belief propagation on the credal
+credal-network build; IVBP, interval belief propagation on the credal
 network ($100$ iterations); CDVE, coordinate descent over extreme points
 ($50$ iterations), which by construction returns \emph{inner} bounds; and
 CVE$_{cm}$, Credal Variable Elimination with its intermediate
@@ -606,12 +606,12 @@ $\mathrm{MAE}_{l} = \frac{1}{n}\sum_i |\underline{P}^{*}(x_i) -
 \underline{P}(x_i)|$ and $\mathrm{MAE}_{u}$ analogously, and wall-clock time in seconds including the credal-network
 build. Note that CJT's build is not comparable to the others': it needs only
 the chain-graph structure and skips the vertex enumeration entirely. 
-All queries are marginals without evidence, the setting of Theorems~\ref{thm:cve} and~\ref{thm:ibp}: on these family-realizable instances CVE is exact on every topology and IBP on the singly connected ones (\texttt{tree}, \texttt{polytree}).
+All queries are marginals without evidence, the setting of Theorems~\ref{thm:cve} and~\ref{thm:ibp}: on these family-realizable instances CVE is exact on every topology and IVBP on the singly connected ones (\texttt{tree}, \texttt{polytree}).
 
 \textbf{Random LCNs.~}
 Figure~\ref{fig:random} shows the loopy \texttt{dag} LCNs at the large scale,
 with shaded bands giving one standard deviation over the ten instances per size (full results on all LCNs are included in the Appendix). Three findings
-hold across all four topologies. First, IBP dominates: its error against the reference
+hold across all four topologies. First, IVBP dominates: its error against the reference
 is at or below $4 \times 10^{-3}$ on every scale (small, large) and size --- indistinguishable
 from CJT on \texttt{tree} and \texttt{polytree}, as the exactness
 characterization predicts --- while being the fastest method everywhere, by one
@@ -632,9 +632,9 @@ $226$--$1141$ seconds, times out on all of \texttt{ktree\_small} and
 Table~\ref{tab:real} reports six representative instances. These instances are chain-graph LCNs but they are not family-realizable and therefore Proposition \ref{prop:suff} does not hold. The ordering is
 different here: ARIEL is clearly the tightest method, at or near zero error on
 four of the six instances, because it reasons on the original LCN rather than on
-its credal-network relaxation. IBP and CDVE agree closely and produce widths $1.4$--$7.7\times$ the reference ---
+its credal-network relaxation. IVBP and CDVE agree closely and produce widths $1.4$--$7.7\times$ the reference ---
 genuine but loose outer bounds, the gap being the cost of the relaxation rather
-than a defect of the message passing. On running time the picture is again favourable to IBP, which is the
+than a defect of the message passing. On running time the picture is again favourable to IVBP, which is the
 fastest method on every instance and the only one that stays under a second at
 $n{=}40$, where CDVE needs $51$ seconds and CVE$_{cm}$ $659$. 
 
@@ -711,7 +711,7 @@ $\sum_C 2^{|C|}=O(n\,2^{w+1})$; it consumes only the chain graph's
 \emph{structure} and the LCN's own sentences and independence assertions, and
 under the hypotheses of Theorem~\ref{thm:cjt} it is exact
 (Appendices~\ref{sec-full-cjt}--\ref{sec:nlp}). The \emph{credal-network}
-methods (CVE, IBP, CDVE; Section~\ref{sec-lcn-to-credal}) first compile the LCN
+methods (CVE, IVBP, CDVE; Section~\ref{sec-lcn-to-credal}) first compile the LCN
 into a credal network with interval local credal sets and then propagate over
 the strong extension $\DSE\supseteq\DLCN$; they scale differently, and are exact
 for $\DLCN$ only on family-realizable instances
@@ -2568,7 +2568,7 @@ For a binary variable it is an interval on the second coordinate.
 
 For a fixed choice of local conditionals, the sum-product messages
 \eqref{eq:sum-product} are defined up to scale. As the local conditionals range
-over their credal sets, the normalized messages range over a set, which IBP
+over their credal sets, the normalized messages range over a set, which IVBP
 represents by its hull vertices. All messages start at the neutral message
 $\{\mathbf 1/|D_V|\}$; an evidence factor always sends $\{\delta_V/\sum\delta_V\}$.
 
@@ -2628,7 +2628,7 @@ sets below $10^{-12}$). On a loopy graph the tolerance is $\tau$ and at most $T$
 sweeps are run.
 
 \begin{algorithm}[t]
-\caption{Interval Belief Propagation (IBP)}
+\caption{Interval Belief Propagation (IVBP)}
 \label{alg:ibp}
 \begin{algorithmic}[1]
 \Require credal network $\langle G,\mathcal K\rangle$ (from the chain-graph
@@ -2767,7 +2767,7 @@ Lemma~\ref{lem:proj},
 $\mathrm{conv}\,S_e=\mathrm{conv}\,g(M_1\times\cdots\times M_r\times\ext K_1
 \times\cdots)$.
 
-It remains to check that IBP computes the vertices of this hull. For the product
+It remains to check that IVBP computes the vertices of this hull. For the product
 update this is the set of normalized vertex products. For the $\pi$-message, with the
 parent vertices fixed, it is the Minkowski sum of the weighted row-vertex sets, whose
 vertices are sums of row vertices. For the $\lambda$-message to $U$, with $\lambda$ and
@@ -2802,7 +2802,7 @@ parameters and cannot be chosen independently, so the computed sets are neither 
 nor outer in general. With multi-valued variables the vertex sets of the messages can
 grow, consistently with the NP-hardness of exact polytree inference for ternary
 variables \citep{maua2014jair}; for binary variables every message has at most two
-vertices and IBP coincides with 2U. If $\underline P(\by)=0$, IBP drops the vectors of
+vertices and IVBP coincides with 2U. If $\underline P(\by)=0$, IVBP drops the vectors of
 zero mass (regular conditioning); we do not claim exactness in that case.
 
 %% ================================================================
@@ -2894,7 +2894,7 @@ the per-state range of the posteriors $P_r(Z\mid\by)$ at the optima found.
 
 \subsection{Detailed Example}
 
-Consider the chain $A\to B\to C$ of the IBP example, with $P(A)\in[0.4,0.6]$,
+Consider the chain $A\to B\to C$ of the IVBP example, with $P(A)\in[0.4,0.6]$,
 $P(B\mid A)\in[0.8,0.9]$, $P(B\mid\lnot A)\in[0.1,0.2]$, $P(C\mid B)\in[0.5,0.7]$,
 $P(C\mid\lnot B)\in[0.2,0.3]$ and evidence $C{=}1$. All three families are ancestors of
 $\{A,C\}$. We trace the start at the centroids, $P(A{=}1)=0.5$,
@@ -2967,7 +2967,7 @@ example.
 
 Not every algorithm completes on every instance, and reading the figures without
 this in mind would overstate coverage, since a curve simply stops where its
-algorithm ran out of budget. Over the $480$ random instances, ARIEL and IBP
+algorithm ran out of budget. Over the $480$ random instances, ARIEL and IVBP
 complete essentially all of them, and CredalJT's \texttt{ipopt} backend completes
 all of the instances it was run on. The exceptions are concentrated in the
 CVE family. Plain CVE, without clustering, is the least scalable: it solves
@@ -3020,7 +3020,7 @@ at each size.
         \caption{large, time}
     \end{subfigure}
     \caption{Random \texttt{tree} LCNs. Singly connected and fully realizable, so
-    the credal-network relaxation is tight: ARIEL and IBP are indistinguishable
+    the credal-network relaxation is tight: ARIEL and IVBP are indistinguishable
     from the reference.}
     \label{fig:tree-full}
 \end{figure}
@@ -3133,7 +3133,7 @@ Bayesian-network-derived LCNs and the sixteen Supreme Court chain-graph LCNs,
 including the nine dense \texttt{supreme\_court} instances omitted from
 Table~\ref{tab:real}. On those nine, only ARIEL and the CredalJT reference
 complete: with $n{=}10$ atoms but $345$--$1009$ sentences, the size of the
-constraint system rather than the treewidth is the binding limit, and IBP, CDVE
+constraint system rather than the treewidth is the binding limit, and IVBP, CDVE
 and all CVE variants exhaust the budget. One instance in the suite,
 \texttt{benchmark\_scaling\_directions\_n24\_2}, is a repaired variant of the
 original benchmark: in the chain graph the four reviewers of a stage are mutually

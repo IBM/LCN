@@ -14,7 +14,7 @@
 # limitations under the License.
 
 # The min-fill elimination-ordering heuristic shared by the credal-network
-# engines (CredalVE, CredalJT, ApproxLP). Free of any pyAgrum / LCN coupling.
+# engines (CredalVE, CredalJT, CDVE). Free of any pyAgrum / LCN coupling.
 # The potentials of credal variable elimination are in pair_potentials.py.
 
 from typing import List

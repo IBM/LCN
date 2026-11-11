@@ -19,7 +19,7 @@
 # gum.CredalNet, and uses LRS (via intervalToCredal) to enumerate the extreme
 # points of every local credal set. The resulting `extreme_points` dict is the
 # common input consumed by all credal-network inference algorithms (CredalVE,
-# IntervalBP, ApproxLP).
+# IntervalBP, CDVE).
 #
 # All pyAgrum coupling lives here; CredalNetwork itself is pyAgrum-free.
 

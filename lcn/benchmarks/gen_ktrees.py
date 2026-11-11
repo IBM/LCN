@@ -27,7 +27,7 @@ def generate(output_dir, sizes, num_instances, seed, epsilon,
     # the extra marginals on root atoms only, so the instance has no
     # non-family-realizable SENTENCE. CAVEAT: for k >= 2 the k-tree is still not
     # singly-connected, so unlike tree-fr/polytree-fr this does NOT make Credal
-    # VE / Interval BP exact -- use CredalJT / ExactInference(solver="global").
+    # VE / Interval BP exact -- use CredalJT / ExactInference(solver="scip").
     # See Generator.generate and docs/strong_extension_exactness.tex.
     graph_type = "ktree-fr" if family_realizable else "ktree"
     slug = "ktree_fr" if family_realizable else "ktree"
@@ -90,7 +90,7 @@ if __name__ == "__main__":
                              "prefixed ktree_fr_. NOTE: for k>=2 this is still "
                              "NOT Credal VE / Interval BP exact (a k-tree is "
                              "structurally loopy) -- use CredalJT / "
-                             "ExactInference(solver='global').")
+                             "ExactInference(solver='scip').")
     parser.add_argument("--cjt-exact", type=str, default=None,
                         choices=("structural", "certified"),
                         help="keep only instances on which CredalJT is provably "

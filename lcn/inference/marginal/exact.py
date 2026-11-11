@@ -459,6 +459,16 @@ def _robust_solve(model, obj_expr, sense, solver, N, atom, debug=False,
 # ExactInference class
 # -----------------------------------------------------------------------
 
+def _backend(solver: str) -> str:
+    """Internal backend name for the user-facing solver: ``"scip"`` (global,
+    certified) -> ``"global"``, ``"ipopt"`` (local + SLSQP fallback) ->
+    ``"local"``."""
+    name = str(solver).lower()
+    if name not in ("scip", "ipopt"):
+        raise ValueError(f"unknown solver: {solver!r} (use 'scip' or 'ipopt')")
+    return "global" if name == "scip" else "local"
+
+
 class ExactInference:
     """
     The exact marginal inference algorithm for LCNs.
@@ -469,13 +479,13 @@ class ExactInference:
     consistent with the LCN. Two solver backends are available, selected by the
     ``solver`` argument of ``run``:
 
-      * ``"local"`` (default): ipopt with a two-phase SLSQP fallback. Fast, but a
+      * ``"ipopt"`` (default): ipopt with a two-phase SLSQP fallback. Fast, but a
         *local* method on this nonconvex bilinear-LMC NLP -- bounds may be loose.
-      * ``"global"``: SCIP (spatial branch-and-bound). Either certifies the global
+      * ``"scip"``: SCIP (spatial branch-and-bound). Either certifies the global
         optimum or, on a time-out, returns the best bound found so far together
         with the optimality gap. Requires the optional SCIP CLI on PATH.
 
-    After ``run`` with ``solver="global"``, ``self.status`` holds the per-atom SCIP
+    After ``run`` with ``solver="scip"``, ``self.status`` holds the per-atom SCIP
     verdict; it stays ``None`` for the local solver. ``self.solver_used`` records
     which backend ran.
     """
@@ -498,7 +508,7 @@ class ExactInference:
         # Per-atom global-solver verdict {atom: {'min': (value, gap, status,
         # secs), 'max': (...)}}; populated only by the "global" (SCIP) solver.
         self.status = None
-        # Which backend the last run() used ("local" or "global").
+        # Which solver the last run() used ("ipopt" or "scip").
         self.solver_used = None
 
     def run(
@@ -506,7 +516,7 @@ class ExactInference:
             evidence: dict = {},
             debug: bool = False,
             verbosity: int = 2,
-            solver: str = "local",
+            solver: str = "ipopt",
             mode: str = "slow",
             use_slsqp_fallback: bool = True,
             time_limit: float = 3600.0,
@@ -531,8 +541,8 @@ class ExactInference:
                 streams the solver's per-solve search log to stdout and (because
                 that would interleave with the bar) suppresses the progress bar.
             solver: str
-                Which backend to use: ``"local"`` (default; ipopt + SLSQP
-                fallback) or ``"global"`` (SCIP spatial branch-and-bound, the
+                Which backend to use: ``"ipopt"`` (default; ipopt + SLSQP
+                fallback) or ``"scip"`` (SCIP spatial branch-and-bound, the
                 optional SCIP CLI must be on PATH).
             mode: str
                 Local solver only. ipopt accuracy config: ``"slow"`` (default,
@@ -576,9 +586,7 @@ class ExactInference:
         assert self.lcn is not None, "Make sure the LCN model exists."
         assert self.lcn.independencies is not None, "Make sure the LMC is applied."
 
-        solver = solver.lower()
-        if solver not in ("local", "global"):
-            raise ValueError(f"unknown solver: {solver!r} (use 'local' or 'global')")
+        solver = _backend(solver)
         if mode not in ("slow", "fast"):
             raise ValueError(f"unknown mode: {mode!r} (use 'slow' or 'fast')")
 
@@ -595,7 +603,7 @@ class ExactInference:
         # Verbosity 2 streams the solver log; the bar would interleave with it.
         effective_pbar = progress_bar and verbosity != 2
 
-        self.solver_used = solver
+        self.solver_used = "scip" if solver == "global" else "ipopt"
         independencies = self.lcn.independencies
         if verbosity > 0:
             print(f"[ExactInference] Computing all marginals (solver={solver})")
@@ -663,7 +671,7 @@ class ExactInference:
             evidence: dict = {},
             debug: bool = False,
             verbosity: int = 1,
-            solver: str = "local",
+            solver: str = "ipopt",
             mode: str = "slow",
             use_slsqp_fallback: bool = True,
             time_limit: float = 3600.0,
@@ -684,10 +692,10 @@ class ExactInference:
         ``run`` -- only the objective points at the query instead of a singleton
         atom. The two solver backends mirror ``run``:
 
-          * ``"local"`` (default): ipopt + two-phase SLSQP fallback (the
+          * ``"ipopt"`` (default): ipopt + two-phase SLSQP fallback (the
             unconditional objective is linear, so the fallback applies; the
             evidence-conditioned objective is fractional and stays ipopt-only).
-          * ``"global"``: SCIP spatial branch-and-bound (certified bounds / gap).
+          * ``"scip"``: SCIP spatial branch-and-bound (certified bounds / gap).
 
         Args:
             query: str
@@ -703,7 +711,7 @@ class ExactInference:
         Returns:
             A ``(lower, upper)`` tuple of floats. The same values are stored on
             ``self.lower_bound`` / ``self.upper_bound``; ``self.feasible`` records
-            whether both solves were feasible. For ``solver="global"``,
+            whether both solves were feasible. For ``solver="scip"``,
             ``self.status`` holds ``{'min': (...), 'max': (...)}`` SCIP verdicts
             (``None`` for the local backend). ``self.solver_used`` records the
             backend.
@@ -711,9 +719,7 @@ class ExactInference:
         assert self.lcn is not None, "Make sure the LCN model exists."
         assert self.lcn.independencies is not None, "Make sure the LMC is applied."
 
-        solver = solver.lower()
-        if solver not in ("local", "global"):
-            raise ValueError(f"unknown solver: {solver!r} (use 'local' or 'global')")
+        solver = _backend(solver)
         if mode not in ("slow", "fast"):
             raise ValueError(f"unknown mode: {mode!r} (use 'slow' or 'fast')")
 
@@ -729,7 +735,7 @@ class ExactInference:
             elif gap_tol == 0.0:
                 gap_tol = 0.1
 
-        self.solver_used = solver
+        self.solver_used = "scip" if solver == "global" else "ipopt"
         self.status = None
         independencies = self.lcn.independencies
         if verbosity > 0:
@@ -1316,13 +1322,13 @@ class ExactInference:
 class ExactInferenceSCIP(ExactInference):
     """
     Back-compat shim: ``ExactInferenceSCIP(lcn).run(...)`` is equivalent to
-    ``ExactInference(lcn).run(solver="global", ...)``. The SCIP global solver now
+    ``ExactInference(lcn).run(solver="scip", ...)``. The SCIP global solver now
     lives in ``ExactInference``; this subclass preserves the old global-by-default
     entry point for any code still referencing the former exact_scip.py class.
     """
 
     def run(self, *args, **kwargs):
-        kwargs.setdefault("solver", "global")
+        kwargs.setdefault("solver", "scip")
         return super().run(*args, **kwargs)
 
 
@@ -1352,7 +1358,7 @@ if __name__ == "__main__":
     # Run exact marginal inference with the LOCAL solver (ipopt + SLSQP), no evidence.
     print("\n=== ExactInference (local, no evidence) ===")
     algo = ExactInference(lcn=lcn_model)
-    results = algo.run(evidence={}, debug=False, verbosity=1, solver="local", mode="slow")
+    results = algo.run(evidence={}, debug=False, verbosity=1, solver="ipopt", mode="slow")
     print_singleton_marginals(results)
 
     # Run exact marginal inference with the GLOBAL solver (SCIP), no evidence. A
@@ -1361,20 +1367,20 @@ if __name__ == "__main__":
     # the library default is a 3600s (1h) limit and gap_tol=0 (prove optimality).
     print("\n=== ExactInference (global / SCIP, no evidence) ===")
     algo2 = ExactInference(lcn=lcn_model)
-    results = algo2.run(evidence={}, debug=False, verbosity=2, solver="global",
+    results = algo2.run(evidence={}, debug=False, verbosity=2, solver="scip",
                         time_limit=3600, gap_tol=0.0, progress_bar=True)
     print_singleton_marginals(results)
 
     # Query inference: bounds on an arbitrary propositional formula (local solver).
     # print("\n=== ExactInference.run_query (local, no evidence) ===")
     # algo3 = ExactInference(lcn=lcn_model)
-    # lb, ub = algo3.run_query("B and !C", verbosity=1, solver="local")
+    # lb, ub = algo3.run_query("B and !C", verbosity=1, solver="ipopt")
     # print(f"P(B and !C) in [{lb:.6f}, {ub:.6f}]")
 
     # Conditional query: bounds on P(query | evidence).
     # print("\n=== ExactInference.run_query (local, evidence B=1) ===")
     # algo4 = ExactInference(lcn=lcn_model)
-    # lb, ub = algo4.run_query("D", evidence={"B": 1}, verbosity=1, solver="local")
+    # lb, ub = algo4.run_query("D", evidence={"B": 1}, verbosity=1, solver="ipopt")
     # print(f"P(D | B=1) in [{lb:.6f}, {ub:.6f}]")
 
     # Run exact marginal inference (with evidence)

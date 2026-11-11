@@ -1,0 +1,519 @@
+{
+  "format": "lcn-credal-network",
+  "version": 1,
+  "source_lcn": null,
+  "method": "linear",
+  "merge_budget": 1,
+  "solver": "ipopt",
+  "compile_time": 0.02,
+  "n_jobs": 1,
+  "nodes": [
+    "A",
+    "B",
+    "E",
+    "C-D"
+  ],
+  "node_atoms": {
+    "A": [
+      "A"
+    ],
+    "B": [
+      "B"
+    ],
+    "E": [
+      "E"
+    ],
+    "C-D": [
+      "C",
+      "D"
+    ]
+  },
+  "node_card": {
+    "A": 2,
+    "B": 2,
+    "E": 2,
+    "C-D": 4
+  },
+  "factors": [
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "A",
+          "B",
+          "E"
+        ],
+        "child": "A",
+        "parents": [
+          "B",
+          "E"
+        ],
+        "parents_lst": [
+          "B",
+          "E"
+        ],
+        "child_lst": [
+          "A"
+        ],
+        "lobo": 0.9555555555555556,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "A",
+          "B",
+          "E"
+        ],
+        "child": "A",
+        "parents": [
+          "B",
+          "E"
+        ],
+        "parents_lst": [
+          "B",
+          "E"
+        ],
+        "child_lst": [
+          "A"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "2": {
+        "interpretation": [
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "A",
+          "B",
+          "E"
+        ],
+        "child": "A",
+        "parents": [
+          "B",
+          "E"
+        ],
+        "parents_lst": [
+          "B",
+          "E"
+        ],
+        "child_lst": [
+          "A"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "A",
+          "B",
+          "E"
+        ],
+        "child": "A",
+        "parents": [
+          "B",
+          "E"
+        ],
+        "parents_lst": [
+          "B",
+          "E"
+        ],
+        "child_lst": [
+          "A"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "4": {
+        "interpretation": [
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "A",
+          "B",
+          "E"
+        ],
+        "child": "A",
+        "parents": [
+          "B",
+          "E"
+        ],
+        "parents_lst": [
+          "B",
+          "E"
+        ],
+        "child_lst": [
+          "A"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.04444444444444444
+      },
+      "5": {
+        "interpretation": [
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "A",
+          "B",
+          "E"
+        ],
+        "child": "A",
+        "parents": [
+          "B",
+          "E"
+        ],
+        "parents_lst": [
+          "B",
+          "E"
+        ],
+        "child_lst": [
+          "A"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "6": {
+        "interpretation": [
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "A",
+          "B",
+          "E"
+        ],
+        "child": "A",
+        "parents": [
+          "B",
+          "E"
+        ],
+        "parents_lst": [
+          "B",
+          "E"
+        ],
+        "child_lst": [
+          "A"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "A",
+          "B",
+          "E"
+        ],
+        "child": "A",
+        "parents": [
+          "B",
+          "E"
+        ],
+        "parents_lst": [
+          "B",
+          "E"
+        ],
+        "child_lst": [
+          "A"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0
+        ],
+        "scope": [
+          "B"
+        ],
+        "child": "B",
+        "parents": [],
+        "parents_lst": [],
+        "child_lst": [
+          "B"
+        ],
+        "lobo": 0.8,
+        "upbo": 0.9
+      },
+      "1": {
+        "interpretation": [
+          1
+        ],
+        "scope": [
+          "B"
+        ],
+        "child": "B",
+        "parents": [],
+        "parents_lst": [],
+        "child_lst": [
+          "B"
+        ],
+        "lobo": 0.1,
+        "upbo": 0.2
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0
+        ],
+        "scope": [
+          "E"
+        ],
+        "child": "E",
+        "parents": [],
+        "parents_lst": [],
+        "child_lst": [
+          "E"
+        ],
+        "lobo": 0.9,
+        "upbo": 0.95
+      },
+      "1": {
+        "interpretation": [
+          1
+        ],
+        "scope": [
+          "E"
+        ],
+        "child": "E",
+        "parents": [],
+        "parents_lst": [],
+        "child_lst": [
+          "E"
+        ],
+        "lobo": 0.05,
+        "upbo": 0.1
+      }
+    },
+    {
+      "0": {
+        "interpretation": [
+          0,
+          0,
+          0
+        ],
+        "scope": [
+          "C",
+          "D",
+          "A"
+        ],
+        "child": "C-D",
+        "parents": [
+          "A"
+        ],
+        "parents_lst": [
+          "A"
+        ],
+        "child_lst": [
+          "C",
+          "D"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "1": {
+        "interpretation": [
+          0,
+          0,
+          1
+        ],
+        "scope": [
+          "C",
+          "D",
+          "A"
+        ],
+        "child": "C-D",
+        "parents": [
+          "A"
+        ],
+        "parents_lst": [
+          "A"
+        ],
+        "child_lst": [
+          "C",
+          "D"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.7
+      },
+      "2": {
+        "interpretation": [
+          0,
+          1,
+          0
+        ],
+        "scope": [
+          "C",
+          "D",
+          "A"
+        ],
+        "child": "C-D",
+        "parents": [
+          "A"
+        ],
+        "parents_lst": [
+          "A"
+        ],
+        "child_lst": [
+          "C",
+          "D"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "3": {
+        "interpretation": [
+          0,
+          1,
+          1
+        ],
+        "scope": [
+          "C",
+          "D",
+          "A"
+        ],
+        "child": "C-D",
+        "parents": [
+          "A"
+        ],
+        "parents_lst": [
+          "A"
+        ],
+        "child_lst": [
+          "C",
+          "D"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.5
+      },
+      "4": {
+        "interpretation": [
+          1,
+          0,
+          0
+        ],
+        "scope": [
+          "C",
+          "D",
+          "A"
+        ],
+        "child": "C-D",
+        "parents": [
+          "A"
+        ],
+        "parents_lst": [
+          "A"
+        ],
+        "child_lst": [
+          "C",
+          "D"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "5": {
+        "interpretation": [
+          1,
+          0,
+          1
+        ],
+        "scope": [
+          "C",
+          "D",
+          "A"
+        ],
+        "child": "C-D",
+        "parents": [
+          "A"
+        ],
+        "parents_lst": [
+          "A"
+        ],
+        "child_lst": [
+          "C",
+          "D"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.5
+      },
+      "6": {
+        "interpretation": [
+          1,
+          1,
+          0
+        ],
+        "scope": [
+          "C",
+          "D",
+          "A"
+        ],
+        "child": "C-D",
+        "parents": [
+          "A"
+        ],
+        "parents_lst": [
+          "A"
+        ],
+        "child_lst": [
+          "C",
+          "D"
+        ],
+        "lobo": 0.0,
+        "upbo": 1.0
+      },
+      "7": {
+        "interpretation": [
+          1,
+          1,
+          1
+        ],
+        "scope": [
+          "C",
+          "D",
+          "A"
+        ],
+        "child": "C-D",
+        "parents": [
+          "A"
+        ],
+        "parents_lst": [
+          "A"
+        ],
+        "child_lst": [
+          "C",
+          "D"
+        ],
+        "lobo": 0.0,
+        "upbo": 0.7
+      }
+    }
+  ]
+}

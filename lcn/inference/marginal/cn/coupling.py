@@ -16,7 +16,7 @@
 # Cross-family coupling constraints for scheme D4 (region-restricted credal
 # network) -- see docs/tighter_approximation.tex.
 #
-# The cn/ inference algorithms (CVE, IVBP, ApproxLP) optimize over the STRONG
+# The cn/ inference algorithms (CVE, IVBP, CDVE) optimize over the STRONG
 # EXTENSION of the credal network: every (node, parent-config) slot chooses a
 # local extreme point independently, so the joint is a free product of those
 # vertices. Schemes D1-D3 tighten the LOCAL credal sets (per-family looseness);
@@ -51,7 +51,7 @@ def warn_conditional_coupling(evidence, tag, verbosity):
     """
     Emit the D4 conditional-query soundness warning.
 
-    The vertex-enumeration credal VE / CTE / ApproxLP bound a conditional query
+    The vertex-enumeration credal VE / CTE / CDVE bound a conditional query
     P(q | e) by a min/max of per-vertex ratios. That ratio's extremum need not
     lie at a vertex of the unconditioned credal set, so for conditional queries
     these methods are NOT guaranteed to be outer bounds even with coupling off;

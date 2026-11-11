@@ -3,13 +3,16 @@
 Core building block for the experimental pipeline. Can be used standalone
 or called from run_experiment.py.
 
-Algorithms (``ALGORITHMS``):
-    exact     direct optimization over the 2^n joint   (--solver scip|ipopt)
-    ariel     ARIEL message passing on the LCN factor graph
-    cjt       Credal Junction Tree, exact cluster NLP   (--solver scip|ipopt)
-    ivbp      interval belief propagation on the compiled credal network
-    cve       credal variable elimination, exact; --epsilon E = FPTAS (inner, factor 1+E)
-    approxlp  coordinate descent over extreme points (reported as CDVE)
+Runs (see experiments/runs.py for the registry and the naming rules):
+    exact_scip / exact_ipopt   2^n joint NLP            --algorithm exact --solver scip|ipopt
+    ariel                      ARIEL (ipopt)            --algorithm ariel
+    cjt_scip / cjt_ipopt       Credal Junction Tree     --algorithm cjt --solver scip|ipopt
+    cve                        credal VE (exact)        --algorithm cve
+    cve_eps_<E>                credal VE, FPTAS         --algorithm cve --epsilon E
+    ivbp                       interval (credal) BP     --algorithm ivbp
+    cdve                       coordinate descent + VE  --algorithm cdve
+``--run NAME`` is the same as the corresponding --algorithm/flags. ``--solver``
+is required for exact and cjt.
 
 Build stages (``STAGES``, run with --stage instead of --algorithm) write the
 caches the credal-network algorithms load: ``compile`` (the .cn interval
@@ -17,9 +20,9 @@ credal network) and ``enumerate`` (the .vtx extreme points).
 
 Usage:
     python experiments/run_algorithm.py \
-        --instance benchmarks/tree_small_fr/tree_fr_n5_1.lcn --algorithm cjt
-    python experiments/run_algorithm.py --instance ... --algorithm cve \
-        --epsilon 0.1                               # CVE FPTAS -> cve_e0.1
+        --instance benchmarks/tree_small_fr/tree_fr_n5_1.lcn --run cjt_scip
+    python experiments/run_algorithm.py --instance ... --run cve_eps_0.1
+    python experiments/run_algorithm.py --instance ... --algorithm cjt --solver ipopt
 """
 
 import os
@@ -27,7 +30,12 @@ import argparse
 import json
 import multiprocessing
 import signal
+import sys
 import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from runs import (ALGORITHMS, SOLVERS, SOLVER_ALGORITHMS,  # noqa: E402
+                  guarantee, params_of, parse_run, run_name)
 
 from lcn.core.model import LCN
 from lcn.inference.marginal.exact import ExactInference
@@ -35,7 +43,7 @@ from lcn.inference.marginal.ariel import ArielInference
 from lcn.inference.marginal.cn.credal_network import CredalNetwork
 from lcn.inference.marginal.cn.vertices import CredalNetworkVertices
 from lcn.inference.marginal.cn.ivbp import IntervalBP
-from lcn.inference.marginal.cn.approxlp import ApproxLP
+from lcn.inference.marginal.cn.cdve import CDVE
 from lcn.inference.marginal.cn.cve import CredalVE
 from lcn.inference.marginal.cn.cjt import CredalJT
 
@@ -58,57 +66,28 @@ _DEFAULT_NUM_THREADS = 1
 if "OMP_NUM_THREADS" not in os.environ:
     set_num_threads(_DEFAULT_NUM_THREADS)
 
-ALGORITHMS = ["exact", "ariel", "cjt", "ivbp", "cve", "approxlp"]
 STAGES = ["compile", "enumerate"]
 
 # Algorithms that run on a (compiled) credal network built from the chain-graph
 # factorization. CJT uses only its structure (no interval solves, no vertices).
-_CN_ALGORITHMS = {"cjt", "ivbp", "cve", "approxlp"}
+_CN_ALGORITHMS = {"cjt", "ivbp", "cve", "cdve"}
 
-# Engine backends for the algorithms that solve a nonlinear program.
-ENGINE_SOLVERS = ["scip", "ipopt"]
-_DEFAULT_ENGINE_SOLVER = "scip"
-
-# Per-algorithm defaults of the variant parameters. A run whose parameters
-# differ from these is a VARIANT: its output file carries a suffix (see
-# ``variant_suffix``) and its record a ``variant`` dict, so variants never
-# overwrite one another.
-VARIANT_DEFAULTS = {
-    "exact": {"solver": "scip"},
-    "cjt": {"solver": "scip"},
-    "cve": {"epsilon": None},
-    "ivbp": {"n_iters": 100},
-    "approxlp": {"n_iters": 50, "n_restarts": 8},
-    "ariel": {"n_iters": 10},
-}
+# Engine backends for the algorithms that solve a nonlinear program (no
+# default: the solver is part of the run name, see runs.py).
+ENGINE_SOLVERS = SOLVERS
 
 
-def variant_of(algorithm, kwargs):
-    """The variant parameters of a run: the algorithm's VARIANT_DEFAULTS
-    overridden by any matching keys of ``kwargs``."""
-    v = dict(VARIANT_DEFAULTS.get(algorithm, {}))
-    for k in v:
-        if kwargs.get(k) is not None:
-            v[k] = kwargs[k]
-    return v
-
-
-def variant_suffix(algorithm, kwargs):
-    """Filename suffix encoding the non-default variant parameters, e.g.
-    ``cve`` with --epsilon 0.1 -> ``_e0.1``; ``cjt`` with ipopt ->
-    ``_ipopt``; defaults -> ``""``."""
-    v = variant_of(algorithm, kwargs)
-    d = VARIANT_DEFAULTS.get(algorithm, {})
-    parts = []
-    if algorithm in ("exact", "cjt") and v["solver"] != d["solver"]:
-        parts.append(v["solver"])
-    if algorithm == "cve" and v["epsilon"]:
-        parts.append(f"e{v['epsilon']:g}")
-    if algorithm in ("ivbp", "approxlp", "ariel") and v["n_iters"] != d["n_iters"]:
-        parts.append(f"it{v['n_iters']}")
-    if algorithm == "approxlp" and v["n_restarts"] != d["n_restarts"]:
-        parts.append(f"r{v['n_restarts']}")
-    return ("_" + "_".join(parts)) if parts else ""
+def identity(algorithm, kwargs):
+    """Fields identifying a run in every record: the canonical ``run`` name,
+    the ``algorithm``, its name-relevant ``params`` and its ``guarantee``.
+    Build stages are their own run."""
+    if algorithm in STAGES:
+        return {"run": algorithm, "algorithm": algorithm, "params": {},
+                "guarantee": None}
+    name = run_name(algorithm, kwargs)
+    return {"run": name, "algorithm": algorithm,
+            "params": params_of(algorithm, kwargs),
+            "guarantee": guarantee(name)}
 
 
 def _compute_induced_width(cn):
@@ -238,8 +217,7 @@ def _run_single_worker(queue, lcn_file, algorithm, evidence, verbosity, kwargs,
             lcn_file, algorithm, evidence, verbosity, **kwargs)
     except MemoryError:
         result = {
-            "algorithm": algorithm,
-            "variant": variant_of(algorithm, kwargs),
+            **identity(algorithm, kwargs),
             "build_time": 0.0,
             "run_time": 0.0,
             "total_time": 0.0,
@@ -247,7 +225,6 @@ def _run_single_worker(queue, lcn_file, algorithm, evidence, verbosity, kwargs,
             "status": "memory",
             "marginals": {},
             "error": f"Memory limit exceeded ({memory_limit_gb} GB)",
-            "epsilon": kwargs.get("epsilon", None),
         }
     queue.put(result)
 
@@ -292,11 +269,21 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
 
     Returns:
         dict with keys: algorithm, build_time, run_time, total_time,
-        induced_width, status, marginals, error, epsilon. status is one of
-        {ok, error, timeout, memory}.
+        induced_width, status, marginals, error, plus the identity fields
+        run / algorithm / params / guarantee (see ``identity``). status is
+        one of {ok, error, timeout, memory}.
+
+    Raises:
+        ValueError for an unknown algorithm or a missing / invalid solver of
+        exact and cjt (a usage error, not a failed run).
     """
     if evidence is None:
         evidence = {}
+    if algorithm not in ALGORITHMS and algorithm not in STAGES:
+        raise ValueError(f"unknown algorithm {algorithm!r}; use one of "
+                         f"{ALGORITHMS} or stages {STAGES}")
+    if algorithm not in STAGES:
+        run_name(algorithm, kwargs)          # validates the solver
 
     # The exact engines take a PER-SOLVE limit and solve two endpoints per atom.
     # Split the wall-clock budget across those solves (keeping a 10% margin
@@ -329,8 +316,7 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
             proc.kill()
             proc.join()
         return {
-            "algorithm": algorithm,
-            "variant": variant_of(algorithm, kwargs),
+            **identity(algorithm, kwargs),
             "build_time": 0.0,
             "run_time": 0.0,
             "total_time": round(time_limit, 4) if time_limit else 0.0,
@@ -339,7 +325,6 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
             "marginals": {},
             "error": (f"Time limit exceeded ({time_limit}s)"
                       if time_limit else "Time limit exceeded"),
-            "epsilon": kwargs.get("epsilon", None),
         }
 
     if not queue.empty():
@@ -355,8 +340,7 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
     if memory_limit_gb is not None and killed_by_signal \
             and exitcode in oom_signals:
         return {
-            "algorithm": algorithm,
-            "variant": variant_of(algorithm, kwargs),
+            **identity(algorithm, kwargs),
             "build_time": 0.0,
             "run_time": 0.0,
             "total_time": 0.0,
@@ -365,14 +349,12 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
             "marginals": {},
             "error": (f"Memory limit exceeded ({memory_limit_gb} GB); "
                       f"worker killed by signal {-exitcode}"),
-            "epsilon": kwargs.get("epsilon", None),
         }
 
     sig_note = (f" (killed by signal {-exitcode})" if killed_by_signal
                 else f" (exit code {exitcode})")
     return {
-        "algorithm": algorithm,
-        "variant": variant_of(algorithm, kwargs),
+        **identity(algorithm, kwargs),
         "build_time": 0.0,
         "run_time": 0.0,
         "total_time": 0.0,
@@ -380,7 +362,6 @@ def run_single(lcn_file, algorithm, evidence=None, verbosity=0,
         "status": "error",
         "marginals": {},
         "error": f"Worker process exited without result{sig_note}",
-        "epsilon": kwargs.get("epsilon", None),
     }
 
 
@@ -394,8 +375,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
     lcn_model.from_lcn(file_name=lcn_file)
 
     result = {
-        "algorithm": algorithm,
-        "variant": variant_of(algorithm, kwargs),
+        **identity(algorithm, kwargs),
         "build_time": 0.0,
         "run_time": 0.0,
         "total_time": 0.0,
@@ -403,7 +383,6 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
         "status": "ok",
         "marginals": {},
         "error": None,
-        "epsilon": kwargs.get("epsilon", None),
     }
 
     try:
@@ -534,15 +513,14 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             # Direct optimization over the 2^n joint: --solver scip (spatial
             # branch-and-bound, certified per endpoint) or ipopt (local, with
             # the SLSQP fallback; uncertified).
-            solver = kwargs.get("solver", _DEFAULT_ENGINE_SOLVER)
-            exact_solver = "global" if solver == "scip" else "local"
+            solver = params_of("exact", kwargs)["solver"]
             algo = ExactInference(lcn=lcn_model)
             raw = algo.run(
-                evidence=evidence, solver=exact_solver, verbosity=verbosity,
-                debug=(exact_solver == "local"),
+                evidence=evidence, solver=solver, verbosity=verbosity,
+                debug=(solver == "ipopt"),
                 time_limit=kwargs.get("engine_time_limit", 3600.0))
             marginals = _filter_singletons(raw)
-            if exact_solver == "global" and getattr(algo, "status", None):
+            if solver == "scip" and getattr(algo, "status", None):
                 # Per-endpoint certification, used by the analysis to restrict
                 # a reference to certified bounds.
                 result["exact_status"] = {
@@ -552,7 +530,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
             result["run_time"] = round(t_end - t_start, 4)
 
         elif algorithm == "ariel":
-            n_iters = kwargs.get("n_iters") or 10
+            n_iters = params_of("ariel", kwargs)["n_iters"]
             threshold = kwargs.get("threshold", 1e-6)
             algo = ArielInference(lcn=lcn_model)
             raw = algo.run(
@@ -614,7 +592,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 algo = IntervalBP(cnv=cnv)
                 raw = algo.run(
                     evidence=evidence,
-                    n_iters=kwargs.get("n_iters") or 100,
+                    n_iters=params_of("ivbp", kwargs)["n_iters"],
                     threshold=kwargs.get("threshold", 1e-6),
                     verbosity=verbosity)
                 # Exact iff the credal network is a polytree (and the sweeps
@@ -622,18 +600,18 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 result["ivbp_exact"] = bool(algo.exact)
                 result["ivbp_converged"] = bool(algo.converged)
                 result["ivbp_iterations"] = int(algo.iterations)
-            elif algorithm == "approxlp":
-                v = variant_of("approxlp", kwargs)
-                algo = ApproxLP(cnv=cnv)
+            elif algorithm == "cdve":
+                v = params_of("cdve", kwargs)
+                algo = CDVE(cnv=cnv)
                 raw = algo.run(
                     evidence=evidence, n_iters=v["n_iters"],
                     n_restarts=v["n_restarts"], verbosity=verbosity)
-                result["approxlp_sweeps"] = int(algo.sweeps)
-                result["approxlp_eliminations"] = int(algo.n_eliminations)
+                result["cdve_sweeps"] = int(algo.sweeps)
+                result["cdve_eliminations"] = int(algo.n_eliminations)
             elif algorithm == "cve":
                 # epsilon None/0 -> exact CVE; > 0 -> the FPTAS (inner bounds
                 # within a factor 1 + epsilon of the exact ones).
-                v = variant_of("cve", kwargs)
+                v = params_of("cve", kwargs)
                 algo = CredalVE(cnv=cnv)
                 raw = algo.run(evidence=evidence, epsilon=v["epsilon"],
                                verbosity=verbosity)
@@ -650,7 +628,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                     cjt_kw["cert_tol"] = kwargs["cert_tol"]
                 raw = algo.run(
                     evidence=evidence,
-                    solver=kwargs.get("solver", _DEFAULT_ENGINE_SOLVER),
+                    solver=params_of("cjt", kwargs)["solver"],
                     verbosity=verbosity, **cjt_kw)
                 result["induced_width"] = algo.induced_width
                 # Size of the shared constraint NLP (None on exact fallback).
@@ -690,10 +668,9 @@ def add_algorithm_arguments(parser):
     """Variant / build flags shared by run_algorithm.py and run_experiment.py."""
     g = parser.add_argument_group("engine and variant parameters")
     g.add_argument(
-        "--solver", type=str, default=_DEFAULT_ENGINE_SOLVER,
-        choices=ENGINE_SOLVERS,
-        help="NLP backend for exact and cjt: scip (global, certified per "
-             "endpoint; default) or ipopt (local, uncertified)")
+        "--solver", type=str, default=None, choices=ENGINE_SOLVERS,
+        help="NLP backend for exact and cjt, REQUIRED for them: scip (global, "
+             "certified per endpoint) or ipopt (local, uncertified)")
     g.add_argument(
         "--cert-tol", type=float, default=None,
         help="cjt: primal-dual tolerance under which a SCIP endpoint counts as "
@@ -704,13 +681,13 @@ def add_algorithm_arguments(parser):
              "within a factor 1 + EPSILON of the exact ones (default: exact)")
     g.add_argument(
         "--n-iters", type=int, default=None,
-        help="ivbp / approxlp / ariel: iteration cap (defaults 100 / 50 / 10)")
+        help="ivbp / cdve / ariel: iteration cap (defaults 100 / 50 / 10)")
     g.add_argument(
         "--n-restarts", type=int, default=None,
-        help="approxlp: random-vertex restarts besides the centre start "
+        help="cdve: random-vertex restarts besides the centre start "
              "(default: 8; 0 = centre start only)")
     b = parser.add_argument_group(
-        "credal-network build (ivbp, cve, approxlp, stages)")
+        "credal-network build (cjt, cve, ivbp, cdve, stages)")
     b.add_argument(
         "--factorization-method", type=str, default="linear",
         choices=["linear", "linear-tight"],
@@ -738,8 +715,8 @@ def add_algorithm_arguments(parser):
 
 def kwargs_from_args(args):
     """Translate the shared CLI flags into run_single keyword arguments."""
-    kwargs = {"solver": args.solver}
-    for name in ("cert_tol", "epsilon", "n_iters", "n_restarts"):
+    kwargs = {}
+    for name in ("solver", "cert_tol", "epsilon", "n_iters", "n_restarts"):
         if getattr(args, name) is not None:
             kwargs[name] = getattr(args, name)
     if args.factorization_method != "linear":
@@ -766,7 +743,11 @@ def main():
     what = parser.add_mutually_exclusive_group(required=True)
     what.add_argument(
         "--algorithm", type=str, choices=ALGORITHMS,
-        help="Inference algorithm to run")
+        help="Inference algorithm to run (with its flags)")
+    what.add_argument(
+        "--run", type=str, default=None,
+        help="Canonical run name, e.g. cjt_scip, exact_ipopt, cve_eps_0.1, "
+             "cdve (see experiments/runs.py)")
     what.add_argument(
         "--stage", type=str, choices=STAGES,
         help="Build stage to run instead (writes the .cn / .vtx cache)")
@@ -788,6 +769,16 @@ def main():
         "--verbosity", type=int, default=2,
         help="Verbosity level (default: 2)")
     args = parser.parse_args()
+    kwargs = kwargs_from_args(args)
+    algorithm = args.algorithm or args.stage
+    if args.run:
+        try:
+            algorithm, params = parse_run(args.run)
+        except ValueError as e:
+            parser.error(str(e))
+        kwargs.update({k: v for k, v in params.items() if v is not None})
+    if algorithm in SOLVER_ALGORITHMS and kwargs.get("solver") is None:
+        parser.error(f"--solver {{scip,ipopt}} is required for {algorithm}")
 
     set_num_threads(args.num_threads)
     # stdout carries exactly one JSON document. The library prints progress
@@ -800,10 +791,10 @@ def main():
     os.dup2(2, 1)
     try:
         result = run_single(
-            args.instance, args.algorithm or args.stage,
+            args.instance, algorithm,
             evidence=json.loads(args.evidence), verbosity=args.verbosity,
             time_limit=args.time_limit, memory_limit_gb=args.memory_limit,
-            **kwargs_from_args(args))
+            **kwargs)
     finally:
         sys.stdout.flush()
         os.dup2(saved_fd, 1)

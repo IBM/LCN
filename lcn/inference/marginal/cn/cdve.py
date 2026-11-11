@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# ApproxLP / CDVE: inner bounds for credal networks by coordinate descent over
+# CDVE (Coordinate Descent with Variable Elimination): inner bounds for credal networks by coordinate descent over
 # the local credal sets (Antonucci, de Campos, Huber & Zaffalon, "Approximate
 # credal network updating by linear programming", 2015).
 #
@@ -27,7 +27,7 @@
 #     sum_pi <n_pi, r_pi> / sum_pi <d_pi, r_pi>
 # over the product of the rows' credal sets EXACTLY, by Dinkelbach's method:
 # for a given t every row independently takes the vertex maximizing
-# <n_pi - t d_pi, v>. This is ApproxLP's local linear(-fractional) program over
+# <n_pi - t d_pi, v>. This follows ApproxLP's local linear(-fractional) program over
 # one variable's (separately specified) credal set. Sweeps over the families
 # repeat until none improves. Every point visited is a member of the strong
 # extension with P(e) > 0, so the results are INNER bounds.
@@ -60,9 +60,9 @@ def _combine(s1, a1, s2, a2, cards):
     return scope, _expand(a1, s1, scope, cards) * _expand(a2, s2, scope, cards)
 
 
-class ApproxLP:
+class CDVE:
     """
-    ApproxLP (reported as CDVE): coordinate descent over the local credal sets
+    CDVE, following ApproxLP (Antonucci et al. 2015): coordinate descent over the local credal sets
     of a credal network, one family at a time, each step solved exactly.
     Inner bounds on P(atom = 1 | evidence) for every non-evidence atom, with
     or without evidence, for binary and compound (multi-valued) nodes.
@@ -70,7 +70,7 @@ class ApproxLP:
 
     def __init__(self, cnv: CredalNetworkVertices):
         assert cnv.extreme_points is not None, \
-            "CredalNetworkVertices must be built before passing to ApproxLP."
+            "CredalNetworkVertices must be built before passing to CDVE."
         assert cnv.bn_min is not None
         self.cnv = cnv
         self.marginals = None
@@ -371,7 +371,7 @@ class ApproxLP:
 
         self.run_time = time.perf_counter() - t0
         if verbosity > 0:
-            print(f"[ApproxLP] {len(self.singleton_marginals)} atoms, "
+            print(f"[CDVE] {len(self.singleton_marginals)} atoms, "
                   f"evidence={evidence}; max sweeps {self.sweeps}, "
                   f"{self.n_eliminations} eliminations, "
                   f"{self.run_time:.4f} s")
@@ -392,8 +392,8 @@ if __name__ == "__main__":
     check_consistency(lcn_model)
     cnv = CredalNetworkVertices.from_lcn(lcn_model, method="linear",
                                          verbosity=0)
-    alp = ApproxLP(cnv=cnv)
-    print("\n=== ApproxLP (no evidence) ===")
+    alp = CDVE(cnv=cnv)
+    print("\n=== CDVE (no evidence) ===")
     alp.run(evidence={}, verbosity=1)
-    print("\n=== ApproxLP (E = 1) ===")
+    print("\n=== CDVE (E = 1) ===")
     alp.run(evidence={"E": 1}, verbosity=1)

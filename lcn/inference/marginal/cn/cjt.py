@@ -1666,7 +1666,7 @@ class CredalJT:
         """Exact P(atom=1 | evidence) bound via the full-joint ExactInference."""
         from lcn.inference.marginal.exact import ExactInference
         ei = ExactInference(self.cnv.lcn)
-        return ei.run_query(atom, evidence=evidence, solver="local",
+        return ei.run_query(atom, evidence=evidence, solver="ipopt",
                             verbosity=0)
 
     def _all_exact_fallback(self, atoms, evidence, verbosity):

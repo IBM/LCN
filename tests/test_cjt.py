@@ -173,7 +173,7 @@ class TestExactness:
         ei = ExactInference(lcn)
         for atom in ("A", "B", "C"):
             elo, ehi = _quiet(ei.run_query, atom, evidence={},
-                              solver="global", verbosity=0, time_limit=60)
+                              solver="scip", verbosity=0, time_limit=60)
             lo, hi = jt.singleton_marginals[atom]
             assert lo == pytest.approx(elo, abs=_TOL)
             assert hi == pytest.approx(ehi, abs=_TOL)
@@ -192,7 +192,7 @@ class TestExactness:
         _quiet(lcn.from_lcn, file_name=_BITING)
         ei = ExactInference(lcn)
         elo, ehi = _quiet(ei.run_query, "B", evidence={"C": 1},
-                          solver="global", verbosity=0, time_limit=60)
+                          solver="scip", verbosity=0, time_limit=60)
         lo, hi = jt.singleton_marginals["B"]
         assert lo == pytest.approx(elo, abs=_TOL)
         assert hi == pytest.approx(ehi, abs=_TOL)
@@ -362,7 +362,7 @@ class TestTreewidth:
         ei = ExactInference(lcn)
         for atom in ("x0", "x2", "x4", "x7"):
             elo, ehi = _quiet(ei.run_query, atom, evidence={},
-                              solver="local", verbosity=0)
+                              solver="ipopt", verbosity=0)
             lo, hi = jt.singleton_marginals[atom]
             assert lo == pytest.approx(elo, abs=_TOL), f"{atom} lower"
             assert hi == pytest.approx(ehi, abs=_TOL), f"{atom} upper"

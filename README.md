@@ -95,7 +95,7 @@ Install `ipopt` on MacOS is straightforward by just running `brew install ipopt`
 
 A subset of the inference engines can optionally use the [SCIP](https://www.scipopt.org/) spatial branch-and-bound solver to compute *globally certified* probability bounds (as opposed to the *local* bounds returned by `ipopt`). SCIP is used by:
 
-* the exact marginal inference engine `ExactInference` when called with `solver="global"` (see below);
+* the exact marginal inference engine `ExactInference` when called with `solver="scip"` (see below);
 * the credal-network factorization pipeline `CredalNetworkVertices.from_lcn(..., solver="scip")`;
 * the cross-check verifier `lcn.inference.marginal.verify_scip`.
 
@@ -169,8 +169,8 @@ Given an LCN file and a query formula $\phi$, *marginal inference* means computi
 
 `ExactInference` exposes two solver backends through the `solver=` argument of its `run()` method:
 
-* `solver="local"` (default) — `ipopt` backed by a two-phase SLSQP fallback. The underlying marginal NLP is nonconvex (conditional-probability ratios plus quadratic Local Markov Condition equalities), so this is a *local* method and the returned bounds may be loose.
-* `solver="global"` — the optional **SCIP** spatial branch-and-bound solver, which either certifies the global optimum or, on a time-out, returns the best bound found together with the optimality gap. This requires the SCIP binary on `PATH` (see the installation section above). After a global run, the per-atom verdicts are available in `algo.status`.
+* `solver="ipopt"` (default) — `ipopt` backed by a two-phase SLSQP fallback. The underlying marginal NLP is nonconvex (conditional-probability ratios plus quadratic Local Markov Condition equalities), so this is a *local* method and the returned bounds may be loose.
+* `solver="scip"` — the optional **SCIP** spatial branch-and-bound solver, which either certifies the global optimum or, on a time-out, returns the best bound found together with the optimality gap. This requires the SCIP binary on `PATH` (see the installation section above). After a global run, the per-atom verdicts are available in `algo.status`.
 
 Both backends share the same controls: a per-solve `time_limit` (seconds), a `lightning` speed preset, a `progress_bar` toggle, and a `verbosity` level (`2` streams the solver log). The accuracy `mode` (`"slow"` / `"fast"`) applies to the local backend only.
 
@@ -191,14 +191,14 @@ l.from_lcn(file_name)
 
 # Run exact marginal inference (local solver, no evidence)
 algo = ExactInference(lcn=l)
-results = algo.run(evidence={}, verbosity=1, solver="local", mode="slow")
+results = algo.run(evidence={}, verbosity=1, solver="ipopt", mode="slow")
 
 # Inspect the bounds for a particular variable
 lo, hi = results["B"]
 print(f"P(B=1) in [{lo[1]:.6f}, {hi[1]:.6f}]")
 ```
 
-To condition on observed truth values, pass them in `evidence`, e.g. `algo.run(evidence={"S": 1})`. To request globally certified bounds via SCIP, pass `solver="global"` (see the SCIP installation section above).
+To condition on observed truth values, pass them in `evidence`, e.g. `algo.run(evidence={"S": 1})`. To request globally certified bounds via SCIP, pass `solver="scip"` (see the SCIP installation section above).
 
 The output of the exact algorithm is shown below:
 
@@ -313,7 +313,7 @@ The inference algorithms themselves all consume a built `CredalNetworkVertices`:
 
 * `CredalVE` (`cn.cve`) — Credal Variable Elimination over pair potentials (Mauá & Cozman 2020): exact strong-extension bounds for every atom, with or without evidence; `run(epsilon=E)` is the FPTAS of Mauá, de Campos & Zaffalon (2012), giving inner bounds within a factor 1+E.
 * `IntervalBP` (`cn.ivbp`) — Interval Belief Propagation: the sum-product algorithm on the credal network's factor graph with credal messages (hull vertices of the normalized message sets; the factor-graph form of 2U). Exact on polytree credal networks for binary and compound variables, with or without evidence; iterated (no guarantee) on loopy ones.
-* `ApproxLP` (`cn.approxlp`) — coordinate descent over extreme points (CDVE).
+* `CDVE` (`cn.cdve`) — coordinate descent over the local credal sets with an exact family step (follows ApproxLP); inner bounds, with or without evidence.
 
 `CredalJT` (`cn.cjt`) — Credal Junction Tree — is the exact engine for chain-graph LCNs. It uses only the chain graph's *structure* (build the `CredalNetworkVertices` with `solve_families=False`), solves one nonlinear program over junction-tree cluster marginals with SCIP, and reports per endpoint whether the bound is certified.
 
@@ -338,9 +338,9 @@ algo = IntervalBP(cnv=cnv)
 marginals = algo.run(evidence={}, n_iters=100, threshold=1e-6)
 ```
 
-The other algorithms follow the same pattern — `CredalVE(cnv=cnv)`, `ApproxLP(cnv=cnv)`, `CredalJT(cnv=cnv)` — each with its own `run()` parameters.
+The other algorithms follow the same pattern — `CredalVE(cnv=cnv)`, `CDVE(cnv=cnv)`, `CredalJT(cnv=cnv)` — each with its own `run()` parameters.
 
-These algorithms are also exposed end-to-end through the experiment driver: `experiments/run_algorithm.py --algorithm {exact,ariel,cjt,ivbp,cve,approxlp}` runs one on an instance, and `experiments/run_experiment.py` runs a set over a benchmark directory. Variants are selected with flags, e.g. `--algorithm cve --epsilon 0.1` (the CVE FPTAS: inner bounds within a factor 1.1) or `--algorithm cjt --solver ipopt` (local, uncertified backend).
+These algorithms are also exposed end-to-end through the experiment harness, which evaluates nine named runs (registry: `experiments/runs.py`): `exact_scip`, `exact_ipopt`, `ariel`, `cjt_scip`, `cjt_ipopt`, `cve`, `cve_eps_0.1` (any `cve_eps_<E>`), `ivbp`, `cdve`. `experiments/run_algorithm.py --run cjt_scip --instance foo.lcn` runs one on an instance (equivalently `--algorithm cjt --solver scip`; `--solver` is required for `exact` and `cjt`), and `experiments/run_experiment.py --input-dir DIR --runs all --evidence-atoms K` runs the grid over a benchmark directory with K deterministic observed atoms per instance, writing `results/<benchmark>/ev<K>/<run>.jsonl`. `experiments/analyze_results.py` scores every run against a certified reference (default `cjt_scip`) and checks each run's declared guarantee; `experiments/plot_results.py` plots its CSV.
 
 ## MAP and Marginal MAP Inference for LCNs
 In addition to marginal inference, the LCN package implements exact and approximate algorithms for computing complete or partial most probable explanations of evidence (i.e., observed truth values of a set of propositions) in a given LCN. The algorithms are based on depth-first search, limited discrepancy search or simulated annealing. We also provide an extension called AMAP of the ARIEL scheme for computing MAP and Marginal MAP explanations.

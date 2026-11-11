@@ -386,7 +386,7 @@ def test_dag_fr_is_structurally_loopy():
     sentence-realizable and treewidth-bounded, but a collider with >= 2 parents
     moralizes into a loop, so it is NOT singly connected and the
     strong-extension engines (Credal VE, Interval BP) are not exact on it. Use
-    CredalJT / ExactInference(solver="global") instead."""
+    CredalJT / ExactInference(solver="scip") instead."""
     import networkx as nx
 
     gen = Generator(seed=7)

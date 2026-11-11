@@ -163,7 +163,7 @@ class Generator:
                 loop), a *structural* source of non-realizability the "-fr"
                 extras placement cannot remove. So "ktree-fr" means "no
                 non-realizable sentences", NOT "exact for CVE/IBP"; use CredalJT
-                / ExactInference(solver="global") for exact bounds. (Only for
+                / ExactInference(solver="scip") for exact bounds. (Only for
                 ``k == 1``, where the k-tree is a plain tree, is "ktree-fr" fully
                 family-realizable.) "dag-fr" is the family-realizable DAG class:
                 an unstructured DAG whose moralized treewidth is bounded by
@@ -178,7 +178,7 @@ class Generator:
                 Interval BP exact -- any collider with >= 2 parents moralizes into
                 a loop, so the primal graph is not singly connected and condition
                 (i) of the exactness theorem fails. Use CredalJT (D5) /
-                ExactInference(solver="global") for exact bounds. The "-fr"
+                ExactInference(solver="scip") for exact bounds. The "-fr"
                 (family-realizable) variants have the same topology as
                 "tree"/"polytree"/"ktree"/"dag" but place the extra marginal
                 sentences on root atoms only, so every *sentence* is
@@ -1456,7 +1456,7 @@ def is_globally_easy(lcn: LCN, time_limit: float = 5.0, gap_tol: float = 0.0,
         lcn.local_markov_condition()
         algo = ExactInference(lcn=lcn)
         try:
-            algo.run(evidence={}, solver="global", verbosity=0,
+            algo.run(evidence={}, solver="scip", verbosity=0,
                      progress_bar=False, time_limit=time_limit,
                      gap_tol=gap_tol, den_floor=den_floor)
         except RuntimeError:

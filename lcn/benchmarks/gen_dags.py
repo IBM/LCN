@@ -106,7 +106,7 @@ if __name__ == "__main__":
                              "with k >= 2 this does NOT make Credal VE / Interval "
                              "BP exact -- a collider with >= 2 parents moralizes "
                              "into a loop, so use CredalJT / "
-                             "ExactInference(solver='global') for exact bounds.")
+                             "ExactInference(solver='scip') for exact bounds.")
     parser.add_argument("--cjt-exact", type=str, default=None,
                         choices=("structural", "certified"),
                         help="keep only instances on which CredalJT is provably "
