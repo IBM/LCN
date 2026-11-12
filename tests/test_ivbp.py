@@ -154,3 +154,20 @@ def test_minkowski_sum_vertices():
     for _ in range(20):
         c = rng.standard_normal(3)
         assert np.isclose((M @ c).max(), (full @ c).max())
+
+
+def test_impossible_evidence_is_vacuous_everywhere():
+    """Upper P(e) = 0 (B is impossible, evidence B = 1): no member gives the
+    evidence positive probability, so every atom is [0, 1], as for CVE and
+    CDVE. The all-zero lambda message used to be replaced by the neutral
+    message, which gave A = [0.4, 0.6] and C = [0.32, 0.48]."""
+    cnv = _cnv(_p("examples", "ivbp_zero_evidence.lcn"))
+    bp = IntervalBP(cnv)
+    _quiet(bp.run, evidence={"B": 1}, verbosity=0)
+    assert bp.empty and not bp.exact
+    for a in ("A", "C"):
+        assert bp.singleton_marginals[a] == (0.0, 1.0)
+    ve = CredalVE(cnv)
+    _quiet(ve.run, evidence={"B": 1}, verbosity=0)
+    for a in ("A", "C"):
+        assert tuple(ve.singleton_marginals[a]) == pytest.approx((0.0, 1.0))

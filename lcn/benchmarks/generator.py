@@ -752,12 +752,18 @@ class Generator:
 
     def _graph_polytree(self, n: int,
                         max_parents: int = 1) -> List[List[int]]:
-        """Random singly connected DAG: for every pair of nodes (a, b) there
-        is at most one directed path from a to b.
+        """Random polytree: a DAG whose undirected skeleton is a forest (at
+        most one path, ignoring directions, between any two nodes).
 
         Built in topological order.  Each non-root node picks 1..max_parents
-        parents from earlier nodes, accepting a candidate only if the
-        singly-connected invariant is preserved.
+        parents from earlier nodes, accepting a candidate only if it lies in a
+        different connected component of the skeleton built so far (tracked
+        with a union-find), so no undirected cycle can be closed.
+
+        (An earlier version only forbade two DIRECTED paths between a pair of
+        nodes -- "ancestors disjoint" -- which admits undirected cycles such as
+        a -> c <- b, a -> d <- b; about 40% of the shipped polytree instances
+        generated with it were not polytrees.)
 
         Args:
             n: Number of variables.
@@ -765,8 +771,14 @@ class Generator:
         """
         ordering = self._random_ordering(n)
 
-        # ancestors[v] = set of all nodes that can reach v (including v)
-        ancestors = {ordering[i]: {ordering[i]} for i in range(n)}
+        # Union-find over skeleton components.
+        comp = {ordering[i]: ordering[i] for i in range(n)}
+
+        def find(x):
+            while comp[x] != x:
+                comp[x] = comp[comp[x]]
+                x = comp[x]
+            return x
 
         parents_of = {ordering[i]: [] for i in range(n)}  # parent lists
         num_roots = max(1, self.rng.randint(1, 3))
@@ -781,12 +793,12 @@ class Generator:
             added = 0
             for ci in candidates:
                 p = ordering[ci]
-                # Adding edge p -> v is safe iff ancestors of p and
-                # current ancestors of v are disjoint (no node already
-                # reaches v through another path).
-                if ancestors[p].isdisjoint(ancestors[v]):
+                # Adding edge p - v keeps the skeleton a forest iff p and v
+                # are in different components (v's component holds v and the
+                # parents accepted so far).
+                if find(p) != find(v):
                     parents_of[v].append(p)
-                    ancestors[v] |= ancestors[p]
+                    comp[find(p)] = find(v)
                     added += 1
                     if added >= k:
                         break
@@ -1700,7 +1712,7 @@ def cjt_exactness_report(lcn: LCN, max_width: int = 12,
 
     Structural part (cheap, no solve): build the query-independent junction tree
     CredalJT itself would build and check
-      * H1 -- running intersection (true by construction),
+      * H1 -- running intersection (checked explicitly, ``jt.rip``),
       * H2 -- every sentence is hosted by some cluster,
       * H3 -- every LMC assertion is discharged (separator-entailed, reduced and
         hosted, or implied by the ordered rows) with nothing relaxed,
@@ -1748,6 +1760,9 @@ def cjt_exactness_report(lcn: LCN, max_width: int = 12,
         return rep
     if fallback:
         rep["reason"] = "a sentence has no host cluster (H2 fails)"
+        return rep
+    if not getattr(jt, "rip", False):
+        rep["reason"] = "the cluster tree violates running intersection (H1)"
         return rep
     if not rep["h3"].get("holds", False):
         rep["reason"] = "an LMC assertion could only be relaxed (H3 fails)"

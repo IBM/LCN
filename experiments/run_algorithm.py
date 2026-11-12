@@ -640,6 +640,12 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
                 result["cjt_structurally_exact"] = algo.d5_exact
                 result["cjt_certified"] = algo.certified
                 result["cjt_exact"] = algo.exact
+                # Per atom: is the atom's own route (shared tree or augmented
+                # tree) structurally exact (H1-H4)? A certified endpoint is a
+                # valid reference only if this holds too.
+                result["cjt_atom_structural"] = {
+                    a: bool(st.get("structural"))
+                    for a, st in algo.atom_status.items()}
                 result["cjt_solves"] = [
                     {k: s.get(k) for k in ("atom", "sense", "value", "dual",
                                            "gap", "termination", "certified")}

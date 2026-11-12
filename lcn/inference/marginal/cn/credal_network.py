@@ -496,6 +496,29 @@ class CredalNetwork:
                     out.append((entry["child"], pa))
         return out
 
+    @property
+    def inexact_rows(self) -> List[Tuple[str, Dict[str, int]]]:
+        """[(child node, {parent atom: value})] of the feasible rows of a
+        COMPOUND child whose exact local polytope could not be computed, so
+        the (outer) per-state interval box is used. Empty iff every local
+        credal set is exact. Meaningful only for a network compiled with
+        solve_families=True (otherwise there are no local sets at all)."""
+        out, seen = [], set()
+        for factor in self.factors:
+            for entry in factor.values():
+                n_child = len(entry["child_lst"])
+                if n_child < 2 or entry.get("infeasible"):
+                    continue
+                parents = entry["scope"][n_child:]
+                pi = list(entry["interpretation"])[n_child:]
+                key = _row_key(parents, pi)
+                stored = self.row_vertices.get(entry["child"], {})
+                if key in stored or (entry["child"], key) in seen:
+                    continue
+                seen.add((entry["child"], key))
+                out.append((entry["child"], dict(zip(parents, pi))))
+        return out
+
     # ------------------------------------------------------------------
     # Serialization: the compiled credal network as a portable .cn file
     # ------------------------------------------------------------------

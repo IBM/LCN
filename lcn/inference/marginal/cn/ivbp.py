@@ -295,11 +295,13 @@ class IntervalBP:
                 out.append(m[None, :])
         res = _normalize_rows(np.vstack(out)) if out else np.zeros((0, ku))
         if res.shape[0] == 0:
-            # lambda is zero on every reachable child state: this parent
-            # message carries no information (the evidence is impossible
-            # below this edge for every choice) -- treat as neutral.
+            # lambda is zero on every reachable child state for every choice:
+            # the evidence below this edge is impossible, so no member has
+            # P(e) > 0. Propagate the EMPTY message (it empties the beliefs it
+            # reaches); replacing it by the neutral message used to give
+            # informative, wrong bounds to the other atoms.
             _ZERO_MASS[0] += 1
-            return _vacuous(ku)
+            return np.zeros((0, ku))
         return _reduce(res)
 
     # ------------------------------------------------------------------
@@ -422,6 +424,17 @@ class IntervalBP:
                 pa = b @ T          # linear in b: extremes at belief vertices
                 self.singleton_marginals[a] = (float(pa.min()),
                                                float(pa.max()))
+
+        if self.empty:
+            # Some belief is empty: no member gives the evidence positive
+            # probability (upper P(e) = 0). Regular conditioning is then
+            # undefined everywhere, so every atom is reported vacuous [0, 1]
+            # -- the same convention as CVE and CDVE.
+            for v in self.nodes:
+                k = self.cards[v]
+                self.marginals[v] = (np.zeros(k), np.ones(k))
+            for a in self.singleton_marginals:
+                self.singleton_marginals[a] = (0.0, 1.0)
 
         # diagnostic: some choice gives the evidence probability zero
         self.zero_mass = _ZERO_MASS[0] > 0 or self.empty

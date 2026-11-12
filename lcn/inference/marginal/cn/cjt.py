@@ -176,8 +176,11 @@ class _JTClusters:
         (each node's own scope is a clique), so any atom's marginal can be read
         off a hosting cluster -- one tree serves all marginals. When ``query`` is
         a node name (single-query build_and_solve_jt_nlp), the query+evidence
-        node set is added as an extra clique and the query node is kept
-        un-eliminated so its bucket holds the query.
+        node set is added as an extra clique, so some cluster hosts the query
+        and the evidence together (H4). Every node, the query's included, is
+        eliminated: excluding one would leave the buckets whose message is just
+        that node without a parent, giving a forest in which several clusters
+        share the node with no separator tying their copies (an H1 violation).
         """
         self.cnv = cnv
         node_atoms = cnv.cn.node_atoms
@@ -190,8 +193,8 @@ class _JTClusters:
         aug = [list(s) for s in extra_node_sets]
         exclude = set()
         if query is not None:
-            # Augmenting clique: the query+evidence node set; keep the query node
-            # un-eliminated so its bucket holds the query.
+            # Augmenting clique: the query+evidence node set. No node is
+            # excluded from elimination (see the docstring).
             node_of_atom = {}
             for node, atoms in node_atoms.items():
                 for a in atoms:
@@ -201,7 +204,6 @@ class _JTClusters:
                               if a in node_of_atom})
             if q_nodes:
                 aug = [q_nodes] + aug
-            exclude = {query}
         aug = [s for s in aug if s]
 
         scopes = node_scopes + aug
@@ -263,6 +265,30 @@ class _JTClusters:
             self.sep[(cid, par)] = self._sort(shared)
             self.parent[cid] = par
             self.children[par].append(cid)
+
+    def rip_holds(self):
+        """H1, checked explicitly: for every atom, the clusters containing it
+        induce a connected subtree of the cluster tree (forest). Then the
+        separator equalities tie every copy of the atom together, which the
+        reconstruction (lem:rip) needs."""
+        nbrs = {c: set(self.children.get(c, [])) for c in self.cluster_ids}
+        for c, p in self.parent.items():
+            nbrs[c].add(p)
+        for a in self.atom_order:
+            holders = {c for c in self.cluster_ids if a in self.atoms[c]}
+            if not holders:
+                continue
+            start = next(iter(holders))
+            seen, stack = {start}, [start]
+            while stack:
+                c = stack.pop()
+                for nb in nbrs[c]:
+                    if nb in holders and nb not in seen:
+                        seen.add(nb)
+                        stack.append(nb)
+            if seen != holders:
+                return False
+        return True
 
     def roots(self):
         """Cluster ids with no parent (one per connected component)."""
@@ -596,6 +622,16 @@ def _build_constraint_model(jt, cnv, sentences_by_host, lmc_by_host,
                                   literals=evidence)
             E = eval_indicator(Fe, interps)
             model.constr.add(_dotq(E, model.q, ce, csize[ce]) == 1.0)
+            # Valid bounds of the scaled program (thm:d5): r = sum_i y_C,i >=
+            # <A_e, y_Ce> = 1, and y = r q <= r since q <= 1. Without them the
+            # program is unbounded and spatial branch-and-bound stalls.
+            # Kept in their own list: they are valid inequalities (implied by
+            # the program), not rows of the formulation counted by
+            # _model_stats / thm:cjt-size.
+            model.r.setlb(1.0)
+            model.cc_bounds = ConstraintList()
+            for key in keys:
+                model.cc_bounds.add(model.q[key] <= model.r)
 
     # Separator consistency: M_{c->S} q_c == M_{d->S} q_d for each edge.
     for (c, d) in jt.edges:
@@ -953,17 +989,16 @@ def _solve_sense(model, jt, obj_expr, csize, sense, solver, time_limit,
         # not used directly; the primal/dual comparison is the sound test.
         bounds_met = (primal is not None and dual is not None
                       and abs(primal - dual) <= cert_tol)
-        certified = (incumbent is not None) and (
-            tc in _SCIP_CERTIFIED or bounds_met)
-        if certified:
+        # With gap_tol > 0 SCIP reports "optimal" once the RELATIVE gap is
+        # below gap_tol, so "optimal" proves optimality only when gap_tol == 0.
+        proven = tc in _SCIP_CERTIFIED and not (gap_tol and gap_tol > 0)
+        certified = (incumbent is not None) and (proven or bounds_met)
+        if proven:
             val = incumbent
         else:
-            # Uncertified: fall back to the sound dual bound (None if absent,
-            # which the caller turns into the vacuous endpoint).
-            val = dual
-        if certified and tc not in _SCIP_CERTIFIED and dual is not None:
-            # Bounds met within cert_tol but not proven: still report the dual
-            # (sound) rather than the incumbent.
+            # Not proven optimal (certified within cert_tol, or not at all):
+            # report the sound dual bound (None if absent, which the caller
+            # turns into the vacuous endpoint), never the incumbent.
             val = dual
         _record(value=val, primal=primal, dual=dual, gap=gap,
                 cert_tol=cert_tol,
@@ -1124,6 +1159,12 @@ def _triage_ordered(cnv, jt):
         Z = {node_of[t] for t in a.event3}
         if (X & Y) or (X & Z) or (Y & Z):
             return {}, False   # assertion splits a compound node: not covered
+        # Each of X, Y, Z must be a union of WHOLE nodes: conditioning on one
+        # atom of a compound node is not conditioning on the node, so the
+        # node-level d-separation below would not certify it.
+        for atoms_, nodes_ in ((a.event1, X), (a.event2, Y), (a.event3, Z)):
+            if set(atoms_) != {t for v in nodes_ for t in na[v]}:
+                return {}, False
         if not nx.is_d_separator(G, X, Y, Z):
             return {}, False
     return lmc_by_host, True
@@ -1296,7 +1337,11 @@ def _build_jt_and_hosts(cnv, query, evidence, max_cluster_atoms):
     for sid, s in lcn.sentences.items():
         atoms = list(s.get_atoms().keys())
         if not atoms:
-            continue
+            # A constant sentence (no atoms) holds for every joint or for
+            # none; it used to be skipped silently, which hid an
+            # inconsistent LCN. Such sentences are not supported.
+            raise ValueError(f"Sentence {sid} has no atoms; constant "
+                             f"sentences are not supported by CJT.")
         host = jt.host(atoms)
         if host is None:
             fallback = True
@@ -1312,6 +1357,10 @@ def _build_jt_and_hosts(cnv, query, evidence, max_cluster_atoms):
         query_cluster = jt.host(q_atoms)
         if query_cluster is None:
             fallback = True
+
+    # H1 is checked explicitly rather than assumed (the augmented build once
+    # produced a forest that broke it).
+    jt.rip = jt.rip_holds()
 
     return jt, sentences_by_host, lmc_by_host, query_cluster, False, fallback
 
@@ -1388,7 +1437,8 @@ def build_and_solve_jt_nlp(cnv, query, evidence=None, solver="ipopt",
         print(jt.describe(sentences_by_host, lmc_by_host, query_cluster))
 
     h3 = dict(getattr(jt, "h3", {}) or {})
-    info = {"exact": (not fallback) and bool(h3.get("holds", False)),
+    info = {"exact": ((not fallback) and bool(h3.get("holds", False))
+                      and bool(getattr(jt, "rip", False))),
             "fallback": fallback, "h3": h3,
             "max_cluster_atoms": jt.max_cluster_size()}
     if fallback:
@@ -1500,14 +1550,16 @@ class CredalJT:
         # ONCE (query=None => no per-query augmentation).
         jt, sentences_by_host, lmc_by_host, _, over_budget, fallback = \
             _build_jt_and_hosts(self.cnv, None, evidence, max_cluster_atoms)
-        # Structural exactness (Theorem: H1 by construction, H2 = every sentence
+        # Structural exactness (Theorem: H1 = running intersection, checked by
+        # jt.rip_holds(); H2 = every sentence
         # hosted, H3 = every LMC entailed or hosted after reduction/widening).
         # H4 is per atom and checked below. d5_exact is True only if the
         # STRUCTURE guarantees exactness; ``certified`` additionally requires
         # every solve to be a certified global optimum.
         self.h3 = dict(getattr(jt, "h3", {}) or {})
+        self.rip = bool(getattr(jt, "rip", False))
         self.d5_exact = (not (over_budget or fallback)
-                         and bool(self.h3.get("holds", False)))
+                         and bool(self.h3.get("holds", False)) and self.rip)
         self.induced_width = jt.max_cluster_size()
         self.solve_status = []      # one dict per min/max solve
         self.atom_status = {}       # atom -> {"exact","certified","route"}
@@ -1554,6 +1606,7 @@ class CredalJT:
                         lo, hi = self._exact_atom(atom, evidence)
                         self.atom_status[atom] = {"exact": False,
                                                   "certified": False,
+                                                  "structural": False,
                                                   "route": "direct-local"}
                     else:
                         for s_ in st:
@@ -1562,7 +1615,7 @@ class CredalJT:
                         cert = all(s_["certified"] for s_ in st) and len(st) == 2
                         self.atom_status[atom] = {
                             "exact": bool(ex and cert), "certified": bool(cert),
-                            "route": "augmented"}
+                            "structural": bool(ex), "route": "augmented"}
                 else:
                     _clear_atom_objective(model)
                     obj = _atom_objective(model, jt, csize, atom, host,
@@ -1594,7 +1647,8 @@ class CredalJT:
                     cert = all(s["certified"] for s in st) and len(st) == 2
                     self.atom_status[atom] = {
                         "exact": bool(self.d5_exact and cert),
-                        "certified": bool(cert), "route": "cluster"}
+                        "certified": bool(cert),
+                        "structural": bool(self.d5_exact), "route": "cluster"}
                 self.singleton_marginals[atom] = (lo, hi)
                 if verbosity > 1:
                     print(f"  [CJT] P({atom}=1 | {evidence}) = "
@@ -1663,7 +1717,8 @@ class CredalJT:
                           gap_tol, verbosity, status_out=st, cert_tol=cert_tol)
         lo = 0.0 if lo is None else max(0.0, lo)
         hi = 1.0 if hi is None else min(1.0, hi)
-        return lo, hi, st, bool(getattr(jt, "h3", {}).get("holds", False))
+        return lo, hi, st, (bool(getattr(jt, "h3", {}).get("holds", False))
+                            and bool(getattr(jt, "rip", False)))
 
     def _exact_atom(self, atom, evidence):
         """Exact P(atom=1 | evidence) bound via the full-joint ExactInference."""
@@ -1679,6 +1734,7 @@ class CredalJT:
         for atom in atoms:
             self.singleton_marginals[atom] = self._exact_atom(atom, evidence)
             self.atom_status[atom] = {"exact": False, "certified": False,
+                                      "structural": False,
                                       "route": "direct-local"}
 
 

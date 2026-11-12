@@ -231,6 +231,7 @@ def realizability_report(lcn, cnv) -> Dict:
         per[label] = [f["node"] for f in fams
                       if realizable_in_family(s, f["child"], f["parents"])]
     infeasible = cnv.cn.infeasible_rows
+    inexact = cnv.cn.inexact_rows
     factorized = lmc_factorized(lcn, cnv)
     return {"realizable_in": per,
             "fully_realizable": all(per.values()),
@@ -239,4 +240,8 @@ def realizability_report(lcn, cnv) -> Dict:
             # family tables (True if DAG-structured)
             "product_markov": factorized,
             "locally_feasible": not infeasible,
-            "infeasible_rows": infeasible}
+            "infeasible_rows": infeasible,
+            # prop:suff needs the EXACT local sets; a compound row whose
+            # polytope could not be computed keeps the outer box
+            "exact_local_sets": not inexact,
+            "inexact_rows": inexact}

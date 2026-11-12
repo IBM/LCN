@@ -59,7 +59,7 @@ class CredalVE:
 
     With ``epsilon > 0`` the engine is the FPTAS of Maua, de Campos & Zaffalon
     (IJAR 2012, Sec. 5): every pairwise product and every sum-out is followed
-    by the alpha-quotient (one pair per alpha-equivalence class, see
+    by the alpha-quotient (at most two real pairs per alpha-equivalence class, see
     ``PairPotential.quotient``), and so is the final query step. With N such
     operations in a node's elimination, alpha = (1 + epsilon)^(1 / (2 N)), and
     the returned bounds are INNER bounds within a factor 1 + epsilon:
@@ -260,9 +260,13 @@ class CredalVE:
             if not bucket:
                 continue
             pots = [p for p in pots if var not in p.scope]
+            # Every intermediate product of the bucket is reduced to its hull
+            # vertices too (exact: the answer is projective in each potential,
+            # lem:cover(2)), so no product exceeds C^2 pairs (thm:cve-cplx)
+            # -- an unreduced bucket of k potentials grew to C^k.
             combined = bucket[0]
             for p in bucket[1:]:
-                combined = self._combine(combined, p, alpha)
+                combined = self._combine(combined, p, alpha).prune_query_free()
             res = combined.sum_out(var)
             if alpha > 1.0:
                 res = res.quotient(alpha)

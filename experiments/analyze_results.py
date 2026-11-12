@@ -14,7 +14,8 @@ skipped and counted.
 Reference
 ---------
 ``--reference RUN`` (default ``cjt_scip``). For the certified engines
-(``cjt_scip``, ``exact_scip``) only **certified** endpoints are compared: an
+(``cjt_scip``, ``exact_scip``) only **certified** endpoints are compared
+(for CJT: certified solve AND structurally exact route, ``cjt_atom_structural``): an
 endpoint the solver did not certify (its value is a sound dual bound, not the
 optimum) is left out of the lower- or upper-bound statistics. Every other run
 is scored, including the ipopt runs (local solvers, no guarantee) and the other
@@ -154,13 +155,22 @@ def certified_endpoints(rec):
     record; None means "treat every endpoint as certified" (runs without a
     certification notion)."""
     if rec.get("cjt_solves"):
+        # A CJT endpoint is a valid reference only if its solve is certified
+        # AND the atom's route is structurally exact (H1-H4): a certified
+        # optimum of a relaxed program (H3 relaxed, or a tree violating H1)
+        # is only an outer bound. Records predating the per-atom field fall
+        # back to the instance-level structural flag.
+        structural = rec.get("cjt_atom_structural")
+        default = bool(rec.get("cjt_structurally_exact", False))
         cert = {}
         for s in rec["cjt_solves"]:
+            ok_struct = (structural.get(s["atom"], False)
+                         if structural is not None else default)
             lo, hi = cert.get(s["atom"], (True, True))
             if s["sense"] == "min":
-                lo = lo and bool(s.get("certified"))
+                lo = lo and bool(s.get("certified")) and ok_struct
             else:
-                hi = hi and bool(s.get("certified"))
+                hi = hi and bool(s.get("certified")) and ok_struct
             cert[s["atom"]] = (lo, hi)
         return cert
     if rec.get("exact_status"):

@@ -602,3 +602,45 @@ def test_infeasible_solve_is_never_certified(monkeypatch):
     v = jn._solve_sense(m, None, m.x, None, "min", "scip", 1, 0.0, 0,
                         status_out=st)
     assert v is None and st[0]["certified"] is False
+
+
+class TestAugmentedTreeRIP:
+    """Regression: the evidence-augmented tree used to exclude the query node
+    from elimination, which produced a FOREST in which several clusters held
+    the query with no separator between them (H1 violated) while the run was
+    still reported certified and exact (hi P(Q | E=1) = 0.87 instead of
+    0.2706, examples/cjt_forest_evidence.lcn)."""
+
+    _FILE = os.path.join(_ROOT, "examples", "cjt_forest_evidence.lcn")
+
+    def _cnv(self):
+        lcn = LCN()
+        _quiet(lcn.from_lcn, file_name=self._FILE)
+        return _quiet(CredalNetworkVertices.from_lcn, lcn, method="linear",
+                      solve_families=False, verbosity=0)
+
+    def test_augmented_tree_has_rip(self):
+        from lcn.inference.marginal.cn.cjt import _build_jt_and_hosts
+        jt, *_ = _build_jt_and_hosts(self._cnv(), "Q", {"E": 1}, 16)
+        assert jt.rip is True
+        holders = [c for c in jt.cluster_ids if "Q" in jt.atoms[c]]
+        assert len(holders) >= 1
+
+    def test_rip_check_detects_a_forest(self):
+        from lcn.inference.marginal.cn.cjt import _build_jt_and_hosts
+        jt, *_ = _build_jt_and_hosts(self._cnv(), "Q", {"E": 1}, 16)
+        # Cut every edge: each atom held by >= 2 clusters breaks H1.
+        jt.parent, jt.children = {}, {c: [] for c in jt.cluster_ids}
+        multi = any(sum(a in jt.atoms[c] for c in jt.cluster_ids) > 1
+                    for a in jt.atom_order)
+        assert jt.rip_holds() is (not multi)
+
+    @_needs_scip
+    def test_conditional_bound_is_correct(self):
+        from lcn.inference.marginal.cn.cjt import build_and_solve_jt_nlp
+        lo, hi, info = _quiet(build_and_solve_jt_nlp, self._cnv(), "Q",
+                              evidence={"E": 1}, solver="scip",
+                              time_limit=120, verbosity=0)
+        assert hi == pytest.approx(0.2706, abs=1e-3)
+        assert lo == pytest.approx(0.0499, abs=2e-3)
+

@@ -717,15 +717,37 @@ class LCN:
         self.simplified_structure_graph = sg
         return self.simplified_structure_graph
 
+    def intra_component_directed_edges(self) -> List[tuple]:
+        """Directed structure edges whose endpoints lie in the same connected
+        undirected component but are NOT joined by an undirected edge. A chain
+        graph has none (condition (i) of the chain-graph definition: a
+        component induces only undirected edges); ``simplify_structure_graph``
+        would silently drop them when contracting the component, so they are
+        reported here instead. A directed edge PARALLEL to an undirected edge
+        (u -> v and u - v, e.g. P(v | u) together with a tau = True sentence
+        on u and v) adds no dependence the undirected edge does not already
+        express, so it is absorbed by it, as a duplicate edge is."""
+        if self.structure_graph is None:
+            self.build_structure_graph()
+        sg = self.structure_graph
+        cid = {n: i for i, c in enumerate(sg.get_undirected_components())
+               for n in c}
+        return [(u, v) for u, v in sg.directed_edges()
+                if u in cid and v in cid and cid[u] == cid[v]
+                and not sg.has_undirected_edge(u, v)]
+
     def is_chain_graph(self) -> bool:
-        """Check if the simplified structure graph is a DAG.
+        """Check that the structure graph is a chain graph: no directed edge
+        inside an undirected component, and the graph obtained by contracting
+        every component is a DAG.
 
         Returns
         -------
         bool
-            True if the simplified structure graph is a directed acyclic
-            graph, False otherwise.
+            True if the structure is a chain graph, False otherwise.
         """
+        if self.intra_component_directed_edges():
+            return False
         if self.simplified_structure_graph is None:
             self.simplify_structure_graph()
         return nx.is_directed_acyclic_graph(

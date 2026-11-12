@@ -140,3 +140,7 @@ logs/
 *.out
 *.log
 *.toc
+
+# Compiled credal-network caches (rebuilt by the experiment compile/enumerate stages)
+benchmarks/**/*.cn
+benchmarks/**/*.vtx

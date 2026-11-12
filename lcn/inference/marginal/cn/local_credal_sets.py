@@ -50,6 +50,7 @@
 #     Charnes-Cooper needed). Requires the SCIP CLI on PATH (`brew install scip`).
 
 import itertools
+import warnings
 
 import numpy as np
 from scipy.optimize import linprog
@@ -230,6 +231,9 @@ class LocalCredalSetSolver:
         linear rows implies its infeasibility too. Without the HiGHS backend
         the check is skipped (assumed feasible)."""
         if not _HIGHS_OK:
+            warnings.warn("HiGHS is unavailable: local feasibility is not "
+                          "checked (every row is assumed feasible).",
+                          stacklevel=2)
             return True
         N, _, constraint_rows, _, E = rows
         A = np.asarray([r[0] for r in constraint_rows], dtype=float)
@@ -245,8 +249,13 @@ class LocalCredalSetSolver:
                               b_ub=np.zeros(len(b)), A_eq=A_eq,
                               b_eq=np.array([1.0]),
                               bounds=[(0.0, None)] * (N + 1), method="highs")
-        except Exception:
-            return True                  # unknown: keep the old behaviour
+        except Exception as exc:  # noqa: BLE001
+            # Unknown. Treating the row as feasible keeps the solved interval
+            # (which is still an outer bound when the program is feasible);
+            # warn so an unchecked row is never silent.
+            warnings.warn(f"local feasibility check failed ({exc!r}); "
+                          f"the row is assumed feasible.", stacklevel=2)
+            return True
         return res.status != 2           # 2 = infeasible
 
     # ------------------------------------------------------------------

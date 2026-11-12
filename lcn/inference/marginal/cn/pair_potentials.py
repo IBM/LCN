@@ -271,7 +271,7 @@ class PairPotential:
     def quotient(self, alpha: float) -> "PairPotential":
         """
         The alpha-quotient Psi/alpha of Maua, de Campos & Zaffalon (IJAR 2012,
-        Sec. 2.4-2.5): one pair per alpha-equivalence class.
+        Sec. 2.4-2.5): at most two real pairs per alpha-equivalence class.
 
         Two pairs are alpha-equivalent when, on every coordinate of p and of q,
         both entries are zero or both are positive with the same

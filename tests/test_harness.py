@@ -171,12 +171,27 @@ def test_reference_uses_certified_endpoints_only():
         {"atom": "x", "sense": "min", "certified": True},
         {"atom": "x", "sense": "max", "certified": False},
         {"atom": "y", "sense": "min", "certified": True},
-        {"atom": "y", "sense": "max", "certified": True}])
+        {"atom": "y", "sense": "max", "certified": True}],
+        cjt_atom_structural={"x": True, "y": True})
     ivbp = _rec("ivbp", {"x": (0.1, 0.3), "y": (0.1, 0.6)})
     rows, _ = ar.analyze([cjt, ivbp], verbose=False)
     r = _row(rows, "ivbp")
     assert r["mae_lb"] == pytest.approx(0.05)    # x 0.1, y 0
     assert r["mae_ub"] == pytest.approx(0.1)     # y only (x upper uncertified)
+
+
+def test_reference_requires_structural_exactness():
+    """A certified CJT endpoint whose route is not structurally exact (H1-H4,
+    e.g. a relaxed H3) is only an outer bound and is not a reference."""
+    solves = [{"atom": a, "sense": s, "certified": True}
+              for a in ("x", "y") for s in ("min", "max")]
+    cjt = _rec("cjt_scip", {"x": (0.2, 0.9), "y": (0.1, 0.5)},
+               cjt_solves=solves, cjt_atom_structural={"x": True, "y": False})
+    assert ar.certified_endpoints(cjt) == {"x": (True, True),
+                                           "y": (False, False)}
+    legacy = _rec("cjt_scip", {"x": (0.2, 0.9)}, cjt_solves=solves[:2],
+                  cjt_structurally_exact=True)
+    assert ar.certified_endpoints(legacy) == {"x": (True, True)}
 
 
 def test_exact_scip_certification_is_read():
