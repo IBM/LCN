@@ -144,3 +144,8 @@ logs/
 # Compiled credal-network caches (rebuilt by the experiment compile/enumerate stages)
 benchmarks/**/*.cn
 benchmarks/**/*.vtx
+
+# Experiment grid output and generated SLURM/LSF manifests
+/results/
+/experiments/slurm/manifest.txt
+/experiments/lsf/manifest.txt
