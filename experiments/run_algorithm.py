@@ -665,7 +665,7 @@ def _run_single_impl(lcn_file, algorithm, evidence=None, verbosity=0, **kwargs):
 
     except Exception as e:
         result["status"] = "error"
-        result["error"] = str(e)
+        result["error"] = f"{type(e).__name__}: {e}"
         result["total_time"] = round(time.time() - t_start, 4)
 
     return result

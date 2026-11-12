@@ -123,8 +123,24 @@ def load_records(results_dir):
                 if "run" not in rec:
                     skipped += 1
                     continue
+                _normalize_status(rec)
                 records.append(rec)
     return records, skipped
+
+
+def _normalize_status(rec):
+    """Count a numpy allocation failure as a memory-out.
+
+    A ``MemoryError`` raised inside the worker (e.g. under the RLIMIT_AS cap)
+    is logged by the runner as ``status: "error"`` with numpy's
+    ``Unable to allocate ...`` message, or (newer records, which carry the
+    exception type) as ``MemoryError: ...``; only a worker killed by a signal
+    gets ``status: "memory"``. All are the same outcome.
+    """
+    err = rec.get("error") or ""
+    if rec.get("status") == "error" and \
+            ("Unable to allocate" in err or "MemoryError" in err):
+        rec["status"] = "memory"
 
 
 def _instance_key(rec):
