@@ -37,9 +37,11 @@ import glob
 import hashlib
 import io
 import json
+import multiprocessing
 import os
 import random
 import re
+import signal
 import sys
 
 from run_algorithm import (STAGES, add_algorithm_arguments, kwargs_from_args,
@@ -47,6 +49,26 @@ from run_algorithm import (STAGES, add_algorithm_arguments, kwargs_from_args,
 from runs import RUNS, parse_run, run_name
 
 from lcn.core.model import LCN
+
+
+def _exit_on_sigterm():
+    """Exit at once on SIGTERM, without writing a record.
+
+    SLURM sends SIGTERM when it evicts or cancels a job. Without this, the
+    interrupted solve could fail first (e.g. the per-job /tmp holding the
+    solver's .nl file is removed) and its instance was logged as an error;
+    on requeue the runner then skipped it as completed. Exiting here leaves
+    the instance unrecorded, so the restarted job runs it again. The
+    instance workers are forked, so they inherit the handler.
+    """
+    def _on_term(signum, frame):
+        for p in multiprocessing.active_children():
+            try:
+                p.kill()
+            except Exception:  # noqa: BLE001 -- best effort, we are exiting
+                pass
+        os._exit(128 + signum)
+    signal.signal(signal.SIGTERM, _on_term)
 
 
 def sample_evidence(lcn_file, k, seed=0):
@@ -175,6 +197,7 @@ Parallel usage -- each (benchmark, evidence level, run) gets its own file:
              "{run}.shard{I}of{N}.jsonl so shards never share a file "
              "(default: no sharding)")
     args = parser.parse_args()
+    _exit_on_sigterm()
 
     set_num_threads(args.num_threads)
 
