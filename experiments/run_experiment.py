@@ -76,6 +76,18 @@ def _parse_instance_info(filepath):
     return "unknown", 0
 
 
+def _instance_info(filepath):
+    """(graph_type, num_vars) of an instance. num_vars is the number of atoms
+    of the parsed LCN, because the file name does not always carry it (the
+    ``real`` and some ``junkyu`` files have no ``_n<N>_`` tag, which made the
+    exact-engine size threshold see 0 variables)."""
+    graph_type, _ = _parse_instance_info(filepath)
+    lcn = LCN()
+    with contextlib.redirect_stdout(io.StringIO()):
+        lcn.from_lcn(file_name=filepath)
+    return graph_type, len(lcn.atoms)
+
+
 def _load_completed(output_file):
     """Load already-completed instance paths from a JSONL file."""
     completed = set()
@@ -156,9 +168,23 @@ Parallel usage -- each (benchmark, evidence level, run) gets its own file:
     parser.add_argument(
         "--verbosity", type=int, default=2,
         help="0=silent, 1=progress, 2=detailed (default: 2)")
+    parser.add_argument(
+        "--shard", type=str, default=None, metavar="I/N",
+        help="run only shard I of N (0-based): every N-th instance of the "
+             "size-sorted list, starting at I. Output goes to "
+             "{run}.shard{I}of{N}.jsonl so shards never share a file "
+             "(default: no sharding)")
     args = parser.parse_args()
 
     set_num_threads(args.num_threads)
+
+    shard = None
+    if args.shard is not None:
+        m = re.fullmatch(r"(\d+)/(\d+)", args.shard)
+        if not m or int(m.group(2)) < 1 or int(m.group(1)) >= int(m.group(2)):
+            parser.error(f"--shard expects I/N with 0 <= I < N, "
+                         f"got {args.shard!r}")
+        shard = (int(m.group(1)), int(m.group(2)))
 
     # Derive benchmark name
     bench_name = args.benchmark or _benchmark_name(args.input_dir)
@@ -167,13 +193,17 @@ Parallel usage -- each (benchmark, evidence level, run) gets its own file:
     # instances are processed in increasing problem size
     pattern = os.path.join(args.input_dir, "**", "*.lcn")
     instances = glob.glob(pattern, recursive=True)
-    instances.sort(key=lambda p: (_parse_instance_info(p)[1],
-                                  os.path.basename(p)))
     if not instances:
         print(f"No .lcn files found under {args.input_dir}")
         sys.exit(1)
+    info = {p: _instance_info(p) for p in instances}
+    instances.sort(key=lambda p: (info[p][1], os.path.basename(p)))
+    if shard is not None:
+        i, n = shard
+        instances = instances[i::n]
 
     total = len(instances)
+    shard_tag = f".shard{shard[0]}of{shard[1]}" if shard else ""
 
     base_kwargs = kwargs_from_args(args)
     if args.stages:
@@ -199,7 +229,7 @@ Parallel usage -- each (benchmark, evidence level, run) gets its own file:
         bench_dir = os.path.join(args.output_dir, bench_name) if algo in STAGES \
             else os.path.join(args.output_dir, bench_name, ev_dir)
         os.makedirs(bench_dir, exist_ok=True)
-        out_path = os.path.join(bench_dir, f"{out_name}.jsonl")
+        out_path = os.path.join(bench_dir, f"{out_name}{shard_tag}.jsonl")
 
         # Load already-completed instances for resume
         completed = _load_completed(out_path)
@@ -210,7 +240,7 @@ Parallel usage -- each (benchmark, evidence level, run) gets its own file:
         outf = open(out_path, "a")
         try:
             for idx, instance in enumerate(instances, 1):
-                graph_type, num_vars = _parse_instance_info(instance)
+                graph_type, num_vars = info[instance]
                 basename = os.path.basename(instance)
 
                 # The 2^n exact formulation is skipped on large instances.
