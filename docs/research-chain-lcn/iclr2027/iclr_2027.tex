@@ -112,7 +112,7 @@ Address \\
 \maketitle
 
 \begin{abstract}
-    Logical Credal Networks (LCNs) are an expressive probabilistic logic framework that combines propositional formulas with imprecise probability bounds to represent sets of probability distributions. LCNs allow cyclic dependencies and impose few syntactic restrictions, but inference is hard: the only exact method optimizes a nonconvex program over all $2^n$ joint states, and the only approximate method is the ARIEL message-passing algorithm. We introduce Credal Junction Tree (CJT), an exact inference algorithm for LCNs whose structure is a chain graph. CJT replaces the joint distribution by local marginals on the clusters of a junction tree of the chain graph, imposes each probabilistic sentence and independence assertion on a cluster that contains it, and solves a nonconvex program with $O(n\,2^{w+1})$ variables, where $w+1$ is the size of the largest cluster (an upper bound on the treewidth of the moralized chain graph). We prove that, under conditions that can be checked mechanically, its global optimum gives the exact lower and upper probabilities. CJT uses only the structure of the chain graph and requires no compilation into a credal network. As a complementary approach, we compile chain-graph LCNs into credal networks, characterize the family-realizable LCNs on which this compilation preserves the exact bounds, and adapt three credal-network algorithms --- variable elimination, interval belief propagation and coordinate descent --- with their exactness and bound guarantees. We evaluate all methods on synthetic and realistic LCN instances.
+    Logical Credal Networks (LCNs) are an expressive probabilistic logic framework that combines propositional formulas with imprecise probability bounds to represent sets of probability distributions. LCNs allow cyclic dependencies and impose few syntactic restrictions, but inference is hard: the only exact method optimizes a nonconvex program over all $2^n$ joint states, and the only approximate method is the ARIEL message-passing algorithm. We introduce Credal Junction Tree (CJT), an exact inference algorithm for LCNs whose structure is a chain graph. CJT replaces the joint distribution by local marginals on the clusters of a junction tree of the chain graph, imposes each probabilistic sentence and independence assertion on a cluster that contains it, and solves a nonconvex program with $O(n\,2^{w+1})$ variables, where $w+1$ is the size of the largest cluster (an upper bound on the treewidth of the moralized chain graph). We prove that, under conditions that can be checked mechanically, its global optimum gives the exact lower and upper probabilities. CJT uses only the structure of the chain graph and requires no compilation into a credal network. As a complementary approach, we compile chain-graph LCNs into credal networks, characterize the family-realizable LCNs on which this compilation preserves the exact bounds, and adapt three credal-network algorithms --- variable elimination, interval belief propagation and coordinate descent --- with their exactness and bound guarantees. On $740$ synthetic LCNs with up to $100$ propositions, CJT with a global solver certifies the exact bounds of every endpoint on trees, polytrees and $3$-trees and of $82$--$99\%$ of them on unstructured DAGs, whereas exact inference over the joint certifies them only up to about six propositions. On family-realizable LCNs, the compiled methods reach the certified bounds, coordinate descent and interval belief propagation within seconds at $100$ propositions (mean error below $10^{-4}$ for credal variable elimination and coordinate descent); when sentences are not family-realizable, their bounds stay sound but loosen with every such sentence, and CJT is the method that remains exact.
 \end{abstract}
 
 %% ================================================================
@@ -127,7 +127,7 @@ Combining logical and probabilistic reasoning is a long-standing goal of Artific
 \paragraph{Contribution.}
 We show that exact LCN inference need not pay the $2^n$ cost. Our main contribution is \emph{Credal Junction Tree} (CJT), an exact algorithm for LCNs whose structure is a chain graph. Building on the chain-graph factorization of LCNs established by \citet{cozman23a}, CJT moralizes and triangulates the chain graph, builds a junction tree, and replaces the global joint distribution by one local marginal per cluster, tied together by separator-consistency constraints. The LCN's probabilistic sentences are imposed on the clusters that contain them, and its independence assertions are either entailed by the tree's topology, reduced to equivalent smaller assertions that fit in a cluster, or implied by one constraint per node of a topologically ordered tree. The resulting nonlinear program has $O(n\,2^{w+1})$ variables instead of $2^n$, where $w+1$ is the largest cluster size of the tree it builds, and we prove that, under conditions that the algorithm checks for each instance, its certified global optimum is the exact LCN bound. CJT needs only the chain graph's \emph{structure}: unlike the approaches below, it never compiles the LCN into a credal network, never solves per-family local problems and never enumerates extreme points, so it is not affected by the relaxation those steps introduce.
 
-Our second contribution is a systematic \emph{credal-network compilation} of chain-graph LCNs, which makes the well-developed machinery of credal networks \citep{cozman2000credal,maua2020ijar,l2u,antonucci2015approxlp} available for LCN inference. The compilation replaces the LCN's distribution set by the strong extension of a credal network over the chain components, which contains it when the LCN factorizes (as every DAG-structured LCN does); we identify conditions, centred on \emph{family-realizable} sentences, under which the two have the same bounds. We adapt three credal-network algorithms: credal variable elimination (CVE), exact for the strong extension with or without evidence, with its fully polynomial-time approximation scheme CVE$_\varepsilon$; interval belief propagation (IVBP), a credal sum-product algorithm, exact when the compiled credal network is a polytree; and a coordinate-descent method (CDVE) that computes inner bounds for the strong extension. We evaluate all methods on synthetic and realistic LCN benchmarks against CJT as the exact reference.
+Our second contribution is a systematic \emph{credal-network compilation} of chain-graph LCNs, which makes the well-developed machinery of credal networks \citep{cozman2000credal,maua2020ijar,l2u,antonucci2015approxlp} available for LCN inference. The compilation replaces the LCN's distribution set by the strong extension of a credal network over the chain components, which contains it when the LCN factorizes (as every DAG-structured LCN does); we identify conditions, centred on \emph{family-realizable} sentences, under which the two have the same bounds. We adapt three credal-network algorithms: credal variable elimination (CVE), exact for the strong extension with or without evidence, with its fully polynomial-time approximation scheme CVE$_\varepsilon$; interval belief propagation (IVBP), a credal sum-product algorithm, exact when the compiled credal network is a polytree; and a coordinate-descent method (CDVE) that computes inner bounds for the strong extension. We evaluate all methods on synthetic and realistic LCN benchmarks, scoring them against the endpoints that CJT certifies as exact. The experiments show that the two routes are complementary: CJT certifies exact bounds for LCNs with $100$ propositions, far beyond the reach of the $2^n$ formulation, and its cost is governed by the nonlinear independence rows its tree needs rather than by $n$; on family-realizable LCNs the compiled methods match those bounds at a fraction of the cost; and controlled perturbations show that the bounds of the compilation degrade, soundly, with the number of non-realizable sentences, non-root marginals being the most damaging.
 
 The Appendix contains the proofs, detailed descriptions of all algorithms with worked examples, and the full experimental results.
 
@@ -512,145 +512,43 @@ Descent starts at the \emph{vertex average} of every row (the mean of its vertic
 \label{sec-experiments}
 %% ================================================================
 
-In this section, we evaluate the proposed marginal inference schemes on several classes of LCNs, comparing them with the exact method of \citet{marinescu2022neurips} and the approximate ARIEL algorithm \citep{marinescu2023lcn}. All algorithms are implemented in Python 3.12 and use \texttt{ipopt} 3.14 \citep{ipopt} for the nonlinear programs. Every run has a limit of $3600$ seconds and $30$\,GB of memory; a dash in a table means the algorithm did not finish inside that budget.
+We evaluate CJT and the three compiled methods against the exact method of \citet{marinescu2022neurips} and the ARIEL message-passing algorithm \citep{marinescu2023lcn}. All algorithms are implemented in Python 3.12; the nonlinear programs are solved by \texttt{ipopt} 3.14 \citep{ipopt} or by the global solver SCIP 10 \citep{scip}, and the local credal sets by the HiGHS LP solver \citep{highs}. Every run of an algorithm on an instance is limited to $3600$ seconds, $8$\,GB of memory and one CPU thread.
 
 \begin{figure}[!t]
     \centering
-    \includegraphics[height=3.6cm]{figs/dag_large_fr_mae.pdf}
-    \includegraphics[height=3.6cm]{figs/dag_large_fr_runtime.pdf}
-    \caption{Large random \texttt{dag} LCNs: (left) MAEs against
-    the CJT reference, with bands giving one standard deviation over 10 instances per size -- curves stopping where the budget was exceeded; (right) total time in seconds.}
-    \label{fig:random}
+    \includegraphics[width=\linewidth]{figs/main_results.pdf}
+    \caption{(a, b) Large random \texttt{dag} LCNs ($10$ instances per size): mean absolute error against the certified CJT (SCIP) endpoints, averaged over the two endpoints, and median total time. CVE, CVE$_\varepsilon$ and CDVE coincide with the reference ($\mathrm{MAE}<10^{-5}$) and hide each other on the zero line. (c) Almost-realizable LCNs ($n{=}10$): the error grows with the number $m$ of added non-realizable sentences for every compiled method (the CVE, CVE$_\varepsilon$ and CDVE curves coincide with IVBP's to within $3\times10^{-3}$), but not for ARIEL, which works on the LCN itself.}
+    \label{fig:main}
 \end{figure}
 
 \begin{table}[!t]
 \centering
-\footnotesize
-\begin{tabular}{llrrr}
-\toprule
-Instance & Algorithm & MAE$_{l}$ & MAE$_{u}$ & Time (s) \\
-\midrule
-Alarm ($n{=}10$), CJT ref 0.72s & ARIEL & 0.000 & 0.000 & 3.92 \\
- & IVBP & 0.101 & 0.015 & 0.13 \\
- & CDVE & 0.101 & 0.015 & 0.69 \\
- & CVE$_{cm}$ & 0.087 & 0.067 & 0.24 \\
-\hline
-Credit ($n{=}11$), CJT ref 1.15s & ARIEL & 0.050 & 0.000 & 3.18 \\
- & IVBP & 0.257 & 0.000 & 0.24 \\
- & CDVE & 0.257 & 0.000 & 0.69 \\
- & CVE$_{cm}$ & 0.108 & 0.165 & 1.73 \\
-\hline
-Hepatitis ($n{=}10$), CJT ref 0.56s & ARIEL & 0.008 & 0.008 & 3.91 \\
- & IVBP & 0.069 & 0.080 &  0.75 \\
- & CDVE & 0.070 & 0.085 & 1.15 \\
- & CVE$_{cm}$ & 0.114 & 0.184 & 16.53 \\
-\hline
-MScaling ($n{=}12$), CJT ref 0.66s & ARIEL & 0.028 & 0.000 & 8.13 \\
- & IVBP & 0.129 & 0.493 &  0.35 \\
- & CDVE & 0.129 & 0.501 &  1.23 \\
- & CVE$_{cm}$ & 0.079 & 0.227 & 0.57 \\
-\hline
-BScaling ($n{=}32$), CJT ref 2.42s & ARIEL & 0.000 & 0.000 &  19.80 \\
- & IVBP & 0.115 & 0.225 &  0.69 \\
- & CDVE & 0.115 & 0.225 &  20.55 \\
- & CVE$_{cm}$ & 0.064 & 0.072 &  9.18 \\
-\hline
-PScaling ($n{=}40$), CJT ref 3.27s & ARIEL & 0.000 & 0.000 & 34.72 \\
- & IVBP & 0.129 & 0.263 & 0.91 \\
- & CDVE & 0.129 & 0.263 & 51.25 \\
- & CVE$_{cm}$ & 0.070 & 0.057 &  658.84 \\
-\bottomrule
-\end{tabular}
-\caption{Realistic LCNs: three instances derived from real Bayesian networks
-(top) and three Supreme Court chain-graph instances (bottom), all against the
-CJT reference. Time is total time including the credal-network build; the reference's own time on each instance is given with the
-instance name.}
-\label{tab:real}
+\scriptsize
+\resizebox{\linewidth}{!}{\input{outputs/results-summary.tex}}
+\caption{Summary over the large random sets ($n\in\{10,\dots,100\}$, $60$ instances each) and the almost-realizable sets ($100$ each): MAE against the certified CJT (SCIP) endpoints (mean over atoms of the two endpoint errors; for the reference, the percentage of endpoints certified) and median total time in seconds at the largest size ($n{=}100$; $n{=}20$ for \texttt{nr}). A superscript is the percentage of instances solved within the budget when it is below $100$; `--' means no instance of that size was solved. Per-size results are in Appendix~\ref{sec-full-results}.}
+\label{tab:summary}
 \end{table}
 
-% Recall that family-realizability means each sentence constrains a single family's conditional table alone and the credal-network relaxation
-% is exact \emph{iff} the primal graph is singly connected \emph{and} every sentence
-% is realizable. So \texttt{tree} and \texttt{polytree} probe the tight regime, while
-% \texttt{ktree} and \texttt{dag} are realizable but loopy --- any two-parent collider
-% moralizes into a cycle --- and there the methods give outer bounds only.
-
 \textbf{Benchmarks.~}
-We consider two types of LCN instances. \emph{Random LCNs} come in four
-topologies, each generated so that every sentence is \emph{family-realizable}:
-\texttt{tree}, \texttt{polytree} (skeleton a forest, at most two parents per atom), \texttt{ktree} ($k{=}3$) and \texttt{dag}
-(moralized treewidth $\le 3$, at most two parents per atom). Each topology is
-generated at two scales, \emph{small} ($n \in \{5,\dots,10\}$) and \emph{large}
-($n \in \{10,20,30,40,50,100\}$), with $10$ instances per size, giving
-$8 \times 60 = 480$ instances. Sentence bounds are drawn as
-$[\max(0.01, v{-}\varepsilon), \min(1, v{+}\varepsilon)]$ with $v \sim U(0,1)$
-and $\varepsilon = 0.3$. Each atom gets one sentence, a prior if it is a root and otherwise a conditional on
-the full conjunction of signed literals over its parents (form R2), so a sentence spans at most
-$1{+}\max|\pa|$ atoms ($3$, and $4$ for \texttt{ktree}); two extra interval bounds on root marginals
-are added (both on the single root of a \texttt{tree}); the seed is $42$. Every instance is consistent:
-the fully independent product that sets each atom to the midpoint of its interval satisfies every sentence,
-and trivially the LMC. Every instance passes the structural part of the \textsc{CJT} exactness gate;
-whether each endpoint is certified is an output of the reference run (Appendix~\ref{sec-cjt-gate}).
-\emph{Almost-realizable LCNs} add $m\in\{0,1,2,4,8\}$ non-realizable sentences to \texttt{tree} and
-\texttt{dag} instances (Appendix~\ref{sec-nr-bench}). \emph{Realistic LCNs} are of two kinds: ten
-instances derived from real Bayesian networks \citep{bn-repo} ($n = 4$--$11$,
-$6$--$24$ sentences), and sixteen instances from the causal chain graphs of the
-US Supreme Court analysis of \citet{ogburn2020causal}. The latter stress two
-different axes: the \texttt{scaling} instances are large and sparse
-($n = 6$--$40$, $11$--$79$ sentences), whereas the \texttt{supreme\_court}
-instances are small but extremely dense ($n{=}10$ with $345$--$1009$ sentences).
+\emph{Random LCNs} come in four topologies, each generated so that every sentence is family-realizable (Definition~\ref{def:realizable}): \texttt{tree}, \texttt{polytree} (a DAG whose skeleton is a forest, at most two parents per atom), \texttt{ktree} (a $3$-tree, each atom conditioned on the full conjunction of its three clique parents) and \texttt{dag} (at most two parents, moralized treewidth $\le 3$). Each topology has a \emph{small} ($n \in \{5,\dots,10\}$) and a \emph{large} ($n \in \{10,20,30,40,50,100\}$) set with $10$ instances per size, $480$ instances in all. Each atom gets one sentence, a prior if it is a root and otherwise a conditional on a full conjunction of signed parent literals, with bounds $[\max(0.01,v{-}0.3),\min(1,v{+}0.3)]$ around $v\sim U(0,1)$, plus two extra interval bounds on root marginals. \texttt{tree} and \texttt{polytree} compile to polytree credal networks; \texttt{ktree} and \texttt{dag} are loopy. \emph{Almost-realizable LCNs} add $m\in\{0,1,2,4,8\}$ non-realizable sentences of three kinds --- a marginal on a non-root atom (\texttt{nr1}), a conditional on a disjunction of parent configurations (\texttt{nr2}) and a two-atom sentence across families (\texttt{nr3}) --- to the \texttt{tree} and \texttt{dag} instances with $n\in\{10,20\}$ ($200$ instances), plus a $60$-instance ablation by kind (Appendix~\ref{sec-nr-bench}). Neither change touches the structure graph, and all $740$ instances are consistent by construction. % REAL: realistic sets paragraph added after the rerun
+All queries are marginals without evidence.
 
-\textbf{Algorithms, reference and metrics.~}
-We compare four approximate algorithms: ARIEL \citep{marinescu2023lcn},
-which operates directly on the LCN factor graph ($10$ iterations) and needs no
-credal-network build; IVBP, interval belief propagation on the credal
-network ($100$ iterations); CDVE, coordinate descent over extreme points
-($50$ iterations), which by construction returns \emph{inner} bounds; and
-CVE$_{cm}$, Credal Variable Elimination with its intermediate
-potentials clustered to at most $10$ functions using the mean representative
-(an earlier heuristic, replaced by CVE$_\varepsilon$ in the rerun). % TODO(rerun): replace the CVE_cm rows/curves by cve_eps_0.1
+\textbf{Reference and metrics.~}
+The reference is CJT solved by SCIP. Its structural conditions (H1--H4 of Theorem~\ref{thm:cjt}) hold on every instance, all through the ordered construction with no relaxed assertion, so each endpoint SCIP certifies (proven optimal, or a primal--dual gap $\le 10^{-4}$) is an exact LCN bound. We score a method only on certified endpoints and report the mean absolute error of the lower and upper bounds ($\mathrm{MAE}_l$, $\mathrm{MAE}_u$), the fractions of atoms on which a method's interval contains (\emph{outer}) or is contained in (\emph{inner}) the reference, and the total time including the credal-network compilation. The exact method over the $2^n$ joint is \emph{not} a usable reference: with SCIP it certifies every endpoint only at $n{=}5$ on \texttt{tree} and $1$ of $160$ endpoints at $n{=}8$; with \texttt{ipopt} it finishes on at most $35$ of $60$ small instances per topology, with MAEs of $0.07$--$0.20$ when it does. We also run CJT with \texttt{ipopt} (CJT$_{\text{ipopt}}$), CVE$_\varepsilon$ with $\varepsilon{=}0.01$, IVBP with up to $100$ sweeps, CDVE with $8$ random restarts, and ARIEL with $10$ iterations.
 
-Plain CVE (exact over the strong extension, no clustering) is included
-where it terminates. All credal-network methods share the same build:
-the chain-graph factorization, no scope merging, and per-family local credal
-sets solved as linear programs. As the reference we use CJT, the junction-tree NLP formulation
-(using the \texttt{ipopt} backend): it is the
-tightest engine tractable at every size here, whereas exact inference of \citet{marinescu2022neurips} over the
-$2^n$ joint solves only $15/60$ of \texttt{tree\_small} and none of the Supreme
-Court instances. We report the mean absolute error of the lower and upper marginal bounds against the reference,
-$\mathrm{MAE}_{l} = \frac{1}{n}\sum_i |\underline{P}^{*}(x_i) -
-\underline{P}(x_i)|$ and $\mathrm{MAE}_{u}$ analogously, and wall-clock time in seconds including the credal-network
-build (CJT needs no vertex enumeration).
-All queries are marginals without evidence. The random instances satisfy Proposition~\ref{prop:suff}, so CVE is exact on all of them, and IVBP where the compiled network is singly connected: every \texttt{tree} instance, but only $42/60$ \texttt{polytree\_small} and $38/60$ \texttt{polytree\_large} ones.
+\textbf{CJT certifies exact bounds at scale.~}
+SCIP certifies all $17{,}700$ endpoints of the \texttt{tree}, \texttt{polytree} and \texttt{ktree} sets, in a median of $11$--$19$ seconds at $n{=}100$; on \texttt{dag} it certifies $98.6\%$ of the small-set endpoints and $81.6\%$ of the large-set ones, in a median of $787$ seconds at $n{=}100$ (one instance timed out). The largest cluster has $2$--$8$ atoms, against the $2^n$ joint that exact inference cannot handle beyond $n\approx 6$. With \texttt{ipopt} instead of SCIP, the same program is exact on most sets but is trapped in local optima on DAGs (MAE up to $0.034$ at $n{=}10$, worst endpoint $0.83$): the global solver, not the formulation, is what makes the bounds trustworthy.
 
-\textbf{Random LCNs.~}
-Figure~\ref{fig:random} shows the loopy \texttt{dag} LCNs at the large scale,
-with shaded bands giving one standard deviation over the ten instances per size (full results on all LCNs are included in the Appendix). Three findings
-hold across all four topologies. First, IVBP dominates: its error against the reference
-is at or below $4 \times 10^{-3}$ on every scale (small, large) and size --- indistinguishable
-from CJT on \texttt{tree} and on the singly connected \texttt{polytree} instances, as Theorem~\ref{thm:ibp} predicts --- while being the fastest method everywhere, by one
-to three orders of magnitude at $n{=}100$. Second, CDVE matches that
-accuracy but not that cost: its mean error stays in the $10^{-3}$ range, yet its
-runtime grows from under a second on the small instances to $273$--$614$ seconds
-on the large ones, making it slower than ARIEL at $n{=}100$. ARIEL is likewise
-accurate (exactly zero error on \texttt{tree} and \texttt{polytree}) but pays
-$25$--$35$ seconds at scale. Third, approximating the potentials by clustering buys speed at a real cost
-in quality: CVE$_{cm}$ runs in a fraction of a second on the small instances but
-its error grows with $n$, from $0.08$--$0.11$ on the small instances to
-$0.31$--$0.35$ on the large ones. Plain CVE is the
-scalability bottleneck: it is essentially exact where it runs but costs
-$226$--$1141$ seconds, times out on all of \texttt{ktree\_small} and
-\texttt{polytree\_large}, and is intractable on the large loopy LCNs.
+\textbf{Family-realizable LCNs: the compilation is exact and cheap.~}
+On all $480$ random instances the compiled methods behave as the theory predicts (Table~\ref{tab:summary}, Figure~\ref{fig:main}a,b). CVE and CVE$_\varepsilon$ match every certified endpoint ($\mathrm{MAE}<10^{-5}$; of the more than $17{,}000$ scored endpoints of each, only three, two of CVE and one of CVE$_\varepsilon$, fall outside the reference, by at most $2.2\times10^{-4}$, the order of the certification tolerance), confirming $\mathcal P_{\mathrm{SE}}=\DLCN$ (Proposition~\ref{prop:suff}). CDVE is inner on every atom, as it must be here (Section~\ref{sec-cdve}), and within $10^{-4}$ of CVE on more than $98.8\%$ of the endpoints (worst miss $0.085$), at $5$--$16$ seconds for $n{=}100$. IVBP is exact on every \texttt{tree} and \texttt{polytree} instance (Theorem~\ref{thm:ibp}) and is the fastest method everywhere ($2$--$11$ seconds at $n{=}100$); on the loopy \texttt{ktree} and \texttt{dag} sets its MAE stays below $3\times 10^{-3}$, but its interval contains the reference on only $90$--$97\%$ of the atoms, so loopy IVBP is neither an outer nor an inner bound. CVE's exact potentials, finally, are what limit its reach: they exhaust the $8$\,GB budget on \texttt{ktree} from $n{=}10$ (it solves $15$ of the $60$ large instances) and on \texttt{dag} at $n\ge 50$; the FPTAS raises this to $36$ and $59$ of $60$. ARIEL is exact on \texttt{tree}, has MAEs of $3\times10^{-4}$--$4\times10^{-3}$ elsewhere with a worst endpoint of $0.38$, carries no guarantee and is the slowest approximate method at scale ($123$--$156$ seconds at $n{=}100$).
 
-\textbf{Realistic LCNs.~}
-Table~\ref{tab:real} reports six representative instances. These instances are chain-graph LCNs, but they are not family-realizable, so the hypotheses of Proposition~\ref{prop:suff} do not hold. The ordering is
-different here: ARIEL is clearly the tightest method, at or near zero error on
-four of the six instances, because it reasons on the original LCN rather than on
-its credal-network relaxation. IVBP and CDVE agree closely and produce widths $1.4$--$7.7\times$ the reference, with
-no outer guarantee here (CDVE is inner for $\DSE$; compound LCNs need not factorize,
-Appendix~\ref{sec:fr-counter}). On running time the picture is again favourable to IVBP, which is the
-fastest method on every instance and the only one that stays under a second at
-$n{=}40$, where CDVE needs $51$ seconds and CVE$_{cm}$ $659$. 
+\textbf{Almost-realizable LCNs: the gap is outer and grows with $m$.~}
+Once sentences are non-realizable, CVE, CVE$_\varepsilon$ and CDVE return the same intervals (to within $2\times10^{-3}$), and IVBP the same ones on trees, so the error that remains is the compilation gap $\DLCN\subsetneq\mathcal P_{\mathrm{SE}}$ itself, not the error of any one algorithm. It is outer (CVE contains the reference on $99.9\%$ of the atoms, Proposition~\ref{prop:inclusion}) and grows with $m$ (Figure~\ref{fig:main}c): at $n{=}10$ the mean endpoint error rises from $0$ to $0.03$--$0.04$ for one sentence and $0.14$ for eight, and the intervals become $1.3$ to $2.3$ times as wide as the reference; at $n{=}20$ the same $m$ costs about half as much. Non-root marginals (\texttt{nr1}) are by far the most damaging kind (MAE $0.15$ and width ratio $3.9$ for $m{=}4$ tight sentences, against $0.03$--$0.05$ for the other two kinds). CJT remains exact (it certifies $95.6$--$99.7\%$ of the endpoints, although each added sentence makes the DAG instances harder: median $19$ seconds at $m{=}0$, $168$ at $m{=}8$), and ARIEL, which never compiles, stays within $0.013$ MAE --- the most accurate approximation here, but without a guarantee. CJT$_{\text{ipopt}}$ also degrades with $m$ (MAE up to $0.10$), again through local optima.
 
+% REAL: realistic-LCN results paragraph (after the rerun)
+
+\textbf{Summary.~}
+The two routes are complementary. When the LCN is family-realizable, compilation loses nothing, and CVE (exact), CDVE (inner) and IVBP (exact on polytrees) reach the exact bounds; CDVE and IVBP do so in seconds at $n{=}100$, faster than CJT, while CVE is limited by the size of its potentials. Off that class the compiled bounds are sound but loose, and CJT with a global solver is the method that certifies the exact answer, at a cost governed by the cluster size and the number of nonlinear LMC rows rather than by $2^n$.
 
 
 %% ================================================================
@@ -665,7 +563,7 @@ Exact inference in LCNs has so far been limited to constrained nonlinear optimiz
 \label{sec-conclusion}
 %% ================================================================
 
-We introduced Credal Junction Tree (CJT), an exact inference algorithm for chain-graph Logical Credal Networks that replaces the $2^n$-variable joint formulation by a nonlinear program over junction-tree cluster marginals, with size exponential in the treewidth rather than in the number of propositions. CJT needs only the chain graph's structure; it discharges the LCN's independence assertions on the tree by separation, exact reduction or an ordered construction, and we proved that under conditions it checks mechanically its certified optimum gives the exact lower and upper probabilities. As a complementary route, we compiled chain-graph LCNs into credal networks, characterized the family-realizable LCNs on which this compilation preserves the exact bounds, and adapted variable elimination (with an FPTAS), interval belief propagation and coordinate descent to it, with exactness guarantees for marginal and conditional queries under regular conditioning. CJT also provides an exact reference against which the approximate methods can be measured. Next steps include compiled representations for compound families whose tables the LMC constrains.
+We introduced Credal Junction Tree (CJT), an exact inference algorithm for chain-graph Logical Credal Networks that replaces the $2^n$-variable joint formulation by a nonlinear program over junction-tree cluster marginals, with size exponential in the treewidth rather than in the number of propositions. CJT needs only the chain graph's structure; it discharges the LCN's independence assertions on the tree by separation, exact reduction or an ordered construction, and we proved that under conditions it checks mechanically its certified optimum gives the exact lower and upper probabilities. As a complementary route, we compiled chain-graph LCNs into credal networks, characterized the family-realizable LCNs on which this compilation preserves the exact bounds, and adapted variable elimination (with an FPTAS), interval belief propagation and coordinate descent to it, with exactness guarantees for marginal and conditional queries under regular conditioning. Empirically, CJT with a global solver certifies exact bounds on LCNs with $100$ propositions, and is cheapest when its tree needs no nonlinear independence rows (trees and $k$-trees, where its program is linear); on family-realizable LCNs, CVE and CDVE match those bounds and IVBP does so on polytrees, in seconds; outside that class the compiled bounds are sound but loosen with each non-realizable sentence, while ARIEL is tight but unguaranteed. CJT thereby also provides a certified reference against which approximate LCN methods can be measured. Next steps include compiled representations for non-root marginals and for compound families whose tables the LMC constrains, which would close most of the measured gap, and memory-bounded variants of CVE for loopy networks with large credal sets.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection*{AI use statement}
@@ -683,7 +581,7 @@ This work did not involve human subjects.
 
 %(This section is \textbf{recommended} and does not count toward the page limit.)
 
-To ensure reproducibility, we have included the Python code and benchmark problem instances in the supplementary material. We will open-source the code and benchmarks if the paper is accepted. 
+To ensure reproducibility, we have included the Python code, the benchmark problem instances, the raw run records of every experiment and the script that regenerates every table and figure of Section~\ref{sec-experiments} and Appendix~\ref{sec-full-results} from them in the supplementary material; the run names, parameters and budgets are listed in Appendix~\ref{sec-setup}. We will open-source the code and benchmarks if the paper is accepted. 
 
 % \subsubsection*{Author Contributions}
 % If you'd like to, you may include  a section for author contributions as is done
@@ -4302,220 +4200,110 @@ built on the exact sets.
 \label{sec-full-results}
 %% ================================================================
 
-This appendix reports every measurement behind Section~\ref{sec-experiments}:
-all four random families at both scales, and the complete per-instance results
-for the two realistic suites. Throughout, the reference is CredalJT and the
-budget is $3600$ seconds and $30$\,GB per run.
+This appendix reports every measurement behind Section~\ref{sec-experiments}. All tables and figures are generated from the raw run records by one script (\texttt{phase0/make\_exp\_artifacts.py} in the supplementary material), which calls the analysis tool of the harness (\texttt{experiments/analyze\_results.py}); no number is typed by hand.
+
+\subsection{Setup}
+\label{sec-setup}
+
+\emph{Runs.} Nine runs are compared, each a fixed algorithm and parameter setting: exact inference over the $2^n$ joint \citep{marinescu2022neurips} with SCIP or \texttt{ipopt} (only for $n\le 15$); CJT with SCIP (the reference) or \texttt{ipopt}; ARIEL with $10$ iterations; CVE; CVE$_\varepsilon$ with $\varepsilon=0.01$; IVBP with at most $100$ sweeps; and CDVE with at most $50$ sweeps and $R=8$ random restarts. All credal-network methods share one compilation: the chain-graph factorization with no scope merging, per-family local credal sets computed by HiGHS \citep{highs}, and vertex enumeration of the interval rows by LRS; compilation time is included in their total times, and no compiled network is cached between runs.
+
+\emph{Budget and hardware.} Every run of one algorithm on one instance has $3600$ seconds of wall-clock time, an $8$\,GB address-space limit and one CPU thread, on a SLURM cluster of x86-64 nodes. A run that exceeds the time is a \emph{timeout}; one whose allocation fails is a \emph{memory-out}. SCIP and \texttt{ipopt} solve each endpoint as a separate program; CJT's SCIP solves certify an endpoint when it is proven optimal or its primal--dual gap is at most $10^{-4}$, and otherwise report the dual bound.
+
+\emph{Metrics.} For each atom $a$ and certified reference endpoint, the error is $|\lo P^*(a)-\lo P(a)|$ (lower) or $|\hi P^*(a)-\hi P(a)|$ (upper); MAE$_l$ and MAE$_u$ average them over the scored atoms of all instances of a group, SD is their standard deviation and max their largest value. An atom is \emph{outer} when the method's interval contains the reference interval and \emph{inner} when it is contained in it, both up to $10^{-4}$; the width ratio (wr) is the mean ratio of interval widths, over atoms whose reference width exceeds $10^{-12}$. Errors are computed only on instances that the method solved; the solved counts are reported next to them.
 
 \subsection{A reference that is exact by construction}
 \label{sec-cjt-gate}
 
-All approximate methods are scored against \textsc{CJT}, which is exact on an instance only
-when two conditions hold. (i) \emph{Structural}: the junction tree that \textsc{CJT} builds satisfies
-H1--H4 of Theorem~\ref{thm:d5} --- running intersection, checked explicitly; every sentence hosted;
-every LMC assertion discharged by separator-entailment, an exact reduction or the ordered rows, with
-nothing relaxed (Section~\ref{sec:algo-host}); every atom hosted --- and its largest cluster has at
-most $12$ atoms. This needs no solve (\texttt{cjt\_exactness\_report}, well under a second per
-instance). (ii) \emph{Certified}: each endpoint is certified by SCIP (proven optimal, or primal and dual
-bounds within $10^{-4}$, Remark~\ref{rem:dual}).
+CJT is exact on an instance when two conditions hold. (i) \emph{Structural}: the junction tree that CJT builds satisfies H1--H4 of Theorem~\ref{thm:d5} --- running intersection, checked explicitly; every sentence hosted; every LMC assertion discharged by separator entailment, an exact reduction or the ordered rows, with nothing relaxed (Section~\ref{sec:algo-host}); every atom hosted --- and its largest cluster has at most $12$ atoms. This needs no solve. (ii) \emph{Certified}: SCIP certifies the endpoint.
 
-Condition (i) holds on every benchmark instance: all $480$ random, all $260$ almost-realizable
-(Appendix~\ref{sec-nr-bench}) and all $26$ realistic instances, each of which is also a chain graph in
-the strict sense of Section~\ref{sec-cg}. The generator can enforce (i) at generation time
-(\texttt{cjt\_exact="structural"}, recorded in a header comment); it did so for the almost-realizable
-instances, but the random instances were generated without the gate, and (i) was checked afterwards.
-Condition (ii) is not enforced by the generator, since it is the reference computation itself, and it
-does not hold everywhere at a $60$\,s limit per solve: on a sample of $293$ instances, $54$ had at least one
-uncertified endpoint, among them $4$ of the $60$ \texttt{dag\_small} instances. We therefore score
-each endpoint separately, and use a \textsc{CJT} endpoint as the reference only when its solve is certified
-\emph{and} its route is structurally exact; the uncertified endpoints are reported by their (sound) dual
-bounds but are excluded from every error statistic. A candidate fails (i) only when its tree exceeds the
-width budget or an assertion would have to be relaxed, for example when an LMC assertion splits an
-undirected chain component, as in the \texttt{smokers} example.
+Condition (i) holds on all $740$ synthetic instances, each of which is a chain graph in the strict sense of Section~\ref{sec-cg}; on every one of them CJT selects the ordered tree, and no assertion is relaxed. The almost-realizable instances were generated with the structural gate enforced (\texttt{cjt\_exact="structural"}, recorded in a header comment); the random ones were checked afterwards. Condition (ii) is an \emph{output} of the reference run. Table~\ref{tab:reference} reports it: every endpoint of the \texttt{tree}, \texttt{polytree} and \texttt{ktree} sets is certified, while the DAG sets leave some endpoints uncertified within the time limit (most of them on \texttt{dag\_large}, $18.4\%$, including one instance at $n=100$ that timed out entirely). The last column explains the difference. The ordered construction needs a row $x\indep N_x\setminus\pa(x)\mid\pa(x)$ only when the elimination clique $\{x\}\cup N_x$ of a node holds a non-parent. In a tree or a $k$-tree eliminated in reverse topological order the earlier neighbours of every node are exactly its parents, so no row is needed and the program is linear; in a polytree a few nodes, and in a DAG many (a median of $36$ per instance, up to $528$), have fill-in neighbours, and each gives a bilinear row on which SCIP's spatial branch and bound must branch. The added sentences of the almost-realizable sets enlarge the clusters that host them and so add nonlinear rows even on trees. We therefore score each endpoint separately and use a CJT endpoint as reference only when it is certified \emph{and} its route is structurally exact; uncertified endpoints are excluded from every error statistic, and the per-size tables give the number of certified endpoints.
+
+\input{outputs/results-reference.tex}
+
+\subsection{Exact inference over the joint is not a usable reference}
+\label{sec-exact-baseline}
+
+The exact method of \citet{marinescu2022neurips} has one variable per joint state. With SCIP it is a certified engine as well, but the certificate rarely arrives: it certifies every endpoint of the \texttt{tree} instances at $n=5$, $78\%$ at $n=6$, $11\%$ at $n=7$ and $1$ of $160$ at $n=8$, and leaves most endpoints \emph{unsolved} (no incumbent within the time limit) from $n=7$ on \texttt{tree}, \texttt{polytree} and \texttt{dag}. \texttt{ktree}, whose CJT program is linear (Table~\ref{tab:reference}), is the exception: the joint program certifies almost every endpoint up to $n=8$ and $78\%$ at $n=9$. Its reported values are therefore mostly dual bounds, which is why its errors in the per-size tables are large and its intervals outer. With \texttt{ipopt} it times out on $25$--$29$ of the $60$ small instances of each topology and on every larger instance, and its finished answers are poor local optima (MAE $0.07$--$0.20$, intervals neither outer nor inner). CJT certifies the same instances in a median of under one second.
+
+\subsection{Coverage}
+\label{sec-coverage}
+
+A curve in the figures stops where its algorithm ran out of budget, and errors are averaged over the solved instances only, so coverage must be read alongside them. ARIEL, IVBP and CDVE solve every instance of every set. CJT with SCIP solves all but one (\texttt{dag\_large}, $n=100$, timeout); CJT with \texttt{ipopt} times out on one \texttt{dag\_small}, one \texttt{dag\_large}, one \texttt{nr\_dag} and four \texttt{nr\_dag\_ablation} instances. The exceptions are concentrated in CVE, whose exact potentials grow with the number of extreme points rather than with the treewidth alone: plain CVE runs out of memory on $2$ of the $60$ \texttt{ktree\_small} instances, on $45$ of the $60$ \texttt{ktree\_large} ones (it solves $8$ at $n=10$, $5$ at $n=20$, $2$ at $n=30$ and none beyond) and on $11$ of the $60$ \texttt{dag\_large} ones ($3$ at $n=50$, $8$ at $n=100$). CVE$_\varepsilon$ raises this to $36/60$ on \texttt{ktree\_large} ($20$ memory-outs and $4$ timeouts) and $59/60$ on \texttt{dag\_large}; on \texttt{ktree} at $n=30$--$50$ it solves $6$--$9$ of $10$ instances, but in $1100$--$2900$ seconds. Both solve every \texttt{tree}, \texttt{polytree} and almost-realizable instance. Exact inference over the joint is run only on instances with $n\le 15$; its coverage is discussed in Appendix~\ref{sec-exact-baseline}.
+
+\subsection{Guarantee checks}
+\label{sec-guarantees}
+
+Each run declares a guarantee and the analysis checks it on every certified endpoint (tolerance $10^{-4}$; for CVE$_\varepsilon$, inner within a factor $1+\varepsilon$ of the CVE run on the same instance). On the $480$ family-realizable instances, where the guarantees for $\DSE$ are guarantees for $\DLCN$ (Proposition~\ref{prop:suff}), there are three violations in total, all on \texttt{dag\_large}: two CVE endpoints and one CVE$_\varepsilon$ endpoint, off by at most $2.2\times 10^{-4}$, the order of the reference's own certification tolerance. CDVE is inner on every atom of every set, and IVBP, which reports exactness only when the compiled network is a polytree (all \texttt{tree} and \texttt{polytree} instances and $16$ \texttt{dag\_small} ones), is exact whenever it does. Loopy IVBP carries no guarantee and none is observed: it converges in $2$--$4$ sweeps on every instance, but its intervals are outer on only $90$--$97\%$ of the atoms and inner on $88$--$97\%$. On the almost-realizable instances the strong-extension guarantees no longer transfer to $\DLCN$, and CVE, CDVE and (on trees) IVBP ``violate'' them on $274$--$725$ endpoints per set, exactly as expected; the CVE intervals remain outer on $99.9\%$ of the atoms, as Proposition~\ref{prop:inclusion} predicts for DAG-structured LCNs.
 
 \subsection{Almost-realizable benchmarks}
 \label{sec-nr-bench}
 
-To measure the relaxation error of the credal-network compilation under control, we perturb fully
-realizable instances by adding non-realizable sentences (\texttt{Generator.perturb}). The new sentences
-come in three kinds, one for each way a sentence can fail Definition~\ref{def:realizable}:
+To measure the relaxation error of the credal-network compilation under control, we perturb fully realizable instances by adding non-realizable sentences (\texttt{Generator.perturb}). The new sentences come in three kinds, one for each way a sentence can fail Definition~\ref{def:realizable}:
 \begin{itemize}
-  \item \texttt{nr1}, a \emph{non-root marginal}: a Type-1 sentence $P(l)$ with $l$ a literal of an atom
-    that has parents (it fails R1);
-  \item \texttt{nr2}, a \emph{mixture conditional}: a Type-2 sentence $P(l\mid\psi)$ with $\psi$ over the
-    child's parents, satisfied by at least two but not all of their configurations (it fails R2, as it bounds a
-    $P(\pa_v)$-weighted mixture of rows). It needs at least two parents, so \texttt{tree} instances never get it;
-  \item \texttt{nr3}, a \emph{cross-family} sentence: a Type-1 sentence over two atoms that share no family
-    scope, with $\tau=\mathrm{False}$, so it adds no structure edge.
+  \item \texttt{nr1}, a \emph{non-root marginal}: a Type-1 sentence $P(l)$ with $l$ a literal of an atom that has parents (it fails R1);
+  \item \texttt{nr2}, a \emph{mixture conditional}: a Type-2 sentence $P(l\mid\psi)$ with $\psi$ over the child's parents, satisfied by at least two but not all of their configurations (it fails R2, as it bounds a $P(\pa_v)$-weighted mixture of rows). It needs at least two parents, so \texttt{tree} instances never get it;
+  \item \texttt{nr3}, a \emph{cross-family} sentence: a Type-1 sentence over two atoms that share no family scope, with $\tau=\mathrm{False}$, so it adds no structure edge.
 \end{itemize}
-None of the kinds changes the structure graph or the LMC. Each new sentence $s$ gets the bounds
-$[v_s-\delta,\,v_s+\delta]$, clipped to $[0,1]$, around its value $v_s$ under the base instance's
-fully independent product witness. That witness still satisfies every sentence and the LMC, so every
-perturbed instance is consistent by construction. (The witness makes every atom independent, so all
-sentences on the same child, such as two \texttt{nr2} conditionals, are centred on its marginal.) We
-checked every shipped instance: each added sentence is non-realizable and of its stated kind, the
-structure graph and the LMC are unchanged, and condition (i) of Appendix~\ref{sec-cjt-gate} holds.
+None of the kinds changes the structure graph or the LMC. Each new sentence $s$ gets the bounds $[v_s-\delta,\,v_s+\delta]$, clipped to $[0,1]$, around its value $v_s$ under the base instance's fully independent product witness. That witness still satisfies every sentence and the LMC, so every perturbed instance is consistent by construction. (The witness makes every atom independent, so all sentences on the same child, such as two \texttt{nr2} conditionals, are centred on its marginal.) We checked every shipped instance: each added sentence is non-realizable and of its stated kind, the structure graph and the LMC are unchanged, and condition (i) of Appendix~\ref{sec-cjt-gate} holds.
 
-\emph{Sets.} The bases are the \texttt{tree} and \texttt{dag} random instances with $n\in\{10,20\}$
-($10$ per size). For each base we draw one sequence of $8$ sentences, with the kinds in round-robin order
-(\texttt{nr1}, \texttt{nr2}, \texttt{nr3}, \dots; \texttt{nr1}, \texttt{nr3}, \dots\ on trees). The instance
-with $m$ new sentences keeps the first $m$, for $m\in\{0,1,2,4,8\}$ and $\delta=0.1$, so the instances are
-nested and $m=0$ is the base itself ($100$ \texttt{tree} and $100$ \texttt{dag} instances). An ablation set
-isolates each kind: \texttt{dag} bases with $n=10$, $m=4$ sentences of a single kind, and
-$\delta\in\{0.05,0.3\}$ ($60$ instances). Clipping to $[0,1]$ affects at least one sentence in $98$ of the $260$
-instances. Every perturbed file records its base, $m$, $\delta$, the kinds of its new sentences and its
-structural \textsc{CJT} report in a header comment.
+\emph{Sets.} The bases are the \texttt{tree} and \texttt{dag} random instances with $n\in\{10,20\}$ ($10$ per size). For each base we draw one sequence of $8$ sentences, with the kinds in round-robin order (\texttt{nr1}, \texttt{nr2}, \texttt{nr3}, \dots; \texttt{nr1}, \texttt{nr3}, \dots\ on trees). The instance with $m$ new sentences keeps the first $m$, for $m\in\{0,1,2,4,8\}$ and $\delta=0.1$, so the instances are nested and $m=0$ is the base itself ($100$ \texttt{tree} and $100$ \texttt{dag} instances). An ablation set isolates each kind: \texttt{dag} bases with $n=10$, $m=4$ sentences of a single kind, and $\delta\in\{0.05,0.3\}$ ($60$ instances). Clipping to $[0,1]$ affects at least one sentence in $98$ of the $260$ instances. Every perturbed file records its base, $m$, $\delta$, the kinds of its new sentences and its structural CJT report in a header comment.
 
-\subsection{Coverage and exclusions}
-\label{sec-coverage}
-
-Not every algorithm completes on every instance, and reading the figures without
-this in mind would overstate coverage, since a curve simply stops where its
-algorithm ran out of budget. Over the $480$ random instances, ARIEL and IVBP
-complete essentially all of them, and CredalJT's \texttt{ipopt} backend completes
-all of the instances it was run on. The exceptions are concentrated in the
-CVE family. Plain CVE, without clustering, is the least scalable: it solves
-$35/60$ of \texttt{tree\_small}, $30/60$ of \texttt{polytree\_small} and $24/60$
-of \texttt{dag\_small}, but \emph{none} of \texttt{ktree\_small} ($21$ timeouts
-and $39$ errors) and none of \texttt{polytree\_large}; on the other three large
-families it was not run at all. It is therefore absent from most plots, and where
-present it covers only the smallest sizes. Clustering restores coverage at small
-% TODO(rerun): CVE_cm / CVE_cp were removed; replace by cve_eps_0.1
-scale --- CVE$_{cm}$ and CVE$_{cp}$ solve all $60$ instances of every small
-family --- but degrades on the large loopy ones, where CVE$_{cm}$ reaches only
-$14/60$ on \texttt{ktree\_large} and $30/60$ on \texttt{dag\_large}. Exact
-inference over the $2^n$ joint is viable only at the very smallest sizes
-($15/60$ on \texttt{tree\_small}, $13/60$ on \texttt{polytree\_small}, $2/10$ on
-the Bayesian-network instances, none of the Supreme Court ones), which is why it
-is not used as the reference. Three bookkeeping gaps are worth recording: the
-\texttt{ktree\_large} CDVE log holds $58$ records rather than $60$, the Supreme
-Court exact-inference log holds $12$ rather than $16$, and the
-Bayesian-network CVE log holds $7$ rather than $10$; the corresponding instances
-are simply missing rather than failed, and are excluded from the aggregates.
-
-\subsection{Random LCNs}
-
-Figures~\ref{fig:tree-full}--\ref{fig:dag-full} give the error and timing curves
-for all four families at both scales. The tables that follow them give the
-underlying per-size aggregates; for each family and scale the first table reports
-means and the second the corresponding standard deviations over the ten instances
-at each size.
+\emph{Results.} Tables~\ref{tab:nr-tree}, \ref{tab:nr-dag} and~\ref{tab:nr-ablation} give the full results. Four observations complement Section~\ref{sec-experiments}. (1) At $m=0$ the results reproduce those of the random sets, and with one sentence the compiled methods already lose $0.01$--$0.04$ in MAE, while the reference stays certified (Table~\ref{tab:reference}). (2) The compiled intervals are outer and widen roughly in proportion to $m$, with all compiled methods agreeing: CDVE, which is inner for $\DSE$, and CVE, which is exact for it, return the same intervals to within $2\times10^{-3}$, so the error is the gap between $\mathcal P_{\mathrm{SE}}$ and $\DLCN$, not an algorithmic one. (3) The kind matters more than the count. A non-root marginal constrains $\sum_\pi P(\pi)\,\theta_{v,\pi}$, a mixture of all rows of its family, which no local set can express, and its omission costs the most (width ratio $3.9$ at $\delta=0.05$); \texttt{nr2} constrains a mixture of only some rows, and \texttt{nr3} couples two families through their joint marginal, which a product of independent atoms nearly satisfies. Tighter added intervals ($\delta=0.05$) widen the gap for every kind, as they constrain $\DLCN$ more without changing $\mathcal P_{\mathrm{SE}}$. (4) Each added sentence makes the reference harder, through the nonlinear rows it adds (Appendix~\ref{sec-cjt-gate}): over both sizes the median CJT time grows from $19$ seconds at $m=0$ to $168$ at $m=8$ on DAGs, and from $0.9$ to $4.8$ seconds on trees; the compiled methods take the same time at every $m$.
 
 \begin{figure}[htbp]
     \centering
-    \begin{subfigure}{\linewidth}
-        \centering
-        \includegraphics[width=0.8\linewidth]{figs/tree_small_fr_mae.pdf}
-        \caption{small, error}
-    \end{subfigure}\hfill
-    \begin{subfigure}{\linewidth}
-        \centering
-        \includegraphics[width=0.45\linewidth]{figs/tree_small_fr_runtime.pdf}
-        \caption{small, time}
-    \end{subfigure}
-    \\[0.3em]
-    \begin{subfigure}{\linewidth}
-        \centering
-        \includegraphics[width=0.8\linewidth]{figs/tree_large_fr_mae.pdf}
-        \caption{large, error}
-    \end{subfigure}\hfill
-    \begin{subfigure}{\linewidth}
-        \centering
-        \includegraphics[width=0.45\linewidth]{figs/tree_large_fr_runtime.pdf}
-        \caption{large, time}
-    \end{subfigure}
-    \caption{Random \texttt{tree} LCNs. Singly connected and fully realizable, so
-    the credal-network relaxation is tight: ARIEL and IVBP are indistinguishable
-    from the reference.}
+    \includegraphics[width=0.48\linewidth]{figs/nr_tree_mae_m.pdf}\hfill
+    \includegraphics[width=0.48\linewidth]{figs/nr_dag_mae_m.pdf}
+    \caption{Almost-realizable LCNs: MAE (mean of the two endpoints) against the number $m$ of added non-realizable sentences, for $n=10$ (solid) and $n=20$ (dashed); \texttt{tree} bases (left) and \texttt{dag} bases (right).}
+    \label{fig:nr-full}
+\end{figure}
+
+\input{outputs/results-nr.tex}
+\input{outputs/results-nr-ablation.tex}
+
+\clearpage
+\subsection{Random LCNs}
+\label{sec-random-full}
+
+Figures~\ref{fig:tree-full}--\ref{fig:dag-full} give the error and timing curves for all four topologies at both scales, and Tables~\ref{tab:full-tree-small}--\ref{tab:full-dag-large} the underlying per-size results. Bands in the error plots show one standard deviation over the atoms; times are medians over the solved instances.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.66\linewidth]{figs/tree_small_fr_mae.pdf}\hfill
+    \includegraphics[width=0.33\linewidth]{figs/tree_small_fr_runtime.pdf}\\[0.3em]
+    \includegraphics[width=0.66\linewidth]{figs/tree_large_fr_mae.pdf}\hfill
+    \includegraphics[width=0.33\linewidth]{figs/tree_large_fr_runtime.pdf}
+    \caption{Random \texttt{tree} LCNs, small (top) and large (bottom): error (left) and median total time (right). Singly connected and fully realizable: CVE, CVE$_\varepsilon$, IVBP, ARIEL and CJT$_{\text{ipopt}}$ coincide with the reference, and CDVE misses it on at most $2.1\%$ of the atoms (inner).}
     \label{fig:tree-full}
 \end{figure}
 
 \begin{figure}[htbp]
     \centering
-    \begin{subfigure}{\linewidth}
-        \centering
-        \includegraphics[width=0.8\linewidth]{figs/polytree_small_fr_mae.pdf}
-        \caption{small, error}
-    \end{subfigure}\hfill
-    \begin{subfigure}{\linewidth}
-        \centering
-        \includegraphics[width=0.45\linewidth]{figs/polytree_small_fr_runtime.pdf}
-        \caption{small, time}
-    \end{subfigure}
-    \\[0.3em]
-    \begin{subfigure}{\linewidth}
-        \centering
-        \includegraphics[width=0.8\linewidth]{figs/polytree_large_fr_mae.pdf}
-        \caption{large, error}
-    \end{subfigure}\hfill
-    \begin{subfigure}{0.5\linewidth}
-        \centering
-        \includegraphics[width=\linewidth]{figs/polytree_large_fr_runtime.pdf}
-        \caption{large, time}
-    \end{subfigure}
-    \caption{Random \texttt{polytree} LCNs. The primal structure is a polytree, but
-    $18/60$ small and $22/60$ large instances compile to a loopy credal network,
-    on which IVBP is not guaranteed exact; the residual
-    ARIEL error at the small scale comes from instances where the reference
-    itself is the tighter engine.}
+    \includegraphics[width=0.66\linewidth]{figs/polytree_small_fr_mae.pdf}\hfill
+    \includegraphics[width=0.33\linewidth]{figs/polytree_small_fr_runtime.pdf}\\[0.3em]
+    \includegraphics[width=0.66\linewidth]{figs/polytree_large_fr_mae.pdf}\hfill
+    \includegraphics[width=0.33\linewidth]{figs/polytree_large_fr_runtime.pdf}
+    \caption{Random \texttt{polytree} LCNs. Every instance compiles to a polytree credal network, so IVBP is exact on all of them (Theorem~\ref{thm:ibp}); ARIEL, which has no such guarantee, errs by up to $0.33$ on single endpoints of the small instances.}
     \label{fig:polytree-full}
 \end{figure}
 
 \begin{figure}[htbp]
     \centering
-    \begin{subfigure}{\linewidth}
-        \centering
-        \includegraphics[width=0.8\linewidth]{figs/ktree_small_fr_mae.pdf}
-        \caption{small, error}
-    \end{subfigure}\hfill
-    \begin{subfigure}{\linewidth}
-        \centering
-        \includegraphics[width=0.45\linewidth]{figs/ktree_small_fr_runtime.pdf}
-        \caption{small, time}
-    \end{subfigure}
-    \\[0.3em]
-    \begin{subfigure}{\linewidth}
-        \centering
-        \includegraphics[width=0.8\linewidth]{figs/ktree_large_fr_mae.pdf}
-        \caption{large, error}
-    \end{subfigure}\hfill
-    \begin{subfigure}{\linewidth}
-        \centering
-        \includegraphics[width=0.45\linewidth]{figs/ktree_large_fr_runtime.pdf}
-        \caption{large, time}
-    \end{subfigure}
-    \caption{Random \texttt{ktree} LCNs ($k{=}3$). Loopy despite bounded
-    treewidth, so all credal-network methods give outer bounds only; plain CVE
-    solves none of these instances and CVE$_{cm}$ stops after $n{=}20$.}
+    \includegraphics[width=0.66\linewidth]{figs/ktree_small_fr_mae.pdf}\hfill
+    \includegraphics[width=0.33\linewidth]{figs/ktree_small_fr_runtime.pdf}\\[0.3em]
+    \includegraphics[width=0.66\linewidth]{figs/ktree_large_fr_mae.pdf}\hfill
+    \includegraphics[width=0.33\linewidth]{figs/ktree_large_fr_runtime.pdf}
+    \caption{Random \texttt{ktree} LCNs ($k=3$). Loopy despite bounded treewidth: IVBP is a heuristic here (MAE about $10^{-3}$), CVE runs out of memory beyond $n=30$ and CVE$_\varepsilon$ beyond $n=50$, while CDVE matches the reference and CJT, whose program is linear here, certifies every endpoint in at most $20$ seconds.}
     \label{fig:ktree-full}
 \end{figure}
 
 \begin{figure}[htbp]
     \centering
-    \begin{subfigure}{\linewidth}
-        \centering
-        \includegraphics[width=0.8\linewidth]{figs/dag_small_fr_mae.pdf}
-        \caption{small, error}
-    \end{subfigure}\hfill
-    \begin{subfigure}{\linewidth}
-        \centering
-        \includegraphics[width=0.45\linewidth]{figs/dag_small_fr_runtime.pdf}
-        \caption{small, time}
-    \end{subfigure}
-    \\[0.3em]
-    \begin{subfigure}{\linewidth}
-        \centering
-        \includegraphics[width=0.8\linewidth]{figs/dag_large_fr_mae.pdf}
-        \caption{large, error}
-    \end{subfigure}\hfill
-    \begin{subfigure}{\linewidth}
-        \centering
-        \includegraphics[width=0.45\linewidth]{figs/dag_large_fr_runtime.pdf}
-        \caption{large, time}
-    \end{subfigure}
-    \caption{Random \texttt{dag} LCNs (moralized treewidth $\le 3$, at most two
-    parents). The least structured family; CDVE's runtime grows fastest here,
-    exceeding $600$ seconds at $n{=}100$.}
+    \includegraphics[width=0.66\linewidth]{figs/dag_small_fr_mae.pdf}\hfill
+    \includegraphics[width=0.33\linewidth]{figs/dag_small_fr_runtime.pdf}\\[0.3em]
+    \includegraphics[width=0.66\linewidth]{figs/dag_large_fr_mae.pdf}\hfill
+    \includegraphics[width=0.33\linewidth]{figs/dag_large_fr_runtime.pdf}
+    \caption{Random \texttt{dag} LCNs (moralized treewidth $\le 3$, at most two parents). The hardest set for the reference (median $787$ seconds at $n=100$, $81.6\%$ of the large-set endpoints certified) and for CJT$_{\text{ipopt}}$, which falls into local optima at $n=9$, $10$ and $20$; CVE, CVE$_\varepsilon$ and CDVE match the reference throughout.}
     \label{fig:dag-full}
 \end{figure}
 
@@ -4532,27 +4320,7 @@ at each size.
 \input{outputs/results-dag-small.tex}
 \input{outputs/results-dag-large.tex}
 
-\clearpage
-\subsection{Realistic LCNs}
-
-The two tables below give the complete per-instance results for the ten
-Bayesian-network-derived LCNs and the sixteen Supreme Court chain-graph LCNs,
-including the nine dense \texttt{supreme\_court} instances omitted from
-Table~\ref{tab:real}. On those nine, only ARIEL and the CredalJT reference
-complete: with $n{=}10$ atoms but $345$--$1009$ sentences, the size of the
-constraint system rather than the treewidth is the binding limit, and IVBP, CDVE
-and all CVE variants exhaust the budget. One instance in the suite,
-\texttt{benchmark\_scaling\_directions\_n24\_2}, is a repaired variant of the
-original benchmark: in the chain graph the four reviewers of a stage are mutually
-independent, so the probability of their conjunction is forced to the product of
-their marginals, which the original's \texttt{component} sentences contradicted;
-the three incompatible sentences were dropped and the repaired instance is
-consistent, verified by a junction-tree feasibility check.
-
-\input{outputs/results-real.tex}
-\clearpage
-\input{outputs/results-junkyu.tex}
-
+% REAL: realistic-LCN appendix subsection (after the rerun)
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

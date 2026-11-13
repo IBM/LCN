@@ -1,79 +1,60 @@
-\begin{table}[ht]
+\begin{table}[htbp]
 \centering
 \scriptsize
-\caption{Mean error metrics vs.\ CJT reference}
-\begin{tabular}{lrlrrrrrrr}
+\caption{Random \texttt{dag} LCNs, large scale: errors against the certified CJT (SCIP) endpoints, per size ($10$ instances each). MAE and SD are over atoms; max is the largest error of either endpoint; out/in are the fractions of atoms whose interval contains / is contained in the reference interval (tolerance $10^{-4}$); solved counts give timeouts (t) and memory-outs (m); time is the median total time in seconds over the solved instances. Exact inference over the $2^n$ joint is run only for $n \le 15$; its \emph{solved} instances may hold uncertified (dual) endpoints, hence its large errors.}
+\label{tab:full-dag-large}
+\begin{tabular}{rlrrrrrrrlr}
 \toprule
-Type & $n$ & Algorithm & MAE$_{\text{lb}}$ & MAE$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+$n$ & Method & MAE$_l$ & SD$_l$ & MAE$_u$ & SD$_u$ & max & out & in & solved & time \\
 \midrule
-$\text{dag\_fr\_tw3}$ & 10 & CDVE & 0.0012 & 0.0020 & 0.32 & 0.76 & 1.07 & 1.53 & 2.40 \\
-$\text{dag\_fr\_tw3}$ & 10 & ARIEL & 0.0013 & 0.0038 & 0.00 & 18.64 & 18.64 & 1.53 & -- \\
-$\text{dag\_fr\_tw3}$ & 10 & CVE$_{cm}$ & 0.1992 & 0.2057 & 0.32 & 0.41 & 0.72 & 1.53 & 2.40 \\
-$\text{dag\_fr\_tw3}$ & 10 & IBP & 0.0019 & 0.0030 & 0.31 & 0.03 & 0.34 & 1.53 & 2.40 \\
-\hline
-$\text{dag\_fr\_tw3}$ & 20 & CDVE & 0.0039 & 0.0023 & 0.67 & 8.53 & 9.20 & 4.17 & 2.60 \\
-$\text{dag\_fr\_tw3}$ & 20 & ARIEL & 0.0040 & 0.0026 & 0.00 & 9.46 & 9.46 & 4.17 & -- \\
-$\text{dag\_fr\_tw3}$ & 20 & CVE$_{cm}$ & 0.3072 & 0.3114 & 0.65 & 23.43 & 24.08 & 4.17 & 2.60 \\
-$\text{dag\_fr\_tw3}$ & 20 & IBP & 0.0037 & 0.0026 & 0.66 & 0.07 & 0.73 & 4.17 & 2.60 \\
-\hline
-$\text{dag\_fr\_tw3}$ & 30 & CDVE & 0.0025 & 0.0023 & 1.03 & 36.88 & 37.90 & 10.25 & 2.80 \\
-$\text{dag\_fr\_tw3}$ & 30 & ARIEL & 0.0013 & 0.0001 & 0.00 & 13.20 & 13.20 & 10.25 & -- \\
-$\text{dag\_fr\_tw3}$ & 30 & CVE$_{cm}$ & 0.3439 & 0.3465 & 0.95 & 284.01 & 284.96 & 10.25 & 2.75 \\
-$\text{dag\_fr\_tw3}$ & 30 & IBP & 0.0021 & 0.0018 & 0.94 & 0.09 & 1.03 & 10.25 & 2.80 \\
-\hline
-$\text{dag\_fr\_tw3}$ & 40 & CDVE & 0.0039 & 0.0036 & 1.43 & 110.19 & 111.62 & 14.22 & 3.00 \\
-$\text{dag\_fr\_tw3}$ & 40 & ARIEL & 0.0009 & 0.0034 & 0.00 & 32.43 & 32.43 & 14.22 & -- \\
-$\text{dag\_fr\_tw3}$ & 40 & CVE$_{cm}$ & 0.3173 & 0.3677 & 1.09 & 1135.19 & 1136.29 & 14.22 & 3.00 \\
-$\text{dag\_fr\_tw3}$ & 40 & IBP & 0.0019 & 0.0018 & 1.35 & 0.17 & 1.51 & 14.22 & 3.00 \\
-\hline
-$\text{dag\_fr\_tw3}$ & 50 & CDVE & 0.0037 & 0.0032 & 1.65 & 238.85 & 240.50 & 23.21 & 3.00 \\
-$\text{dag\_fr\_tw3}$ & 50 & ARIEL & 0.0011 & 0.0008 & 0.00 & 24.86 & 24.86 & 23.21 & -- \\
-$\text{dag\_fr\_tw3}$ & 50 & CVE$_{cm}$ & 0.3756 & 0.3915 & 1.54 & 194.40 & 195.94 & 23.21 & 3.00 \\
-$\text{dag\_fr\_tw3}$ & 50 & IBP & 0.0027 & 0.0020 & 1.67 & 0.20 & 1.87 & 23.21 & 3.00 \\
-\hline
-$\text{dag\_fr\_tw3}$ & 100 & CDVE & 0.0030 & 0.0024 & 3.00 & 3278.99 & 3281.98 & 80.21 & 3.00 \\
-$\text{dag\_fr\_tw3}$ & 100 & ARIEL & 0.0013 & 0.0010 & 0.00 & 56.21 & 56.21 & 80.21 & -- \\
-$\text{dag\_fr\_tw3}$ & 100 & IBP & 0.0013 & 0.0012 & 3.34 & 0.40 & 3.75 & 80.21 & 3.00 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{table}[ht]
-\centering
-\scriptsize
-\caption{Standard deviation of error metrics vs.\ CJT reference}
-\begin{tabular}{lrlrrrrrrr}
-\toprule
-Type & $n$ & Algorithm & SD$_{\text{lb}}$ & SD$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+10 & CJT (SCIP), reference & \multicolumn{7}{l}{certified endpoints 194/200, instances 7/10} & 10/10 & 91.7 \\
+ & Exact (SCIP) & .0909 & .1601 & .1094 & .2441 & .8658 & 1.000 & 0.321 & 3/10 (7t) & 2570 \\
+ & ARIEL & .0078 & .0345 & .0077 & .0427 & .3835 & 0.947 & 0.840 & 10/10 & 11.9 \\
+ & CJT (ipopt) & 0 & 0 & 0 & 0 & .0002 & 0.989 & 1.000 & 10/10 & 3.11 \\
+ & CVE & 0 & 0 & 0 & 0 & .0002 & 0.989 & 1.000 & 10/10 & 3.25 \\
+ & CVE$_\varepsilon$ ($\varepsilon{=}0.01$) & 0 & 0 & 0 & 0 & .0002 & 0.989 & 1.000 & 10/10 & 1.13 \\
+ & IVBP & .0009 & .0035 & .0013 & .0066 & .0485 & 0.862 & 0.926 & 10/10 & 0.29 \\
+ & CDVE & 0 & 0 & 0 & 0 & .0002 & 0.989 & 1.000 & 10/10 & 0.38 \\
 \midrule
-$\text{dag\_fr\_tw3}$ & 10 & CDVE & 0.0060 & 0.0079 & 0.32 & 0.76 & 1.07 & 1.53 & 2.40 \\
-$\text{dag\_fr\_tw3}$ & 10 & ARIEL & 0.0070 & 0.0196 & 0.00 & 18.64 & 18.64 & 1.53 & -- \\
-$\text{dag\_fr\_tw3}$ & 10 & CVE$_{cm}$ & 0.1675 & 0.1789 & 0.32 & 0.41 & 0.72 & 1.53 & 2.40 \\
-$\text{dag\_fr\_tw3}$ & 10 & IBP & 0.0066 & 0.0099 & 0.31 & 0.03 & 0.34 & 1.53 & 2.40 \\
-\hline
-$\text{dag\_fr\_tw3}$ & 20 & CDVE & 0.0155 & 0.0093 & 0.67 & 8.53 & 9.20 & 4.17 & 2.60 \\
-$\text{dag\_fr\_tw3}$ & 20 & ARIEL & 0.0180 & 0.0147 & 0.00 & 9.46 & 9.46 & 4.17 & -- \\
-$\text{dag\_fr\_tw3}$ & 20 & CVE$_{cm}$ & 0.1853 & 0.1833 & 0.65 & 23.43 & 24.08 & 4.17 & 2.60 \\
-$\text{dag\_fr\_tw3}$ & 20 & IBP & 0.0115 & 0.0099 & 0.66 & 0.07 & 0.73 & 4.17 & 2.60 \\
-\hline
-$\text{dag\_fr\_tw3}$ & 30 & CDVE & 0.0092 & 0.0122 & 1.03 & 36.88 & 37.90 & 10.25 & 2.80 \\
-$\text{dag\_fr\_tw3}$ & 30 & ARIEL & 0.0118 & 0.0022 & 0.00 & 13.20 & 13.20 & 10.25 & -- \\
-$\text{dag\_fr\_tw3}$ & 30 & CVE$_{cm}$ & 0.1779 & 0.1827 & 0.95 & 284.01 & 284.96 & 10.25 & 2.75 \\
-$\text{dag\_fr\_tw3}$ & 30 & IBP & 0.0085 & 0.0100 & 0.94 & 0.09 & 1.03 & 10.25 & 2.80 \\
-\hline
-$\text{dag\_fr\_tw3}$ & 40 & CDVE & 0.0148 & 0.0189 & 1.43 & 110.19 & 111.62 & 14.22 & 3.00 \\
-$\text{dag\_fr\_tw3}$ & 40 & ARIEL & 0.0046 & 0.0312 & 0.00 & 32.43 & 32.43 & 14.22 & -- \\
-$\text{dag\_fr\_tw3}$ & 40 & CVE$_{cm}$ & 0.1591 & 0.2025 & 1.09 & 1135.19 & 1136.29 & 14.22 & 3.00 \\
-$\text{dag\_fr\_tw3}$ & 40 & IBP & 0.0081 & 0.0073 & 1.35 & 0.17 & 1.51 & 14.22 & 3.00 \\
-\hline
-$\text{dag\_fr\_tw3}$ & 50 & CDVE & 0.0173 & 0.0148 & 1.65 & 238.85 & 240.50 & 23.21 & 3.00 \\
-$\text{dag\_fr\_tw3}$ & 50 & ARIEL & 0.0122 & 0.0063 & 0.00 & 24.86 & 24.86 & 23.21 & -- \\
-$\text{dag\_fr\_tw3}$ & 50 & CVE$_{cm}$ & 0.1807 & 0.1878 & 1.54 & 194.40 & 195.94 & 23.21 & 3.00 \\
-$\text{dag\_fr\_tw3}$ & 50 & IBP & 0.0124 & 0.0080 & 1.67 & 0.20 & 1.87 & 23.21 & 3.00 \\
-\hline
-$\text{dag\_fr\_tw3}$ & 100 & CDVE & 0.0167 & 0.0142 & 3.00 & 3278.99 & 3281.98 & 80.21 & 3.00 \\
-$\text{dag\_fr\_tw3}$ & 100 & ARIEL & 0.0096 & 0.0083 & 0.00 & 56.21 & 56.21 & 80.21 & -- \\
-$\text{dag\_fr\_tw3}$ & 100 & IBP & 0.0062 & 0.0064 & 3.34 & 0.40 & 3.75 & 80.21 & 3.00 \\
+20 & CJT (SCIP), reference & \multicolumn{7}{l}{certified endpoints 385/400, instances 4/10} & 10/10 & 166 \\
+ & ARIEL & .0047 & .0185 & .0034 & .0163 & .1758 & 1.000 & 0.783 & 10/10 & 29.6 \\
+ & CJT (ipopt) & .0178 & .0754 & .0124 & .0595 & .5784 & 1.000 & 0.794 & 10/10 & 9.51 \\
+ & CVE & 0 & 0 & 0 & 0 & .0001 & 1.000 & 1.000 & 10/10 & 20.5 \\
+ & CVE$_\varepsilon$ ($\varepsilon{=}0.01$) & 0 & 0 & 0 & 0 & .0001 & 1.000 & 1.000 & 10/10 & 10.4 \\
+ & IVBP & .0028 & .0095 & .0018 & .0075 & .0769 & 0.899 & 0.836 & 10/10 & 0.63 \\
+ & CDVE & 0 & 0 & 0 & .0001 & .0009 & 0.995 & 1.000 & 10/10 & 0.88 \\
+\midrule
+30 & CJT (SCIP), reference & \multicolumn{7}{l}{certified endpoints 564/600, instances 4/10} & 10/10 & 180 \\
+ & ARIEL & .0017 & .0125 & .0007 & .0050 & .1447 & 1.000 & 0.884 & 10/10 & 36.3 \\
+ & CJT (ipopt) & 0 & 0 & 0 & 0 & .0001 & 1.000 & 1.000 & 10/10 & 21.3 \\
+ & CVE & 0 & 0 & 0 & 0 & .0001 & 1.000 & 1.000 & 10/10 & 177 \\
+ & CVE$_\varepsilon$ ($\varepsilon{=}0.01$) & 0 & 0 & 0 & 0 & .0001 & 1.000 & 1.000 & 10/10 & 51.8 \\
+ & IVBP & .0007 & .0056 & .0003 & .0017 & .0664 & 0.938 & 0.946 & 10/10 & 0.94 \\
+ & CDVE & 0 & 0 & 0 & 0 & .0001 & 1.000 & 1.000 & 10/10 & 1.42 \\
+\midrule
+40 & CJT (SCIP), reference & \multicolumn{7}{l}{certified endpoints 687/800, instances 2/10} & 10/10 & 500 \\
+ & ARIEL & .0010 & .0054 & .0025 & .0218 & .3764 & 0.994 & 0.890 & 10/10 & 60.1 \\
+ & CJT (ipopt) & 0 & 0 & 0 & 0 & .0003 & 0.991 & 1.000 & 10/10 & 22.2 \\
+ & CVE & 0 & 0 & 0 & 0 & .0001 & 1.000 & 1.000 & 10/10 & 202 \\
+ & CVE$_\varepsilon$ ($\varepsilon{=}0.01$) & 0 & 0 & 0 & 0 & .0001 & 1.000 & 1.000 & 10/10 & 38.6 \\
+ & IVBP & .0005 & .0029 & .0010 & .0055 & .0784 & 0.915 & 0.909 & 10/10 & 1.31 \\
+ & CDVE & 0 & .0004 & 0 & 0 & .0068 & 0.987 & 1.000 & 10/10 & 2.10 \\
+\midrule
+50 & CJT (SCIP), reference & \multicolumn{7}{l}{certified endpoints 852/1000, instances 1/10} & 10/10 & 637 \\
+ & ARIEL & .0013 & .0133 & .0007 & .0058 & .1924 & 1.000 & 0.890 & 10/10 & 73.2 \\
+ & CJT (ipopt) & 0 & 0 & 0 & 0 & .0002 & 0.997 & 1.000 & 10/10 & 38.5 \\
+ & CVE & 0 & 0 & 0 & 0 & .0002 & 0.996 & 1.000 & 7/10 (3m) & 235 \\
+ & CVE$_\varepsilon$ ($\varepsilon{=}0.01$) & 0 & 0 & 0 & 0 & .0002 & 0.997 & 1.000 & 10/10 & 132 \\
+ & IVBP & .0008 & .0070 & .0006 & .0029 & .1011 & 0.922 & 0.905 & 10/10 & 1.65 \\
+ & CDVE & 0 & 0 & 0 & 0 & .0006 & 0.990 & 1.000 & 10/10 & 2.62 \\
+\midrule
+100 & CJT (SCIP), reference & \multicolumn{7}{l}{certified endpoints 1398/2000, instances 0/10} & 9/10 (1t) & 787 \\
+ & ARIEL & .0016 & .0105 & .0010 & .0087 & .1680 & 1.000 & 0.888 & 10/10 & 123 \\
+ & CJT (ipopt) & 0 & 0 & 0 & 0 & .0001 & 1.000 & 1.000 & 9/10 (1t) & 218 \\
+ & CVE & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 2/10 (8m) & 792 \\
+ & CVE$_\varepsilon$ ($\varepsilon{=}0.01$) & 0 & 0 & 0 & 0 & .0001 & 1.000 & 1.000 & 9/10 (1m) & 436 \\
+ & IVBP & .0013 & .0063 & .0009 & .0051 & .0731 & 0.933 & 0.891 & 10/10 & 3.29 \\
+ & CDVE & 0 & .0004 & 0 & 0 & .0095 & 0.995 & 1.000 & 10/10 & 5.73 \\
 \bottomrule
 \end{tabular}
 \end{table}

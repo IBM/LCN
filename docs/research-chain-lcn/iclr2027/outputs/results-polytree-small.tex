@@ -1,91 +1,71 @@
-\begin{table}[ht]
+\begin{table}[htbp]
 \centering
 \scriptsize
-\caption{Mean error metrics vs.\ CJT reference}
-\begin{tabular}{lrlrrrrrrr}
+\caption{Random \texttt{polytree} LCNs, small scale: errors against the certified CJT (SCIP) endpoints, per size ($10$ instances each). MAE and SD are over atoms; max is the largest error of either endpoint; out/in are the fractions of atoms whose interval contains / is contained in the reference interval (tolerance $10^{-4}$); solved counts give timeouts (t) and memory-outs (m); time is the median total time in seconds over the solved instances. Exact inference over the $2^n$ joint is run only for $n \le 15$; its \emph{solved} instances may hold uncertified (dual) endpoints, hence its large errors.}
+\label{tab:full-polytree-small}
+\begin{tabular}{rlrrrrrrrlr}
 \toprule
-Type & $n$ & Algorithm & MAE$_{\text{lb}}$ & MAE$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+$n$ & Method & MAE$_l$ & SD$_l$ & MAE$_u$ & SD$_u$ & max & out & in & solved & time \\
 \midrule
-$\text{polytree\_fr}$ & 5 & CDVE & 0.0001 & 0.0005 & 0.10 & 0.05 & 0.15 & 0.39 & 1.50 \\
-$\text{polytree\_fr}$ & 5 & ARIEL & 0.0198 & 0.0096 & 0.00 & 20.68 & 20.68 & 0.39 & -- \\
-$\text{polytree\_fr}$ & 5 & CVE & 0.0000 & 0.0005 & 0.11 & 44.41 & 44.52 & 0.39 & 1.50 \\
-$\text{polytree\_fr}$ & 5 & CVE$_{cm}$ & 0.0545 & 0.0550 & 0.11 & 0.03 & 0.13 & 0.39 & 1.50 \\
-$\text{polytree\_fr}$ & 5 & IBP & 0.0000 & 0.0005 & 0.11 & 0.01 & 0.11 & 0.39 & 1.50 \\
-\hline
-$\text{polytree\_fr}$ & 6 & CDVE & 0.0039 & 0.0000 & 0.12 & 0.08 & 0.20 & 0.44 & 1.40 \\
-$\text{polytree\_fr}$ & 6 & ARIEL & 0.0010 & 0.0166 & 0.00 & 8.51 & 8.51 & 0.44 & -- \\
-$\text{polytree\_fr}$ & 6 & CVE & 0.0000 & 0.0000 & 0.14 & 445.58 & 445.71 & 0.44 & 1.40 \\
-$\text{polytree\_fr}$ & 6 & CVE$_{cm}$ & 0.0789 & 0.0508 & 0.12 & 0.04 & 0.16 & 0.44 & 1.40 \\
-$\text{polytree\_fr}$ & 6 & IBP & 0.0000 & 0.0000 & 0.12 & 0.01 & 0.13 & 0.44 & 1.40 \\
-\hline
-$\text{polytree\_fr}$ & 7 & CDVE & 0.0002 & 0.0004 & 0.15 & 0.15 & 0.30 & 0.73 & 1.70 \\
-$\text{polytree\_fr}$ & 7 & ARIEL & 0.0002 & 0.0114 & 0.00 & 44.04 & 44.04 & 0.73 & -- \\
-$\text{polytree\_fr}$ & 7 & CVE & 0.0003 & 0.0000 & 0.13 & 849.79 & 849.92 & 0.73 & 1.40 \\
-$\text{polytree\_fr}$ & 7 & CVE$_{cm}$ & 0.0790 & 0.0845 & 0.15 & 0.06 & 0.22 & 0.73 & 1.70 \\
-$\text{polytree\_fr}$ & 7 & IBP & 0.0002 & 0.0004 & 0.15 & 0.01 & 0.16 & 0.73 & 1.70 \\
-\hline
-$\text{polytree\_fr}$ & 8 & CDVE & 0.0001 & 0.0017 & 0.16 & 0.22 & 0.38 & 0.91 & 1.40 \\
-$\text{polytree\_fr}$ & 8 & ARIEL & 0.0010 & 0.0139 & 0.00 & 3.33 & 3.33 & 0.91 & -- \\
-$\text{polytree\_fr}$ & 8 & CVE & 0.0000 & 0.0000 & 0.15 & 2213.21 & 2213.37 & 0.91 & 1.00 \\
-$\text{polytree\_fr}$ & 8 & CVE$_{cm}$ & 0.1354 & 0.1082 & 0.18 & 0.09 & 0.27 & 0.91 & 1.40 \\
-$\text{polytree\_fr}$ & 8 & IBP & 0.0000 & 0.0000 & 0.17 & 0.01 & 0.17 & 0.91 & 1.40 \\
-\hline
-$\text{polytree\_fr}$ & 9 & CDVE & 0.0015 & 0.0042 & 0.18 & 0.32 & 0.50 & 0.99 & 1.30 \\
-$\text{polytree\_fr}$ & 9 & ARIEL & 0.0019 & 0.0012 & 0.00 & 26.20 & 26.20 & 0.99 & -- \\
-$\text{polytree\_fr}$ & 9 & CVE$_{cm}$ & 0.1264 & 0.1290 & 0.19 & 0.12 & 0.31 & 0.99 & 1.30 \\
-$\text{polytree\_fr}$ & 9 & IBP & 0.0000 & 0.0000 & 0.18 & 0.01 & 0.19 & 0.99 & 1.30 \\
-\hline
-$\text{polytree\_fr}$ & 10 & CDVE & 0.0014 & 0.0011 & 0.19 & 0.43 & 0.62 & 1.11 & 1.30 \\
-$\text{polytree\_fr}$ & 10 & ARIEL & 0.0046 & 0.0011 & 0.00 & 11.47 & 11.47 & 1.11 & -- \\
-$\text{polytree\_fr}$ & 10 & CVE & 0.0000 & 0.0000 & 0.16 & 2149.12 & 2149.28 & 1.11 & 1.00 \\
-$\text{polytree\_fr}$ & 10 & CVE$_{cm}$ & 0.1124 & 0.1220 & 0.20 & 0.14 & 0.33 & 1.11 & 1.30 \\
-$\text{polytree\_fr}$ & 10 & IBP & 0.0010 & 0.0010 & 0.20 & 0.01 & 0.21 & 1.11 & 1.30 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{table}[ht]
-\centering
-\scriptsize
-\caption{Standard deviation of error metrics vs.\ CJT reference}
-\begin{tabular}{lrlrrrrrrr}
-\toprule
-Type & $n$ & Algorithm & SD$_{\text{lb}}$ & SD$_{\text{ub}}$ & Build & Run & Total & Ref & IW \\
+5 & CJT (SCIP), reference & \multicolumn{7}{l}{certified endpoints 100/100, instances 10/10} & 10/10 & 0.53 \\
+ & Exact (SCIP) & .0001 & .0006 & .0057 & .0393 & .2809 & 0.940 & 0.980 & 10/10 & 400 \\
+ & Exact (ipopt) & .2072 & .1742 & .1949 & .1718 & .5715 & 0.060 & 1.000 & 10/10 & 34.9 \\
+ & ARIEL & .0007 & .0041 & .0065 & .0251 & .1563 & 0.960 & 0.840 & 10/10 & 4.84 \\
+ & CJT (ipopt) & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.88 \\
+ & CVE & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.70 \\
+ & CVE$_\varepsilon$ ($\varepsilon{=}0.01$) & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.68 \\
+ & IVBP & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.11 \\
+ & CDVE & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.13 \\
 \midrule
-$\text{polytree\_fr}$ & 5 & CDVE & 0.0004 & 0.0029 & 0.10 & 0.05 & 0.15 & 0.39 & 1.50 \\
-$\text{polytree\_fr}$ & 5 & ARIEL & 0.1010 & 0.0475 & 0.00 & 20.68 & 20.68 & 0.39 & -- \\
-$\text{polytree\_fr}$ & 5 & CVE & 0.0001 & 0.0029 & 0.11 & 44.41 & 44.52 & 0.39 & 1.50 \\
-$\text{polytree\_fr}$ & 5 & CVE$_{cm}$ & 0.0925 & 0.0898 & 0.11 & 0.03 & 0.13 & 0.39 & 1.50 \\
-$\text{polytree\_fr}$ & 5 & IBP & 0.0001 & 0.0029 & 0.11 & 0.01 & 0.11 & 0.39 & 1.50 \\
-\hline
-$\text{polytree\_fr}$ & 6 & CDVE & 0.0222 & 0.0000 & 0.12 & 0.08 & 0.20 & 0.44 & 1.40 \\
-$\text{polytree\_fr}$ & 6 & ARIEL & 0.0042 & 0.0702 & 0.00 & 8.51 & 8.51 & 0.44 & -- \\
-$\text{polytree\_fr}$ & 6 & CVE & 0.0000 & 0.0000 & 0.14 & 445.58 & 445.71 & 0.44 & 1.40 \\
-$\text{polytree\_fr}$ & 6 & CVE$_{cm}$ & 0.1063 & 0.0718 & 0.12 & 0.04 & 0.16 & 0.44 & 1.40 \\
-$\text{polytree\_fr}$ & 6 & IBP & 0.0000 & 0.0000 & 0.12 & 0.01 & 0.13 & 0.44 & 1.40 \\
-\hline
-$\text{polytree\_fr}$ & 7 & CDVE & 0.0012 & 0.0032 & 0.15 & 0.15 & 0.30 & 0.73 & 1.70 \\
-$\text{polytree\_fr}$ & 7 & ARIEL & 0.0009 & 0.0560 & 0.00 & 44.04 & 44.04 & 0.73 & -- \\
-$\text{polytree\_fr}$ & 7 & CVE & 0.0017 & 0.0001 & 0.13 & 849.79 & 849.92 & 0.73 & 1.40 \\
-$\text{polytree\_fr}$ & 7 & CVE$_{cm}$ & 0.0922 & 0.0982 & 0.15 & 0.06 & 0.22 & 0.73 & 1.70 \\
-$\text{polytree\_fr}$ & 7 & IBP & 0.0012 & 0.0032 & 0.15 & 0.01 & 0.16 & 0.73 & 1.70 \\
-\hline
-$\text{polytree\_fr}$ & 8 & CDVE & 0.0011 & 0.0150 & 0.16 & 0.22 & 0.38 & 0.91 & 1.40 \\
-$\text{polytree\_fr}$ & 8 & ARIEL & 0.0064 & 0.0608 & 0.00 & 3.33 & 3.33 & 0.91 & -- \\
-$\text{polytree\_fr}$ & 8 & CVE & 0.0000 & 0.0000 & 0.15 & 2213.21 & 2213.37 & 0.91 & 1.00 \\
-$\text{polytree\_fr}$ & 8 & CVE$_{cm}$ & 0.1220 & 0.1051 & 0.18 & 0.09 & 0.27 & 0.91 & 1.40 \\
-$\text{polytree\_fr}$ & 8 & IBP & 0.0000 & 0.0000 & 0.17 & 0.01 & 0.17 & 0.91 & 1.40 \\
-\hline
-$\text{polytree\_fr}$ & 9 & CDVE & 0.0067 & 0.0234 & 0.18 & 0.32 & 0.50 & 0.99 & 1.30 \\
-$\text{polytree\_fr}$ & 9 & ARIEL & 0.0126 & 0.0088 & 0.00 & 26.20 & 26.20 & 0.99 & -- \\
-$\text{polytree\_fr}$ & 9 & CVE$_{cm}$ & 0.1301 & 0.1497 & 0.19 & 0.12 & 0.31 & 0.99 & 1.30 \\
-$\text{polytree\_fr}$ & 9 & IBP & 0.0000 & 0.0001 & 0.18 & 0.01 & 0.19 & 0.99 & 1.30 \\
-\hline
-$\text{polytree\_fr}$ & 10 & CDVE & 0.0093 & 0.0094 & 0.19 & 0.43 & 0.62 & 1.11 & 1.30 \\
-$\text{polytree\_fr}$ & 10 & ARIEL & 0.0331 & 0.0088 & 0.00 & 11.47 & 11.47 & 1.11 & -- \\
-$\text{polytree\_fr}$ & 10 & CVE & 0.0000 & 0.0000 & 0.16 & 2149.12 & 2149.28 & 1.11 & 1.00 \\
-$\text{polytree\_fr}$ & 10 & CVE$_{cm}$ & 0.1343 & 0.1404 & 0.20 & 0.14 & 0.33 & 1.11 & 1.30 \\
-$\text{polytree\_fr}$ & 10 & IBP & 0.0092 & 0.0094 & 0.20 & 0.01 & 0.21 & 1.11 & 1.30 \\
+6 & CJT (SCIP), reference & \multicolumn{7}{l}{certified endpoints 120/120, instances 10/10} & 10/10 & 0.65 \\
+ & Exact (SCIP) & .0384 & .0811 & .0843 & .2010 & .7774 & 0.650 & 0.683 & 10/10 & 1378 \\
+ & Exact (ipopt) & .1267 & .1568 & .1691 & .2154 & .7580 & 0.567 & 0.617 & 10/10 & 147 \\
+ & ARIEL & .0091 & .0461 & .0116 & .0520 & .3315 & 0.917 & 0.883 & 10/10 & 5.51 \\
+ & CJT (ipopt) & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 1.51 \\
+ & CVE & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.71 \\
+ & CVE$_\varepsilon$ ($\varepsilon{=}0.01$) & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.68 \\
+ & IVBP & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.13 \\
+ & CDVE & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.16 \\
+\midrule
+7 & CJT (SCIP), reference & \multicolumn{7}{l}{certified endpoints 140/140, instances 10/10} & 10/10 & 0.71 \\
+ & Exact (SCIP) & .1648 & .2221 & .1281 & .2019 & .8119 & 0.986 & 0.086 & 10/10 & 3247 \\
+ & Exact (ipopt) & .1867 & .2383 & .1414 & .2018 & .8119 & 0.889 & 0.206 & 9/10 (1t) & 695 \\
+ & ARIEL & .0028 & .0109 & .0061 & .0252 & .1689 & 0.929 & 0.943 & 10/10 & 6.64 \\
+ & CJT (ipopt) & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 1.98 \\
+ & CVE & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.32 \\
+ & CVE$_\varepsilon$ ($\varepsilon{=}0.01$) & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.32 \\
+ & IVBP & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.15 \\
+ & CDVE & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.18 \\
+\midrule
+8 & CJT (SCIP), reference & \multicolumn{7}{l}{certified endpoints 160/160, instances 10/10} & 10/10 & 0.79 \\
+ & Exact (SCIP) & .1185 & .2169 & .1090 & .2034 & .9386 & 1.000 & 0.188 & 10/10 & 3272 \\
+ & Exact (ipopt) & .1363 & .2288 & .1041 & .1858 & .8437 & 1.000 & 0.083 & 3/10 (7t) & 2254 \\
+ & ARIEL & .0005 & .0041 & .0012 & .0073 & .0533 & 1.000 & 0.950 & 10/10 & 9.20 \\
+ & CJT (ipopt) & .0084 & .0428 & .0192 & .0965 & .6598 & 1.000 & 0.912 & 10/10 & 1.76 \\
+ & CVE & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.33 \\
+ & CVE$_\varepsilon$ ($\varepsilon{=}0.01$) & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.34 \\
+ & IVBP & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.16 \\
+ & CDVE & .0003 & .0022 & 0 & 0 & .0202 & 0.988 & 1.000 & 10/10 & 0.21 \\
+\midrule
+9 & CJT (SCIP), reference & \multicolumn{7}{l}{certified endpoints 180/180, instances 10/10} & 10/10 & 1.03 \\
+ & Exact (SCIP) & .0829 & .1521 & .1193 & .2137 & .7798 & 1.000 & 0.167 & 10/10 & 3344 \\
+ & Exact (ipopt) & -- & -- & -- & -- & -- & -- & -- & 0/10 (10t) & -- \\
+ & ARIEL & .0017 & .0105 & .0008 & .0051 & .0873 & 1.000 & 0.922 & 10/10 & 10.6 \\
+ & CJT (ipopt) & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 1.89 \\
+ & CVE & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.37 \\
+ & CVE$_\varepsilon$ ($\varepsilon{=}0.01$) & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.37 \\
+ & IVBP & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.19 \\
+ & CDVE & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.25 \\
+\midrule
+10 & CJT (SCIP), reference & \multicolumn{7}{l}{certified endpoints 200/200, instances 10/10} & 10/10 & 1.02 \\
+ & Exact (SCIP) & .0722 & .1491 & .0729 & .1738 & .8009 & 1.000 & 0.180 & 5/10 (5t) & 3144 \\
+ & Exact (ipopt) & -- & -- & -- & -- & -- & -- & -- & 0/10 (10t) & -- \\
+ & ARIEL & 0 & .0001 & .0003 & .0022 & .0188 & 1.000 & 0.930 & 10/10 & 9.45 \\
+ & CJT (ipopt) & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 2.23 \\
+ & CVE & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.38 \\
+ & CVE$_\varepsilon$ ($\varepsilon{=}0.01$) & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.40 \\
+ & IVBP & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.20 \\
+ & CDVE & 0 & 0 & 0 & 0 & 0 & 1.000 & 1.000 & 10/10 & 0.30 \\
 \bottomrule
 \end{tabular}
 \end{table}

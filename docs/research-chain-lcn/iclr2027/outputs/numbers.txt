@@ -1,0 +1,229 @@
+ref tree_small_fr: cert 900/900=100.0% full 60/60 tmed 0.6 tmax 1 width 2 modes {'ordered': 60} relaxed 0 nonlinear med 0.0 max 0
+ref tree_large_fr: cert 5000/5000=100.0% full 60/60 tmed 3.3 tmax 11 width 2 modes {'ordered': 60} relaxed 0 nonlinear med 0.0 max 0
+ref polytree_small_fr: cert 900/900=100.0% full 60/60 tmed 0.7 tmax 5 width 3 modes {'ordered': 60} relaxed 0 nonlinear med 2.0 max 14
+ref polytree_large_fr: cert 5000/5000=100.0% full 60/60 tmed 4.0 tmax 49 width 3 modes {'ordered': 60} relaxed 0 nonlinear med 0.0 max 14
+ref ktree_small_fr: cert 900/900=100.0% full 60/60 tmed 0.6 tmax 1 width 4 modes {'ordered': 60} relaxed 0 nonlinear med 0.0 max 0
+ref ktree_large_fr: cert 5000/5000=100.0% full 60/60 tmed 4.5 tmax 20 width 4 modes {'ordered': 60} relaxed 0 nonlinear med 0.0 max 0
+ref dag_small_fr: cert 887/900=98.6% full 56/60 tmed 0.9 tmax 1141 width 5 modes {'ordered': 60} relaxed 0 nonlinear med 2.0 max 34
+ref dag_large_fr: cert 4080/5000=81.6% full 18/60 tmed 388.8 tmax 3304 width 8 modes {'ordered': 59} relaxed 0 nonlinear med 36 max 528
+ref nr_tree: cert 2991/3000=99.7% full 94/100 tmed 1.7 tmax 663 width 5 modes {'ordered': 100} relaxed 0 nonlinear med 4.0 max 28
+ref nr_dag: cert 2868/3000=95.6% full 55/100 tmed 53.7 tmax 1331 width 5 modes {'ordered': 100} relaxed 0 nonlinear med 18.0 max 64
+ref nr_dag_ablation: cert 1085/1200=90.4% full 40/60 tmed 9.7 tmax 3242 width 6 modes {'ordered': 60} relaxed 0 nonlinear med 8.0 max 78
+solved tree_small_fr exact_scip: 59/60 (1t)
+solved tree_small_fr exact_ipopt: 35/60 (25t)
+solved tree_small_fr ariel: 60/60
+solved tree_small_fr cjt_ipopt: 60/60
+solved tree_small_fr cve: 60/60
+solved tree_small_fr cve_eps_0.01: 60/60
+solved tree_small_fr ivbp: 60/60
+solved tree_small_fr cdve: 60/60
+agg tree_small_fr ariel: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg tree_small_fr cjt_ipopt: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg tree_small_fr cve: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg tree_small_fr cve_eps_0.01: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg tree_small_fr ivbp: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg tree_small_fr cdve: mae 0.00000/0.00000 max 0.0010/0.0000 out 0.998 in 1.000 wr 1.000 viol 0
+solved tree_large_fr exact_scip: 9/10 (1t)
+solved tree_large_fr exact_ipopt: 0/10 (10t)
+solved tree_large_fr ariel: 60/60
+solved tree_large_fr cjt_ipopt: 60/60
+solved tree_large_fr cve: 60/60
+solved tree_large_fr cve_eps_0.01: 60/60
+solved tree_large_fr ivbp: 60/60
+solved tree_large_fr cdve: 60/60
+agg tree_large_fr ariel: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg tree_large_fr cjt_ipopt: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg tree_large_fr cve: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg tree_large_fr cve_eps_0.01: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg tree_large_fr ivbp: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg tree_large_fr cdve: mae 0.00011/0.00004 max 0.0848/0.0351 out 0.979 in 1.000 wr 1.000 viol 0
+solved polytree_small_fr exact_scip: 55/60 (5t)
+solved polytree_small_fr exact_ipopt: 32/60 (28t)
+solved polytree_small_fr ariel: 60/60
+solved polytree_small_fr cjt_ipopt: 60/60
+solved polytree_small_fr cve: 60/60
+solved polytree_small_fr cve_eps_0.01: 60/60
+solved polytree_small_fr ivbp: 60/60
+solved polytree_small_fr cdve: 60/60
+agg polytree_small_fr ariel: mae 0.00215/0.00367 max 0.3315/0.3132 out 0.973 in 0.918 wr 0.995 viol 0
+agg polytree_small_fr cjt_ipopt: mae 0.00149/0.00340 max 0.2908/0.6598 out 1.000 in 0.984 wr 1.024 viol 0
+agg polytree_small_fr cve: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg polytree_small_fr cve_eps_0.01: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg polytree_small_fr ivbp: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg polytree_small_fr cdve: mae 0.00005/0.00000 max 0.0202/0.0000 out 0.998 in 1.000 wr 1.000 viol 0
+solved polytree_large_fr exact_scip: 3/10 (7t)
+solved polytree_large_fr exact_ipopt: 0/10 (10t)
+solved polytree_large_fr ariel: 60/60
+solved polytree_large_fr cjt_ipopt: 60/60
+solved polytree_large_fr cve: 60/60
+solved polytree_large_fr cve_eps_0.01: 60/60
+solved polytree_large_fr ivbp: 60/60
+solved polytree_large_fr cdve: 60/60
+agg polytree_large_fr ariel: mae 0.00029/0.00046 max 0.1174/0.2064 out 0.998 in 0.961 wr 1.000 viol 0
+agg polytree_large_fr cjt_ipopt: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg polytree_large_fr cve: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg polytree_large_fr cve_eps_0.01: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg polytree_large_fr ivbp: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg polytree_large_fr cdve: mae 0.00007/0.00001 max 0.0366/0.0144 out 0.986 in 1.000 wr 1.000 viol 0
+solved ktree_small_fr exact_scip: 60/60
+solved ktree_small_fr exact_ipopt: 32/60 (28t)
+solved ktree_small_fr ariel: 60/60
+solved ktree_small_fr cjt_ipopt: 60/60
+solved ktree_small_fr cve: 58/60 (2m)
+solved ktree_small_fr cve_eps_0.01: 60/60
+solved ktree_small_fr ivbp: 60/60
+solved ktree_small_fr cdve: 60/60
+agg ktree_small_fr ariel: mae 0.00226/0.00143 max 0.1157/0.1217 out 1.000 in 0.878 wr 1.004 viol 0
+agg ktree_small_fr cjt_ipopt: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg ktree_small_fr cve: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg ktree_small_fr cve_eps_0.01: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg ktree_small_fr ivbp: mae 0.00193/0.00127 max 0.0771/0.0849 out 0.898 in 0.880 wr 1.001 viol 0
+agg ktree_small_fr cdve: mae 0.00000/0.00001 max 0.0000/0.0045 out 0.998 in 1.000 wr 1.000 viol 0
+solved ktree_large_fr exact_scip: 10/10
+solved ktree_large_fr exact_ipopt: 0/10 (10t)
+solved ktree_large_fr ariel: 60/60
+solved ktree_large_fr cjt_ipopt: 60/60
+solved ktree_large_fr cve: 15/60 (45m)
+solved ktree_large_fr cve_eps_0.01: 36/60 (4t,20m)
+solved ktree_large_fr ivbp: 60/60
+solved ktree_large_fr cdve: 60/60
+agg ktree_large_fr ariel: mae 0.00058/0.00065 max 0.1530/0.2336 out 1.000 in 0.970 wr 1.001 viol 0
+agg ktree_large_fr cjt_ipopt: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg ktree_large_fr cve: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg ktree_large_fr cve_eps_0.01: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+agg ktree_large_fr ivbp: mae 0.00051/0.00050 max 0.0907/0.1035 out 0.971 in 0.970 wr 1.001 viol 0
+agg ktree_large_fr cdve: mae 0.00000/0.00000 max 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 viol 0
+solved dag_small_fr exact_scip: 53/60 (7t)
+solved dag_small_fr exact_ipopt: 31/60 (29t)
+solved dag_small_fr ariel: 60/60
+solved dag_small_fr cjt_ipopt: 59/60 (1t)
+solved dag_small_fr cve: 60/60
+solved dag_small_fr cve_eps_0.01: 60/60
+solved dag_small_fr ivbp: 60/60
+solved dag_small_fr cdve: 60/60
+agg dag_small_fr ariel: mae 0.00424/0.00387 max 0.1916/0.1301 out 0.984 in 0.801 wr 1.003 viol 0
+agg dag_small_fr cjt_ipopt: mae 0.00948/0.00377 max 0.8271/0.5571 out 1.000 in 0.945 wr 1.136 viol 0
+agg dag_small_fr cve: mae 0.00000/0.00000 max 0.0001/0.0001 out 1.000 in 1.000 wr 1.000 viol 0
+agg dag_small_fr cve_eps_0.01: mae 0.00000/0.00000 max 0.0001/0.0001 out 1.000 in 1.000 wr 1.000 viol 0
+agg dag_small_fr ivbp: mae 0.00118/0.00064 max 0.0799/0.0768 out 0.907 in 0.950 wr 1.001 viol 0
+agg dag_small_fr cdve: mae 0.00000/0.00000 max 0.0004/0.0001 out 0.998 in 1.000 wr 1.000 viol 0
+solved dag_large_fr exact_scip: 3/10 (7t)
+solved dag_large_fr exact_ipopt: 0/10 (10t)
+solved dag_large_fr ariel: 60/60
+solved dag_large_fr cjt_ipopt: 59/60 (1t)
+solved dag_large_fr cve: 49/60 (11m)
+solved dag_large_fr cve_eps_0.01: 59/60 (1m)
+solved dag_large_fr ivbp: 60/60
+solved dag_large_fr cdve: 60/60
+agg dag_large_fr ariel: mae 0.00205/0.00170 max 0.2777/0.3835 out 0.996 in 0.876 wr 1.002 viol 0
+agg dag_large_fr cjt_ipopt: mae 0.00170/0.00116 max 0.5784/0.5562 out 0.997 in 0.980 wr 1.031 viol 0
+agg dag_large_fr cve: mae 0.00000/0.00000 max 0.0002/0.0002 out 0.998 in 1.000 wr 1.000 viol 2
+agg dag_large_fr cve_eps_0.01: mae 0.00000/0.00000 max 0.0002/0.0002 out 0.999 in 1.000 wr 1.000 viol 1
+agg dag_large_fr ivbp: mae 0.00112/0.00085 max 0.1011/0.0784 out 0.922 in 0.901 wr 1.001 viol 0
+agg dag_large_fr cdve: mae 0.00001/0.00000 max 0.0095/0.0009 out 0.993 in 1.000 wr 1.000 viol 0
+solved nr_tree exact_scip: 48/50 (2t)
+solved nr_tree exact_ipopt: 0/50 (50t)
+solved nr_tree ariel: 100/100
+solved nr_tree cjt_ipopt: 100/100
+solved nr_tree cve: 100/100
+solved nr_tree cve_eps_0.01: 100/100
+solved nr_tree ivbp: 100/100
+solved nr_tree cdve: 100/100
+agg nr_tree ariel: mae 0.00079/0.00117 max 0.1589/0.2131 out 1.000 in 0.953 wr 1.003 viol 0
+agg nr_tree cjt_ipopt: mae 0.00967/0.00898 max 0.8710/0.7566 out 0.994 in 0.950 wr 1.243 viol 0
+agg nr_tree cve: mae 0.04189/0.03980 max 0.8990/0.8768 out 1.000 in 0.714 wr 1.385 viol 725
+agg nr_tree cve_eps_0.01: mae 0.04189/0.03980 max 0.8990/0.8768 out 1.000 in 0.714 wr 1.385 viol 0
+agg nr_tree ivbp: mae 0.04189/0.03980 max 0.8990/0.8768 out 1.000 in 0.714 wr 1.385 viol 725
+agg nr_tree cdve: mae 0.04189/0.03981 max 0.8990/0.8768 out 0.993 in 0.714 wr 1.385 viol 724
+solved nr_dag exact_scip: 9/50 (41t)
+solved nr_dag exact_ipopt: 0/50 (50t)
+solved nr_dag ariel: 100/100
+solved nr_dag cjt_ipopt: 99/100 (1t)
+solved nr_dag cve: 100/100
+solved nr_dag cve_eps_0.01: 100/100
+solved nr_dag ivbp: 100/100
+solved nr_dag cdve: 100/100
+agg nr_dag ariel: mae 0.00467/0.00373 max 0.2255/0.4383 out 0.999 in 0.814 wr 1.010 viol 0
+agg nr_dag cjt_ipopt: mae 0.02460/0.01734 max 0.8788/0.8470 out 0.991 in 0.879 wr 1.335 viol 0
+agg nr_dag cve: mae 0.03926/0.03910 max 0.7350/0.8737 out 0.999 in 0.811 wr 1.354 viol 485
+agg nr_dag cve_eps_0.01: mae 0.03926/0.03910 max 0.7350/0.8737 out 0.999 in 0.811 wr 1.354 viol 0
+agg nr_dag ivbp: mae 0.04161/0.04078 max 0.7882/0.8736 out 0.905 in 0.712 wr 1.358 viol 0
+agg nr_dag cdve: mae 0.03926/0.03910 max 0.7350/0.8737 out 0.997 in 0.811 wr 1.354 viol 484
+solved nr_dag_ablation exact_scip: 10/60 (50t)
+solved nr_dag_ablation exact_ipopt: 0/60 (60t)
+solved nr_dag_ablation ariel: 60/60
+solved nr_dag_ablation cjt_ipopt: 56/60 (4t)
+solved nr_dag_ablation cve: 60/60
+solved nr_dag_ablation cve_eps_0.01: 60/60
+solved nr_dag_ablation ivbp: 60/60
+solved nr_dag_ablation cdve: 60/60
+agg nr_dag_ablation ariel: mae 0.00557/0.00604 max 0.3911/0.3752 out 0.998 in 0.851 wr 1.022 viol 0
+agg nr_dag_ablation cjt_ipopt: mae 0.06509/0.05199 max 0.8666/0.8353 out 0.998 in 0.741 wr 1.922 viol 0
+agg nr_dag_ablation cve: mae 0.05961/0.05317 max 0.7699/0.7465 out 1.000 in 0.688 wr 1.687 viol 274
+agg nr_dag_ablation cve_eps_0.01: mae 0.05961/0.05317 max 0.7699/0.7465 out 1.000 in 0.688 wr 1.687 viol 0
+agg nr_dag_ablation ivbp: mae 0.06116/0.05448 max 0.7484/0.8233 out 0.920 in 0.662 wr 1.691 viol 0
+agg nr_dag_ablation cdve: mae 0.05961/0.05317 max 0.7699/0.7465 out 1.000 in 0.688 wr 1.687 viol 274
+tmed tree_small_fr n=5: cjt_scip=0.37 ariel=5.10 cjt_ipopt=0.94 cve=0.74 cve_eps_0.01=0.74 ivbp=0.10 cdve=0.12 exact_scip=9.87 exact_ipopt=27.75
+tmed tree_small_fr n=6: cjt_scip=0.45 ariel=6.29 cjt_ipopt=1.06 cve=0.74 cve_eps_0.01=0.74 ivbp=0.12 cdve=0.15 exact_scip=1433.60 exact_ipopt=135.76
+tmed tree_small_fr n=7: cjt_scip=0.52 ariel=8.02 cjt_ipopt=1.58 cve=0.34 cve_eps_0.01=0.31 ivbp=0.13 cdve=0.18 exact_scip=3245.79 exact_ipopt=390.03
+tmed tree_small_fr n=8: cjt_scip=0.63 ariel=9.54 cjt_ipopt=1.73 cve=0.37 cve_eps_0.01=0.34 ivbp=0.16 cdve=0.22 exact_scip=3276.86 exact_ipopt=2211.22
+tmed tree_small_fr n=9: cjt_scip=0.67 ariel=11.28 cjt_ipopt=1.95 cve=0.40 cve_eps_0.01=0.37 ivbp=0.18 cdve=0.24 exact_scip=3371.40 exact_ipopt=nan
+tmed tree_small_fr n=10: cjt_scip=0.78 ariel=9.69 cjt_ipopt=1.89 cve=0.42 cve_eps_0.01=0.41 ivbp=0.20 cdve=0.29 exact_scip=3066.21 exact_ipopt=nan
+ivbp tree_small_fr: exact 60/60 converged 60 iters median 3.0
+exact_scip status tree_small_fr: {5: {'confirmed': 100}, 6: {'confirmed': 93, 'unsolved': 17, 'unconfirmed': 10}, 7: {'unsolved': 121, 'confirmed': 16, 'unconfirmed': 3}, 8: {'unsolved': 159, 'confirmed': 1}, 9: {'unsolved': 180}, 10: {'unsolved': 179, 'timeout': 1, 'confirmed': 1}}
+tmed tree_large_fr n=10: cjt_scip=0.88 ariel=12.55 cjt_ipopt=2.17 cve=0.75 cve_eps_0.01=0.80 ivbp=0.20 cdve=0.28 exact_scip=3179.61 exact_ipopt=nan
+tmed tree_large_fr n=20: cjt_scip=1.72 ariel=32.09 cjt_ipopt=5.67 cve=0.85 cve_eps_0.01=0.94 ivbp=0.40 cdve=0.66 exact_scip=nan exact_ipopt=nan
+tmed tree_large_fr n=30: cjt_scip=2.80 ariel=53.13 cjt_ipopt=8.87 cve=1.15 cve_eps_0.01=1.22 ivbp=0.59 cdve=1.11 exact_scip=nan exact_ipopt=nan
+tmed tree_large_fr n=40: cjt_scip=3.83 ariel=71.12 cjt_ipopt=14.95 cve=1.66 cve_eps_0.01=1.78 ivbp=0.79 cdve=1.61 exact_scip=nan exact_ipopt=nan
+tmed tree_large_fr n=50: cjt_scip=5.10 ariel=88.94 cjt_ipopt=19.53 cve=2.23 cve_eps_0.01=2.46 ivbp=1.03 cdve=2.19 exact_scip=nan exact_ipopt=nan
+tmed tree_large_fr n=100: cjt_scip=10.70 ariel=133.55 cjt_ipopt=52.03 cve=6.84 cve_eps_0.01=7.56 ivbp=2.02 cdve=5.30 exact_scip=nan exact_ipopt=nan
+ivbp tree_large_fr: exact 60/60 converged 60 iters median 4.0
+exact_scip status tree_large_fr: {10: {'unsolved': 178, 'timeout': 1, 'confirmed': 2}}
+tmed polytree_small_fr n=5: cjt_scip=0.53 ariel=4.84 cjt_ipopt=0.88 cve=0.70 cve_eps_0.01=0.68 ivbp=0.11 cdve=0.13 exact_scip=399.53 exact_ipopt=34.87
+tmed polytree_small_fr n=6: cjt_scip=0.65 ariel=5.51 cjt_ipopt=1.51 cve=0.71 cve_eps_0.01=0.68 ivbp=0.13 cdve=0.16 exact_scip=1378.02 exact_ipopt=147.11
+tmed polytree_small_fr n=7: cjt_scip=0.71 ariel=6.64 cjt_ipopt=1.98 cve=0.32 cve_eps_0.01=0.32 ivbp=0.15 cdve=0.18 exact_scip=3246.59 exact_ipopt=694.62
+tmed polytree_small_fr n=8: cjt_scip=0.79 ariel=9.20 cjt_ipopt=1.76 cve=0.33 cve_eps_0.01=0.34 ivbp=0.16 cdve=0.21 exact_scip=3271.53 exact_ipopt=2254.32
+tmed polytree_small_fr n=9: cjt_scip=1.03 ariel=10.58 cjt_ipopt=1.89 cve=0.37 cve_eps_0.01=0.37 ivbp=0.19 cdve=0.25 exact_scip=3344.36 exact_ipopt=nan
+tmed polytree_small_fr n=10: cjt_scip=1.02 ariel=9.45 cjt_ipopt=2.23 cve=0.38 cve_eps_0.01=0.40 ivbp=0.20 cdve=0.30 exact_scip=3143.91 exact_ipopt=nan
+ivbp polytree_small_fr: exact 60/60 converged 60 iters median 2.0
+exact_scip status polytree_small_fr: {5: {'confirmed': 89, 'unconfirmed': 10, 'unsolved': 1}, 6: {'unconfirmed': 27, 'unsolved': 26, 'confirmed': 67}, 7: {'unsolved': 132, 'confirmed': 7, 'unconfirmed': 1}, 8: {'unsolved': 157, 'confirmed': 3}, 9: {'unsolved': 180}, 10: {'unsolved': 100, 'timeout': 5}}
+tmed polytree_large_fr n=10: cjt_scip=1.11 ariel=10.97 cjt_ipopt=1.87 cve=0.82 cve_eps_0.01=0.69 ivbp=0.21 cdve=0.29 exact_scip=3184.54 exact_ipopt=nan
+tmed polytree_large_fr n=20: cjt_scip=1.67 ariel=29.72 cjt_ipopt=5.98 cve=0.94 cve_eps_0.01=0.84 ivbp=0.40 cdve=0.64 exact_scip=nan exact_ipopt=nan
+tmed polytree_large_fr n=30: cjt_scip=3.63 ariel=51.59 cjt_ipopt=9.94 cve=1.16 cve_eps_0.01=1.33 ivbp=0.60 cdve=1.16 exact_scip=nan exact_ipopt=nan
+tmed polytree_large_fr n=40: cjt_scip=3.97 ariel=72.14 cjt_ipopt=14.28 cve=1.62 cve_eps_0.01=1.79 ivbp=0.79 cdve=1.62 exact_scip=nan exact_ipopt=nan
+tmed polytree_large_fr n=50: cjt_scip=5.39 ariel=92.78 cjt_ipopt=17.08 cve=2.26 cve_eps_0.01=2.48 ivbp=1.05 cdve=1.95 exact_scip=nan exact_ipopt=nan
+tmed polytree_large_fr n=100: cjt_scip=11.69 ariel=131.43 cjt_ipopt=64.95 cve=6.72 cve_eps_0.01=7.62 ivbp=2.03 cdve=5.11 exact_scip=nan exact_ipopt=nan
+ivbp polytree_large_fr: exact 60/60 converged 60 iters median 4.0
+exact_scip status polytree_large_fr: {10: {'timeout': 7, 'unsolved': 60}}
+tmed ktree_small_fr n=5: cjt_scip=0.39 ariel=6.85 cjt_ipopt=2.27 cve=29.68 cve_eps_0.01=29.61 ivbp=0.34 cdve=0.37 exact_scip=0.82 exact_ipopt=20.03
+tmed ktree_small_fr n=6: cjt_scip=0.47 ariel=9.25 cjt_ipopt=2.29 cve=36.82 cve_eps_0.01=36.52 ivbp=0.46 cdve=0.50 exact_scip=2.49 exact_ipopt=181.30
+tmed ktree_small_fr n=7: cjt_scip=0.51 ariel=11.13 cjt_ipopt=3.07 cve=66.97 cve_eps_0.01=68.17 ivbp=0.58 cdve=0.65 exact_scip=21.24 exact_ipopt=722.61
+tmed ktree_small_fr n=8: cjt_scip=0.64 ariel=13.84 cjt_ipopt=3.84 cve=94.10 cve_eps_0.01=80.51 ivbp=0.66 cdve=0.75 exact_scip=127.46 exact_ipopt=2265.55
+tmed ktree_small_fr n=9: cjt_scip=0.74 ariel=14.79 cjt_ipopt=4.54 cve=122.23 cve_eps_0.01=122.17 ivbp=0.80 cdve=0.91 exact_scip=844.90 exact_ipopt=nan
+tmed ktree_small_fr n=10: cjt_scip=0.84 ariel=14.37 cjt_ipopt=4.09 cve=108.28 cve_eps_0.01=116.04 ivbp=0.92 cdve=1.08 exact_scip=2488.13 exact_ipopt=nan
+ivbp ktree_small_fr: exact 0/60 converged 60 iters median 2.0
+exact_scip status ktree_small_fr: {5: {'confirmed': 100}, 6: {'confirmed': 120}, 7: {'confirmed': 140}, 8: {'confirmed': 159, 'unconfirmed': 1}, 9: {'confirmed': 140, 'unconfirmed': 7, 'unsolved': 33}, 10: {'unsolved': 88, 'confirmed': 97, 'unconfirmed': 15}}
+tmed ktree_large_fr n=10: cjt_scip=0.87 ariel=17.32 cjt_ipopt=5.13 cve=157.82 cve_eps_0.01=149.51 ivbp=0.90 cdve=1.05 exact_scip=2470.99 exact_ipopt=nan
+tmed ktree_large_fr n=20: cjt_scip=2.06 ariel=38.16 cjt_ipopt=13.31 cve=706.24 cve_eps_0.01=493.13 ivbp=2.03 cdve=2.51 exact_scip=nan exact_ipopt=nan
+tmed ktree_large_fr n=30: cjt_scip=3.43 ariel=57.72 cjt_ipopt=23.49 cve=1374.69 cve_eps_0.01=1125.73 ivbp=3.11 cdve=3.93 exact_scip=nan exact_ipopt=nan
+tmed ktree_large_fr n=40: cjt_scip=5.29 ariel=78.55 cjt_ipopt=36.74 cve=nan cve_eps_0.01=2178.74 ivbp=4.29 cdve=5.60 exact_scip=nan exact_ipopt=nan
+tmed ktree_large_fr n=50: cjt_scip=7.16 ariel=96.10 cjt_ipopt=50.39 cve=nan cve_eps_0.01=2921.09 ivbp=5.37 cdve=7.13 exact_scip=nan exact_ipopt=nan
+tmed ktree_large_fr n=100: cjt_scip=18.82 ariel=155.94 cjt_ipopt=130.64 cve=nan cve_eps_0.01=nan ivbp=11.28 cdve=16.29 exact_scip=nan exact_ipopt=nan
+ivbp ktree_large_fr: exact 0/60 converged 60 iters median 3.0
+exact_scip status ktree_large_fr: {10: {'unsolved': 109, 'confirmed': 81, 'unconfirmed': 10}}
+tmed dag_small_fr n=5: cjt_scip=0.53 ariel=4.88 cjt_ipopt=1.09 cve=0.68 cve_eps_0.01=0.28 ivbp=0.11 cdve=0.15 exact_scip=466.13 exact_ipopt=39.72
+tmed dag_small_fr n=6: cjt_scip=0.66 ariel=5.21 cjt_ipopt=1.10 cve=0.68 cve_eps_0.01=0.30 ivbp=0.13 cdve=0.15 exact_scip=2452.21 exact_ipopt=161.70
+tmed dag_small_fr n=7: cjt_scip=5.27 ariel=6.53 cjt_ipopt=1.46 cve=0.34 cve_eps_0.01=0.34 ivbp=0.17 cdve=0.21 exact_scip=3246.80 exact_ipopt=1034.41
+tmed dag_small_fr n=8: cjt_scip=1.65 ariel=9.15 cjt_ipopt=2.51 cve=0.61 cve_eps_0.01=0.49 ivbp=0.22 cdve=0.29 exact_scip=3267.65 exact_ipopt=3077.84
+tmed dag_small_fr n=9: cjt_scip=5.16 ariel=9.86 cjt_ipopt=3.26 cve=0.61 cve_eps_0.01=0.63 ivbp=0.27 cdve=0.34 exact_scip=3358.92 exact_ipopt=nan
+tmed dag_small_fr n=10: cjt_scip=0.96 ariel=9.34 cjt_ipopt=3.72 cve=0.95 cve_eps_0.01=0.52 ivbp=0.29 cdve=0.38 exact_scip=2968.40 exact_ipopt=nan
+ivbp dag_small_fr: exact 16/60 converged 60 iters median 2.0
+exact_scip status dag_small_fr: {5: {'confirmed': 87, 'unconfirmed': 13}, 6: {'confirmed': 44, 'unconfirmed': 30, 'unsolved': 46}, 7: {'unsolved': 138, 'confirmed': 2}, 8: {'unsolved': 153, 'confirmed': 6, 'unconfirmed': 1}, 9: {'unsolved': 171, 'unconfirmed': 4, 'confirmed': 5}, 10: {'unsolved': 56, 'timeout': 7, 'confirmed': 4}}
+tmed dag_large_fr n=10: cjt_scip=91.71 ariel=11.92 cjt_ipopt=3.11 cve=3.25 cve_eps_0.01=1.13 ivbp=0.29 cdve=0.38 exact_scip=2569.96 exact_ipopt=nan
+tmed dag_large_fr n=20: cjt_scip=166.21 ariel=29.56 cjt_ipopt=9.51 cve=20.48 cve_eps_0.01=10.40 ivbp=0.63 cdve=0.88 exact_scip=nan exact_ipopt=nan
+tmed dag_large_fr n=30: cjt_scip=179.76 ariel=36.31 cjt_ipopt=21.28 cve=177.34 cve_eps_0.01=51.76 ivbp=0.94 cdve=1.42 exact_scip=nan exact_ipopt=nan
+tmed dag_large_fr n=40: cjt_scip=500.03 ariel=60.11 cjt_ipopt=22.18 cve=201.80 cve_eps_0.01=38.60 ivbp=1.31 cdve=2.10 exact_scip=nan exact_ipopt=nan
+tmed dag_large_fr n=50: cjt_scip=636.84 ariel=73.20 cjt_ipopt=38.51 cve=234.77 cve_eps_0.01=132.21 ivbp=1.65 cdve=2.62 exact_scip=nan exact_ipopt=nan
+tmed dag_large_fr n=100: cjt_scip=786.76 ariel=122.86 cjt_ipopt=217.97 cve=792.42 cve_eps_0.01=436.38 ivbp=3.29 cdve=5.73 exact_scip=nan exact_ipopt=nan
+ivbp dag_large_fr: exact 0/60 converged 60 iters median 2.0
+exact_scip status dag_large_fr: {10: {'unsolved': 60, 'timeout': 7}}

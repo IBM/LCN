@@ -1,0 +1,23 @@
+\begin{table}[htbp]
+\centering
+\footnotesize
+\caption{The CJT (SCIP) reference on every synthetic set: endpoints certified (proven optimal or primal--dual gap $\le 10^{-4}$, on a structurally exact route), instances with every endpoint certified, runs finished, median and maximum total time (s), the largest cluster (atoms) of the tree CJT builds and the median and maximum number of nonlinear (LMC) rows of its program; with none, the program is a linear program. Every instance uses the ordered triage and none relaxes an assertion.}
+\label{tab:reference}
+\begin{tabular}{lrrrrrrr}
+\toprule
+Set & endpoints & instances & finished & median t & max t & cluster & nonlinear \\
+\midrule
+\texttt{tree\_small\_fr} & 900/900 (100.0\%) & 60/60 & 60/60 & 0.60 & 0.86 & 2 & 0 / 0 \\
+\texttt{tree\_large\_fr} & 5000/5000 (100.0\%) & 60/60 & 60/60 & 3.28 & 11.2 & 2 & 0 / 0 \\
+\texttt{polytree\_small\_fr} & 900/900 (100.0\%) & 60/60 & 60/60 & 0.73 & 4.55 & 3 & 2 / 14 \\
+\texttt{polytree\_large\_fr} & 5000/5000 (100.0\%) & 60/60 & 60/60 & 3.97 & 49.0 & 3 & 0 / 14 \\
+\texttt{ktree\_small\_fr} & 900/900 (100.0\%) & 60/60 & 60/60 & 0.57 & 0.89 & 4 & 0 / 0 \\
+\texttt{ktree\_large\_fr} & 5000/5000 (100.0\%) & 60/60 & 60/60 & 4.47 & 19.8 & 4 & 0 / 0 \\
+\texttt{dag\_small\_fr} & 887/900 (98.6\%) & 56/60 & 60/60 & 0.86 & 1141 & 5 & 2 / 34 \\
+\texttt{dag\_large\_fr} & 4080/5000 (81.6\%) & 18/60 & 59/60 & 389 & 3304 & 8 & 36 / 528 \\
+\texttt{nr\_tree} & 2991/3000 (99.7\%) & 94/100 & 100/100 & 1.71 & 663 & 5 & 4 / 28 \\
+\texttt{nr\_dag} & 2868/3000 (95.6\%) & 55/100 & 100/100 & 53.7 & 1331 & 5 & 18 / 64 \\
+\texttt{nr\_dag\_ablation} & 1085/1200 (90.4\%) & 40/60 & 60/60 & 9.66 & 3242 & 6 & 8 / 78 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -33,7 +33,7 @@ cd "$REPO" || exit 1
 if [ -n "${JOB_SPEC:-}" ]; then
     read -r DIR RUN <<< "$JOB_SPEC"
 else
-    read -r DIR RUN < <(sed -n "${SLURM_ARRAY_TASK_ID}p" experiments/slurm/manifest.txt)
+    read -r DIR RUN < <(sed -n "${SLURM_ARRAY_TASK_ID}p" "${MANIFEST:-experiments/slurm/manifest.txt}")
 fi
 if [ -z "${DIR:-}" ] || [ -z "${RUN:-}" ]; then
     echo "no (dir, run) for array index ${SLURM_ARRAY_TASK_ID:-none}" >&2

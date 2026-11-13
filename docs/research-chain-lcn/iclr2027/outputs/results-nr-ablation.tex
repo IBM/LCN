@@ -1,0 +1,47 @@
+\begin{table}[htbp]
+\centering
+\scriptsize
+\caption{Ablation by kind: \texttt{dag} bases with $n=10$ and $m=4$ added sentences of a single kind, for two half-widths $\delta$ ($10$ instances per cell), against the certified CJT (SCIP) endpoints. Columns as in Table~\ref{tab:nr-tree}.}
+\label{tab:nr-ablation}
+\begin{tabular}{lrlrrrrrr}
+\toprule
+Kind & $\delta$ & Method & MAE$_l$ & MAE$_u$ & out & in & wr & time \\
+\midrule
+\texttt{nr1} (non-root marginal) & 0.05 & ARIEL & .0015 & .0006 & 1.000 & 0.937 & 1.00 & 14.0 \\
+ &  & CJT (ipopt) & .0767 & .0574 & 1.000 & 0.788 & 2.33 & 3.09 \\
+ &  & CVE & .1570 & .1372 & 1.000 & 0.568 & 3.88 & 7.92 \\
+ &  & IVBP & .1576 & .1384 & 0.947 & 0.547 & 3.89 & 0.30 \\
+ &  & CDVE & .1570 & .1372 & 1.000 & 0.568 & 3.88 & 0.39 \\
+\midrule
+\texttt{nr1} (non-root marginal) & 0.3 & ARIEL & .0044 & .0041 & 1.000 & 0.885 & 1.01 & 14.6 \\
+ &  & CJT (ipopt) & .0615 & .0390 & 1.000 & 0.791 & 1.67 & 3.77 \\
+ &  & CVE & .0891 & .0546 & 1.000 & 0.594 & 1.29 & 6.72 \\
+ &  & IVBP & .0911 & .0560 & 0.906 & 0.562 & 1.29 & 0.30 \\
+ &  & CDVE & .0891 & .0546 & 1.000 & 0.594 & 1.29 & 0.39 \\
+\midrule
+\texttt{nr2} (mixture conditional) & 0.05 & ARIEL & .0130 & .0112 & 0.989 & 0.755 & 1.08 & 15.9 \\
+ &  & CJT (ipopt) & .0623 & .0442 & 1.000 & 0.774 & 1.76 & 3.38 \\
+ &  & CVE & .0332 & .0329 & 1.000 & 0.777 & 1.36 & 6.66 \\
+ &  & IVBP & .0354 & .0345 & 0.915 & 0.766 & 1.36 & 0.30 \\
+ &  & CDVE & .0332 & .0329 & 1.000 & 0.777 & 1.36 & 0.39 \\
+\midrule
+\texttt{nr2} (mixture conditional) & 0.3 & ARIEL & .0062 & .0115 & 1.000 & 0.750 & 1.02 & 15.9 \\
+ &  & CJT (ipopt) & .0487 & .0275 & 1.000 & 0.780 & 1.64 & 3.47 \\
+ &  & CVE & .0170 & .0184 & 1.000 & 0.707 & 1.05 & 6.46 \\
+ &  & IVBP & .0172 & .0197 & 0.967 & 0.696 & 1.05 & 0.30 \\
+ &  & CDVE & .0170 & .0184 & 1.000 & 0.707 & 1.05 & 0.39 \\
+\midrule
+\texttt{nr3} (cross-family) & 0.05 & ARIEL & .0040 & .0021 & 1.000 & 0.889 & 1.01 & 12.8 \\
+ &  & CJT (ipopt) & .0740 & .0779 & 0.986 & 0.681 & 1.95 & 4.54 \\
+ &  & CVE & .0386 & .0530 & 1.000 & 0.681 & 1.24 & 6.40 \\
+ &  & IVBP & .0417 & .0537 & 0.861 & 0.639 & 1.24 & 0.29 \\
+ &  & CDVE & .0386 & .0530 & 1.000 & 0.681 & 1.24 & 0.38 \\
+\midrule
+\texttt{nr3} (cross-family) & 0.3 & ARIEL & .0037 & .0065 & 1.000 & 0.905 & 1.01 & 14.9 \\
+ &  & CJT (ipopt) & .0680 & .0671 & 1.000 & 0.608 & 2.21 & 5.01 \\
+ &  & CVE & .0087 & .0158 & 1.000 & 0.838 & 1.03 & 6.37 \\
+ &  & IVBP & .0101 & .0174 & 0.905 & 0.784 & 1.03 & 0.29 \\
+ &  & CDVE & .0087 & .0158 & 1.000 & 0.838 & 1.03 & 0.38 \\
+\bottomrule
+\end{tabular}
+\end{table}
