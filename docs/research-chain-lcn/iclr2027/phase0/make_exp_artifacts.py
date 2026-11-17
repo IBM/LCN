@@ -548,9 +548,211 @@ def collect_numbers(dfb, dfs, dfnr, dfab, raws):
         note(f"exact_scip status {bench}", {n: dict(v) for n, v in sorted(ex.items())})
 
 
+
+REAL_RUNS = ["ariel", "cjt_ipopt", "cve", "cve_eps_0.01", "ivbp", "cdve"]
+
+
+def _real_meta(path):
+    meta = {}
+    if os.path.exists(path):
+        for line in open(path):
+            if line.strip():
+                d = json.loads(line)
+                meta[d["inst"]] = d
+    return meta
+
+
+def _cert(ref):
+    s = ref.get("cjt_solves") or []
+    ce = sum(1 for x in s if x.get("certified") and
+             (ref.get("cjt_atom_structural") or {}).get(x["atom"], True))
+    infeas = sum(1 for x in s if x.get("termination") == "infeasible")
+    return ce, len(s), infeas
+
+
+def _short(inst):
+    b = os.path.basename(inst)[:-4].replace("_consistent", "")
+    b = b.replace("benchmark_scaling_directions", "bsd").replace("maintenance_scaling", "maint")
+    return "\\texttt{" + b.replace("_", "\\_") + "}"
+
+
+def real_instance_table(dfi, raws, benches, meta, path):
+    """One row per instance with at least one certified reference endpoint."""
+    with open(path, "w") as f:
+        f.write("\\begin{table}[htbp]\n\\centering\n\\scriptsize\n")
+        f.write("\\revcaption\\caption{Realistic LCNs with at least one certified reference endpoint: number of "
+                "atoms $n$, sentences $|\\mathcal S|$ and non-realizable sentences (nr); reference "
+                "endpoints certified by CJT (SCIP) and its time in seconds; MAE of each method (mean "
+                "of the lower- and upper-endpoint errors) on the certified endpoints. CVE$_\\varepsilon$ "
+                "($\\varepsilon{=}0.01$) equals CVE on every instance and is omitted. `t'/`m': time or "
+                "memory limit. \\texttt{maint}: \\texttt{maintenance\\_scaling}; \\texttt{bsd}: "
+                "\\texttt{benchmark\\_scaling\\_directions}. Every instance is DAG-structured, locally feasible and has exact local "
+                "sets; only \\texttt{asia} is fully realizable.}\n\\label{tab:real-full}\n")
+        runs = ["ariel", "cjt_ipopt", "cve", "ivbp", "cdve"]
+        f.write("\\begin{tabular}{l rrr rr " + "r" * len(runs) + "}\n\\toprule\n")
+        f.write("Instance & $n$ & $|\\mathcal S|$ & nr & cert. & time & "
+                + " & ".join(lab(r) for r in runs) + " \\\\\n")
+        for bench in benches:
+            raw = raws[bench]
+            f.write("\\midrule\n")
+            if len(benches) > 1:
+                f.write("\\multicolumn{%d}{l}{\\texttt{%s}} \\\\\n" % (6 + len(runs), bench))
+            refs = sorted(raw.get("cjt_scip", []), key=lambda r: (r["num_vars"], r["instance"]))
+            for ref in refs:
+                ce, ne, _ = _cert(ref)
+                if ce == 0:
+                    continue
+                inst = os.path.basename(ref["instance"])
+                m = meta.get(inst, {})
+                cells = []
+                for run in runs:
+                    rr = [r for r in raw.get(run, []) if r["instance"] == ref["instance"]]
+                    k = failure_kind(rr[0]) if rr else "error"
+                    row = dfi[(dfi["instance"] == inst) & (dfi["run"] == run)]
+                    if k != "ok":
+                        cells.append(k[0])
+                    elif len(row) and not math.isnan(row.iloc[0].mae_lb):
+                        r = row.iloc[0]
+                        cells.append(f4((r.mae_lb + r.mae_ub) / 2))
+                    else:
+                        cells.append("--")
+                f.write(f"{_short(inst)} & {ref['num_vars']} & {m.get('sentences', '--')} & "
+                        f"{m.get('non_realizable', '--')} & {ce}/{ne} & {ft(ref['total_time'])} & "
+                        + " & ".join(cells) + " \\\\\n")
+        f.write("\\bottomrule\n\\end{tabular}\n\\end{table}\n")
+
+
+def real_summary_table(dfr, raws, benches, path):
+    """Per set: coverage over all instances, metrics over the certified endpoints."""
+    with open(path, "w") as f:
+        f.write("\\begin{table}[htbp]\n\\centering\n\\scriptsize\n")
+        f.write("\\revcaption\\caption{Realistic LCNs: instances solved within the budget (of all "
+                "instances; t/m: time/memory limit), and, on the certified reference endpoints, the "
+                "MAE of the two endpoints, the largest endpoint error, the fractions of atoms on which "
+                "the interval contains (out) or is contained in (in) the reference, the width ratio "
+                "(wr) and the median total time in seconds.}\n\\label{tab:real-summary}\n")
+        f.write("\\begin{tabular}{ll lrrrrrrr}\n\\toprule\n"
+                "Set & Method & solved & MAE$_l$ & MAE$_u$ & max & out & in & wr & time \\\\\n")
+        for bench in benches:
+            raw = raws[bench]
+            f.write("\\midrule\n")
+            runs = [r for r in ["exact_scip", "exact_ipopt"] + REAL_RUNS if raw.get(r)]
+            for i, run in enumerate(runs):
+                row = dfr[(dfr["benchmark"] == bench) & (dfr["run"] == run)]
+                if len(row) and not math.isnan(row.iloc[0].mae_lb):
+                    r = row.iloc[0]
+                    cells = [f4(r.mae_lb), f4(r.mae_ub), f4(max(r.max_lb, r.max_ub)),
+                             f3(r.outer), f3(r.inner), f3(r.wr)]
+                else:
+                    cells = ["--"] * 6
+                name = "\\texttt{" + bench + "}" if i == 0 else ""
+                f.write(f"{name} & {lab(run)} & {solved_str(solved_counts(raw, run))} & "
+                        + " & ".join(cells) + f" & {ft(median_time(raw, run))} \\\\\n")
+        f.write("\\bottomrule\n\\end{tabular}\n\\end{table}\n")
+
+
+
+def patch_summary_real(dfr, raws, benches, path):
+    """Append (MAE, time) columns for the realistic sets to the main summary table.
+
+    Idempotent: columns already present for a set are replaced. MAE is the mean of the
+    two endpoint errors on the certified endpoints; time the median over solved instances;
+    a superscript gives the percentage of instances solved when below 100.
+    """
+    if not os.path.exists(path):
+        return
+    # Always start from the synthetic-only table, saved the first time (or rewritten by a full run).
+    base = os.path.join(os.path.dirname(path), "csv", "results-summary-synthetic.tex")
+    cur = open(path).read()
+    if "\\texttt{real}" not in cur:
+        open(base, "w").write(cur)
+    lines = open(base).read().split("\n")
+    rowmap = {"CJT (SCIP), reference": "cjt_scip"}
+    for run in REAL_RUNS:
+        rowmap[lab(run)] = run
+    out = []
+    for line in lines:
+        for b in benches:
+            tag = f"\\texttt{{{b}}}"
+            if line.startswith("\\begin{tabular}"):
+                spec = line[len("\\begin{tabular}{"):-1]
+                if f"%{b}" not in line:
+                    line = "\\begin{tabular}{" + spec + "rr}"
+            elif line.lstrip().startswith("&") and "multicolumn" in line:
+                if tag not in line:
+                    line = line.rstrip(" \\") + f" & \\multicolumn{{2}}{{c}}{{{tag}}} \\\\"
+            elif line.startswith("\\cmidrule"):
+                k = line.count("\\cmidrule")
+                c0 = 2 + 2 * k
+                line = line + f"\\cmidrule(lr){{{c0}-{c0 + 1}}}"
+            elif line.startswith("Method &"):
+                line = line.rstrip(" \\") + " & MAE & time \\\\"
+            else:
+                name = line.split("&")[0].strip()
+                if name in rowmap:
+                    run = rowmap[name]
+                    raw = raws[b]
+                    t = ft(median_time(raw, run))
+                    if run == "cjt_scip":
+                        ce = ne = 0
+                        for ref in raw.get("cjt_scip", []):
+                            c, n_, _ = _cert(ref)
+                            ce += c
+                            ne += n_
+                        cell = f"({round(100 * ce / ne)}\\%)" if ne else "--"
+                    else:
+                        row = dfr[(dfr["benchmark"] == b) & (dfr["run"] == run)]
+                        c = solved_counts(raw, run)
+                        pct = round(100 * c["ok"] / sum(c.values())) if c else 0
+                        if len(row) and not math.isnan(row.iloc[0].mae_lb):
+                            cell = f4((row.iloc[0].mae_lb + row.iloc[0].mae_ub) / 2)
+                        else:
+                            cell = "--"
+                        if pct < 100:
+                            cell += f"$^{{{pct}}}$"
+                    line = line.rstrip(" \\") + f" & {cell} & {t} \\\\"
+        out.append(line)
+    open(path, "w").write("\n".join(out))
+
+
+def real_outputs(res, raws, out, csvdir, numbers_path):
+    """Realistic-LCN tables and numbers (benchmark real, which includes the former junkyu set)."""
+    real = [b for b in ("real",) if b in raws and raws[b].get("cjt_scip")]
+    if real:
+        dfi = analyze(res, "benchmark,instance", os.path.join(csvdir, "real_by_instance.csv"))
+        dfi = dfi[dfi["benchmark"].isin(real)]
+        dfr = analyze(res, "benchmark", os.path.join(csvdir, "real_by_benchmark.csv"))
+        meta = _real_meta(os.path.join(csvdir, "real_realizability.jsonl"))
+        real_instance_table(dfi, raws, real, meta, os.path.join(out, "results-real.tex"))
+        real_summary_table(dfr, raws, real, os.path.join(out, "results-real-summary.tex"))
+        patch_summary_real(dfr, raws, real, os.path.join(out, "results-summary.tex"))
+        for b in real:
+            for ref in raws[b].get("cjt_scip", []):
+                ce, ne, inf = _cert(ref)
+                note(f"ref-inst {b} {os.path.basename(ref['instance'])}",
+                     f"cert {ce}/{ne} infeasible {inf} t {ref['total_time']:.0f}")
+        for b in real:
+            for run in EXACT + APPROX:
+                c = solved_counts(raws[b], run)
+                note(f"solved {b} {run}", solved_str(c))
+                r = dfr[(dfr["benchmark"] == b) & (dfr["run"] == run)]
+                if len(r):
+                    r = r.iloc[0]
+                    note(f"agg {b} {run}", f"mae {r.mae_lb:.4f}/{r.mae_ub:.4f} out {r.outer:.3f} "
+                         f"in {r.inner:.3f} wr {r.wr:.3f} t {r.total_t:.2f}")
+            ce, ne, full, ni = cert_stats(raws[b])
+            note(f"ref {b}", f"cert {ce}/{ne} full {full}/{ni}")
+    if numbers_path:
+        with open(numbers_path, "w") as f:
+            f.write("\n".join(NUMBERS) + "\n")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--results-dir", default=os.path.join(REPO, "results"))
+    ap.add_argument("--only-real", action="store_true",
+                    help="regenerate only the realistic-LCN outputs (real); "
+                         "leaves the synthetic tables/figures and numbers.txt untouched")
     args = ap.parse_args()
     res = args.results_dir
     out = os.path.join(PAPER, "outputs")
@@ -560,6 +762,10 @@ def main():
 
     benches = sorted(d.split(os.sep)[-2] for d in glob.glob(os.path.join(res, "*", "ev0")))
     raws = {b: load_raw(res, b) for b in benches}
+
+    if args.only_real:
+        real_outputs(res, raws, out, csvdir, os.path.join(out, "numbers-real.txt"))
+        return
 
     dfs = analyze(res, "benchmark,size", os.path.join(csvdir, "by_size.csv"))
     dfb = analyze(res, "benchmark", os.path.join(csvdir, "by_benchmark.csv"))
@@ -580,23 +786,7 @@ def main():
     nr_figures(dfnr, figdir)
     collect_numbers(dfb, dfs, dfnr, dfab, raws)
 
-    real = [b for b in ("real", "junkyu") if b in raws and raws[b].get("cjt_scip")]
-    if real:
-        dfi = analyze(res, "benchmark,instance", os.path.join(csvdir, "real_by_instance.csv"))
-        dfi = dfi[dfi["benchmark"].isin(real)]
-        dfr = analyze(res, "benchmark", os.path.join(csvdir, "real_by_benchmark.csv"))
-        real_table(dfi, raws, real, os.path.join(out, "results-real.tex"))
-        for b in real:
-            for run in EXACT + APPROX:
-                c = solved_counts(raws[b], run)
-                note(f"solved {b} {run}", solved_str(c))
-                r = dfr[(dfr["benchmark"] == b) & (dfr["run"] == run)]
-                if len(r):
-                    r = r.iloc[0]
-                    note(f"agg {b} {run}", f"mae {r.mae_lb:.4f}/{r.mae_ub:.4f} out {r.outer:.3f} "
-                         f"in {r.inner:.3f} wr {r.wr:.3f} t {r.total_t:.2f}")
-            ce, ne, full, ni = cert_stats(raws[b])
-            note(f"ref {b}", f"cert {ce}/{ne} full {full}/{ni}")
+    real_outputs(res, raws, out, csvdir, None)
     with open(os.path.join(out, "numbers.txt"), "w") as f:
         f.write("\n".join(NUMBERS) + "\n")
     print(f"wrote tables to {out}, figures to {figdir}")

@@ -15,6 +15,11 @@
 \usepackage{nicefrac}       % compact symbols for 1/2, etc.
 \usepackage{microtype}      % microtypography
 \usepackage{xcolor}         % colors
+\DeclareRobustCommand{\rev}[1]{{\color{blue}#1}}
+\newenvironment{revblock}{\color{blue}}{}
+\AtBeginDocument{\DeclareCaptionFont{blue}{\color{blue}}}
+\newcommand{\newtag}{\texorpdfstring{~\rev{(new)}}{}}
+\newcommand{\revcaption}{\captionsetup{font=blue}}
 
 \usepackage{tabularx}
 \usepackage{times}
@@ -112,7 +117,7 @@ Address \\
 \maketitle
 
 \begin{abstract}
-    Logical Credal Networks (LCNs) are an expressive probabilistic logic framework that combines propositional formulas with imprecise probability bounds to represent sets of probability distributions. LCNs allow cyclic dependencies and impose few syntactic restrictions, but inference is hard: the only exact method optimizes a nonconvex program over all $2^n$ joint states, and the only approximate method is the ARIEL message-passing algorithm. We introduce Credal Junction Tree (CJT), an exact inference algorithm for LCNs whose structure is a chain graph. CJT replaces the joint distribution by local marginals on the clusters of a junction tree of the chain graph, imposes each probabilistic sentence and independence assertion on a cluster that contains it, and solves a nonconvex program with $O(n\,2^{w+1})$ variables, where $w+1$ is the size of the largest cluster (an upper bound on the treewidth of the moralized chain graph). We prove that, under conditions that can be checked mechanically, its global optimum gives the exact lower and upper probabilities. CJT uses only the structure of the chain graph and requires no compilation into a credal network. As a complementary approach, we compile chain-graph LCNs into credal networks, characterize the family-realizable LCNs on which this compilation preserves the exact bounds, and adapt three credal-network algorithms --- variable elimination, interval belief propagation and coordinate descent --- with their exactness and bound guarantees. On $740$ synthetic LCNs with up to $100$ propositions, CJT with a global solver certifies the exact bounds of every endpoint on trees, polytrees and $3$-trees and of $82$--$99\%$ of them on unstructured DAGs, whereas exact inference over the joint certifies them only up to about six propositions. On family-realizable LCNs, the compiled methods reach the certified bounds, coordinate descent and interval belief propagation within seconds at $100$ propositions (mean error below $10^{-4}$ for credal variable elimination and coordinate descent); when sentences are not family-realizable, their bounds stay sound but loosen with every such sentence, and CJT is the method that remains exact.
+    \rev{Logical Credal Networks (LCNs) combine propositional formulas with imprecise probability bounds. Exact inference has so far required a nonconvex program over all $2^n$ joint states, and the only approximate method, ARIEL, carries no guarantee. We introduce Credal Junction Tree (CJT), an exact algorithm for LCNs whose structure is a chain graph: it replaces the joint by the cluster marginals of a junction tree, imposes each sentence and independence assertion on a cluster, and solves a nonconvex program with $O(n\,2^{w+1})$ variables, $w+1$ being the largest cluster size. Under conditions it checks mechanically, the global optimum is the exact lower and upper probability. As a complementary route, we compile LCNs into credal networks, characterize the family-realizable LCNs on which this preserves the exact bounds, and adapt three credal-network algorithms to the result. On $740$ synthetic LCNs with up to $100$ propositions, CJT with a global solver certifies every endpoint on trees, polytrees and $3$-trees and $82$--$99\%$ of them on DAGs, whereas the joint formulation is certified only up to about six propositions. On family-realizable LCNs the compiled methods match the certified bounds within seconds; outside that class, as on $14$ realistic LCNs, they remain sound but loosen with every non-realizable sentence.}
 \end{abstract}
 
 %% ================================================================
@@ -125,9 +130,9 @@ Combining logical and probabilistic reasoning is a long-standing goal of Artific
 \emph{Logical Credal Networks} (LCNs)~\citep{marinescu2022neurips} were introduced to address this gap: they allow \emph{imprecise} specifications of the form $\alpha \leq P(\phi\,|\,\varphi) \leq \beta$ over arbitrary propositional formulas, with no acyclicity restriction. An LCN defines a set of probability distributions consistent with its constraints and a local Markov condition, and inference amounts to computing tight lower and upper bounds on the probabilities of query formulas. This flexibility makes LCNs well suited to causal reasoning with partial knowledge, robust decision making, and trustworthy neuro-symbolic systems, but it also makes inference considerably harder than in Bayesian or classical credal networks \citep{pearl88,cozman2000credal}. The only exact method optimizes a nonconvex program over the full joint distribution, with one variable for each of the $2^n$ truth assignments \citep{marinescu2022neurips}, which confines it to a handful of propositions; the only approximate method is the ARIEL message-passing scheme~\citep{marinescu2023lcn}.
 
 \paragraph{Contribution.}
-We show that exact LCN inference need not pay the $2^n$ cost. Our main contribution is \emph{Credal Junction Tree} (CJT), an exact algorithm for LCNs whose structure is a chain graph. Building on the chain-graph factorization of LCNs established by \citet{cozman23a}, CJT moralizes and triangulates the chain graph, builds a junction tree, and replaces the global joint distribution by one local marginal per cluster, tied together by separator-consistency constraints. The LCN's probabilistic sentences are imposed on the clusters that contain them, and its independence assertions are either entailed by the tree's topology, reduced to equivalent smaller assertions that fit in a cluster, or implied by one constraint per node of a topologically ordered tree. The resulting nonlinear program has $O(n\,2^{w+1})$ variables instead of $2^n$, where $w+1$ is the largest cluster size of the tree it builds, and we prove that, under conditions that the algorithm checks for each instance, its certified global optimum is the exact LCN bound. CJT needs only the chain graph's \emph{structure}: unlike the approaches below, it never compiles the LCN into a credal network, never solves per-family local problems and never enumerates extreme points, so it is not affected by the relaxation those steps introduce.
+\rev{We show that exact LCN inference need not pay the $2^n$ cost. Our main contribution is \emph{Credal Junction Tree} (CJT), an exact algorithm for LCNs whose structure is a chain graph. Building on the chain-graph factorization of LCNs established by \citet{cozman23a}, CJT moralizes and triangulates the chain graph, builds a junction tree, and replaces the global joint distribution by one local marginal per cluster, tied together by separator-consistency constraints. The LCN's probabilistic sentences are imposed on the clusters that contain them, and its independence assertions are either entailed by the tree's topology, reduced to equivalent smaller assertions that fit in a cluster, or implied by one constraint per node of a topologically ordered tree. The resulting nonlinear program has $O(n\,2^{w+1})$ variables instead of $2^n$, where $w+1$ is the largest cluster size of the tree it builds, and we prove that, under conditions that the algorithm checks for each instance, its certified global optimum is the exact LCN bound. CJT needs only the chain graph's \emph{structure}: unlike the approaches below, it never compiles the LCN into a credal network, never solves per-family local problems and never enumerates extreme points, so it is not affected by the relaxation those steps introduce.}
 
-Our second contribution is a systematic \emph{credal-network compilation} of chain-graph LCNs, which makes the well-developed machinery of credal networks \citep{cozman2000credal,maua2020ijar,l2u,antonucci2015approxlp} available for LCN inference. The compilation replaces the LCN's distribution set by the strong extension of a credal network over the chain components, which contains it when the LCN factorizes (as every DAG-structured LCN does); we identify conditions, centred on \emph{family-realizable} sentences, under which the two have the same bounds. We adapt three credal-network algorithms: credal variable elimination (CVE), exact for the strong extension with or without evidence, with its fully polynomial-time approximation scheme CVE$_\varepsilon$; interval belief propagation (IVBP), a credal sum-product algorithm, exact when the compiled credal network is a polytree; and a coordinate-descent method (CDVE) that computes inner bounds for the strong extension. We evaluate all methods on synthetic and realistic LCN benchmarks, scoring them against the endpoints that CJT certifies as exact. The experiments show that the two routes are complementary: CJT certifies exact bounds for LCNs with $100$ propositions, far beyond the reach of the $2^n$ formulation, and its cost is governed by the nonlinear independence rows its tree needs rather than by $n$; on family-realizable LCNs the compiled methods match those bounds at a fraction of the cost; and controlled perturbations show that the bounds of the compilation degrade, soundly, with the number of non-realizable sentences, non-root marginals being the most damaging.
+Our second contribution is a systematic \emph{credal-network compilation} of chain-graph LCNs, which makes the machinery of credal networks \citep{cozman2000credal,maua2020ijar,l2u,antonucci2015approxlp} available for LCN inference. \rev{The compilation replaces the LCN's distribution set by the strong extension of a credal network over the chain components, which contains it when the LCN factorizes (as every DAG-structured LCN does), and we identify conditions, centred on \emph{family-realizable} sentences, under which the two have the same bounds. We adapt credal variable elimination (CVE, with its FPTAS), interval belief propagation (IVBP) and coordinate descent (CDVE) to the compiled network, with exactness and inner-bound guarantees under evidence. Scored against the endpoints that CJT certifies, the experiments show that the two routes are complementary: CJT certifies exact bounds for LCNs with $100$ propositions, far beyond the $2^n$ formulation; on family-realizable LCNs the compiled methods match them at a fraction of the cost; and the compiled bounds degrade, soundly, with the number of non-realizable sentences.}
 
 The Appendix contains the proofs, detailed descriptions of all algorithms with worked examples, and the full experimental results.
 
@@ -146,31 +151,31 @@ where $\theta_{v,\pi}=\theta_v(\cdot\mid\Pa(v){=}\pi)$ is the row of the table $
 \begin{equation}\label{eq:se}
     \DSE=\textrm{CH}\bigl(\mathcal P_{\mathrm{SE}}\bigr),
 \end{equation}
-a polytope whose extreme points are \emph{among} the products of vertices of the local credal sets. $\DSE$ may contain mixtures violating the independences of $D$, but both sets have the same lower and upper probabilities, for marginals and for conditionals as defined in Section~\ref{sec-lcn} (Lemma~\ref{lem:hull}). Set-level results below concern $\mathcal P_{\mathrm{SE}}$.
+a polytope whose extreme points are among the products of local vertices. \rev{$\DSE$ may contain mixtures violating the independences of $D$, but both sets have the same lower and upper probabilities, for marginals and conditionals (Lemma~\ref{lem:hull}); set-level results below concern $\mathcal P_{\mathrm{SE}}$.}
 
 \subsection{Logical Credal Networks}
 \label{sec-lcn}
-Credal networks attach credal sets to the families of a fixed DAG. A \emph{Logical Credal Network} (LCN) \citep{marinescu2022neurips} instead attaches probability bounds to arbitrary propositional formulas, and derives its independences from the formulas. An LCN consists of binary variables (propositions, or atoms) $\bX = \{X_1, \dots, X_n \}$ and a set $\cS$ of probabilistic sentences. A sentence $s \in \cS$ has the Type-2 form $\ell_s \leq P(\varphi_s\mid \psi_s) \leq u_s$ over propositional formulas, or the Type-1 form $\ell_s \leq P(\varphi_s) \leq u_s$ (i.e.\ $\psi_s=\top$); $\atoms(s)$ is the set of atoms of $\varphi_s$ and $\psi_s$, and a flag $\tau_s\in\{\mathrm{True},\mathrm{False}\}$ declares whether the atoms of $\varphi_s$ are mutually dependent (it matters only when $\varphi_s$ has two or more atoms). A ratio is undefined when $P(\psi_s)=0$, so we use the \emph{cleared} form (Remark~\ref{rem:cleared}),
+Credal networks attach credal sets to the families of a fixed DAG. A \emph{Logical Credal Network} (LCN) \citep{marinescu2022neurips} instead attaches probability bounds to arbitrary propositional formulas, and derives its independences from the formulas. An LCN consists of binary variables (propositions, or atoms) $\bX = \{X_1, \dots, X_n \}$ and a set $\cS$ of probabilistic sentences. A sentence $s \in \cS$ has the Type-2 form $\ell_s \leq P(\varphi_s\mid \psi_s) \leq u_s$ over propositional formulas, or the Type-1 form $\ell_s \leq P(\varphi_s) \leq u_s$ (i.e.\ $\psi_s=\top$); $\atoms(s)$ is the set of atoms of $\varphi_s$ and $\psi_s$, and \rev{a flag $\tau_s\in\{\mathrm{True},\mathrm{False}\}$ declares whether the atoms of $\varphi_s$ are mutually dependent. A ratio is undefined when $P(\psi_s)=0$, so we use the \emph{cleared} form (Remark~\ref{rem:cleared}),}
 \begin{equation}\label{eq:cleared}
     c_s^-(p)=P(\varphi_s\wedge\psi_s)-\ell_s P(\psi_s)\;\ge\;0,\qquad c_s^+(p)=u_s P(\psi_s)-P(\varphi_s\wedge\psi_s)\;\ge\;0,
 \end{equation}
-which is defined for every distribution $p$ and linear in $p$.
+\rev{which is defined for every distribution $p$ and linear in $p$.}
 
-The \emph{primal graph} $G_P$ of an LCN has a \emph{proposition node} per atom and a \emph{formula node} per formula of a sentence, a single positive literal being identified with its atom's node and self-loops omitted (Fig.~\ref{fig:primal}). A Type-1 sentence $s$ adds the edges $\varphi_s\to X$, and a Type-2 sentence the edges $X'\to\psi_s$, $\psi_s\to\varphi_s$ and $\varphi_s\to X$, for all $X\in\atoms(\varphi_s)$, $X'\in\atoms(\psi_s)$; if $\tau_s=\mathrm{True}$, the edges between $\varphi_s$ and its atoms are bi-directed \citep{marinescu2022neurips}. The \emph{structure} of the LCN is the mixed graph over $\bX$ obtained as follows \citep{cozman23a}: (i) for each sentence with $\tau_s=\mathrm{True}$, place an undirected edge between any two atoms of $\varphi_s$; (ii) for each Type-2 sentence, add a directed edge from each atom of $\psi_s$ to each atom of $\varphi_s$; (iii) replace every pair of edges $A \leftrightarrows B$ by an undirected edge; (iv) remove duplicate edges. With $\tau_s=\mathrm{False}$ the atoms of $\varphi_s$ are thus not linked to each other.
+The \emph{primal graph} $G_P$ of an LCN has a \emph{proposition node} per atom and a \emph{formula node} \rev{$v_\varphi$} per formula $\varphi$ of a sentence, a single positive literal being identified with its atom's node \rev{($v_X=X$)} and self-loops omitted (Fig.~\ref{fig:primal}). A Type-1 sentence $s$ adds the edges \rev{$v_{\varphi_s}\to X$}, and a Type-2 sentence the edges \rev{$X'\to v_{\psi_s}$, $v_{\psi_s}\to v_{\varphi_s}$ and $v_{\varphi_s}\to X$}, for all $X\in\atoms(\varphi_s)$, $X'\in\atoms(\psi_s)$; if $\tau_s=\mathrm{True}$, the edges between \rev{$v_{\varphi_s}$} and its atoms are bi-directed \citep{marinescu2022neurips}. The \emph{structure} of the LCN is the mixed graph over $\bX$ obtained as follows \citep{cozman23a}: (i) for each sentence with $\tau_s=\mathrm{True}$, place an undirected edge between any two atoms of $\varphi_s$; (ii) for each Type-2 sentence, add a directed edge from each atom of $\psi_s$ to each atom of $\varphi_s$; (iii) replace every pair of edges $A \leftrightarrows B$ by an undirected edge; (iv) remove duplicate edges. With $\tau_s=\mathrm{False}$ the atoms of $\varphi_s$ are thus not linked to each other.
 
-The parents $\pa_P(X)$ of an atom $X$ in $G_P$ are the atoms that reach $X$ via a directed path whose intermediate nodes (if any) are formula nodes. The descendants $\mathrm{de}_P(X)$ are the atoms $Y\neq X$ reachable from $X$ via a directed path none of whose intermediate nodes belongs to $\pa_P(X)$. An LCN is endowed with a Local Markov Condition (LMC(LCN)).
+The parents $\pa_P(X)$ of an atom $X$ in $G_P$ are the atoms that reach $X$ via a directed path whose intermediate nodes (if any) are formula nodes, and its descendants $\mathrm{de}_P(X)$ are defined in Appendix~\ref{sec:prelim-dlcn}.
 
 \begin{definition}[LMC(LCN)]\label{def:lmc-lcn}
     Given an LCN $\cL$ with primal graph $G_P$, every atom $X$ is independent of its non-parent non-descendants $\bN_X=\bX\setminus(\{X\}\cup\pa_P(X)\cup\mathrm{de}_P(X))$ given $\pa_P(X)$: the assertion $(X\indep\bN_X\mid\pa_P(X))$, for each $X$ with $\bN_X\neq\varnothing$.
 \end{definition}
 
-An assertion $(X \indep \bY \mid \bZ)$ holds in $p$ if $p(x,\by,\bz)\,p(\bz)=p(x,\bz)\,p(\by,\bz)$ for \emph{all} configurations $(x,\by,\bz)$ of $\{X\}\cup\bY\cup\bZ$ (Definition~\ref{def:ci}); configurations with $p(\bz)=0$ satisfy it vacuously. The \emph{LCN distribution set}, a compact subset of the simplex $\Delta(2^{\bX})$ of joint distributions of the $2^n$ truth assignments to $\bX$, is
+\rev{An assertion $(X \indep \bY \mid \bZ)$ holds in $p$ if $p(x,\by,\bz)\,p(\bz)=p(x,\bz)\,p(\by,\bz)$ for \emph{all} configurations $(x,\by,\bz)$ of $\{X\}\cup\bY\cup\bZ$ (Definition~\ref{def:ci}).} The \emph{LCN distribution set}, a compact subset of the simplex $\Delta(2^{\bX})$ of joint distributions of the $2^n$ truth assignments to $\bX$, is
 \begin{equation}\label{eq:dlcn}
   \DLCN=\bigl\{\,p\in\Delta(2^{\bX})\;:\;
     c_s^-(p)\ge0,\ c_s^+(p)\ge0\ \forall s\in\cS,\ \text{every LMC assertion holds in }p\,\bigr\}.
 \end{equation}
-For a query atom $a$ and evidence $\be$, an assignment to a set of atoms $\bE$, the inference task asks for
-$\lo P(a\mid\be)=\inf\{p(a\mid\be): p\in\DLCN,\ p(\be)>0\}$ and $\hi P(a\mid\be)$, the corresponding supremum, with the vacuous $[0,1]$ if no member gives $\be$ positive probability (Definition~\ref{def:cond}). Marginals are the case $\bE=\varnothing$; the bounds are attained when $\min_{p\in\DLCN}p(\be)>0$. The same definition applies to any set of distributions, e.g.\ $\DSE$. The current state of the art consists of two approaches: the exact nonlinear optimization method of \citep{marinescu2022neurips} and the approximate message-passing algorithm called ARIEL \citep{marinescu2023lcn}, respectively.
+\rev{For a query atom $a$ and evidence $\be$, an assignment to a set of atoms $\bE$, the inference task asks for
+$\lo P(a\mid\be)=\inf\{p(a\mid\be): p\in\DLCN,\ p(\be)>0\}$ and $\hi P(a\mid\be)$, the corresponding supremum, with the vacuous $[0,1]$ if no member gives $\be$ positive probability (Definition~\ref{def:cond}). Marginals are the case $\bE=\varnothing$; the bounds are attained when $\min_{p\in\DLCN}p(\be)>0$. The same definition applies to any set of distributions, e.g.\ $\DSE$.}
 
 
 
@@ -201,7 +206,7 @@ $\lo P(a\mid\be)=\inf\{p(a\mid\be): p\in\DLCN,\ p(\be)>0\}$ and $\hi P(a\mid\be)
 \end{figure}
 
 \begin{example}
-    Figure \ref{fig:alarm} shows a simple LCN with 5 propositions and 5 constraints. The corresponding primal graph and structure are given in Figures \ref{fig:primal} and \ref{fig:struct}, respectively. The LMC implies that: $B$ and $E$ are marginally independent, $C$ is conditionally independent of $B$ and $E$ given its boundary $\{A, D\}$ (its parents in $G_P$), and $D$ is conditionally independent of $B$ and $E$ given $\{A,C\}$, respectively.
+    For the LCN of Figure~\ref{fig:alarm} the LMC gives $(B\indep E)$, $(C\indep B,E\mid A,D)$ and $(D\indep B,E\mid A,C)$.
 \end{example}
 
 \subsection{Chain Graphs and Factorization}
@@ -213,21 +218,15 @@ Let $G=(\bX,E)$ be a mixed graph with $E=E_{\to}\cup E_{-}$, where $E_{\to}$ is 
 $\bX = \cT_1 \,\dot\cup\, \cT_2 \,\dot\cup\, \cdots \,\dot\cup\, \cT_m$ such that: (i) for each $i$, the subgraph induced by $\cT_i$ contains only undirected edges; (ii) for $i\neq j$, every edge between $\cT_i$ and $\cT_j$ is directed, and all such edges have the same orientation; (iii) the directed graph obtained by contracting each chain component $\cT_i$ into a single node is acyclic. The sets $\cT_1,\ldots,\cT_m$ are called the \emph{chain components} of $G$.
 \end{definition}
 
-A DAG is a chain graph whose components are all singletons, and an undirected graph is a chain graph with a single component. If $A\to B$ in $G$ then $A$ is a \emph{parent} of $B$, and $\pa_G(B)$ denotes the parents of $B$. If $A-B$ then $A$ and $B$ are \emph{neighbors}, and $\mathrm{ne}_G(A)$ denotes the neighbors of $A$. The \emph{boundary} of a node $A$ is $\mathrm{bd}_G(A)=\pa_G(A)\cup \mathrm{ne}_G(A)$, and that of a set $\cB$ of nodes is $\mathrm{bd}_G(\cB) = \bigcup_{A\in \cB} \mathrm{bd}_G(A) \setminus \cB$. A node $B$ is a \emph{descendant} of $A$, $B\in\mathrm{de}_G(A)$, if there is a path from $A$ to $B$ that follows every directed edge in its direction, uses undirected edges in either direction, and contains at least one directed edge. The Local Markov Condition (LMC(C)) for chain graphs is defined as follows:
-
-\begin{definition}[LMC(C)]\label{def:lmc-cg}
-    Let $G$ be a chain graph. A node $A$ of $G$ is independent, given its boundary $\mathrm{bd}_G(A)$, of all nodes that are not $A$ itself nor in $\mathrm{de}_G(A)$ nor in $\mathrm{bd}_G(A)$.
-\end{definition}
-
-For strictly positive distributions the local and global Markov conditions of a chain graph are equivalent \citep{cowell99}, and a strictly positive joint distribution $p$ satisfying LMC(C) factorizes according to $G$ as
+A DAG is a chain graph whose components are all singletons, and an undirected graph is a chain graph with a single component. If $A\to B$ in $G$ then $A$ is a \emph{parent} of $B$, and $\pa_G(B)$ denotes the parents of $B$. If $A-B$ then $A$ and $B$ are \emph{neighbors}, and $\mathrm{ne}_G(A)$ denotes the neighbors of $A$. The \emph{boundary} of a node $A$ is $\mathrm{bd}_G(A)=\pa_G(A)\cup \mathrm{ne}_G(A)$, and that of a set $\cB$ of nodes is $\mathrm{bd}_G(\cB) = \bigcup_{A\in \cB} \mathrm{bd}_G(A) \setminus \cB$. A node $B$ is a \emph{descendant} of $A$, $B\in\mathrm{de}_G(A)$, if there is a path from $A$ to $B$ that follows every directed edge in its direction, uses undirected edges in either direction, and contains at least one directed edge. The \emph{Local Markov Condition} LMC(C)\phantomsection\label{def:lmc-cg} states that every node $A$ is independent, given $\mathrm{bd}_G(A)$, of all nodes other than $A$, $\mathrm{de}_G(A)$ and $\mathrm{bd}_G(A)$. For strictly positive distributions the local and global Markov conditions of a chain graph are equivalent \citep{cowell99}, and a strictly positive joint distribution $p$ satisfying LMC(C) factorizes according to $G$ as
 \begin{equation}\label{eq:factorization}
 p(\bx) = \prod_{i=1}^m p(\bx_{\cT_i}\mid\bx_{\mathrm{bd}_G(\cT_i)}),
 \end{equation}
-where $\mathrm{bd}_G(\cT_i)$ is the set of parents of $\cT_i$'s nodes outside $\cT_i$, and $\bx_{\cT_i}$, $\bx_{\mathrm{bd}_G(\cT_i)}$ are the projections of $\bx$ onto these variables. When $G$ is a DAG positivity is not needed (Lemma~\ref{lem:dag}). For components with several variables it is, since deriving the independence of a whole component from the node-wise conditions requires the intersection property \citep{cowell99}.
+where $\mathrm{bd}_G(\cT_i)$ is the set of parents of $\cT_i$'s nodes outside $\cT_i$, and $\bx_{\cT_i}$, $\bx_{\mathrm{bd}_G(\cT_i)}$ are the projections of $\bx$ onto these variables. \rev{When $G$ is a DAG positivity is not needed (Lemma~\ref{lem:dag}); for compound components it is, through the intersection property (Appendix~\ref{sec:prelim-gaps}).}
 
-Contracting each chain component into a single node turns $G$ into the \emph{component DAG} $D$, whose node set $\bV$ ($m=|\bV|$) is in bijection with the components. For a node $v\in\bV$, $\ch_v\subseteq\bX$ is the set of atoms of its component, $\Pa(v)$ the set of its parent nodes in $D$, and $\pa_v=\bigcup_{u\in\Pa(v)}\ch_u$ the set of atoms of its parent components; $\pi$ denotes an assignment of $\pa_v$. Each $v$ is a variable whose values are the joint states of $\ch_v$, \emph{compound} (and multi-valued) when $|\ch_v|\ge2$. A distribution $p$ \emph{factorizes along $D$} if $p(\bx)=\prod_v\theta_v(\bx_{\ch_v}\mid\bx_{\pa_v})$ for \emph{family tables} $\theta_v$ whose rows $\theta_{v,\pi}$ are distributions over the states of $\ch_v$; since $\mathrm{bd}_G(\cT_i)\subseteq\pa_v$, \eqref{eq:factorization} implies this. The pairs $(\ch_v,\pa_v)$ are the \emph{families}, $\ch_v\cup\pa_v$ the \emph{family scopes}, and a sentence $s$ is \emph{attached} to family $v$ if $\atoms(s)\subseteq\ch_v\cup\pa_v$.
+Contracting each chain component into a single node turns $G$ into the \emph{component DAG} $D$, whose node set $\bV$ ($m=|\bV|$) is in bijection with the components. For a node $v\in\bV$, $\ch_v\subseteq\bX$ is the set of atoms of its component, $\Pa(v)$ the set of its parent nodes in $D$, and $\pa_v=\bigcup_{u\in\Pa(v)}\ch_u$ the set of atoms of its parent components; $\pi$ denotes an assignment of $\pa_v$. Each $v$ is a variable whose values are the joint states of $\ch_v$, \emph{compound} (and multi-valued) when $|\ch_v|\ge2$. \rev{A distribution $p$ \emph{factorizes along $D$} if $p(\bx)=\prod_v\theta_v(\bx_{\ch_v}\mid\bx_{\pa_v})$ for \emph{family tables} $\theta_v$ whose rows $\theta_{v,\pi}$ are distributions over the states of $\ch_v$; since $\mathrm{bd}_G(\cT_i)\subseteq\pa_v$, \eqref{eq:factorization} implies this. The pairs $(\ch_v,\pa_v)$ are the \emph{families}, $\ch_v\cup\pa_v$ the \emph{family scopes}, and a sentence $s$ is \emph{attached} to family $v$ if $\atoms(s)\subseteq\ch_v\cup\pa_v$.}
 
-\paragraph{Chain-graph LCNs.} \citet{cozman23a} show that when the structure of an LCN is a chain graph over its atoms, LMC(LCN) (Definition~\ref{def:lmc-lcn}) coincides with LMC(C), so every strictly positive member of $\DLCN$ factorizes along $D$. We call such an LCN a \emph{chain-graph LCN} and consider only these; its components, $D$ and families are those of its structure. The implementation rejects a structure with a directed edge between two atoms of one undirected component that are not joined by an undirected edge (contraction would silently drop it), so every structure it accepts is a genuine chain graph. An LCN is \emph{factorizing} if every $p\in\DLCN$ factorizes along $D$. A DAG-structured LCN (every component a single atom) is factorizing, and every product of its family tables satisfies its LMC (Lemma~\ref{lem:dag}). With compound components only the strictly positive members of $\DLCN$ are guaranteed to factorize (Remark~\ref{rem:posclosure} states what the compilation then guarantees).
+\paragraph{Chain-graph LCNs.} \citet{cozman23a} show that when the structure of an LCN is a chain graph over its atoms, LMC(LCN) (Definition~\ref{def:lmc-lcn}) coincides with LMC(C), so every strictly positive member of $\DLCN$ factorizes along $D$. We call such an LCN a \emph{chain-graph LCN} and consider only these; its components, $D$ and families are those of its structure. \rev{Every accepted structure is checked to be a chain graph (Appendix~\ref{sec:prelim-gaps}). An LCN is \emph{factorizing} if every $p\in\DLCN$ factorizes along $D$. A DAG-structured LCN (every component a single atom) is factorizing, and every product of its family tables satisfies its LMC (Lemma~\ref{lem:dag}); with compound components only the strictly positive members are guaranteed to factorize (Remark~\ref{rem:posclosure}).}
 
 %% ================================================================
 \section{Exact LCN Inference at Treewidth Cost}
@@ -243,6 +242,7 @@ in total \citep{marinescu2022neurips}. We introduce \emph{Credal Junction Tree}
 (CJT), which solves the same problem exactly with a program whose size is
 exponential only in the width of a junction tree of the chain graph.
 
+\begin{revblock}
 CJT uses the chain graph only through its family scopes
 (Section~\ref{sec-background}). Bucket elimination over these scopes (and over
 the atoms of every sentence that fits in no family scope) moralizes and
@@ -299,16 +299,7 @@ rows. The program has $22$ variables and $24$ constraints, against $2^5=32$
 variables for the joint (Appendix~\ref{sec:cjt-example}).
 \end{example}
 
-The hypotheses H1--H4 below are checked for each instance: H1 by testing that
-the clusters containing each atom are connected in $T$, H2 and H4 by searching
-for hosts; H3 holds by construction unless an assertion had to be relaxed,
-``implied by $\Lambda$'' being certified syntactically (each row follows from one
-LCN assertion with the same conditioning set by decomposition and symmetry).
-When H4 fails for a query, CJT builds for it a tree augmented by the nodes of the
-query and the evidence. Each endpoint is solved by spatial branch-and-bound
-(SCIP) and, if uncertified, reported by its dual bound, so every SCIP interval is
-outer, and exact (up to tolerance) when H1--H4 hold and both endpoints are
-certified (Appendix~\ref{sec:algo-solve}).
+The hypotheses H1--H4 below are checked for each instance (H1 by testing that the clusters containing each atom are connected, H2 and H4 by searching for hosts; H3 holds by construction unless an assertion had to be relaxed). When H4 fails for a query, CJT builds a tree augmented by the query and evidence nodes. Each endpoint is solved by spatial branch-and-bound (SCIP) and, if uncertified, reported by its dual bound, so every SCIP interval is outer, and exact when H1--H4 hold and both endpoints are certified (Appendix~\ref{sec:algo-solve}).
 
 \begin{theorem}[exactness]\label{thm:cjt}
 Let $\cL$ be a chain-graph LCN with LMC assertions $\Lambda$ and
@@ -347,16 +338,8 @@ assertions are imposed, hence $O(n\,2^w)$ independence rows. Evidence adds one
 variable and one row.
 \end{theorem}
 
-Here $w$ is the width of the tree actually built (widening can increase it). The
-bound concerns the formulation, not the solving time: the program is nonconvex,
-and its global optimization is not polynomial in its size; but it is exponential
-in $w$ rather than in $n$, so exact inference becomes possible where the $2^n$
-formulation cannot even be written down. CJT never compiles a credal network: it
-uses no local credal sets, and its target is $\DLCN$ itself.
-Section~\ref{sec-lcn-to-credal} shows what is gained, and what is lost, by
-compiling instead.
-
-
+Here $w$ is the width of the tree actually built (widening can increase it). The bound concerns the formulation, not the solving time: the program is nonconvex and its global optimization is not polynomial in its size, but it is exponential in $w$ rather than in $n$. CJT uses no local credal sets, and its target is $\DLCN$ itself.
+\end{revblock}
 
 %% ================================================================
 \section{Approximate Inference via Credal Network Compilation}
@@ -365,34 +348,28 @@ compiling instead.
 
 An alternative to solving the LCN program, exactly as CJT does or approximately,
 is to compile the LCN into a credal network (Section~\ref{sec-cn}) and use the
-algorithms developed for those. We describe the compilation, characterize when it
-is exact, and adapt three credal-network algorithms to it.
+algorithms developed for those.
 
 \subsection{The Chain Graph Approximation for LCNs}
-Given a chain-graph LCN $\mathcal{L}$ over propositions $\bX=\{X_1,\ldots,X_n\}$, we approximate $\DLCN$ by the strong extension $\DSE$ of an induced credal network over the component DAG $D$ (Section~\ref{sec-background}): node $v$ is a variable over the joint states of $\ch_v$ (multi-valued when compound) with parents $\Pa(v)$. For each assignment $\pi$ of $\pa_v$, the local credal set $K_{v,\pi}$ (Definition~\ref{def:localset}) is the set of rows $\rho(\ch_v\mid\pi)$ of the joints $\rho$ on the family scope $\ch_v\cup\pa_v$ that satisfy the sentences \emph{attached} to $v$ ($\atoms(s)\subseteq\ch_v\cup\pa_v$) and have $\rho(\pi)>0$ \citep{marinescu2022neurips}; no LMC equality is imposed. By the Charnes--Cooper transformation \citep{charnes1962flp} it is the projection of a linear program's feasible set, a polytope: an interval for a single-atom child; for a compound child, whose per-state box can be strictly larger, we compute its vertices with an LP oracle. An infeasible program gives, by convention, the simplex. Let $K_v=\prod_\pi K_{v,\pi}$; tables $\theta_v$ have rows $\theta_{v,\pi}$.
+Given a chain-graph LCN $\mathcal{L}$ over propositions $\bX=\{X_1,\ldots,X_n\}$, we approximate $\DLCN$ by the strong extension $\DSE$ of an induced credal network over the component DAG $D$ (Section~\ref{sec-background}): node $v$ is a variable over the joint states of $\ch_v$ (multi-valued when compound) with parents $\Pa(v)$. For each assignment $\pi$ of $\pa_v$, the local credal set $K_{v,\pi}$ (Definition~\ref{def:localset}) is the set of rows $\rho(\ch_v\mid\pi)$ of the joints $\rho$ on the family scope $\ch_v\cup\pa_v$ that satisfy the sentences attached to $v$ \rev{and have $\rho(\pi)>0$} \citep{marinescu2022neurips}; no LMC equality is imposed. \rev{By the Charnes--Cooper transformation \citep{charnes1962flp} it is the projection of a linear program's feasible set, a polytope: an interval for a single-atom child; for a compound child, whose per-state box can be strictly larger, we compute its vertices with an LP oracle. An infeasible program gives, by convention, the simplex.} Let $K_v=\prod_\pi K_{v,\pi}$; tables $\theta_v$ have rows $\theta_{v,\pi}$.
 
 
 
 \begin{example}
     Figure \ref{fig:cn} shows the credal network induced by the chain-graph factorization of the LCN from Figure \ref{fig:alarm}. Any joint distribution in $\mathcal P_{\mathrm{SE}}$ factorizes as
-    $P(B)\cdot P(E) \cdot P(A\mid B,E) \cdot P(C,D\mid A)$. In Figure \ref{fig:flp} we outline the fractional LPs for computing lower and upper bounds on $P(A=1\mid B=0,E=1)$, respectively. A partial local credal set $K(A\mid B,E)$ is given in Figure \ref{fig:cset}.
+    $P(B)\cdot P(E) \cdot P(A\mid B,E) \cdot P(C,D\mid A)$. A partial local credal set $K(A\mid B,E)$ is given in Figure \ref{fig:cset}; the local fractional LPs that compute it are in Figure~\ref{fig:flp} (Appendix~\ref{sec:example}).
 \end{example}
 
 \begin{figure}[t]
   \centering
-  \begin{subfigure}{0.2\textwidth}
+  \begin{subfigure}{0.22\textwidth}
     \includegraphics[width=\textwidth]{figs/fig-cn.png}
     \caption{Credal network}
     \label{fig:cn}
   \end{subfigure}
   \quad
-  \begin{subfigure}{0.4\textwidth}
-    \includegraphics[width=\textwidth]{figs/fig-flp.png}
-    \caption{Local fractional LPs}
-    \label{fig:flp}
-  \end{subfigure}
-  \quad
-  \begin{subfigure}{0.3\textwidth}
+  \quad\quad
+  \begin{subfigure}{0.25\textwidth}
     \includegraphics[width=.8\textwidth]{figs/fig-cset2.png}
     \caption{Local credal set}
     \label{fig:cset}
@@ -401,25 +378,25 @@ Given a chain-graph LCN $\mathcal{L}$ over propositions $\bX=\{X_1,\ldots,X_n\}$
   \label{fig:factorization}
 \end{figure}
 
-Given a reference credal set $\mathcal{R}$ with true query bounds $[\underline{q}^\star,\overline{q}^\star]$, an estimated interval is \emph{exact} when it equals the true bounds, an \emph{outer bound} when it encloses them, and an \emph{inner bound} when it is enclosed by them. Intervals that satisfy neither property are termed \emph{unreliable}. We can show that:
+Given a reference credal set $\mathcal{R}$ with true query bounds $[\underline{q}^\star,\overline{q}^\star]$, an estimated interval is \emph{exact} when it equals the true bounds, an \emph{outer bound} when it encloses them, and an \emph{inner bound} when it is enclosed by them, and \emph{unreliable} otherwise. \rev{The first question is whether compiling can lose any LCN member:}
 
 \begin{proposition}[inclusion]\label{prop:inclusion}
-  For any factorizing chain-graph LCN, $\DLCN \subseteq \mathcal P_{\mathrm{SE}}\subseteq\DSE$. Consequently, any inference algorithm that is \emph{exact} or \emph{outer} for $\DSE$ computes valid \emph{outer bounds} for $\DLCN$, for every marginal and every conditional query with $\hi P_{\DLCN}(\be)>0$ (Definition~\ref{def:cond}).
+  For any \rev{factorizing} chain-graph LCN, $\DLCN \subseteq \rev{\mathcal P_{\mathrm{SE}}\subseteq}\DSE$. Consequently, any inference algorithm that is \emph{exact} or \emph{outer} for $\DSE$ computes valid \emph{outer bounds} for $\DLCN$\rev{, for every marginal and every conditional query with $\hi P_{\DLCN}(\be)>0$ (Definition~\ref{def:cond})}.
 \end{proposition}
-Rows of positive weight are locally feasible, the others free (Appendix~\ref{sec:incl}); without factorization, see Remark~\ref{rem:posclosure}.
+\rev{Rows of positive weight are locally feasible, the others free (Appendix~\ref{sec:incl}); without factorization, see Remark~\ref{rem:posclosure}.}
 
 \subsection{Family-realizable Sentences}
 \label{sec:realizable}
 
-The proposed approximation introduces two looseness gaps. First, each $K_{v,\pi}$ is computed per family in isolation, so it may admit rows that no global $p\in \DLCN$ realizes: it ignores the sentences not attached to $v$ and all LMC equalities, including those inside the family scope. So the rows $K^{\mathrm{true}}_{v,\pi}$ of members of $\DLCN$ satisfy $K^{\mathrm{true}}_{v,\pi}\subseteq K_{v,\pi}$ (Appendix~\ref{sec:incl}), sometimes strictly. Second, even with $K_{v,\pi} = K_{v,\pi}^{\mathrm{true}}$, the free product of \eqref{eq:pse} lets each family pick its rows independently. This can violate a sentence whose scope spans several families, and LMC assertions that constrain a family's table, which a free row does not enforce. We therefore introduce a class of LCN sentences, called \emph{family-realizable sentences}, and identify conditions under which $\mathcal P_{\mathrm{SE}} = \DLCN$, so that $\DSE$ and $\DLCN$ have the same bounds.
+The proposed approximation introduces two looseness gaps. First, each $K_{v,\pi}$ is computed per family in isolation, so it may admit rows that no global $p\in \DLCN$ realizes: it ignores the sentences not attached to $v$ and all LMC equalities\rev{, including those inside the family scope}. So the rows $K^{\mathrm{true}}_{v,\pi}$ of members of $\DLCN$ satisfy $K^{\mathrm{true}}_{v,\pi}\subseteq K_{v,\pi}$ (Appendix~\ref{sec:incl}), sometimes strictly. \rev{Second, even with $K_{v,\pi} = K_{v,\pi}^{\mathrm{true}}$, the free product of \eqref{eq:pse} lets each family pick its rows independently, which can violate a sentence spanning several families or an LMC assertion that constrains a family's table. We therefore identify conditions under which $\mathcal P_{\mathrm{SE}} = \DLCN$, so that $\DSE$ and $\DLCN$ have the same bounds.}
 
 \begin{definition}[family-realizable sentence]\label{def:realizable}
 Let $\mathcal L$ be a chain-graph LCN with families $\{(\ch_v,\pa_v)\}$, and let $s$ be a sentence
 with functional $g_s$. Say $s$ is \emph{family-realizable in family $v$} if it is attached to $v$\footnote{A sentence can be attached to several families while being realizable in only one of them.} and the value $g_s(p)$ is determined by the conditional table
-$P(\ch_v\mid\pa_v)$ \emph{alone}: for any two joints $p,p'$ whose rows agree on every $\pi$ with $p(\pi),p'(\pi)>0$, $g_s(p)=g_s(p')$ (for a Type-2 sentence, whenever
+$P(\ch_v\mid\pa_v)$ \emph{alone}: for any two joints $p,p'$ whose rows agree \rev{on every $\pi$ with $p(\pi),p'(\pi)>0$}, $g_s(p)=g_s(p')$ (for a Type-2 sentence, whenever
 $P(\psi)>0$ and $P'(\psi)>0$), whatever the parents' marginals
-$P(\pa_v)$ and $P'(\pa_v)$ may be. In particular, $s$ is family-realizable in $v$ if it has one of
-the two forms:
+$P(\pa_v)$ and $P'(\pa_v)$ may be. \rev{In particular, $s$ is family-realizable in $v$ if it has one of
+the two forms}\rev{\footnote{R1 and R2, the forms our generator emits, are sufficient but not necessary (e.g.\ $P(C\mid D)$ on a root block $\{C,D\}$); Lemma~\ref{lem:invariance} gives the exact characterization.}}:
 \begin{enumerate}
   \item[\textup{(R1)}] \emph{Type-1 on a root block:} $s$ is $\ell\le P(\varphi)\le u$ with
     $\atoms(\varphi)\subseteq\ch_v$ and $\pa_v=\varnothing$. Then $P(\varphi)$ is a function of
@@ -434,77 +411,46 @@ A sentence is \emph{non-realizable} if it is family-realizable in no family. The
 realizable} if every sentence is family-realizable in some family.
 \end{definition}
 
-R1 and R2, the forms our generator emits, are sufficient but not necessary (e.g.\ $P(C\mid D)$ on a root block $\{C,D\}$). Lemma~\ref{lem:invariance} in the Appendix gives the exact characterization.
-
+\begin{revblock}
 \begin{proposition}[sufficiency]\label{prop:suff}
 Let $\mathcal L$ be a consistent chain-graph LCN with exact local sets (no box fallback) that is (i) \emph{locally feasible} (every local program is feasible), (ii) \emph{factorizing} (every $p\in\DLCN$ factorizes along the component DAG) and (iii) \emph{product-Markov} (every product of family tables along $D$ satisfies the LMC); \emph{DAG-structured} LCNs satisfy (ii) and (iii) (Lemma~\ref{lem:dag}). If every sentence of $\mathcal L$ is family-realizable in some family (Definition~\ref{def:realizable}), then $\mathcal P_{\mathrm{SE}}=\DLCN$. Hence $\DSE$ and $\DLCN$ have the same lower and upper probabilities for every marginal and every conditional query $P(a\mid\be)$ (Definition~\ref{def:cond}).
 \end{proposition}
+\end{revblock}
 
-Under these hypotheses every row of a local set enforces the sentences realizable at it (Appendix, Lemma~\ref{lem:noGapA}); since a product $q$ of tables has family marginal $q(\pi)\,\theta_{v,\pi}$ (Lemma~\ref{lem:marg}), every sentence holds at $q$, and $q$ satisfies the LMC by (iii). (iii) fails when the LMC constrains a family's table, inside a row (a component $C - D - E$ with $(C\indep E\mid D)$) or across rows (e.g.\ $(D\indep Y\mid C)$ for $Y\to\{C,D\}$, or a child depending on part of a compound parent); CJT is then the exact method. The hypotheses and exact polytopes are needed (Appendix~\ref{sec:fr-counter}).
+\rev{Under these hypotheses every row of a local set enforces the sentences realizable at it (Lemma~\ref{lem:noGapA}), and a product $q$ of tables has family marginal $q(\pi)\,\theta_{v,\pi}$ (Lemma~\ref{lem:marg}), so every sentence holds at $q$, which satisfies the LMC by (iii). When (iii) fails, i.e.\ the LMC constrains a family's table, CJT is the exact method; the hypotheses and exact polytopes are needed (Appendix~\ref{sec:fr-counter}).}
 
-We next present three algorithms for $\DSE$: CVE is exact, IVBP is exact on polytree credal networks (a heuristic on loopy ones), and CDVE gives inner bounds. By Proposition~\ref{prop:inclusion}, the exact ones give outer bounds for $\DLCN$ when $\mathcal L$ is factorizing (exact ones under Proposition~\ref{prop:suff}); inner bounds for $\DSE$ transfer to $\DLCN$ only when the two have the same bounds.
+\subsection{Credal-Network Algorithms}
+\label{sec-cn-algos}\label{sec-cve}\label{sec-ibp}\label{sec-cdve}
 
-\subsection{Credal Variable Elimination}
-\label{sec-cve}
+The compiled network can be queried with any credal-network algorithm. We adapt three of them, which extend existing methods; their full descriptions, worked examples, complexity results and proofs are in Appendices~\ref{sec-full-cve}--\ref{sec-full-cdve}, and their guarantees are summarized in Table~\ref{tab:cn-algos} and Proposition~\ref{prop:cn-guarantees}.
+\begin{revblock}
+\emph{Credal Variable Elimination} (CVE) extends variable elimination \rev{\citep{zhang-poole96,dechter-book}} to credal networks by propagating finite sets of \emph{pairs} of non-negative functions \citep{maua2012ijar,maua2020ijar}: the query potential $\{(1-t,t)\}$, $t$ the indicator of $a$, splits each product of vertices into $p_\theta(\neg a,\be)$ and $p_\theta(a,\be)$, and the bounds are the extrema of $q/(p+q)$ over the final pairs. The query node is eliminated last, and every query-free potential is reduced to the pairs whose normalized functions are vertices of the convex hull of the set, which preserves both extrema since the ratio is linear-fractional in each function (Lemma~\ref{lem:hull}). Its variant CVE$_\varepsilon$ adds the $\alpha$-quotient of the FPTAS of \citet{maua2012ijar}. \emph{Interval Belief Propagation} (IVBP) runs the sum-product algorithm \citep{kschischang2001factor} on the factor graph of the credal network with \emph{credal messages}, the vertices of the convex hull of the normalized message vectors (for binary nodes an interval, as in 2U \citep{2u}); every update is projective in each input, so the hulls propagate without loss on a polytree. \emph{Coordinate Descent with Variable Elimination} (CDVE) follows ApproxLP \citep{antonucci2015approxlp}: it optimizes one family's rows at a time, each step a linear-fractional program over the product of the rows' credal sets whose coefficients are computed by variable elimination and which Dinkelbach's method solves exactly, with $R=8$ random restarts. All three report $[0,1]$ when $\overline P(\be)=0$.
+\end{revblock}
 
-Credal Variable Elimination (CVE) extends Variable Elimination (VE) for Bayesian networks \citep{dechter-book} to credal networks by propagating finite sets of \emph{pairs} of non-negative functions instead of single functions \citep{maua2012ijar,maua2020ijar}.
+\begin{table}[t]
+\centering\small
+\revcaption\caption{Guarantees and cost of the credal-network algorithms. $m$: nodes; $d$: maximum domain size; $w^*$: induced width; $C$: maximum number of pairs of a (reduced) potential, polynomial for CVE$_\varepsilon$ when $w^*$ and $d$ are bounded \citep{maua2012ijar}. The guarantees for $\DLCN$ hold under Proposition~\ref{prop:suff}.}
+\label{tab:cn-algos}
+\begin{revblock}
+\begin{tabular}{llll}
+\toprule
+Method & for $\DSE$ (any evidence) & for $\DLCN$ & cost \\
+\midrule
+CVE & exact (Thm.~\ref{thm:cve}) & exact & $O(m\,C^2 d^{w^*+1})$ per query node (Thm.~\ref{thm:cve-cplx}) \\
+CVE$_\varepsilon$ & inner, within factor $1{+}\varepsilon$ (Prop.~\ref{prop:cve-fptas}) & same & as CVE, $C$ polynomial in $1/\varepsilon$ \\
+IVBP & exact on polytrees (Thm.~\ref{thm:ibp}); none if loopy & same & per sweep, Thm.~\ref{thm:ibp-cplx} \\
+CDVE & inner & same & $O(m\,d^{w^*+1})$ space (Thm.~\ref{thm:cdve-cplx}) \\
+\bottomrule
+\end{tabular}
+\end{revblock}
+\end{table}
 
-\begin{definition}[pair potential]
-A \emph{potential} $\phi(\bY)$ over nodes $\bY$ is a finite set of pairs $(p,q)$ of non-negative functions on the joint domain of $\bY$. The \emph{product} of two potentials is $\phi \cdot \psi = \{(p r, q s) : (p,q) \in \phi, \; (r,s) \in \psi\}$ over $\bY \cup \bZ$, and the \emph{sum-marginal} $\sum_{X} \phi = \{ (\sum_{x} p, \sum_{x} q) : (p,q) \in \phi \}$ sums both components.
-\end{definition}
-
-For a query atom $a$ of node $Z$, let $t$ be the $0/1$ indicator of $a$ over the states of $Z$. Every family table enters as $\{(f,f)\}$, one $f$ per choice of a vertex of every row's local set $K_{v,\pi}$, and the evidence $\be$ as $0/1$ indicators multiplied into both components. The query potential $\{(1-t,\,t)\}$ splits the mass, so that after all nodes are eliminated each pair carries $p = p_\theta(\neg a, \be)$ and $q = p_\theta(a, \be)$ for one product $p_\theta$ of vertices. The bounds are the minimum and maximum of $q/(p+q)$ over the final pairs with $p+q>0$, and $[0,1]$ if there is none. CVE eliminates $Z$ last, so every pair has $p=q$ until the query enters; one elimination per node serves all of $Z$'s atoms, and compound nodes need no projection. Every query-free potential, including every intermediate product of a bucket, is reduced to the pairs whose rays $f/\sum f$ are vertices of the convex hull of its rays: $q/(p+q)$ is linear-fractional in each such function, so its extrema are attained at vertices (Lemma~\ref{lem:hull}, Appendix~\ref{sec-full-cve}).
-
-\paragraph{FPTAS.} Since the intermediate potentials can grow exponentially, we use the fully polynomial-time approximation scheme of \citet{maua2012ijar}. For $\alpha>1$, two pairs, each scaled to total mass $1$, are \emph{$\alpha$-equivalent} when every coordinate of both components is zero in both, or positive in both with the same $\lfloor\log_\alpha\cdot\rfloor$. The \emph{$\alpha$-quotient} keeps at most two real pairs per class and is applied after every pairwise product, every summation and the query step. We denote this variant CVE$_\varepsilon$.
-
-\begin{theorem}[complexity]\label{thm:cve-cplx}
-    For one query node, CVE runs in time $O(m \cdot C^2 \cdot d^{w^*+1})$ plus the cost of the hull reductions, and space $O((C+m)\,C\,d^{w^*+1})$, where $m$ is the number of nodes, $d$ bounds their domain sizes, $w^*$ is the induced width of the elimination order, and $C$ is the maximum number of pairs of an input or reduced potential (which can be exponential); all marginals cost a factor $m$ more. For CVE$_\varepsilon$, $C$ is polynomial in the size of the compiled network and in $1/\varepsilon$ when $w^*$ and $d$ are bounded \citep{maua2012ijar}.
-\end{theorem}
-
-\begin{theorem}[exactness]\label{thm:cve}
-Let $\cL$ be a chain-graph LCN, $a$ an atom and $\be$ evidence with $\overline{P}(\be)>0$. CVE computes the infimum and supremum of $p(a\mid\be)$ over the $p\in\DSE$ with $p(\be)>0$ (Definition~\ref{def:cond}), exactly for the compiled local sets (Definition~\ref{def:localset}; outer for $\DSE$ on the exact sets when a compound row keeps the box fallback) up to the floating-point precision of the enumerated vertices. If $\overline{P}(\be)=0$ it returns $[0,1]$. If $\cL$ also satisfies the hypotheses of Proposition~\ref{prop:suff} and no row keeps the box, these are the bounds with respect to $\DLCN$.
-\end{theorem}
-
-\begin{proposition}[FPTAS guarantee]\label{prop:cve-fptas}
-Under the assumptions of Theorem~\ref{thm:cve}, let $N$ be the number of $\alpha$-quotients in the elimination for $a$'s node, and let $\alpha = (1+\varepsilon)^{1/(2N)}$. Then CVE$_\varepsilon$ returns \emph{inner} bounds within a factor $1+\varepsilon$ of CVE's $[\underline{P},\overline{P}]$:
-$\overline{P}/(1+\varepsilon) \le \overline{P}_\varepsilon \le \overline{P}$ and $\underline{P} \le \underline{P}_\varepsilon \le (1+\varepsilon)\,\underline{P}$.
+\begin{revblock}
+\begin{proposition}[guarantees]\label{prop:cn-guarantees}
+Let $\cL$ be a chain-graph LCN, $a$ an atom and $\be$ evidence with $\overline P(\be)>0$. CVE computes the infimum and supremum of $p(a\mid\be)$ over $\{p\in\DSE:p(\be)>0\}$ for the compiled local sets, with or without evidence and for compound nodes; IVBP computes the same bounds when the compiled credal network is a polytree; CVE$_\varepsilon$ and CDVE return inner bounds for $\DSE$, CVE$_\varepsilon$ within a factor $1+\varepsilon$. Under the hypotheses of Proposition~\ref{prop:suff} these statements hold with $\DLCN$ in place of $\DSE$; for a factorizing $\cL$ the exact ones are outer bounds for $\DLCN$ (Proposition~\ref{prop:inclusion}). Otherwise, the inner bounds of CVE$_\varepsilon$ and CDVE have no determined relation to the LCN interval.
 \end{proposition}
-
-Each reduction keeps, for every way the rest of the elimination can weight a pair, a pair at least as good for each bound, exactly for hull pruning and up to $\alpha^2$ for a quotient; the factors multiply along the elimination (Lemma~\ref{lem:cover}).
-
-% Since some $Y_j$ are compound variables, posterior lower and upper bounds for the corresponding singleton variables $X_{jk}$ can be obtained efficiently by solving a small linear program over the compound marginal polytope \cite{cozman2000credal,maua2020ijar} (see also the Appendix for more details).
-
-\subsection{Interval Belief Propagation}
-\label{sec-ibp}
-
-Our second approach, Interval Belief Propagation (IVBP), runs the sum-product algorithm \citep{kschischang2001factor} on the \emph{factor graph} of the credal network. There is one variable node per credal-network node $V$, one family factor $f_V(V,\Pa(V))$ holding the local sets $K_{V,\pi}$, and one evidence factor holding the $0/1$ indicator of the observed atoms of $V$. For a fixed choice of the rows, sum-product sends
-\begin{equation}\label{eq:sum-product}
-  \mu_{v\to f}(x)=\prod_{g\in\mathcal N(v)\setminus f}\mu_{g\to v}(x),\qquad
-  \mu_{f\to v}(x)=\sum_{\mathbf x_{\mathcal N(f)\setminus v}}\phi_f(x,\mathbf x_{\mathcal N(f)\setminus v})\prod_{w\in\mathcal N(f)\setminus v}\mu_{w\to f}(x_w),
-\end{equation}
-and the belief $b_v\propto\prod_{g\in\mathcal N(v)}\mu_{g\to v}$ equals $p(V\mid\be)$ on a tree. As the rows range over their local sets, each message ranges over a set. Messages only matter up to scale, so IVBP propagates a \emph{credal message}: the finite set of vertices of the convex hull of the normalized message vectors. For a binary node this is an interval, the messages to a child and to a parent play the roles of the $\pi$- and $\lambda$-messages of 2U \citep{2u}, and on binary polytrees the output is that of 2U.
-
-Every update is a projective map (linear, then normalized) of each incoming message and of each row separately, which maps the convex hull of a set into the convex hull of its image, so the vertices are enough. The variable-to-factor update multiplies the vertices of the incoming sets. The update towards a child is linear in the rows, so for each combination of parent vertices it is a Minkowski sum of the rows' vertex sets. The update towards a parent $U$ is a ratio in which each coordinate $u$ depends only on the rows with $\pi_U=u$, so for each combination of incoming vertices it ranges over a box, whose normalized corners are the candidates. Vectors of zero mass are dropped; an empty belief means $\overline P(\be)=0$, and IVBP then reports $[0,1]$ for every atom, like CVE and CDVE. Messages are swept in topological and reverse topological order until they no longer change; on a loopy graph, until the change falls below $\tau=10^{-6}$ or for at most $T=100$ sweeps, as in loopy 2U \citep{l2u}.
-
-\begin{theorem}[complexity]\label{thm:ibp-cplx}
-    One sweep of IVBP costs $O\bigl(d\sum_V \bigl(C^{\pi}_V M_V e_V+\sum_{U\in\Pa(V)}C^{\lambda}_{V,U}(E_V+2^{d})\bigr)\bigr)$ arithmetic operations plus the products and hull reductions, where $C^{\pi}_V$ ($C^{\lambda}_{V,U}$) counts the combinations of incoming message vertices for the message of $f_V$ to $V$ (to $U$), $e_V$ and $E_V$ are the maximum and total numbers of row vertices of $V$, $M_V$ is the total size of the partial Minkowski-sum hulls, and $d$ the maximum domain size; these counts can be exponential. On a polytree at most $D\le m$ sweeps reach the fixed point and one more confirms it, $D$ the largest number of family factors on a path.
-\end{theorem}
-
-\begin{theorem}[exactness]\label{thm:ibp}
-    Let $\mathcal{L}$ be a chain-graph LCN whose compiled credal network is a polytree, $a$ an atom and $\be$ evidence with $\overline{P}(\be)>0$. IVBP computes the infimum and supremum of $p(a\mid\be)$ over the $p\in\DSE$ with $p(\be)>0$, for binary and compound nodes alike, with the qualifications of Theorem~\ref{thm:cve} (compiled local sets, floating-point precision); if $\overline{P}(\be)=0$ it returns $[0,1]$. Under the hypotheses of Proposition~\ref{prop:suff}, with no box fallback, these are the bounds with respect to $\DLCN$.
-\end{theorem}
-
-On a polytree the inputs of every update depend on disjoint sets of rows, so they vary independently, and every update is linear in each input before normalization; the hull of each message set is therefore propagated without loss, and every computed vertex is attained (Lemma~\ref{lem:proj}). On loopy structures the inputs share parameters, and IVBP is a heuristic with no guarantee in either direction. With multi-valued nodes the vertex sets can grow exponentially, consistently with the NP-hardness of exact polytree inference for ternary variables \citep{maua2014jair}. For binary nodes every message has at most two vertices.
-
-\subsection{Coordinate Descent with Variable Elimination}
-\label{sec-cdve}
-Our third approach, Coordinate Descent with Variable Elimination (CDVE), follows ApproxLP \citep{antonucci2015approxlp}. It optimizes the multilinear objective by coordinate descent over the local credal sets, one family at a time, and solves each local problem exactly. For an atom $a$ of a node $Z$ and evidence $\be$, the objective is $p(a\mid\be)=\sum_{s\models a}p(Z{=}s,\be)/\sum_sp(Z{=}s,\be)$. With every family but $V$ fixed, both sums are linear in the rows of $V$: $p(\cdot,\be)=\sum_{x,\pi}\theta_{V,\pi}(x)\,T_V(x,\pi,Z)$, where $T_V$ is the product of all other factors and of the evidence indicators, summed by variable elimination onto $\{V\}\cup\Pa(V)\cup\{Z\}$. The local problem is therefore the linear-fractional program $\max_r\sum_\pi\langle n_\pi,r_\pi\rangle/\sum_\pi\langle d_\pi,r_\pi\rangle$ over the product of the rows' credal sets. Dinkelbach's method solves it exactly: for a given ratio $t$, every row independently takes the vertex that maximizes $\langle n_\pi-t\,d_\pi,v\rangle$, and $t$ is updated until it no longer increases. A sweep applies this step to every family that is an ancestor of $Z$ or of the evidence; the other families are barren and do not affect $p(Z,\be)$. Sweeps repeat until none improves, at most $T=50$ times, for the senses $\min$ and $\max$ and for every non-evidence atom, atoms of compound nodes included.
-
-Descent starts at the \emph{vertex average} of every row (the mean of its vertices), a symmetric point that is often a saddle, so from there a family moves to a best vertex choice even without improvement. CDVE also restarts from $R=8$ random vertex choices and keeps the best result. Starts ending with $p(\be)=0$ are discarded; all are discarded only when $\overline P(\be)=0$, and CDVE then returns $[0,1]$. Every point kept is a member of $\mathcal P_{\mathrm{SE}}$ with $p(\be)>0$, so the result is an \emph{inner} bound for $\DSE$. It is an inner bound for $\DLCN$ when $\DSE$ and $\DLCN$ have the same bounds, e.g.\ under the hypotheses of Proposition~\ref{prop:suff}; otherwise its relation to the LCN interval is not determined.
-
-\begin{theorem}[complexity]\label{thm:cdve-cplx}
-    CDVE runs in time $O\bigl(2A\,(R{+}1)\bigl(T\sum_V(m\,d^{w^*+1}+E_V\,(d+I))+m\,d^{w^*+1}\bigr)\bigr)$ and space $O(m\,d^{w^*+1})$, where $A$ is the number of atoms, $m$ the number of nodes, $d$ the maximum domain size, $w^*$ the induced width of the elimination orders, $E_V$ the total number of row vertices of $V$, and $I$ the number of Dinkelbach iterations per step, which is finite.
-\end{theorem}
+\end{revblock}
+The proofs (Appendices~\ref{sec-full-cve}--\ref{sec-full-cdve}) show that every reduction keeps, for each way the rest of the computation can weight an element, one at least as good for each bound (exactly for the hull, up to $\alpha^2$ for a quotient; Lemma~\ref{lem:cover}), and that on a polytree the inputs of every IVBP update depend on disjoint rows (Lemma~\ref{lem:proj}). On loopy networks IVBP is a heuristic with no guarantee in either direction, and with multi-valued nodes its vertex sets can grow exponentially, as expected from the NP-hardness of polytree inference with ternary variables \citep{maua2014jair}.
 
 
 %% ================================================================
@@ -512,12 +458,13 @@ Descent starts at the \emph{vertex average} of every row (the mean of its vertic
 \label{sec-experiments}
 %% ================================================================
 
+\begin{revblock}
 We evaluate CJT and the three compiled methods against the exact method of \citet{marinescu2022neurips} and the ARIEL message-passing algorithm \citep{marinescu2023lcn}. All algorithms are implemented in Python 3.12; the nonlinear programs are solved by \texttt{ipopt} 3.14 \citep{ipopt} or by the global solver SCIP 10 \citep{scip}, and the local credal sets by the HiGHS LP solver \citep{highs}. Every run of an algorithm on an instance is limited to $3600$ seconds, $8$\,GB of memory and one CPU thread.
 
 \begin{figure}[!t]
     \centering
     \includegraphics[width=\linewidth]{figs/main_results.pdf}
-    \caption{(a, b) Large random \texttt{dag} LCNs ($10$ instances per size): mean absolute error against the certified CJT (SCIP) endpoints, averaged over the two endpoints, and median total time. CVE, CVE$_\varepsilon$ and CDVE coincide with the reference ($\mathrm{MAE}<10^{-5}$) and hide each other on the zero line. (c) Almost-realizable LCNs ($n{=}10$): the error grows with the number $m$ of added non-realizable sentences for every compiled method (the CVE, CVE$_\varepsilon$ and CDVE curves coincide with IVBP's to within $3\times10^{-3}$), but not for ARIEL, which works on the LCN itself.}
+    \revcaption\caption{(a, b) Large random \texttt{dag} LCNs ($10$ instances per size): mean absolute error against the certified CJT (SCIP) endpoints, averaged over the two endpoints, and median total time. CVE, CVE$_\varepsilon$ and CDVE coincide with the reference ($\mathrm{MAE}<10^{-5}$) and hide each other on the zero line. (c) Almost-realizable LCNs ($n{=}10$): the error grows with the number $m$ of added non-realizable sentences for every compiled method (the CVE, CVE$_\varepsilon$ and CDVE curves coincide with IVBP's to within $3\times10^{-3}$), but not for ARIEL, which works on the LCN itself.}
     \label{fig:main}
 \end{figure}
 
@@ -525,46 +472,48 @@ We evaluate CJT and the three compiled methods against the exact method of \cite
 \centering
 \scriptsize
 \resizebox{\linewidth}{!}{\input{outputs/results-summary.tex}}
-\caption{Summary over the large random sets ($n\in\{10,\dots,100\}$, $60$ instances each) and the almost-realizable sets ($100$ each): MAE against the certified CJT (SCIP) endpoints (mean over atoms of the two endpoint errors; for the reference, the percentage of endpoints certified) and median total time in seconds at the largest size ($n{=}100$; $n{=}20$ for \texttt{nr}). A superscript is the percentage of instances solved within the budget when it is below $100$; `--' means no instance of that size was solved. Per-size results are in Appendix~\ref{sec-full-results}.}
+\revcaption\caption{Summary over the large random sets ($n\in\{10,\dots,100\}$, $60$ instances each) and the almost-realizable sets ($100$ each): MAE against the certified CJT (SCIP) endpoints (mean over atoms of the two endpoint errors; for the reference, the percentage of endpoints certified) and median total time in seconds at the largest size ($n{=}100$; $n{=}20$ for \texttt{nr}; all instances for \texttt{real}). A superscript is the percentage of instances solved within the budget when it is below $100$; `--' means no instance of that size was solved. Per-size results are in Appendix~\ref{sec-full-results}.}
 \label{tab:summary}
 \end{table}
 
 \textbf{Benchmarks.~}
-\emph{Random LCNs} come in four topologies, each generated so that every sentence is family-realizable (Definition~\ref{def:realizable}): \texttt{tree}, \texttt{polytree} (a DAG whose skeleton is a forest, at most two parents per atom), \texttt{ktree} (a $3$-tree, each atom conditioned on the full conjunction of its three clique parents) and \texttt{dag} (at most two parents, moralized treewidth $\le 3$). Each topology has a \emph{small} ($n \in \{5,\dots,10\}$) and a \emph{large} ($n \in \{10,20,30,40,50,100\}$) set with $10$ instances per size, $480$ instances in all. Each atom gets one sentence, a prior if it is a root and otherwise a conditional on a full conjunction of signed parent literals, with bounds $[\max(0.01,v{-}0.3),\min(1,v{+}0.3)]$ around $v\sim U(0,1)$, plus two extra interval bounds on root marginals. \texttt{tree} and \texttt{polytree} compile to polytree credal networks; \texttt{ktree} and \texttt{dag} are loopy. \emph{Almost-realizable LCNs} add $m\in\{0,1,2,4,8\}$ non-realizable sentences of three kinds --- a marginal on a non-root atom (\texttt{nr1}), a conditional on a disjunction of parent configurations (\texttt{nr2}) and a two-atom sentence across families (\texttt{nr3}) --- to the \texttt{tree} and \texttt{dag} instances with $n\in\{10,20\}$ ($200$ instances), plus a $60$-instance ablation by kind (Appendix~\ref{sec-nr-bench}). Neither change touches the structure graph, and all $740$ instances are consistent by construction. % REAL: realistic sets paragraph added after the rerun
-All queries are marginals without evidence.
+\emph{Random LCNs} come in four topologies, each generated so that every sentence is family-realizable (Definition~\ref{def:realizable}): \texttt{tree}, \texttt{polytree} (a DAG whose skeleton is a forest, at most two parents per atom), \texttt{ktree} (a $3$-tree, each atom conditioned on the full conjunction of its three clique parents) and \texttt{dag} (at most two parents, moralized treewidth $\le 3$). Each topology has a \emph{small} ($n \in \{5,\dots,10\}$) and a \emph{large} ($n \in \{10,20,30,40,50,100\}$) set with $10$ instances per size, $480$ instances in all. Each atom gets one interval sentence, a prior or a conditional on a full conjunction of its parents (Appendix~\ref{sec-random-full}). \texttt{tree} and \texttt{polytree} compile to polytree credal networks; \texttt{ktree} and \texttt{dag} are loopy. \emph{Almost-realizable LCNs} add $m\in\{0,1,2,4,8\}$ non-realizable sentences of three kinds (non-root marginals \texttt{nr1}, mixture conditionals \texttt{nr2}, cross-family sentences \texttt{nr3}) to the \texttt{tree} and \texttt{dag} instances with $n\in\{10,20\}$ ($200$ instances), plus a $60$-instance ablation by kind (Appendix~\ref{sec-nr-bench}). Neither change touches the structure graph, and all $740$ instances are consistent by construction.
+\emph{Realistic LCNs} (\texttt{real}) are $14$ LCNs not built to be family-realizable: $10$ with $4$--$11$ atoms on the structure of classical Bayesian networks (e.g.\ \texttt{asia}, \texttt{cancer}, \texttt{alarm}) and $4$ application-style LCNs with $6$--$24$ atoms (maintenance and referral chains), the ones of a larger collection that the reference can certify (Appendix~\ref{sec-real-full}). All queries are marginals without evidence.
 
 \textbf{Reference and metrics.~}
-The reference is CJT solved by SCIP. Its structural conditions (H1--H4 of Theorem~\ref{thm:cjt}) hold on every instance, all through the ordered construction with no relaxed assertion, so each endpoint SCIP certifies (proven optimal, or a primal--dual gap $\le 10^{-4}$) is an exact LCN bound. We score a method only on certified endpoints and report the mean absolute error of the lower and upper bounds ($\mathrm{MAE}_l$, $\mathrm{MAE}_u$), the fractions of atoms on which a method's interval contains (\emph{outer}) or is contained in (\emph{inner}) the reference, and the total time including the credal-network compilation. The exact method over the $2^n$ joint is \emph{not} a usable reference: with SCIP it certifies every endpoint only at $n{=}5$ on \texttt{tree} and $1$ of $160$ endpoints at $n{=}8$; with \texttt{ipopt} it finishes on at most $35$ of $60$ small instances per topology, with MAEs of $0.07$--$0.20$ when it does. We also run CJT with \texttt{ipopt} (CJT$_{\text{ipopt}}$), CVE$_\varepsilon$ with $\varepsilon{=}0.01$, IVBP with up to $100$ sweeps, CDVE with $8$ random restarts, and ARIEL with $10$ iterations.
+The reference is CJT solved by SCIP. Its structural conditions (H1--H4 of Theorem~\ref{thm:cjt}) hold on every instance, all through the ordered construction with no relaxed assertion, so each endpoint SCIP certifies (proven optimal, or a primal--dual gap $\le 10^{-4}$) is an exact LCN bound. We score a method only on certified endpoints and report the mean absolute error of the lower and upper bounds ($\mathrm{MAE}_l$, $\mathrm{MAE}_u$), the fractions of atoms on which a method's interval contains (\emph{outer}) or is contained in (\emph{inner}) the reference, and the total time including the credal-network compilation. The exact method over the $2^n$ joint is \emph{not} a usable reference: with SCIP it certifies all endpoints only up to $n\approx6$, and with \texttt{ipopt} it errs by $0.07$--$0.20$ when it finishes (Appendix~\ref{sec-exact-baseline}). We also run CJT with \texttt{ipopt} (CJT$_{\text{ipopt}}$) and CVE$_\varepsilon$ with $\varepsilon{=}0.01$ (settings in Appendix~\ref{sec-setup}).
 
 \textbf{CJT certifies exact bounds at scale.~}
 SCIP certifies all $17{,}700$ endpoints of the \texttt{tree}, \texttt{polytree} and \texttt{ktree} sets, in a median of $11$--$19$ seconds at $n{=}100$; on \texttt{dag} it certifies $98.6\%$ of the small-set endpoints and $81.6\%$ of the large-set ones, in a median of $787$ seconds at $n{=}100$ (one instance timed out). The largest cluster has $2$--$8$ atoms, against the $2^n$ joint that exact inference cannot handle beyond $n\approx 6$. With \texttt{ipopt} instead of SCIP, the same program is exact on most sets but is trapped in local optima on DAGs (MAE up to $0.034$ at $n{=}10$, worst endpoint $0.83$): the global solver, not the formulation, is what makes the bounds trustworthy.
 
 \textbf{Family-realizable LCNs: the compilation is exact and cheap.~}
-On all $480$ random instances the compiled methods behave as the theory predicts (Table~\ref{tab:summary}, Figure~\ref{fig:main}a,b). CVE and CVE$_\varepsilon$ match every certified endpoint ($\mathrm{MAE}<10^{-5}$; of the more than $17{,}000$ scored endpoints of each, only three, two of CVE and one of CVE$_\varepsilon$, fall outside the reference, by at most $2.2\times10^{-4}$, the order of the certification tolerance), confirming $\mathcal P_{\mathrm{SE}}=\DLCN$ (Proposition~\ref{prop:suff}). CDVE is inner on every atom, as it must be here (Section~\ref{sec-cdve}), and within $10^{-4}$ of CVE on more than $98.8\%$ of the endpoints (worst miss $0.085$), at $5$--$16$ seconds for $n{=}100$. IVBP is exact on every \texttt{tree} and \texttt{polytree} instance (Theorem~\ref{thm:ibp}) and is the fastest method everywhere ($2$--$11$ seconds at $n{=}100$); on the loopy \texttt{ktree} and \texttt{dag} sets its MAE stays below $3\times 10^{-3}$, but its interval contains the reference on only $90$--$97\%$ of the atoms, so loopy IVBP is neither an outer nor an inner bound. CVE's exact potentials, finally, are what limit its reach: they exhaust the $8$\,GB budget on \texttt{ktree} from $n{=}10$ (it solves $15$ of the $60$ large instances) and on \texttt{dag} at $n\ge 50$; the FPTAS raises this to $36$ and $59$ of $60$. ARIEL is exact on \texttt{tree}, has MAEs of $3\times10^{-4}$--$4\times10^{-3}$ elsewhere with a worst endpoint of $0.38$, carries no guarantee and is the slowest approximate method at scale ($123$--$156$ seconds at $n{=}100$).
+On all $480$ random instances the compiled methods behave as the theory predicts (Table~\ref{tab:summary}, Figure~\ref{fig:main}a,b). CVE and CVE$_\varepsilon$ match every certified endpoint ($\mathrm{MAE}<10^{-5}$; three of over $17{,}000$ endpoints miss by at most $2.2\times10^{-4}$, of the order of the certification tolerance), confirming $\mathcal P_{\mathrm{SE}}=\DLCN$ (Proposition~\ref{prop:suff}). CDVE is inner on every atom, as it must be here (Section~\ref{sec-cdve}), and within $10^{-4}$ of CVE on more than $98.8\%$ of the endpoints (worst miss $0.085$), at $5$--$16$ seconds for $n{=}100$. IVBP is exact on every \texttt{tree} and \texttt{polytree} instance (Theorem~\ref{thm:ibp}) and is the fastest method everywhere ($2$--$11$ seconds at $n{=}100$); on the loopy \texttt{ktree} and \texttt{dag} sets its MAE stays below $3\times 10^{-3}$, but its interval contains the reference on only $90$--$97\%$ of the atoms, so loopy IVBP is neither an outer nor an inner bound. CVE's exact potentials exhaust the $8$\,GB budget on large \texttt{ktree} and \texttt{dag} instances ($15$ and $49$ of $60$ solved); the FPTAS raises this to $36$ and $59$. ARIEL is exact on \texttt{tree}, has MAEs of $3\times10^{-4}$--$4\times10^{-3}$ elsewhere with a worst endpoint of $0.38$, carries no guarantee and is the slowest approximate method at scale ($123$--$156$ seconds at $n{=}100$).
 
 \textbf{Almost-realizable LCNs: the gap is outer and grows with $m$.~}
 Once sentences are non-realizable, CVE, CVE$_\varepsilon$ and CDVE return the same intervals (to within $2\times10^{-3}$), and IVBP the same ones on trees, so the error that remains is the compilation gap $\DLCN\subsetneq\mathcal P_{\mathrm{SE}}$ itself, not the error of any one algorithm. It is outer (CVE contains the reference on $99.9\%$ of the atoms, Proposition~\ref{prop:inclusion}) and grows with $m$ (Figure~\ref{fig:main}c): at $n{=}10$ the mean endpoint error rises from $0$ to $0.03$--$0.04$ for one sentence and $0.14$ for eight, and the intervals become $1.3$ to $2.3$ times as wide as the reference; at $n{=}20$ the same $m$ costs about half as much. Non-root marginals (\texttt{nr1}) are by far the most damaging kind (MAE $0.15$ and width ratio $3.9$ for $m{=}4$ tight sentences, against $0.03$--$0.05$ for the other two kinds). CJT remains exact (it certifies $95.6$--$99.7\%$ of the endpoints, although each added sentence makes the DAG instances harder: median $19$ seconds at $m{=}0$, $168$ at $m{=}8$), and ARIEL, which never compiles, stays within $0.013$ MAE --- the most accurate approximation here, but without a guarantee. CJT$_{\text{ipopt}}$ also degrades with $m$ (MAE up to $0.10$), again through local optima.
 
-% REAL: realistic-LCN results paragraph (after the rerun)
+\textbf{Realistic LCNs: compilation is sound but loose.~}
+SCIP certifies $86\%$ of the \texttt{real} endpoints ($10$ of $14$ instances fully; Table~\ref{tab:summary}, Appendix~\ref{sec-real-full}); only on \texttt{alarm} does every solve reach the time limit without a bound. Exact inference over the joint certifies the same bounds on the three smallest instances, but hundreds of times slower. All instances are DAG-structured, but all except \texttt{asia} have non-realizable sentences ($1$--$28$ per scored instance, mostly non-root marginals). As predicted, CVE, CVE$_\varepsilon$ and CDVE return the same intervals: exact on \texttt{asia}, and outer on every atom elsewhere, but $1.1$--$8$ times as wide as the reference ($3.5$ on average for CDVE). They finish within $90$ seconds, except CVE on the largest application LCN ($n{=}24$), which runs out of memory. ARIEL is the most accurate approximation (MAE $0.011$) but misses the certified interval on $2\%$ of the atoms, and CJT$_{\text{ipopt}}$ falls into a local optimum on \texttt{tank} (endpoint error $0.80$).
 
 \textbf{Summary.~}
-The two routes are complementary. When the LCN is family-realizable, compilation loses nothing, and CVE (exact), CDVE (inner) and IVBP (exact on polytrees) reach the exact bounds; CDVE and IVBP do so in seconds at $n{=}100$, faster than CJT, while CVE is limited by the size of its potentials. Off that class the compiled bounds are sound but loose, and CJT with a global solver is the method that certifies the exact answer, at a cost governed by the cluster size and the number of nonlinear LMC rows rather than by $2^n$.
-
+The two routes are complementary. On family-realizable LCNs compilation loses nothing, and CDVE and IVBP reach the exact bounds in seconds at $n{=}100$. Off that class, as on the realistic LCNs, the compiled bounds are sound but loose, and CJT with a global solver is the method that certifies the exact answer.
+\end{revblock}
 
 %% ================================================================
 \section{Related Work}
 \label{sec-related}
 %% ================================================================
 
-Exact inference in LCNs has so far been limited to constrained nonlinear optimization over the full joint distribution~\citep{marinescu2022neurips}, and approximate inference to the ARIEL message-passing algorithm~\citep{marinescu2023lcn}; related work has addressed abductive reasoning~\citep{marinescu2024neurips} and the chain-graph factorization of LCNs~\citep{cozman23a}. CJT turns that factorization into an exact algorithm. It is related to junction-tree methods for Bayesian networks \citep{spiegelhalter88,jensen90}, which compute marginals by propagating messages over a cluster tree; CJT uses the same running-intersection structure, but, since an LCN defines a nonconvex set of distributions rather than a single one, it imposes calibration as constraints of one optimization problem rather than computing it by message passing, and it must additionally discharge the LCN's independence assertions on the tree. Credal networks (CNs) \citep{cozman2000credal} generalize Bayesian networks by replacing precise conditional probabilities with credal sets; despite the hardness of exact inference \citep{maua2020ijar,maua2014jair}, the area has produced a rich algorithmic toolbox, including 2U/L2U~\citep{l2u}, GL2U~\citep{antonucci2010} and ApproxLP~\citep{antonucci2015approxlp}. Our compilation makes this toolbox applicable to LCNs, and the family-realizability condition identifies when doing so loses no precision. LCNs also relate to probabilistic logics such as ProbLog, DeepProbLog~\citep{manhaeve2018deepproblog}, MLNs and PSL, but allow imprecise assessments.
+Exact inference in LCNs has so far been limited to constrained nonlinear optimization over the full joint distribution~\citep{marinescu2022neurips}, and approximate inference to the ARIEL message-passing algorithm~\citep{marinescu2023lcn}; related work has addressed abductive reasoning~\citep{marinescu2024neurips} and the chain-graph factorization of LCNs~\citep{cozman23a}. \rev{CJT turns that factorization into an exact algorithm. It is related to junction-tree methods for Bayesian networks \citep{spiegelhalter88,jensen90}, which compute marginals by propagating messages over a cluster tree; CJT uses the same running-intersection structure, but, since an LCN defines a nonconvex set of distributions rather than a single one, it imposes calibration as constraints of one optimization problem rather than computing it by message passing, and it must additionally discharge the LCN's independence assertions on the tree.} Credal networks (CNs) \citep{cozman2000credal} generalize Bayesian networks by replacing precise conditional probabilities with credal sets; despite the hardness of exact inference \citep{maua2020ijar,maua2014jair}, the area has produced a rich algorithmic toolbox, including 2U/L2U~\citep{l2u}, GL2U~\citep{antonucci2010} and ApproxLP~\citep{antonucci2015approxlp}. Our compilation makes this toolbox applicable to LCNs, and \rev{the family-realizability condition identifies when doing so loses no precision.} \rev{Arithmetic circuits \citep{darwiche2003differential,darwiche2009book} compile the network polynomial of a precise network and exploit determinism and local structure to go beyond the treewidth bound. They are complementary to our methods: LCN inference optimizes over a nonconvex set of distributions, so a circuit can represent the objective but not replace the optimization. The coefficients that CDVE computes for a family are the partial derivatives of the network polynomial with respect to that family's parameters, which one backward pass over a circuit returns for all families at once; determinism in an LCN (bounds of $0$ or $1$) likewise fixes cluster states of the CJT program to zero.} LCNs also relate to probabilistic logics such as ProbLog, DeepProbLog~\citep{manhaeve2018deepproblog}, MLNs and PSL, but allow imprecise assessments.
 
 %% ================================================================
 \section{Conclusion}
 \label{sec-conclusion}
 %% ================================================================
 
-We introduced Credal Junction Tree (CJT), an exact inference algorithm for chain-graph Logical Credal Networks that replaces the $2^n$-variable joint formulation by a nonlinear program over junction-tree cluster marginals, with size exponential in the treewidth rather than in the number of propositions. CJT needs only the chain graph's structure; it discharges the LCN's independence assertions on the tree by separation, exact reduction or an ordered construction, and we proved that under conditions it checks mechanically its certified optimum gives the exact lower and upper probabilities. As a complementary route, we compiled chain-graph LCNs into credal networks, characterized the family-realizable LCNs on which this compilation preserves the exact bounds, and adapted variable elimination (with an FPTAS), interval belief propagation and coordinate descent to it, with exactness guarantees for marginal and conditional queries under regular conditioning. Empirically, CJT with a global solver certifies exact bounds on LCNs with $100$ propositions, and is cheapest when its tree needs no nonlinear independence rows (trees and $k$-trees, where its program is linear); on family-realizable LCNs, CVE and CDVE match those bounds and IVBP does so on polytrees, in seconds; outside that class the compiled bounds are sound but loosen with each non-realizable sentence, while ARIEL is tight but unguaranteed. CJT thereby also provides a certified reference against which approximate LCN methods can be measured. Next steps include compiled representations for non-root marginals and for compound families whose tables the LMC constrains, which would close most of the measured gap, and memory-bounded variants of CVE for loopy networks with large credal sets.
+\rev{We introduced Credal Junction Tree (CJT), an exact inference algorithm for chain-graph LCNs that replaces the $2^n$-variable joint formulation by a nonlinear program over junction-tree cluster marginals, exponential in the treewidth rather than in the number of propositions, and proved that, under conditions it checks mechanically, its certified optimum gives the exact lower and upper probabilities. As a complementary route, we compiled chain-graph LCNs into credal networks, characterized the family-realizable LCNs on which this preserves the exact bounds, and adapted three credal-network algorithms to it. Empirically, CJT with a global solver certifies exact bounds on LCNs with $100$ propositions; on family-realizable LCNs the compiled methods match them in seconds, and outside that class, as on realistic LCNs, their bounds are sound but loose, while ARIEL is tight but unguaranteed. Next steps include compiled representations for non-root marginals, which would close most of the measured gap, and memory-bounded variants of CVE.}
 
+\label{end-of-main}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection*{AI use statement}
 
@@ -602,6 +551,10 @@ To ensure reproducibility, we have included the Python code, the benchmark probl
 \label{sec:prelim}
 %% ================================================================
 
+\begin{revblock}
+\noindent\textbf{Note on this revision.} The appendix has been rewritten throughout: the proofs, the detailed descriptions of all algorithms and the experimental evaluation were revised, and the full descriptions of CVE, IVBP and CDVE moved here from the main text (Appendices~\ref{sec-full-cve}--\ref{sec-full-cdve}). Sections marked \emph{(new)} have no counterpart in the submitted version; text in blue is new or changed.
+\end{revblock}
+
 A Logical Credal Network specifies imprecise probabilistic knowledge by
 bounding the probabilities of propositional formulas: a \emph{sentence} is either
 $\ell\le P(\varphi)\le u$ (Type-1) or $\ell\le P(\varphi\mid\psi)\le u$
@@ -633,7 +586,7 @@ scale differently, and are exact for $\DLCN$ only on family-realizable instances
 that satisfy the hypotheses of Proposition~\ref{prop:suff-app} (e.g.\
 DAG-structured ones; Appendices~\ref{sec:realizable-app}--\ref{sec:incl}).
 
-\subsection{Dependency map of the results}\label{sec:prelim-deps}
+\subsection{Dependency map of the results\newtag}\label{sec:prelim-deps}
 Table~\ref{tab:deps} lists, for each formal result, the results its proof uses,
 so that the chain of arguments can be verified bottom-up. All results use the
 definitions of this appendix: conditional independence (Definition~\ref{def:ci}),
@@ -794,9 +747,9 @@ implementation.
 Each sentence carries a flag $\tau_s$, written as a trailing \texttt{; True} or
 \texttt{; False} in the \texttt{.lcn} format (absent means False). It only
 affects the graphs (Section~\ref{sec-lcn}): with $\tau_s=\mathrm{True}$ the edges
-between the formula node $\varphi_s$ and its atoms are bi-directed in $G_P$, and
+between the formula node \rev{$v_{\varphi_s}$} and its atoms are bi-directed in $G_P$, and
 the atoms of $\varphi_s$ are pairwise joined by undirected structure edges; with
-$\tau_s=\mathrm{False}$ the edges point from $\varphi_s$ to its atoms only, and
+$\tau_s=\mathrm{False}$ the edges point from \rev{$v_{\varphi_s}$} to its atoms only, and
 the atoms of $\varphi_s$ are not joined. When $\varphi_s$ has at most one atom the
 flag changes neither $\pa_P$, $\mathrm{de}_P$ nor the structure.
 
@@ -1042,10 +995,10 @@ positivity explicit.)
   some Type-2 sentence has $Y\in\atoms(\psi_s)$ and $X\in\atoms(\varphi_s)$, and
   then $Y\neq X$ (a self-loop is a directed cycle).
   \item \emph{Edges of $G_P$ at formula nodes.} By construction, the only edges
-  between two formula nodes are $\psi_s\to\varphi_s$ for a Type-2 sentence with
-  both formulas non-atomic, and a $\psi_s$ formula node has in-edges only from
-  $\atoms(\psi_s)$. The in-edges of a formula node $\varphi_s$ come from
-  $\psi_s$ (Type-2 only) and, if $\tau_s=\mathrm{True}$, from the atoms of
+  between two formula nodes are \rev{$v_{\psi_s}\to v_{\varphi_s}$} for a Type-2 sentence with
+  both formulas non-atomic, and a formula node \rev{$v_{\psi_s}$} has in-edges only from
+  $\atoms(\psi_s)$. The in-edges of a formula node \rev{$v_{\varphi_s}$} come from
+  \rev{$v_{\psi_s}$} (Type-2 only) and, if $\tau_s=\mathrm{True}$, from the atoms of
   $\varphi_s$ --- by ($\alpha$), from the single atom of $\varphi_s$. An
   atom-to-atom edge $Y\to X$ exists only for a Type-2 sentence with
   $\psi_s=Y$ and $\varphi_s=X$ both atomic.
@@ -1054,16 +1007,16 @@ positivity explicit.)
   hop from $U$ to $W\neq U$ exists iff $U\to W$ in $D$. Consider the last node
   $f$ before $W$. If $f=U$ is an atom, step~2 gives a Type-2 sentence with
   $\psi_s=U$, $\varphi_s=W$, so $U\to W$ by ($\gamma$). If $f$ is the formula node
-  $\varphi_s$ of a Type-1 sentence, its only possible predecessor is the single
-  atom of $\varphi_s$, which is $W$, so $U=W$. If $f=\varphi_s$ of a Type-2
+  \rev{$v_{\varphi_s}$} of a Type-1 sentence, its only possible predecessor is the single
+  atom of $\varphi_s$, which is $W$, so $U=W$. If \rev{$f=v_{\varphi_s}$} of a Type-2
   sentence, its predecessors are $W$ itself (if $\tau_s=\mathrm{True}$) or
-  $\psi_s$, which is either the atom $U\in\atoms(\psi_s)$ or a formula node whose
+  \rev{$v_{\psi_s}$}, which is either the atom $U\in\atoms(\psi_s)$ or a formula node whose
   predecessors are atoms $U\in\atoms(\psi_s)$; so $U=W$ or
   $U\in\atoms(\psi_s)$, $W\in\atoms(\varphi_s)$, i.e.\ $U\to W$ by ($\gamma$). If
-  $f=\psi_s$ with $\varphi_s=W$ atomic, its predecessors are the atoms
+  \rev{$f=v_{\psi_s}$} with $\varphi_s=W$ atomic, its predecessors are the atoms
   $U\in\atoms(\psi_s)$, and $U\to W$. Conversely, if $U\to W$ in $D$, ($\gamma$)
   gives a Type-2 sentence with $U\in\atoms(\psi_s)$, $W\in\atoms(\varphi_s)$, and
-  $U,\psi_s,\varphi_s,W$ (with an atomic formula identified with its atom) is a
+  \rev{$U,v_{\psi_s},v_{\varphi_s},W$} (with an atomic formula identified with its atom) is a
   hop.
   \item \emph{Parents.} By definition $\pa_P(W)$ is the set of atoms $U\neq W$
   with a hop to $W$; by step~3 this is $\pa_D(W)$.
@@ -1314,7 +1267,7 @@ a forest with one tree per connected component of the interaction graph; no two
 components are joined by an edge.
 
 This is standard bucket elimination, and its output satisfies the
-running-intersection property \citep{dechter-book}. Since this property is H1, on
+running-intersection property \rev{\citep{beeri83,spiegelhalter88}}. Since this property is H1, on
 which Lemma~\ref{lem:rip} rests, the implementation does not rely on the
 construction but \emph{checks} it on the final tree (\texttt{rip\_holds}): for every
 atom, the clusters containing it must induce a connected subtree of $T$
@@ -2696,7 +2649,7 @@ component-wise $(\{C,D\}\indep\bY\mid\bZ)$ only through the intersection propert
 when $p$ has zeros (Section~\ref{sec:fr-counter}); Remark~\ref{rem:posclosure} gives the weaker
 statement that holds without factorization.
 
-\subsection{Local credal sets}
+\subsection{Local credal sets\newtag}
 
 \begin{definition}[Local credal set]\label{def:localset}
 Fix a node $v$, the set $\cS_v$ of sentences attached to $v$, and an assignment $\pi$ of $\pa_v$. The
@@ -2798,7 +2751,7 @@ $\bx$ with $\bx_{\pa_v}=\pi$, $0\le q'(\bx)\le q'(\pa_v{=}\pi)=0$ and likewise $
 division and no positivity is used.
 \end{proof}
 
-\subsection{Inclusion}
+\subsection{Inclusion\newtag}
 
 \begin{proposition}[Inclusion]\label{prop:incl}
 Let $\mathcal L$ be a factorizing chain-graph LCN, compiled as in Definition~\ref{def:localset} (with
@@ -2846,7 +2799,7 @@ When $\mathcal L$ is not known to be factorizing (compound components), Steps~2-
 strictly positive member of $\DLCN$, which factorizes \citep{cozman23a}, and give the weaker inclusion
 of Remark~\ref{rem:posclosure}.
 
-\subsection{Sufficiency}
+\subsection{Sufficiency\newtag}
 
 The sufficiency result needs every local row to enforce the sentences realizable at it
 (``no Gap~A''). Local feasibility makes this hold.
@@ -2983,7 +2936,7 @@ polynomials in the table entries, and a nonzero polynomial vanishes on a set of 
 false \emph{true} has probability zero in exact arithmetic; a \emph{false} is a numerical certificate
 of failure.
 
-\subsection{Counterexamples}\label{sec:fr-counter}
+\subsection{Counterexamples\newtag}\label{sec:fr-counter}
 
 The following LCNs show that the hypotheses of Propositions~\ref{prop:incl} and~\ref{prop:suff-app}
 cannot be dropped. They are in \texttt{examples/fr\_counter\_*.lcn} and checked by
@@ -3098,7 +3051,7 @@ CVE is \emph{exact on every atom} of a loopy LCN, as Proposition~\ref{prop:suff-
 %% ================================================================
 
 
-This appendix details Credal Variable Elimination (CVE), which extends classical variable elimination \cite{dechter-bucket} to credal networks by propagating potentials made of finite sets of \emph{pairs} of non-negative functions \citep{maua2012ijar,maua2020ijar}. Interval Belief Propagation and CDVE are detailed in Appendices~\ref{sec-full-ibp} and~\ref{sec-full-cdve}.
+This appendix details Credal Variable Elimination (CVE), which extends classical variable elimination \rev{\citep{zhang-poole96,dechter-bucket}} to credal networks by propagating potentials made of finite sets of \emph{pairs} of non-negative functions \citep{maua2012ijar,maua2020ijar}. Interval Belief Propagation and CDVE are detailed in Appendices~\ref{sec-full-ibp} and~\ref{sec-full-cdve}.
 
 
 \subsection{Credal Networks}
@@ -3160,7 +3113,7 @@ nonempty set by (2), where they are attained. (4) Since $\mathcal P_{\mathrm{ext
 \{p(\be)>0\}$ are squeezed between the two and coincide with them.
 \end{proof}
 
-\subsection{Pair Potentials}
+\subsection{Pair Potentials\newtag}
 
 \begin{definition}[Pair potential]
 A \textbf{potential} $\phi(\mathbf{Y})$ over nodes $\mathbf{Y}$ is a finite set
@@ -3315,6 +3268,13 @@ Two heuristics are supported; both hold $Z$ out of the ordering.
 \subsection{Running Example}
 \label{sec:example}
 
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.45\textwidth]{figs/fig-flp.png}
+  \caption{Local fractional LPs for the lower and upper bounds on $P(A{=}1\mid B{=}0,E{=}1)$ in the credal network of Figure~\ref{fig:factorization}, the LCN of Figure~\ref{fig:alarm}.}
+  \label{fig:flp}
+\end{figure}
+
 \begin{example}[Alarm Network]
 The LCN \texttt{examples/alarm.lcn} over atoms $A, B, C, D, E$ factorizes into
 four credal-network nodes: the singletons $B$ (Burglary), $E$ (Earthquake),
@@ -3400,7 +3360,23 @@ CVE$_\varepsilon$ with $\varepsilon=0.1$ returns the same intervals to four
 decimals.
 \end{example}
 
-\subsection{Proofs of Theorems~\ref{thm:cve-cplx}, \ref{thm:cve} and Proposition~\ref{prop:cve-fptas}}
+\subsection{Proofs of Theorems~\ref{thm:cve-cplx}, \ref{thm:cve} and Proposition~\ref{prop:cve-fptas}\newtag}
+
+\begin{revblock}The results stated in Section~\ref{sec-cn-algos} are the following.\end{revblock}
+
+\begin{theorem}[complexity]\label{thm:cve-cplx}
+    For one query node, CVE runs in time $O(m \cdot C^2 \cdot d^{w^*+1})$ plus the cost of the hull reductions, and space $O((C+m)\,C\,d^{w^*+1})$, where $m$ is the number of nodes, $d$ bounds their domain sizes, $w^*$ is the induced width of the elimination order, and $C$ is the maximum number of pairs of an input or reduced potential (which can be exponential); all marginals cost a factor $m$ more. For CVE$_\varepsilon$, $C$ is polynomial in the size of the compiled network and in $1/\varepsilon$ when $w^*$ and $d$ are bounded \citep{maua2012ijar}.
+\end{theorem}
+
+\begin{theorem}[exactness]\label{thm:cve}
+Let $\cL$ be a chain-graph LCN, $a$ an atom and $\be$ evidence with $\overline{P}(\be)>0$. CVE computes the infimum and supremum of $p(a\mid\be)$ over the $p\in\DSE$ with $p(\be)>0$ (Definition~\ref{def:cond}), exactly for the compiled local sets (Definition~\ref{def:localset}; outer for $\DSE$ on the exact sets when a compound row keeps the box fallback) up to the floating-point precision of the enumerated vertices. If $\overline{P}(\be)=0$ it returns $[0,1]$. If $\cL$ also satisfies the hypotheses of Proposition~\ref{prop:suff} and no row keeps the box, these are the bounds with respect to $\DLCN$.
+\end{theorem}
+
+\begin{proposition}[FPTAS guarantee]\label{prop:cve-fptas}
+Under the assumptions of Theorem~\ref{thm:cve}, let $N$ be the number of $\alpha$-quotients in the elimination for $a$'s node, and let $\alpha = (1+\varepsilon)^{1/(2N)}$. Then CVE$_\varepsilon$ returns \emph{inner} bounds within a factor $1+\varepsilon$ of CVE's $[\underline{P},\overline{P}]$:
+$\overline{P}/(1+\varepsilon) \le \overline{P}_\varepsilon \le \overline{P}$ and $\underline{P} \le \underline{P}_\varepsilon \le (1+\varepsilon)\,\underline{P}$.
+\end{proposition}
+
 
 \begin{proof}[Proof of Theorem~\ref{thm:cve-cplx}]
 \emph{Step 1 (one pass).} A pass for the query node $Z$ starts with $m$ input
@@ -3707,7 +3683,7 @@ ones represent, and the computed bounds are unaffected.
 \label{sec-full-ibp}
 %% ================================================================
 
-\subsection{Factor Graph and Credal Messages}
+\subsection{Factor Graph and Credal Messages\newtag}
 
 Given the credal network $\langle D,\mathcal K\rangle$, the factor graph has one
 variable node per node $V$ (with domain $\Omega_V$, of size $2^{|\mathrm{atoms}(V)|}$
@@ -3724,13 +3700,17 @@ hull; it represents the set $\mathrm{conv}(M)$. The empty set is the \emph{empty
 For a binary node a nonempty message is an interval on the second coordinate.
 \end{definition}
 
-For a fixed choice of rows, the sum-product messages
-\eqref{eq:sum-product} are defined up to scale. As the rows range
+For a fixed choice of rows, the sum-product algorithm \citep{kschischang2001factor} sends
+\begin{equation}\label{eq:sum-product}
+  \mu_{v\to f}(x)=\prod_{g\in\mathcal N(v)\setminus f}\mu_{g\to v}(x),\qquad
+  \mu_{f\to v}(x)=\sum_{\mathbf x_{\mathcal N(f)\setminus v}}\phi_f(x,\mathbf x_{\mathcal N(f)\setminus v})\prod_{w\in\mathcal N(f)\setminus v}\mu_{w\to f}(x_w),
+\end{equation}
+and the belief $b_v\propto\prod_{g\in\mathcal N(v)}\mu_{g\to v}$ equals $p(V\mid\be)$ on a tree. These messages are defined up to scale. As the rows range
 over their local sets, the normalized messages range over a set, which IVBP
 represents by its hull vertices. All messages start at the neutral message
 $\{\mathbf 1/|\Omega_V|\}$; an evidence factor always sends $\{\delta_V/\sum\delta_V\}$.
 
-\subsection{Message Updates}\label{sec:ibp-updates}
+\subsection{Message Updates\newtag}\label{sec:ibp-updates}
 
 Write $\mathrm{nrm}(m)=m/\sum m$ and $\mathrm{hull}(\cdot)$ for the reduction to
 hull vertices. Vectors $m$ with $\sum m=0$ are dropped (regular conditioning: the
@@ -3870,7 +3850,18 @@ zero mass, the message is empty, and IVBP returns $[0,1]$ for $A$ and $C$, as CV
 do.
 
 
-\subsection{Proofs of Theorems~\ref{thm:ibp-cplx} and~\ref{thm:ibp}}
+\subsection{Proofs of Theorems~\ref{thm:ibp-cplx} and~\ref{thm:ibp}\newtag}
+
+\begin{revblock}The results stated in Section~\ref{sec-cn-algos} are the following.\end{revblock}
+
+\begin{theorem}[complexity]\label{thm:ibp-cplx}
+    One sweep of IVBP costs $O\bigl(d\sum_V \bigl(C^{\pi}_V M_V e_V+\sum_{U\in\Pa(V)}C^{\lambda}_{V,U}(E_V+2^{d})\bigr)\bigr)$ arithmetic operations plus the products and hull reductions, where $C^{\pi}_V$ ($C^{\lambda}_{V,U}$) counts the combinations of incoming message vertices for the message of $f_V$ to $V$ (to $U$), $e_V$ and $E_V$ are the maximum and total numbers of row vertices of $V$, $M_V$ is the total size of the partial Minkowski-sum hulls, and $d$ the maximum domain size; these counts can be exponential. On a polytree at most $D\le m$ sweeps reach the fixed point and one more confirms it, $D$ the largest number of family factors on a path.
+\end{theorem}
+
+\begin{theorem}[exactness]\label{thm:ibp}
+    Let $\mathcal{L}$ be a chain-graph LCN whose compiled credal network is a polytree, $a$ an atom and $\be$ evidence with $\overline{P}(\be)>0$. IVBP computes the infimum and supremum of $p(a\mid\be)$ over the $p\in\DSE$ with $p(\be)>0$, for binary and compound nodes alike, with the qualifications of Theorem~\ref{thm:cve} (compiled local sets, floating-point precision); if $\overline{P}(\be)=0$ it returns $[0,1]$. Under the hypotheses of Proposition~\ref{prop:suff}, with no box fallback, these are the bounds with respect to $\DLCN$.
+\end{theorem}
+
 
 \begin{proof}[Proof of Theorem~\ref{thm:ibp-cplx}]
 \emph{Step 1 ($\pi$-message).} The message of $f_V$ to $V$ enumerates the $C^\pi_V$ corners
@@ -4167,6 +4158,13 @@ interval: enumerating all $2\cdot4\cdot4$ vertex products gives the same values.
 Without evidence the same run returns the exact $P(A{=}1)\in[0.4,0.6]$ after one improving sweep and one confirming sweep.
 
 \subsection{Proof of Theorem~\ref{thm:cdve-cplx}}
+
+\begin{revblock}The results stated in Section~\ref{sec-cn-algos} are the following.\end{revblock}
+
+\begin{theorem}[complexity]\label{thm:cdve-cplx}
+    CDVE runs in time $O\bigl(2A\,(R{+}1)\bigl(T\sum_V(m\,d^{w^*+1}+E_V\,(d+I))+m\,d^{w^*+1}\bigr)\bigr)$ and space $O(m\,d^{w^*+1})$, where $A$ is the number of atoms, $m$ the number of nodes, $d$ the maximum domain size, $w^*$ the induced width of the elimination orders, $E_V$ the total number of row vertices of $V$, and $I$ the number of Dinkelbach iterations per step, which is finite.
+\end{theorem}
+
 \begin{proof}
 \emph{Step 1 (family step).} One variable elimination over the at most $m$ factors costs
 $O(m\,d^{w^*+1})$, where $w^*$ is the induced width of the cached min-fill order that keeps
@@ -4202,7 +4200,7 @@ built on the exact sets.
 
 This appendix reports every measurement behind Section~\ref{sec-experiments}. All tables and figures are generated from the raw run records by one script (\texttt{phase0/make\_exp\_artifacts.py} in the supplementary material), which calls the analysis tool of the harness (\texttt{experiments/analyze\_results.py}); no number is typed by hand.
 
-\subsection{Setup}
+\subsection{Setup\newtag}
 \label{sec-setup}
 
 \emph{Runs.} Nine runs are compared, each a fixed algorithm and parameter setting: exact inference over the $2^n$ joint \citep{marinescu2022neurips} with SCIP or \texttt{ipopt} (only for $n\le 15$); CJT with SCIP (the reference) or \texttt{ipopt}; ARIEL with $10$ iterations; CVE; CVE$_\varepsilon$ with $\varepsilon=0.01$; IVBP with at most $100$ sweeps; and CDVE with at most $50$ sweeps and $R=8$ random restarts. All credal-network methods share one compilation: the chain-graph factorization with no scope merging, per-family local credal sets computed by HiGHS \citep{highs}, and vertex enumeration of the interval rows by LRS; compilation time is included in their total times, and no compiled network is cached between runs.
@@ -4211,7 +4209,7 @@ This appendix reports every measurement behind Section~\ref{sec-experiments}. Al
 
 \emph{Metrics.} For each atom $a$ and certified reference endpoint, the error is $|\lo P^*(a)-\lo P(a)|$ (lower) or $|\hi P^*(a)-\hi P(a)|$ (upper); MAE$_l$ and MAE$_u$ average them over the scored atoms of all instances of a group, SD is their standard deviation and max their largest value. An atom is \emph{outer} when the method's interval contains the reference interval and \emph{inner} when it is contained in it, both up to $10^{-4}$; the width ratio (wr) is the mean ratio of interval widths, over atoms whose reference width exceeds $10^{-12}$. Errors are computed only on instances that the method solved; the solved counts are reported next to them.
 
-\subsection{A reference that is exact by construction}
+\subsection{A reference that is exact by construction\newtag}
 \label{sec-cjt-gate}
 
 CJT is exact on an instance when two conditions hold. (i) \emph{Structural}: the junction tree that CJT builds satisfies H1--H4 of Theorem~\ref{thm:d5} --- running intersection, checked explicitly; every sentence hosted; every LMC assertion discharged by separator entailment, an exact reduction or the ordered rows, with nothing relaxed (Section~\ref{sec:algo-host}); every atom hosted --- and its largest cluster has at most $12$ atoms. This needs no solve. (ii) \emph{Certified}: SCIP certifies the endpoint.
@@ -4220,22 +4218,22 @@ Condition (i) holds on all $740$ synthetic instances, each of which is a chain g
 
 \input{outputs/results-reference.tex}
 
-\subsection{Exact inference over the joint is not a usable reference}
+\subsection{Exact inference over the joint is not a usable reference\newtag}
 \label{sec-exact-baseline}
 
 The exact method of \citet{marinescu2022neurips} has one variable per joint state. With SCIP it is a certified engine as well, but the certificate rarely arrives: it certifies every endpoint of the \texttt{tree} instances at $n=5$, $78\%$ at $n=6$, $11\%$ at $n=7$ and $1$ of $160$ at $n=8$, and leaves most endpoints \emph{unsolved} (no incumbent within the time limit) from $n=7$ on \texttt{tree}, \texttt{polytree} and \texttt{dag}. \texttt{ktree}, whose CJT program is linear (Table~\ref{tab:reference}), is the exception: the joint program certifies almost every endpoint up to $n=8$ and $78\%$ at $n=9$. Its reported values are therefore mostly dual bounds, which is why its errors in the per-size tables are large and its intervals outer. With \texttt{ipopt} it times out on $25$--$29$ of the $60$ small instances of each topology and on every larger instance, and its finished answers are poor local optima (MAE $0.07$--$0.20$, intervals neither outer nor inner). CJT certifies the same instances in a median of under one second.
 
-\subsection{Coverage}
+\subsection{Coverage\newtag}
 \label{sec-coverage}
 
 A curve in the figures stops where its algorithm ran out of budget, and errors are averaged over the solved instances only, so coverage must be read alongside them. ARIEL, IVBP and CDVE solve every instance of every set. CJT with SCIP solves all but one (\texttt{dag\_large}, $n=100$, timeout); CJT with \texttt{ipopt} times out on one \texttt{dag\_small}, one \texttt{dag\_large}, one \texttt{nr\_dag} and four \texttt{nr\_dag\_ablation} instances. The exceptions are concentrated in CVE, whose exact potentials grow with the number of extreme points rather than with the treewidth alone: plain CVE runs out of memory on $2$ of the $60$ \texttt{ktree\_small} instances, on $45$ of the $60$ \texttt{ktree\_large} ones (it solves $8$ at $n=10$, $5$ at $n=20$, $2$ at $n=30$ and none beyond) and on $11$ of the $60$ \texttt{dag\_large} ones ($3$ at $n=50$, $8$ at $n=100$). CVE$_\varepsilon$ raises this to $36/60$ on \texttt{ktree\_large} ($20$ memory-outs and $4$ timeouts) and $59/60$ on \texttt{dag\_large}; on \texttt{ktree} at $n=30$--$50$ it solves $6$--$9$ of $10$ instances, but in $1100$--$2900$ seconds. Both solve every \texttt{tree}, \texttt{polytree} and almost-realizable instance. Exact inference over the joint is run only on instances with $n\le 15$; its coverage is discussed in Appendix~\ref{sec-exact-baseline}.
 
-\subsection{Guarantee checks}
+\subsection{Guarantee checks\newtag}
 \label{sec-guarantees}
 
 Each run declares a guarantee and the analysis checks it on every certified endpoint (tolerance $10^{-4}$; for CVE$_\varepsilon$, inner within a factor $1+\varepsilon$ of the CVE run on the same instance). On the $480$ family-realizable instances, where the guarantees for $\DSE$ are guarantees for $\DLCN$ (Proposition~\ref{prop:suff}), there are three violations in total, all on \texttt{dag\_large}: two CVE endpoints and one CVE$_\varepsilon$ endpoint, off by at most $2.2\times 10^{-4}$, the order of the reference's own certification tolerance. CDVE is inner on every atom of every set, and IVBP, which reports exactness only when the compiled network is a polytree (all \texttt{tree} and \texttt{polytree} instances and $16$ \texttt{dag\_small} ones), is exact whenever it does. Loopy IVBP carries no guarantee and none is observed: it converges in $2$--$4$ sweeps on every instance, but its intervals are outer on only $90$--$97\%$ of the atoms and inner on $88$--$97\%$. On the almost-realizable instances the strong-extension guarantees no longer transfer to $\DLCN$, and CVE, CDVE and (on trees) IVBP ``violate'' them on $274$--$725$ endpoints per set, exactly as expected; the CVE intervals remain outer on $99.9\%$ of the atoms, as Proposition~\ref{prop:inclusion} predicts for DAG-structured LCNs.
 
-\subsection{Almost-realizable benchmarks}
+\subsection{Almost-realizable benchmarks\newtag}
 \label{sec-nr-bench}
 
 To measure the relaxation error of the credal-network compilation under control, we perturb fully realizable instances by adding non-realizable sentences (\texttt{Generator.perturb}). The new sentences come in three kinds, one for each way a sentence can fail Definition~\ref{def:realizable}:
@@ -4265,7 +4263,7 @@ None of the kinds changes the structure graph or the LMC. Each new sentence $s$ 
 \subsection{Random LCNs}
 \label{sec-random-full}
 
-Figures~\ref{fig:tree-full}--\ref{fig:dag-full} give the error and timing curves for all four topologies at both scales, and Tables~\ref{tab:full-tree-small}--\ref{tab:full-dag-large} the underlying per-size results. Bands in the error plots show one standard deviation over the atoms; times are medians over the solved instances.
+\rev{Each atom gets one sentence, a prior if it is a root and otherwise a conditional on a full conjunction of signed parent literals, with bounds $[\max(0.01,v{-}0.3),\min(1,v{+}0.3)]$ around $v\sim U(0,1)$, plus two extra interval bounds on root marginals.} Figures~\ref{fig:tree-full}--\ref{fig:dag-full} give the error and timing curves for all four topologies at both scales, and Tables~\ref{tab:full-tree-small}--\ref{tab:full-dag-large} the underlying per-size results. Bands in the error plots show one standard deviation over the atoms; times are medians over the solved instances.
 
 \begin{figure}[htbp]
     \centering
@@ -4320,7 +4318,19 @@ Figures~\ref{fig:tree-full}--\ref{fig:dag-full} give the error and timing curves
 \input{outputs/results-dag-small.tex}
 \input{outputs/results-dag-large.tex}
 
-% REAL: realistic-LCN appendix subsection (after the rerun)
+\subsection{Realistic LCNs\newtag}
+\label{sec-real-full}
+
+\begin{revblock}
+\emph{Sets.} \texttt{real} contains $14$ LCNs, none generated to be family-realizable. Ten have $4$--$11$ atoms and $6$--$24$ sentences on the structure of classical Bayesian networks (\texttt{toy}, \texttt{cancer}, \texttt{earthquake}, \texttt{asia}, \texttt{engine}, \texttt{alarm}, \texttt{hepatitis}, \texttt{suicide}, \texttt{tank}, \texttt{credit}); each was checked for consistency beforehand and, where needed, made consistent by widening its intervals symmetrically. The other four are application-style LCNs: three maintenance-escalation chains ($n\in\{6,9,12\}$) and a clinic-referral chain ($n=24$). They are the instances of a collection of $16$ application LCNs, not checked for consistency beforehand, on which the reference certifies at least one endpoint. Of the other $12$, nine judicial-power models ($10$ atoms, $345$--$1009$ sentences) have no certified endpoint, because every SCIP solve reaches the time limit without a bound. The remaining three chains are inconsistent: SCIP proves their CJT programs infeasible, which, with H1--H4 holding, means $\DLCN=\varnothing$ (Theorem~\ref{thm:cjt}). For one of them this can be checked by hand. The LMC imposes $(C_1\indep K_1\mid A_1)$, because the sentence $0.435\le P(C_1\wedge K_1\mid A_1)\le0.581$ has $\tau=\mathrm{False}$. Under this independence the bounds $P(A_1)\le0.183$, $P(C_1)\le0.369$ and $P(K_1)\le0.406$ give $P(C_1\wedge K_1)\le0.185$, whereas a sentence requires $P(C_1\wedge K_1)\ge0.228$. ARIEL, CVE, IVBP and CDVE nevertheless return intervals on these three, because they check feasibility only locally, a further reason to score against a certified reference. All $14$ retained instances are chain graphs. The runs, budgets and reference are those of Appendix~\ref{sec-setup} ($3600$ seconds, $8$\,GB for the Python process, one thread), run on a single workstation; the exact method over the joint is run only on the three smallest instances (\texttt{toy}, \texttt{cancer}, \texttt{earthquake}).
+
+\emph{Reference.} The structural conditions H1--H4 hold on all $14$ instances, through the ordered tree with no relaxed assertion. SCIP certifies $229$ of the $266$ endpoints. It certifies all endpoints of ten instances (\texttt{toy}, \texttt{cancer}, \texttt{earthquake}, \texttt{asia}, \texttt{engine}, \texttt{credit}, the three maintenance chains and the referral chain), $14$--$15$ of $20$ on \texttt{hepatitis}, \texttt{suicide} and \texttt{tank}, and none on \texttt{alarm}, where every solve reaches the time limit without a bound. \texttt{alarm} is therefore not scored; it remains in the solved counts.
+
+\emph{Results.} Tables~\ref{tab:real-summary} and~\ref{tab:real-full} give the results. (1) Every instance is DAG-structured, product-Markov and locally feasible, with exact local sets. Only \texttt{asia} is fully realizable, and there CVE and CDVE are exact; IVBP, whose compiled network is loopy, is within $6\times10^{-4}$. (2) On the other instances the compiled methods agree with one another: CVE, CVE$_\varepsilon$ and CDVE return identical intervals and IVBP is within $0.006$ MAE of them. So the error is the compilation gap, and it is outer on every atom for CVE and CDVE (Proposition~\ref{prop:inclusion}). It grows with the share of non-realizable sentences. On the Bayesian-network instances, with at most $3$ such sentences each, the MAE is at most $0.13$ and the width ratio $1.1$--$2.3$. On the four scored application LCNs, with $9$--$28$ of $11$--$36$ sentences non-realizable, the MAE is $0.25$--$0.32$ and the width ratio $3.6$--$8.0$. This matches the almost-realizable experiments, in which non-root marginals were the most damaging kind. (3) ARIEL is the closest approximation but has no guarantee: on \texttt{toy} its interval is narrower than the certified one (width ratio $0.60$, endpoint error $0.30$). (4) CJT$_{\text{ipopt}}$ matches the reference on $11$ of the $13$ scored instances, but falls into local optima on \texttt{asia} (endpoint error $0.18$) and \texttt{tank} ($0.80$). Exact inference with \texttt{ipopt} is inner on every atom of the three small instances and outer on only $29\%$. (5) The compiled methods finish within $90$ seconds on every instance, except CVE and CVE$_\varepsilon$, which run out of memory on the referral chain ($n=24$). IVBP and CDVE take at most $2$ seconds.
+
+\input{outputs/results-real-summary.tex}
+\input{outputs/results-real.tex}
+\end{revblock}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -1,0 +1,15 @@
+\begin{tabular}{lrrrrrrrrrrrr}
+\toprule
+ & \multicolumn{2}{c}{\texttt{tree}} & \multicolumn{2}{c}{\texttt{polytree}} & \multicolumn{2}{c}{\texttt{ktree}} & \multicolumn{2}{c}{\texttt{dag}} & \multicolumn{2}{c}{\texttt{nr-tree}} & \multicolumn{2}{c}{\texttt{nr-dag}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}\cmidrule(lr){10-11}\cmidrule(lr){12-13}
+Method & MAE & time & MAE & time & MAE & time & MAE & time & MAE & time & MAE & time \\
+\midrule
+CJT (SCIP), reference & (100\%) & 10.7 & (100\%) & 11.7 & (100\%) & 18.8 & (82\%) & 787 & (100\%) & 2.02 & (96\%) & 166 \\
+ARIEL & 0 & 134 & .0004 & 131 & .0006 & 156 & .0019 & 123 & .0010 & 33.4 & .0042 & 30.8 \\
+CJT (ipopt) & 0 & 52.0 & 0 & 65.0 & 0 & 131 & .0014$^{98}$ & 218 & .0093 & 4.60 & .0210$^{99}$ & 6.19 \\
+CVE & 0 & 6.84 & 0 & 6.72 & 0$^{25}$ & -- & 0$^{82}$ & 792 & .0408 & 0.75 & .0392 & 20.5 \\
+CVE$_\varepsilon$ ($\varepsilon{=}0.01$) & 0 & 7.56 & 0 & 7.62 & 0$^{60}$ & -- & 0$^{98}$ & 436 & .0408 & 0.80 & .0392 & 10.5 \\
+IVBP & 0 & 2.02 & 0 & 2.03 & .0005 & 11.3 & .0010 & 3.29 & .0408 & 0.40 & .0412 & 0.63 \\
+CDVE & .0001 & 5.30 & 0 & 5.11 & 0 & 16.3 & 0 & 5.73 & .0408 & 0.64 & .0392 & 0.91 \\
+\bottomrule
+\end{tabular}

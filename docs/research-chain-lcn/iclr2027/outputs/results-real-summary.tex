@@ -1,0 +1,20 @@
+\begin{table}[htbp]
+\centering
+\scriptsize
+\revcaption\caption{Realistic LCNs: instances solved within the budget (of all instances; t/m: time/memory limit), and, on the certified reference endpoints, the MAE of the two endpoints, the largest endpoint error, the fractions of atoms on which the interval contains (out) or is contained in (in) the reference, the width ratio (wr) and the median total time in seconds.}
+\label{tab:real-summary}
+\begin{tabular}{ll lrrrrrrr}
+\toprule
+Set & Method & solved & MAE$_l$ & MAE$_u$ & max & out & in & wr & time \\
+\midrule
+\texttt{real} & Exact (SCIP) & 3/3 & 0 & 0 & 0 & 1.000 & 1.000 & 1.000 & 612 \\
+ & Exact (ipopt) & 3/3 & .0136 & .0088 & .0696 & 0.286 & 1.000 & 0.793 & 18.6 \\
+ & ARIEL & 14/14 & .0166 & .0047 & .3001 & 0.982 & 0.717 & 1.140 & 6.86 \\
+ & CJT (ipopt) & 14/14 & .0385 & .0016 & .8000 & 0.991 & 0.938 & 1.261 & 0.92 \\
+ & CVE & 13/14 (1m) & .1056 & .1644 & .7629 & 1.000 & 0.371 & 3.014 & 0.84 \\
+ & CVE$_\varepsilon$ ($\varepsilon{=}0.01$) & 13/14 (1m) & .1056 & .1644 & .7629 & 1.000 & 0.371 & 3.014 & 0.74 \\
+ & IVBP & 14/14 & .1093 & .2214 & .7690 & 0.991 & 0.292 & 3.534 & 0.11 \\
+ & CDVE & 14/14 & .1091 & .2223 & .7690 & 1.000 & 0.301 & 3.544 & 0.17 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -4,44 +4,44 @@ The top-level auxiliary file: iclr_2027.aux
 A level-1 auxiliary file: macros.aux
 The style file: iclr2027_conference.bst
 Database file #1: ref.bib
-You've used 29 entries,
+You've used 33 entries,
             2773 wiz_defined-function locations,
-            775 strings with 9973 characters,
-and the built_in function-call counts, 13988 in all, are:
-= -- 1212
-> -- 861
-< -- 19
-+ -- 291
-- -- 262
-* -- 1162
-:= -- 2159
-add.period$ -- 92
-call.type$ -- 29
-change.case$ -- 169
-chr.to.int$ -- 29
-cite$ -- 58
-duplicate$ -- 632
-empty$ -- 1134
-format.name$ -- 305
-if$ -- 2922
+            784 strings with 10095 characters,
+and the built_in function-call counts, 15569 in all, are:
+= -- 1373
+> -- 880
+< -- 23
++ -- 300
+- -- 267
+* -- 1271
+:= -- 2376
+add.period$ -- 99
+call.type$ -- 33
+change.case$ -- 182
+chr.to.int$ -- 33
+cite$ -- 66
+duplicate$ -- 722
+empty$ -- 1314
+format.name$ -- 318
+if$ -- 3252
 int.to.chr$ -- 1
 int.to.str$ -- 1
-missing$ -- 32
-newline$ -- 157
-num.names$ -- 118
-pop$ -- 343
+missing$ -- 39
+newline$ -- 173
+num.names$ -- 132
+pop$ -- 373
 preamble$ -- 1
-purify$ -- 144
+purify$ -- 155
 quote$ -- 0
-skip$ -- 485
+skip$ -- 540
 stack$ -- 0
-substring$ -- 496
-swap$ -- 67
-text.length$ -- 5
+substring$ -- 661
+swap$ -- 70
+text.length$ -- 4
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 294
+type$ -- 333
 warning$ -- 0
-while$ -- 122
+while$ -- 149
 width$ -- 0
-write$ -- 386
+write$ -- 428

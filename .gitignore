@@ -149,3 +149,4 @@ benchmarks/**/*.vtx
 /results/
 /experiments/slurm/manifest.txt
 /experiments/lsf/manifest.txt
+results_discarded_local/

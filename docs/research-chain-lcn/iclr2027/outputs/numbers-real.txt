@@ -1,0 +1,31 @@
+ref-inst real earthquake_consistent.lcn: cert 10/10 infeasible 0 t 2
+ref-inst real engine_consistent.lcn: cert 18/18 infeasible 0 t 913
+ref-inst real credit_consistent.lcn: cert 22/22 infeasible 0 t 7
+ref-inst real maintenance_scaling_n9_2.lcn: cert 18/18 infeasible 0 t 286
+ref-inst real asia_consistent.lcn: cert 16/16 infeasible 0 t 388
+ref-inst real benchmark_scaling_directions_n24_2.lcn: cert 48/48 infeasible 0 t 12
+ref-inst real alarm_consistent.lcn: cert 0/20 infeasible 0 t 3244
+ref-inst real maintenance_scaling_n6_1.lcn: cert 12/12 infeasible 0 t 1
+ref-inst real tank_consistent.lcn: cert 15/20 infeasible 0 t 813
+ref-inst real toy_consistent.lcn: cert 8/8 infeasible 0 t 1
+ref-inst real maintenance_scaling_n12_3.lcn: cert 24/24 infeasible 0 t 14
+ref-inst real hepatitis_consistent.lcn: cert 14/20 infeasible 0 t 1492
+ref-inst real cancer_consistent.lcn: cert 10/10 infeasible 0 t 1
+ref-inst real suicide_consistent.lcn: cert 14/20 infeasible 0 t 1150
+solved real exact_scip: 3/3
+agg real exact_scip: mae 0.0000/0.0000 out 1.000 in 1.000 wr 1.000 t 533.36
+solved real exact_ipopt: 3/3
+agg real exact_ipopt: mae 0.0136/0.0088 out 0.286 in 1.000 wr 0.793 t 13.10
+solved real ariel: 14/14
+agg real ariel: mae 0.0166/0.0047 out 0.982 in 0.717 wr 1.140 t 8.00
+solved real cjt_ipopt: 14/14
+agg real cjt_ipopt: mae 0.0385/0.0016 out 0.991 in 0.938 wr 1.261 t 1.66
+solved real cve: 13/14 (1m)
+agg real cve: mae 0.1056/0.1644 out 1.000 in 0.371 wr 3.014 t 9.16
+solved real cve_eps_0.01: 13/14 (1m)
+agg real cve_eps_0.01: mae 0.1056/0.1644 out 1.000 in 0.371 wr 3.014 t 8.04
+solved real ivbp: 14/14
+agg real ivbp: mae 0.1093/0.2214 out 0.991 in 0.292 wr 3.534 t 0.14
+solved real cdve: 14/14
+agg real cdve: mae 0.1091/0.2223 out 1.000 in 0.301 wr 3.544 t 0.28
+ref real: cert 229/266 full 10/14
